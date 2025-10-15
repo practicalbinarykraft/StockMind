@@ -7,6 +7,7 @@ import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertP
 import Parser from "rss-parser";
 import { scoreNewsItem, analyzeScript } from "./ai-service";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
+import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 
 const rssParser = new Parser();
 
@@ -301,6 +302,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error generating speech:", error);
       res.status(500).json({ message: error.message || "Failed to generate speech" });
+    }
+  });
+
+  // ============================================================================
+  // HEYGEN ROUTES
+  // ============================================================================
+
+  app.get("/api/heygen/avatars", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get user's HeyGen API key
+      const apiKey = await storage.getUserApiKey(userId, 'heygen');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No HeyGen API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[HeyGen] Fetching avatars for user ${userId}`);
+      const avatars = await fetchHeyGenAvatars(apiKey.encryptedKey);
+      
+      res.json(avatars);
+    } catch (error: any) {
+      console.error("Error fetching HeyGen avatars:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch avatars" });
+    }
+  });
+
+  app.post("/api/heygen/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { avatarId, script, voiceId, dimension } = req.body;
+
+      if (!avatarId || !script) {
+        return res.status(400).json({ message: "Avatar ID and script are required" });
+      }
+
+      // Get user's HeyGen API key
+      const apiKey = await storage.getUserApiKey(userId, 'heygen');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No HeyGen API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[HeyGen] Generating video for user ${userId}, avatar ${avatarId}`);
+      const videoId = await generateHeyGenVideo(apiKey.encryptedKey, {
+        avatar_id: avatarId,
+        script,
+        voice_id: voiceId,
+        dimension
+      });
+
+      res.json({ videoId });
+    } catch (error: any) {
+      console.error("Error generating HeyGen video:", error);
+      res.status(500).json({ message: error.message || "Failed to generate video" });
+    }
+  });
+
+  app.get("/api/heygen/status/:videoId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { videoId } = req.params;
+
+      if (!videoId) {
+        return res.status(400).json({ message: "Video ID is required" });
+      }
+
+      // Get user's HeyGen API key
+      const apiKey = await storage.getUserApiKey(userId, 'heygen');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No HeyGen API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[HeyGen] Checking video status for ${videoId}`);
+      const status = await getHeyGenVideoStatus(apiKey.encryptedKey, videoId);
+      
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error checking HeyGen video status:", error);
+      res.status(500).json({ message: error.message || "Failed to check video status" });
     }
   });
 
