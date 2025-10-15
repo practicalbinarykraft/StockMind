@@ -1,0 +1,708 @@
+🎯 ОТЛИЧНО! Это четкое ТЗ. Начинаем с нуля!
+Твое видение - это полноценный production pipeline для создания AI видео. Я вижу всю картину.
+📊 Структура которую будем строить
+┌─────────────────────────────────────────────────┐
+│  HEADER (всегда сверху)                         │
+├──────────┬──────────────────────────────────────┤
+│  МЕНЮ    │  РАБОЧАЯ ОБЛАСТЬ                      │
+│  (слева) │                                       │
+│          │  Тут происходит магия →               │
+│  Этап 1  │                                       │
+│  Этап 2  │                                       │
+│  Этап 3  │                                       │
+│  ...     │                                       │
+└──────────┴──────────────────────────────────────┘
+```
+
+## ✅ MVP: Что строим за 24 часа
+
+### ДЕНЬ 1 (сегодня) - Критичный минимум:
+
+**Этап 1:** Выбор источника ✅
+- 5 карточек с выбором (только "Свой сценарий" активен)
+- Остальное = "В разработке"
+
+**Этап 2:** Ввод своего сценария ✅
+- Текстовое поле
+- Кнопка "Сохранить и далее"
+
+**Этап 3:** AI Анализ + Форматы ✅
+- Предложение формата (Claude API)
+- Разбивка на сцены
+- Score для каждой сцены
+- 3 варианта рерайта
+
+**Этап 4:** Озвучка ✅
+- ElevenLabs генерация
+- Предпросмотр аудио
+- Выбор и переход дальше
+
+**Этап 5:** Аватар ✅
+- HeyGen аватары (мои + публичные)
+- Выбор и "Создать видео"
+
+**Этап 6:** Результат ✅
+- Сводка всего пайплайна
+- Скачивание
+- Кнопка "Завершить проект"
+
+**Этап 7:** Раскадровка (опционально) ⏸️
+- Kie.ai футажи
+- Добавим если успеем
+
+---
+
+## 🚀 С ЧЕГО НАЧИНАЕМ
+
+### 1️⃣ API ключи - какие есть?
+
+Напиши что есть:
+- [ ] **OpenAI/Anthropic** (для анализа и рерайта)
+- [ ] **ElevenLabs** (озвучка)
+- [ ] **HeyGen** (аватары)
+- [ ] **Kie.ai** (футажи - опционально)
+- [ ] **Apify** (для парсинга - потом)
+
+### 2️⃣ Где создаем проект?
+
+**Мой совет: Replit Node.js**
+```
+Создай новый Repl:
+Template: Node.js
+Name: ReelRepurposer-V2
+3️⃣ Первый файл - Setup
+Как создашь Repl, скажи "готово" и я дам первые файлы:
+
+package.json (зависимости)
+schema.sql (структура БД)
+server/index.js (стартовая точка)
+
+
+⚡ Твоя задача СЕЙЧАС:
+
+Собери API ключи (какие есть прямо сейчас)
+Создай Replit проект (Node.js template)
+Напиши "ГОТОВ" и я начну давать код файл за файлом
+
+Важно: Мы НЕ будем копировать старый код! Только новый, чистый, рабочий.
+Готов начинать? Напиши какие ключи есть и создавай Repl! 🔥RetryАПодожди! Нам нужно "Свой сценарий" и "Новости". Остальное потом🎯 ИДЕАЛЬНО! Фокус на главном
+✅ Что строим за 24 часа (V1.0)
+Этап 1: Выбор источника
+
+✅ Свой сценарий (активно)
+✅ Парсинг Новостей (активно)
+⏸️ Instagram, YouTube, Аудио (в разработке - заглушки)
+
+Этап 2: Зависит от выбора
+Если "Свой сценарий":
+
+Текстовое поле для ввода
+Кнопка "Сохранить и далее" → сразу на Этап 3
+
+Если "Парсинг Новостей":
+
+Фильтры (источники, теги, даты)
+Список новостей со Score
+Кнопка "Выбрать новость" → на Этап 3
+
+Этап 3: AI Анализ + Форматирование
+
+Claude предлагает формат
+Генерирует сценарий (разбитый на сцены)
+Score каждой сцены
+3 варианта рерайта для каждой сцены
+Общая оценка от AI
+
+Этап 4: Озвучка (ElevenLabs)
+
+Редактирование финального текста
+Генерация аудио
+Прослушивание и выбор
+
+Этап 5: Аватар (HeyGen)
+
+Выбор аватара
+Кнопка "Создать видео"
+
+Этап 6: Результат
+
+Сводка: хронометраж, текст, аудио, аватар
+Скачивание
+Завершение проекта
+
+Этап 7: Раскадровка (Kie.ai) - ЕСЛИ УСПЕЕМ
+
+Генерация футажей
+
+
+🔑 Какие API ключи нужны СЕЙЧАС?
+Для запуска V1.0 нужны:
+
+Anthropic/OpenRouter (анализ + рерайт)
+ElevenLabs (озвучка)
+HeyGen (аватары)
+RSS парсинг - какой сервис? Или свой парсер?
+Neon PostgreSQL (или создадим новую)
+
+
+📝 Про "Парсинг Новостей"
+Уточни:
+
+Откуда парсим новости?
+
+Свой список RSS фидов?
+Конкретные сайты?
+Или у тебя уже есть источники?
+
+
+Score новостей - кто ставит?
+
+AI анализирует и ставит оценку "вирусности"?
+Или Score = views/engagement с сайта?
+
+
+Фильтры - какие конкретно?
+
+Темы (AI, бизнес, технологии)?
+Дата публикации?
+Источник?
+
+
+
+
+⚡ Твоя задача ПРЯМО СЕЙЧАС:
+Шаг 1: Собери инфу
+Напиши:
+API КЛЮЧИ:
+- Anthropic: [есть/нет]
+- OpenRouter: [есть/нет]
+- ElevenLabs: [есть/нет]
+- HeyGen: [есть/нет]
+- Kie.ai: [есть/нет - для Этапа 7]
+
+НОВОСТИ:
+- Откуда парсим: [свой список/конкретные сайты]
+- Score ставит: [AI/сайт]
+- Фильтры: [список]
+```
+
+### Шаг 2: Создай Replit
+```
+Template: Node.js
+Name: ReelRepurposer-V2
+Шаг 3: Напиши "ГОТОВ"
+И я сразу дам первые файлы! 🚀RetryАТы понял да? Мы оставляем сейчас только один флоу с новостями. А потом мы должны легко добавить другие стартовые точки такие как парсинг из инсты и ютюба. Нужно это предусмотреть. Давай обсудим раздел настройки. Там нужны только 2 вещи. 1 добавление апи ключей всех необходимых ИИ для работы. Второй - настройка RSS ленты. Добавляем туда источники, которые при добавлении сразу парсятся и анализируются, а уже в работе в фильтрации мы работаем с результатами парсинга. Понял да?🎯 ДА, ПОНЯЛ ИДЕАЛЬНО!
+Архитектура системы
+НАСТРОЙКИ (Settings)
+├── API Keys Management
+│   ├── OpenAI (Whisper транскрипция)
+│   ├── Anthropic/OpenRouter (анализ + рерайт)
+│   ├── ElevenLabs (озвучка)
+│   ├── HeyGen (аватары)
+│   └── Kie.ai (футажи - опционально)
+│
+└── RSS Sources Management
+    ├── Добавить источник (URL + Тема)
+    ├── Автопарсинг при добавлении
+    ├── AI Score для каждой новости
+    └── Вкл/Выкл источника
+
+ГЛАВНЫЙ FLOW
+└── Этап 1: Выбор источника
+    ├── 📰 Новости (активно сейчас)
+    ├── 📝 Свой сценарий (сделаем потом)
+    ├── 📷 Instagram (заглушка)
+    ├── 🎥 YouTube (заглушка)
+    └── 🎤 Аудио (заглушка)
+
+📋 Что я понял из скриншотов
+RSS Sources Management:
+javascript{
+  name: "AI Discovery",
+  url: "internal://perplexity-dis...",
+  topic: "AI & Tech Trends",
+  status: "Ошибка (50)", // красный badge
+  items: 0, // количество спарсенных новостей
+  updated: "3 days ago",
+  active: false // toggle
+}
+Логика:
+
+User добавляет RSS фид
+Автоматически запускается парсинг
+Автоматически AI анализирует и ставит Score
+Новости попадают в ленту на Этапе 2
+
+API Keys Management:
+javascript{
+  provider: "OpenAI",
+  description: "For Whisper transcription",
+  key: "sk-...zxEA", // зашифрован
+  status: "Активен",
+  lastUpdated: "2 days ago"
+}
+
+🔧 Структура БД (упрощенная)
+sql-- API Keys
+api_keys
+  id, user_id, provider, encrypted_key, is_active, created_at
+
+-- RSS Sources
+rss_sources
+  id, user_id, name, url, topic, is_active, last_parsed, created_at
+
+-- RSS Items (спарсенные новости)
+rss_items
+  id, source_id, title, url, content, ai_score, published_at, parsed_at
+
+-- Projects
+projects
+  id, user_id, source_type, source_data, status, created_at
+  -- source_type: 'news' | 'custom' | 'instagram' | 'youtube' | 'audio'
+  -- status: 'draft' | 'completed' | 'deleted'
+
+-- Project Steps (сохранение прогресса)
+project_steps
+  id, project_id, step_number, data, completed_at
+```
+
+---
+
+## 🚀 План реализации (Priority Order)
+
+### ДЕНЬ 1 - Core (12 часов)
+
+**Блок 1: Настройки (2 часа)**
+1. ✅ API Keys Management
+   - CRUD операции
+   - Шифрование ключей
+   - Валидация при добавлении
+
+2. ✅ RSS Sources Management
+   - CRUD источников
+   - Автопарсинг при добавлении
+   - Показ статуса и количества элементов
+
+**Блок 2: Парсинг + AI Score (3 часа)**
+3. ✅ RSS Parser
+   - Парсинг фида
+   - Сохранение в БД
+   
+4. ✅ AI Scoring
+   - Анализ новости (Claude)
+   - Оценка "вирусности" (0-100)
+   - Сохранение Score
+
+**Блок 3: Главный Flow (7 часов)**
+5. ✅ Этап 1: Выбор источника (карточки)
+6. ✅ Этап 2: Лента новостей (фильтры + список)
+7. ✅ Этап 3: AI Форматирование + Score сцен
+8. ✅ Этап 4-6: Базовая версия без генерации
+
+---
+
+## ⚡ Твоя задача СЕЙЧАС
+
+### 1. Подтверди API ключи:
+```
+У МЕНЯ ЕСТЬ:
+□ OpenAI - sk-...
+□ Anthropic - sk-ant-...
+□ OpenRouter - sk-or-...
+□ ElevenLabs - ...
+□ HeyGen - ...
+□ Kie.ai - ... (опционально)
+```
+
+### 2. Создай Replit проект:
+```
+Template: Node.js
+Name: ReelRepurposer-V2
+3. Скажи "ГОТОВ НАЧИНАТЬ"
+И я дам первые файлы:
+
+package.json
+.env.example (шаблон для ключей)
+db/schema.sql (структура БД)
+server/index.js (entry point)
+
+Вопрос: Ты хочешь PostgreSQL (Neon) или SQLite для быстрого старта?
+PostgreSQL = как в старом проекте (надежно)
+SQLite = проще для dev (файл локально)
+Что выбираешь? 🚀RetryАВСЕ КЛЮЧИ УЖЕ ЕСТЬ! Я хочу вводить их только в Настройках профиля! Не хочу зашивать в систему🔥 ОТЛИЧНО! Это ПРАВИЛЬНЫЙ подход!
+✅ Твоя стратегия = Best Practice
+Плюсы:
+
+✅ Безопасность (ключи в БД, не в коде)
+✅ Multi-user ready (каждый юзер свои ключи)
+✅ Легко менять ключи (через UI)
+✅ Нет .env файлов (чище)
+
+
+🎯 Архитектура "Zero Hardcoded Keys"
+javascript// Как это работает:
+
+// 1. User регистрируется
+// 2. Идет в Настройки → API Keys
+// 3. Вводит все ключи через UI
+// 4. Система шифрует и сохраняет в БД
+
+// 5. При работе (генерация видео):
+const userKeys = await getUserApiKeys(userId);
+const openaiKey = decrypt(userKeys.openai);
+const claudeKey = decrypt(userKeys.anthropic);
+// ... используем ключи юзера
+
+🗄️ Обновленная БД структура
+sql-- Users
+users
+  id, email, password_hash, created_at
+
+-- API Keys (зашифрованные)
+user_api_keys
+  id, user_id, provider, encrypted_key, is_active, created_at, updated_at
+  -- provider: 'openai' | 'anthropic' | 'openrouter' | 'elevenlabs' | 'heygen' | 'kie'
+
+-- RSS Sources (у каждого юзера свои)
+rss_sources
+  id, user_id, name, url, topic, is_active, items_count, last_parsed_at, created_at
+
+-- RSS Items
+rss_items
+  id, source_id, title, url, excerpt, content, ai_score, published_at, parsed_at
+
+-- Projects
+projects
+  id, user_id, name, source_type, status, created_at, updated_at, deleted_at
+  -- source_type: 'news' | 'custom' | 'instagram' | 'youtube' | 'audio'
+  -- status: 'draft' | 'completed' | 'deleted'
+
+-- Project Pipeline (сохранение каждого шага)
+project_pipeline
+  id, project_id, step_number, step_name, data, completed_at
+
+🔐 Шифрование ключей
+javascript// server/utils/encryption.js
+const crypto = require('crypto');
+
+// Ключ шифрования (ЭТОТ будет в .env, но только ОДИН)
+const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
+
+function encrypt(text) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(MASTER_KEY), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decrypt(text) {
+  const parts = text.split(':');
+  const iv = Buffer.from(parts[0], 'hex');
+  const encryptedText = Buffer.from(parts[1], 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(MASTER_KEY), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+```
+
+---
+
+## 📱 UI Flow для ключей
+
+### Настройки → API Keys
+```
+┌─────────────────────────────────────────┐
+│  🔑 API Keys Management                 │
+├─────────────────────────────────────────┤
+│                                         │
+│  OpenAI (Whisper транскрипция)          │
+│  [••••••••••••zxEA] ✅ Активен          │
+│  [Обновить] [Тест] [Удалить]            │
+│                                         │
+│  Anthropic/OpenRouter (AI анализ)       │
+│  [Добавить ключ]                        │
+│                                         │
+│  ElevenLabs (Озвучка)                   │
+│  [••••••••••••abc1] ✅ Активен          │
+│  [Обновить] [Тест] [Удалить]            │
+│                                         │
+│  HeyGen (Аватары)                       │
+│  [Добавить ключ]                        │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Функции:**
+- ✅ Добавить ключ
+- ✅ Тест ключа (проверка валидности)
+- ✅ Обновить ключ
+- ✅ Удалить ключ
+- ✅ Показать последние 4 символа
+
+---
+
+## 🚀 Стартовая структура проекта
+```
+ReelRepurposer-V2/
+├── server/
+│   ├── index.js              # Entry point
+│   ├── db.js                 # Database connection
+│   ├── routes/
+│   │   ├── auth.js           # Регистрация/логин
+│   │   ├── api-keys.js       # CRUD для ключей
+│   │   ├── rss-sources.js    # CRUD для RSS
+│   │   ├── projects.js       # CRUD для проектов
+│   │   └── ai.js             # AI операции (анализ, генерация)
+│   ├── services/
+│   │   ├── encryption.js     # Шифрование ключей
+│   │   ├── rss-parser.js     # Парсинг RSS
+│   │   ├── ai-scoring.js     # AI оценка новостей
+│   │   └── ai-generation.js  # Генерация (Claude, ElevenLabs, HeyGen)
+│   └── middleware/
+│       └── auth.js           # JWT проверка
+│
+├── client/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Settings.jsx      # API Keys + RSS Sources
+│   │   │   ├── Projects.jsx      # Список проектов
+│   │   │   └── Pipeline.jsx      # 7 этапов конвейера
+│   │   ├── components/
+│   │   │   ├── Header.jsx
+│   │   │   ├── Sidebar.jsx
+│   │   │   └── steps/
+│   │   │       ├── Step1SourceSelect.jsx
+│   │   │       ├── Step2NewsFilter.jsx
+│   │   │       ├── Step3AIFormat.jsx
+│   │   │       ├── Step4Voice.jsx
+│   │   │       ├── Step5Avatar.jsx
+│   │   │       ├── Step6Result.jsx
+│   │   │       └── Step7Storyboard.jsx
+│   │   └── utils/
+│   │       └── api.js            # Axios wrapper
+│
+├── db/
+│   └── schema.sql
+│
+├── package.json
+└── .env.example
+```
+
+---
+
+## ⚡ НАЧИНАЕМ!
+
+### Шаг 1: Создай Replit
+```
+Template: Node.js
+Name: ReelRepurposer-V2
+Шаг 2: Выбери БД
+Вопрос: PostgreSQL (Neon) или SQLite для старта?
+
+PostgreSQL = production-ready, как в старом проекте
+SQLite = быстрее запустить, файл локально
+
+Мой совет: SQLite для dev → потом мигрируем на PostgreSQL
+Шаг 3: Скажи "ДАЙ КОД"
+И я дам первые 5 файлов:
+
+package.json
+.env.example
+db/schema.sql
+server/db.js
+server/index.js
+
+Готов? Какую БД выбираешь? 🚀RetryАкакой стэк выбираем в итоге для проекта?🎯 ИДЕАЛЬНЫЙ СТЕК для 24-часового запуска
+Мой рекомендованный стек (production-ready за 1 день):
+javascriptBACKEND
+├── Node.js + Express      // Простой, быстрый
+├── PostgreSQL (Neon)      // Managed, бесплатный tier, как в старом проекте
+├── Drizzle ORM            // Легковесный, TypeScript-friendly
+└── JWTAuth                // Простая авторизация
+
+FRONTEND  
+├── React + Vite           // Быстрый dev server
+├── TailwindCSS            // Быстрая стилизация
+└── shadcn/ui              // Готовые компоненты (как на скринах)
+
+AI SERVICES
+├── Anthropic Claude       // Анализ + рерайт
+├── ElevenLabs             // Озвучка
+├── HeyGen                 // Аватары
+└── RSS Parser (node)      // Парсинг новостей
+
+DEPLOYMENT
+└── Replit                 // Zero-config deploy
+
+🔥 Почему именно этот стек?
+✅ Node.js + Express
+
+Простой и понятный
+Быстрый старт
+Легко деплоить на Replit
+
+✅ PostgreSQL (Neon)
+
+Бесплатный managed PostgreSQL
+Не нужен Redis/BullMQ (упрощаем)
+У тебя уже был опыт в старом проекте
+
+✅ Drizzle ORM
+typescript// Проще чем в старом проекте, но мощный
+const users = await db.select().from(usersTable);
+const apiKeys = await db.insert(apiKeysTable).values({...});
+✅ React + Vite
+
+Мгновенный HMR (hot reload)
+Современный, быстрый
+shadcn/ui компоненты из коробки
+
+✅ TailwindCSS + shadcn/ui
+jsx// Твой дизайн со скринов = это shadcn/ui
+<Card>
+  <CardHeader>RSS Sources Management</CardHeader>
+  <CardContent>
+    <Table>...</Table>
+  </CardContent>
+</Card>
+
+📦 package.json
+json{
+  "name": "reel-repurposer-v2",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server/index.js",
+    "client": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    // Backend
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    
+    // Database
+    "pg": "^8.11.3",
+    "drizzle-orm": "^0.29.1",
+    
+    // AI Services
+    "@anthropic-ai/sdk": "^0.9.1",
+    "openai": "^4.20.1",
+    "axios": "^1.6.2",
+    
+    // RSS Parser
+    "rss-parser": "^3.13.0",
+    
+    // Utils
+    "crypto": "^1.0.1",
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    // Frontend
+    "vite": "^5.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    
+    // TailwindCSS
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    
+    // Utils
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2",
+    "drizzle-kit": "^0.20.6"
+  }
+}
+```
+
+---
+
+## 🗂️ Финальная структура проекта
+```
+ReelRepurposer-V2/
+│
+├── 📁 server/
+│   ├── index.js                    # Express app
+│   ├── db.js                       # DB connection
+│   │
+│   ├── 📁 routes/
+│   │   ├── auth.js                 # Login/Register
+│   │   ├── api-keys.js             # CRUD ключей
+│   │   ├── rss-sources.js          # CRUD RSS источников
+│   │   ├── rss-items.js            # Лента новостей
+│   │   ├── projects.js             # CRUD проектов
+│   │   └── pipeline.js             # 7 этапов конвейера
+│   │
+│   ├── 📁 services/
+│   │   ├── encryption.js           # Шифрование ключей
+│   │   ├── rss-parser.js           # Парсинг RSS
+│   │   ├── ai-scoring.js           # AI Score новостей
+│   │   ├── claude.js               # Anthropic API
+│   │   ├── elevenlabs.js           # ElevenLabs API
+│   │   └── heygen.js               # HeyGen API
+│   │
+│   ├── 📁 middleware/
+│   │   └── auth.js                 # JWT middleware
+│   │
+│   └── 📁 db/
+│       ├── schema.js               # Drizzle schema
+│       └── migrations/             # SQL миграции
+│
+├── 📁 client/
+│   ├── index.html
+│   ├── vite.config.js
+│   │
+│   └── 📁 src/
+│       ├── main.jsx
+│       ├── App.jsx
+│       │
+│       ├── 📁 pages/
+│       │   ├── Login.jsx
+│       │   ├── Dashboard.jsx       # Список проектов
+│       │   ├── Settings.jsx        # API Keys + RSS
+│       │   └── Pipeline.jsx        # 7 этапов
+│       │
+│       ├── 📁 components/
+│       │   ├── Header.jsx
+│       │   ├── Sidebar.jsx
+│       │   │
+│       │   ├── 📁 steps/           # 7 этапов конвейера
+│       │   │   ├── Step1Source.jsx
+│       │   │   ├── Step2News.jsx
+│       │   │   ├── Step3Format.jsx
+│       │   │   ├── Step4Voice.jsx
+│       │   │   ├── Step5Avatar.jsx
+│       │   │   ├── Step6Result.jsx
+│       │   │   └── Step7Storyboard.jsx
+│       │   │
+│       │   └── 📁 ui/              # shadcn components
+│       │       ├── button.jsx
+│       │       ├── card.jsx
+│       │       ├── table.jsx
+│       │       └── ...
+│       │
+│       └── 📁 lib/
+│           ├── api.js              # Axios wrapper
+│           └── utils.js            # Helpers
+│
+├── .env.example
+├── package.json
+└── README.md
+
+⚡ Этот стек = СКОРОСТЬ
+Почему быстро запустим:
+
+✅ Нет сложных workers (BullMQ, Redis)
+✅ Нет Outbox pattern
+✅ Нет Circuit breakers (пока)
+✅ Простые REST API calls
+✅ shadcn/ui = красиво из коробки
