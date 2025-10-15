@@ -454,57 +454,132 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             ) : voices && voices.length > 0 ? (
               <>
                 <Label htmlFor="voice-select">Select voice profile</Label>
-                <div className="mt-2 space-y-3">
-                  {voices.slice(0, 6).map(voice => (
-                    <div
-                      key={voice.voice_id}
-                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover-elevate ${
-                        selectedVoice === voice.voice_id
-                          ? "border-primary bg-primary/5"
-                          : "border-border"
-                      }`}
-                      onClick={() => setSelectedVoice(voice.voice_id)}
-                      data-testid={`voice-card-${voice.voice_id}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <Volume2 className="h-4 w-4" />
-                            <span className="font-medium">{voice.name}</span>
-                            {selectedVoice === voice.voice_id && (
-                              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
-                                Selected
-                              </span>
-                            )}
-                          </div>
-                          {voice.labels?.accent && (
-                            <p className="text-sm text-muted-foreground mt-1">{voice.labels.accent}</p>
-                          )}
-                          {voice.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{voice.description}</p>
-                          )}
-                        </div>
-                        {voice.preview_url && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="ml-3"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handlePreview(voice.voice_id, voice.preview_url)
-                            }}
-                            data-testid={`button-preview-${voice.voice_id}`}
+                <div className="mt-4 space-y-6">
+                  {/* My Voices Section */}
+                  {myVoices.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <h3 className="text-sm font-semibold">My Voices</h3>
+                        <span className="text-xs text-muted-foreground">({myVoices.length})</span>
+                      </div>
+                      <div className="space-y-2">
+                        {myVoices.map(voice => (
+                          <div
+                            key={voice.voice_id}
+                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover-elevate ${
+                              selectedVoice === voice.voice_id
+                                ? "border-primary bg-primary/5"
+                                : "border-border"
+                            }`}
+                            onClick={() => setSelectedVoice(voice.voice_id)}
+                            data-testid={`voice-card-${voice.voice_id}`}
                           >
-                            {previewingVoice === voice.voice_id ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </Button>
-                        )}
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Volume2 className="h-4 w-4" />
+                                  <span className="font-medium">{voice.name}</span>
+                                  {selectedVoice === voice.voice_id && (
+                                    <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
+                                {voice.labels?.accent && (
+                                  <p className="text-sm text-muted-foreground mt-1">{voice.labels.accent}</p>
+                                )}
+                                {voice.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{voice.description}</p>
+                                )}
+                              </div>
+                              {voice.preview_url && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="ml-3"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handlePreview(voice.voice_id, voice.preview_url)
+                                  }}
+                                  data-testid={`button-preview-${voice.voice_id}`}
+                                >
+                                  {previewingVoice === voice.voice_id ? (
+                                    <Pause className="h-4 w-4" />
+                                  ) : (
+                                    <Play className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Public Voices Section */}
+                  {publicVoices.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <h3 className="text-sm font-semibold">Public Voices</h3>
+                        <span className="text-xs text-muted-foreground">({publicVoices.length})</span>
+                      </div>
+                      <div className="space-y-2">
+                        {publicVoices.slice(0, 6).map(voice => (
+                          <div
+                            key={voice.voice_id}
+                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover-elevate ${
+                              selectedVoice === voice.voice_id
+                                ? "border-primary bg-primary/5"
+                                : "border-border"
+                            }`}
+                            onClick={() => setSelectedVoice(voice.voice_id)}
+                            data-testid={`voice-card-${voice.voice_id}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Volume2 className="h-4 w-4" />
+                                  <span className="font-medium">{voice.name}</span>
+                                  {selectedVoice === voice.voice_id && (
+                                    <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
+                                {voice.labels?.accent && (
+                                  <p className="text-sm text-muted-foreground mt-1">{voice.labels.accent}</p>
+                                )}
+                                {voice.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{voice.description}</p>
+                                )}
+                              </div>
+                              {voice.preview_url && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="ml-3"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handlePreview(voice.voice_id, voice.preview_url)
+                                  }}
+                                  data-testid={`button-preview-${voice.voice_id}`}
+                                >
+                                  {previewingVoice === voice.voice_id ? (
+                                    <Pause className="h-4 w-4" />
+                                  ) : (
+                                    <Play className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
