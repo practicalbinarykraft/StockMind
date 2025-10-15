@@ -25,7 +25,15 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Fixed Stage 5 Data Access Bug
+- **2025-10-15 (Latest)**: Enhanced Stage 5 Avatar Grouping
+  - ✅ FIXED: Duplicate avatars from HeyGen API now filtered using Map deduplication by avatar_id
+  - ✅ Added avatar categorization: "My Avatars" (custom) and "Public Avatars" (HeyGen library)
+  - Backend identifies public avatars by `_public` suffix in avatar_id (HeyGen API pattern)
+  - Frontend groups avatars with useMemo for performance
+  - UI displays two sections with icons (User/Globe) and count badges
+  - Each category shows up to 9 avatars with proper search filtering
+
+- **2025-10-15 (Earlier)**: Fixed Stage 5 Data Access Bug
   - ✅ FIXED: Stage 5 crash when trying to access stepData[4] 
   - Root cause: stepData is Stage 4 object, not array of all steps
   - Changed script access from stepData[4]?.finalScript to stepData?.finalScript
