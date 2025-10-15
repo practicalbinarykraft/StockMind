@@ -85,7 +85,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const saveStepMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
-        stageNumber: 3,
+        stepNumber: 3,
         data: {
           selectedFormat,
           selectedVariants,
