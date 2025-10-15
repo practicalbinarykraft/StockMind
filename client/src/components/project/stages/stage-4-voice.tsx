@@ -127,9 +127,55 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       })
       return await res.json()
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Set audioData for preview
       setAudioData(data.audio)
       setIsPlaying(false)
+
+      // Convert base64 to Blob and upload to server
+      try {
+        const base64Data = data.audio
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'audio/mpeg' })
+        
+        // Create File object with proper name
+        const fileName = `voice-${selectedVoice}-${Date.now()}.mp3`
+        const file = new File([blob], fileName, { type: 'audio/mpeg' })
+        
+        // Upload to server
+        const formData = new FormData()
+        formData.append('audio', file)
+        formData.append('projectId', project.id)
+
+        const uploadRes = await fetch('/api/audio/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!uploadRes.ok) {
+          throw new Error('Failed to upload audio file')
+        }
+
+        const uploadData = await uploadRes.json()
+        setServerAudioUrl(uploadData.audioUrl)
+        
+        toast({
+          title: "Audio generated successfully",
+          description: "Audio file has been saved",
+        })
+      } catch (error) {
+        console.error('Error uploading audio:', error)
+        toast({
+          variant: "destructive",
+          title: "Warning",
+          description: "Audio generated but failed to save file. You can still download it.",
+        })
+      }
     },
   })
 
