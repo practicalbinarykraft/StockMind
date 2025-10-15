@@ -14,7 +14,7 @@ export interface HeyGenAvatar {
 export interface HeyGenVideoRequest {
   avatar_id: string
   script: string
-  voice_id?: string
+  audio_url?: string
   dimension?: {
     width: number
     height: number
@@ -68,10 +68,12 @@ export async function generateHeyGenVideo(
             avatar_id: request.avatar_id,
             avatar_style: 'normal'
           },
-          voice: {
+          voice: request.audio_url ? {
+            type: 'audio',
+            audio_url: request.audio_url
+          } : {
             type: 'text',
             input_text: request.script,
-            ...(request.voice_id && { voice_id: request.voice_id }),
             speed: 1.0
           }
         }

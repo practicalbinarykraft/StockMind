@@ -44,7 +44,14 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
   // Get script and voice from Stage 4 data
   const script = stepData?.finalScript || ""
   const voiceId = stepData?.selectedVoice
-  const audioUrl = stepData?.audioUrl
+  
+  // Convert relative audio URL to absolute public URL for HeyGen
+  const relativeAudioUrl = stepData?.audioUrl
+  const audioUrl = relativeAudioUrl 
+    ? (relativeAudioUrl.startsWith('http') 
+        ? relativeAudioUrl 
+        : `${window.location.origin}${relativeAudioUrl}`)
+    : undefined
 
   // Fetch avatars from HeyGen
   const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
@@ -60,7 +67,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       const response = await apiRequest(
         "POST",
         "/api/heygen/generate",
-        { avatarId: selectedAvatar, script, voiceId }
+        { avatarId: selectedAvatar, script, audioUrl }
       ) as { videoId: string }
       return response
     },
