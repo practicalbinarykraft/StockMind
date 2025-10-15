@@ -8,6 +8,7 @@ export interface HeyGenAvatar {
   gender?: string
   preview_image_url?: string
   preview_video_url?: string
+  is_public?: boolean
 }
 
 export interface HeyGenVideoRequest {
@@ -39,10 +40,13 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
 
     const avatars = response.data?.data?.avatars || []
     
-    // Remove duplicates by avatar_id
+    // Remove duplicates by avatar_id and add is_public flag
     const uniqueAvatars = Array.from(
       new Map(avatars.map((avatar: HeyGenAvatar) => [avatar.avatar_id, avatar])).values()
-    )
+    ).map((avatar: HeyGenAvatar) => ({
+      ...avatar,
+      is_public: avatar.avatar_id.includes('_public')
+    }))
     
     return uniqueAvatars
   } catch (error: any) {
