@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 const HEYGEN_API_BASE = 'https://api.heygen.com'
+const HEYGEN_UPLOAD_BASE = 'https://upload.heygen.com'
 const ALLOWED_AUDIO_DIR = path.join(process.cwd(), 'uploads', 'audio')
 
 export interface HeyGenAvatar {
@@ -80,9 +81,9 @@ async function uploadAudioToHeyGen(apiKey: string, audioPath: string): Promise<s
     // Read local audio file
     const audioBuffer = fs.readFileSync(normalizedPath)
     
-    // Upload to HeyGen
+    // Upload to HeyGen (using upload.heygen.com domain)
     const uploadResponse = await axios.post(
-      `${HEYGEN_API_BASE}/v1/asset`,
+      `${HEYGEN_UPLOAD_BASE}/v1/asset`,
       audioBuffer,
       {
         headers: {
@@ -115,10 +116,10 @@ export async function generateHeyGenVideo(
     if (request.audio_url) {
       console.log(`🎵 Using audio mode with file: ${request.audio_url}`)
       
-      // Convert URL to local path if needed
-      // /uploads/audio/proj-123.mp3 → ./uploads/audio/proj-123.mp3
+      // Convert URL to absolute local path
+      // /uploads/audio/proj-123.mp3 → /home/runner/workspace/uploads/audio/proj-123.mp3
       const audioPath = request.audio_url.startsWith('/')
-        ? `.${request.audio_url}`
+        ? path.join(process.cwd(), request.audio_url)
         : request.audio_url
       
       // Upload audio and get asset_id
