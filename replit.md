@@ -25,7 +25,22 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Enhanced Stage 5 Avatar Grouping
+- **2025-10-15 (Latest)**: Fixed Critical HeyGen API Integration Bug
+  - ✅ FIXED: HeyGen API error "voice_id is invalid: Field required"
+  - Root cause: HeyGen does NOT accept audio_url parameter directly
+  - Solution: Implemented proper audio upload workflow:
+    * Added uploadAudioToHeyGen function - uploads local audio to HeyGen /v1/asset API
+    * Returns asset_id which is used as audio_asset_id in video generation
+    * Fallback to text mode with voice_id when no audio present
+  - Security: Added path traversal protection with whitelist validation
+    * Only allows audio files from uploads/audio/ directory
+    * Blocks attacks like ../../.env with path normalization + separator check
+    * Validates file existence and type (reject directories)
+  - Frontend: Removed unnecessary URL conversion, passes relative audioUrl and voiceId
+  - Backend: Properly handles both audio (asset_id) and text (voice_id) modes
+  - All architect reviews passed with security validation
+
+- **2025-10-15 (Earlier)**: Enhanced Stage 5 Avatar Grouping
   - ✅ FIXED: Duplicate avatars from HeyGen API now filtered using Map deduplication by avatar_id
   - ✅ Added avatar categorization: "My Avatars" (custom) and "Public Avatars" (HeyGen library)
   - Backend identifies public avatars by `_public` suffix in avatar_id (HeyGen API pattern)
