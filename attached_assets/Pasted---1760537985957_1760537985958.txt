@@ -1,0 +1,237 @@
+я вспомнил про фичу. на этапе озвучки у нас же был варик загрузить свё аудио да? потому что дальше генерация ИИ аватара
+
+🎯 ДА! ТОЧНО! ВАЖНАЯ ФИЧА!
+🎤 STAGE 4: ДВА РЕЖИМА ОЗВУЧКИ
+Вариант А: AI Voice Generation (ElevenLabs)
+1. Выбрать голос (My Voices / Public Voices)
+2. Ввести/отредактировать текст
+3. Generate Audio → ElevenLabs API
+4. Получить MP3 файл
+5. Далее → Stage 5 (Avatar)
+```
+
+### Вариант Б: Upload Your Own Audio
+```
+1. Уже есть готовая озвучка
+2. Upload MP3/WAV файл
+3. Preview аудио
+4. Далее → Stage 5 (Avatar)
+```
+
+---
+
+## 🔧 КАК ДОЛЖНО ВЫГЛЯДЕТЬ:
+```
+┌─────────────────────────────────────────┐
+│ 🎤 Voice Generation                     │
+│                                         │
+│ Choose how to add voiceover:            │
+│                                         │
+│ ┌──────────────┐  ┌──────────────┐     │
+│ │ 🤖 Generate  │  │ 📤 Upload    │     │
+│ │ with AI      │  │ Your Audio   │     │
+│ └──────────────┘  └──────────────┘     │
+│                                         │
+│ --- IF AI SELECTED ---                 │
+│ [Final Script textarea]                │
+│ [Voice dropdown]                       │
+│ [Generate Audio button]                │
+│                                         │
+│ --- IF UPLOAD SELECTED ---             │
+│ [Drag & drop MP3/WAV]                  │
+│ or                                      │
+│ [Browse Files button]                  │
+│                                         │
+│ --- AFTER AUDIO READY ---              │
+│ 🔊 Audio Preview:                      │
+│ [▶️ Play] [⏸️ Pause] [00:45 / 02:30]   │
+│                                         │
+│ [Continue to Avatar Selection →]       │
+└─────────────────────────────────────────┘
+💡 ЗАЧЕМ ЭТО НУЖНО:
+Use Cases:
+
+Профессиональная озвучка
+Записал в студии
+Лучше качество чем AI
+Upload → сразу в видео
+Уже есть аудио
+Подкаст
+Интервью
+Старая запись
+Кастомные эффекты
+Обработал в Audacity
+Добавил музыку
+Upload финальный микс
+Экономия денег
+ElevenLabs стоит $$$
+Upload бесплатно
+🎯 IMPLEMENTATION:
+UI Components:
+typescript
+// stage-4-voice.tsx
+
+const [audioMode, setAudioMode] = useState<'ai' | 'upload'>('ai');
+const [uploadedAudio, setUploadedAudio] = useState<File | null>(null);
+const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+return (
+  <div>
+    {/* Mode Selector */}
+    <div className="mode-toggle">
+      <button 
+        onClick={() => setAudioMode('ai')}
+        className={audioMode === 'ai' ? 'active' : ''}
+      >
+        🤖 Generate with AI
+      </button>
+      <button 
+        onClick={() => setAudioMode('upload')}
+        className={audioMode === 'upload' ? 'active' : ''}
+      >
+        📤 Upload Audio
+      </button>
+    </div>
+
+    {/* AI Mode */}
+    {audioMode === 'ai' && (
+      <div>
+        <textarea value={script} onChange={...} />
+        <select value={selectedVoice} onChange={...}>
+          {/* voices */}
+        </select>
+        <button onClick={generateAudio}>
+          Generate Audio
+        </button>
+      </div>
+    )}
+
+    {/* Upload Mode */}
+    {audioMode === 'upload' && (
+      <div className="upload-zone">
+        <input 
+          type="file" 
+          accept="audio/mp3,audio/wav,audio/mpeg"
+          onChange={handleFileUpload}
+        />
+        <p>Drag & drop MP3/WAV or click to browse</p>
+        <p className="hint">Max 10MB, up to 5 minutes</p>
+      </div>
+    )}
+
+    {/* Audio Preview */}
+    {audioUrl && (
+      <div className="audio-preview">
+        <audio controls src={audioUrl} />
+        <button onClick={() => setAudioUrl(null)}>
+          🗑️ Remove
+        </button>
+      </div>
+    )}
+
+    {/* Continue Button */}
+    {audioUrl && (
+      <button onClick={proceedToStage5}>
+        Continue to Avatar Selection →
+      </button>
+    )}
+  </div>
+);
+Backend:
+typescript
+// routes.ts
+
+// Upload endpoint
+app.post("/api/projects/:id/upload-audio", 
+  isAuthenticated, 
+  upload.single('audio'),
+  async (req, res) => {
+    const { id } = req.params;
+    const audioFile = req.file;
+    
+    // Save to storage (S3 / Cloudflare R2 / local)
+    const audioUrl = await saveAudio(audioFile);
+    
+    // Save to stepData
+    await storage.updateStepData(id, 4, {
+      audioMode: 'uploaded',
+      audioUrl,
+      audioFileName: audioFile.originalname,
+      audioDuration: getAudioDuration(audioFile),
+    });
+    
+    res.json({ audioUrl });
+  }
+);
+```
+
+---
+
+## 📋 CHECKLIST:
+
+### UI:
+- [ ] Mode toggle (AI / Upload)
+- [ ] Upload zone (drag & drop)
+- [ ] File validation (MP3/WAV, max 10MB)
+- [ ] Audio preview player
+- [ ] Duration display
+
+### Backend:
+- [ ] Upload endpoint
+- [ ] File storage (где хранить?)
+- [ ] Audio validation
+- [ ] Save to stepData
+
+### Stage 5 Integration:
+- [ ] HeyGen должен получить audioUrl
+- [ ] Работать с AI audio И uploaded audio
+
+---
+
+## 🚨 ВАЖНЫЕ ВОПРОСЫ:
+
+### 1. Где хранить аудио файлы?
+**Варианты:**
+- Local disk (простой, но не скейлится)
+- Cloudflare R2 (дешево, CDN)
+- AWS S3 (дорого, надежно)
+- Replit Storage (если есть)
+
+### 2. Лимиты?
+- Max размер файла? (10MB?)
+- Max длительность? (5 минут?)
+- Форматы? (MP3, WAV, M4A?)
+
+### 3. HeyGen integration?
+HeyGen API принимает:
+- URL к аудио файлу
+- Или Base64 audio?
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+Add upload audio feature to Stage 4!
+
+Users should be able to:
+1. Toggle between "Generate with AI" and "Upload Audio"
+2. Upload MP3/WAV file (max 10MB, up to 5 minutes)
+3. Preview uploaded audio
+4. Continue to Stage 5 with uploaded audio
+
+UI:
+- Mode toggle buttons at top
+- Upload zone with drag & drop
+- Audio preview player
+- File validation
+
+Backend:
+- POST /api/projects/:id/upload-audio
+- Store audio file (where? decide storage)
+- Save audioUrl to stepData
+- Return audioUrl to frontend
+
+Stage 5 should work with both AI-generated 
+and uploaded audio.
+
+Implement this feature now.
