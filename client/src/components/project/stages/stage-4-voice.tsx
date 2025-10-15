@@ -97,7 +97,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       if (stage4Data.mode === "generate") {
         if (stage4Data.finalScript) setFinalScript(stage4Data.finalScript)
         if (stage4Data.selectedVoice) setSelectedVoice(stage4Data.selectedVoice)
-        if (stage4Data.audioData) setAudioData(stage4Data.audioData)
+        if (stage4Data.audioUrl) setServerAudioUrl(stage4Data.audioUrl)
       } else if (stage4Data.mode === "upload") {
         if (stage4Data.audioUrl) {
           setServerAudioUrl(stage4Data.audioUrl)
@@ -184,7 +184,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   }
 
   const handlePlayPause = () => {
-    if (!audioRef.current || !audioData) return
+    if (!audioRef.current) return
 
     if (isPlaying) {
       audioRef.current.pause()
@@ -224,6 +224,19 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   }
 
   const handleDownload = () => {
+    // Download from server URL if available
+    if (serverAudioUrl) {
+      const a = document.createElement('a')
+      a.href = serverAudioUrl
+      a.download = `voiceover-${Date.now()}.mp3`
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      return
+    }
+
+    // Fallback to audioData (base64) if serverAudioUrl not available
     if (!audioData) return
 
     const blob = new Blob(
@@ -653,7 +666,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
               ) : (
                 <>
                   <Mic className="h-5 w-5" />
-                  {audioData ? "Regenerate Audio" : "Generate Audio"}
+                  {serverAudioUrl || audioData ? "Regenerate Audio" : "Generate Audio"}
                 </>
               )}
             </Button>
@@ -671,11 +684,11 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         )}
 
         {/* Audio Player */}
-        {audioData && (
+        {(serverAudioUrl || audioData) && (
           <>
             <audio
               ref={audioRef}
-              src={`data:audio/mpeg;base64,${audioData}`}
+              src={serverAudioUrl || `data:audio/mpeg;base64,${audioData}`}
               onEnded={() => setIsPlaying(false)}
             />
             <Card>
@@ -719,7 +732,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           <Button
             size="lg"
             onClick={handleProceed}
-            disabled={!audioData || saveStepMutation.isPending || updateProjectMutation.isPending}
+            disabled={!serverAudioUrl || saveStepMutation.isPending || updateProjectMutation.isPending}
             data-testid="button-proceed-stage5"
           >
             {saveStepMutation.isPending || updateProjectMutation.isPending ? (
