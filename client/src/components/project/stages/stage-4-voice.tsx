@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { type Project } from "@shared/schema"
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mic, Play, Pause, Download, Loader2, AlertCircle, Volume2, Upload } from "lucide-react"
+import { Mic, Play, Pause, Download, Loader2, AlertCircle, Volume2, Upload, Globe, User } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -66,6 +66,16 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const { data: voices, isLoading: voicesLoading, error: voicesError } = useQuery<Voice[]>({
     queryKey: ["/api/elevenlabs/voices"],
   })
+
+  // Group voices by category
+  const { myVoices, publicVoices } = useMemo(() => {
+    if (!voices) return { myVoices: [], publicVoices: [] }
+    
+    const my = voices.filter(v => v.category !== 'premade')
+    const pub = voices.filter(v => v.category === 'premade')
+    
+    return { myVoices: my, publicVoices: pub }
+  }, [voices])
 
   // Set default script from Stage 3 analysis data
   useEffect(() => {
