@@ -24,15 +24,15 @@ export function StageContent({ project, steps }: StageContentProps) {
       case 2:
         return <Stage2ContentInput project={project} stepData={getStepData(2)} />
       case 3:
-        return <Stage3AIAnalysis project={project} stepData={getStepData(3)} />
+        return <Stage3AIAnalysis project={project} stepData={getStepData(2)} />
       case 4:
-        return <Stage4VoiceGeneration project={project} stepData={getStepData(4)} />
+        return <Stage4VoiceGeneration project={project} stepData={getStepData(3)} />
       case 5:
-        return <Stage5AvatarSelection project={project} stepData={getStepData(5)} />
+        return <Stage5AvatarSelection project={project} stepData={getStepData(4)} />
       case 6:
-        return <Stage6FinalExport project={project} stepData={getStepData(6)} />
+        return <Stage6FinalExport project={project} stepData={getStepData(5)} />
       case 7:
-        return <Stage7Storyboard project={project} stepData={getStepData(7)} />
+        return <Stage7Storyboard project={project} stepData={getStepData(6)} />
       default:
         return <div className="p-8">Unknown stage</div>
     }
