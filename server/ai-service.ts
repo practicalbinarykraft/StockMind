@@ -44,7 +44,7 @@ Respond in JSON format:
 }`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
+    model: "claude-3-5-sonnet-20240620",
     max_tokens: 256,
     messages: [{ role: "user", content: prompt }],
   });
@@ -98,7 +98,7 @@ Respond in JSON format:
 }`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
+    model: "claude-3-5-sonnet-20240620",
     max_tokens: 2048,
     messages: [{ role: "user", content: prompt }],
   });
