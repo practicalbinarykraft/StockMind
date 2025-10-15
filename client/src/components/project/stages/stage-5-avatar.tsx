@@ -324,73 +324,163 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
               {(error as any)?.message || "Failed to load avatars. Please check your HeyGen API key in Settings."}
             </AlertDescription>
           </Alert>
-        ) : filteredAvatars.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredAvatars.slice(0, 9).map(avatar => (
-              <Card
-                key={avatar.avatar_id}
-                className={`cursor-pointer transition-all hover-elevate ${
-                  selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
-                }`}
-                onClick={() => setSelectedAvatar(avatar.avatar_id)}
-                data-testid={`card-avatar-${avatar.avatar_id}`}
-              >
-                <CardHeader>
-                  {avatar.preview_image_url ? (
-                    <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
-                      <img
-                        src={avatar.preview_image_url}
-                        alt={avatar.avatar_name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
-                      <Users className="h-16 w-16 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
-                    {selectedAvatar === avatar.avatar_id && (
-                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge variant="secondary">
-                      {avatar.gender || "Unknown"}
-                    </Badge>
-                    {avatar.preview_video_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handlePreview(avatar.avatar_id, avatar.preview_video_url)
-                        }}
-                        data-testid={`button-preview-${avatar.avatar_id}`}
-                      >
-                        {previewingAvatar === avatar.avatar_id ? (
-                          <>
-                            <Pause className="h-3 w-3 mr-1" />
-                            Stop
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3 w-3 mr-1" />
-                            Preview
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         ) : (
-          <p className="text-center text-muted-foreground py-8">No avatars found</p>
+          <div className="space-y-6">
+            {/* My Avatars */}
+            {filteredMyAvatars.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <User className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">My Avatars</h3>
+                  <Badge variant="secondary">{filteredMyAvatars.length}</Badge>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredMyAvatars.slice(0, 9).map(avatar => (
+                    <Card
+                      key={avatar.avatar_id}
+                      className={`cursor-pointer transition-all hover-elevate ${
+                        selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
+                      }`}
+                      onClick={() => setSelectedAvatar(avatar.avatar_id)}
+                      data-testid={`card-avatar-${avatar.avatar_id}`}
+                    >
+                      <CardHeader>
+                        {avatar.preview_image_url ? (
+                          <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
+                            <img
+                              src={avatar.preview_image_url}
+                              alt={avatar.avatar_name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
+                            <Users className="h-16 w-16 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
+                          {selectedAvatar === avatar.avatar_id && (
+                            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant="secondary">
+                            {avatar.gender || "Unknown"}
+                          </Badge>
+                          {avatar.preview_video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handlePreview(avatar.avatar_id, avatar.preview_video_url)
+                              }}
+                              data-testid={`button-preview-${avatar.avatar_id}`}
+                            >
+                              {previewingAvatar === avatar.avatar_id ? (
+                                <>
+                                  <Pause className="h-3 w-3 mr-1" />
+                                  Stop
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-3 w-3 mr-1" />
+                                  Preview
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Public Avatars */}
+            {filteredPublicAvatars.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="h-5 w-5 text-chart-4" />
+                  <h3 className="text-lg font-semibold">Public Avatars</h3>
+                  <Badge variant="secondary">{filteredPublicAvatars.length}</Badge>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredPublicAvatars.slice(0, 9).map(avatar => (
+                    <Card
+                      key={avatar.avatar_id}
+                      className={`cursor-pointer transition-all hover-elevate ${
+                        selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
+                      }`}
+                      onClick={() => setSelectedAvatar(avatar.avatar_id)}
+                      data-testid={`card-avatar-${avatar.avatar_id}`}
+                    >
+                      <CardHeader>
+                        {avatar.preview_image_url ? (
+                          <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
+                            <img
+                              src={avatar.preview_image_url}
+                              alt={avatar.avatar_name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
+                            <Users className="h-16 w-16 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
+                          {selectedAvatar === avatar.avatar_id && (
+                            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant="secondary">
+                            {avatar.gender || "Unknown"}
+                          </Badge>
+                          {avatar.preview_video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handlePreview(avatar.avatar_id, avatar.preview_video_url)
+                              }}
+                              data-testid={`button-preview-${avatar.avatar_id}`}
+                            >
+                              {previewingAvatar === avatar.avatar_id ? (
+                                <>
+                                  <Pause className="h-3 w-3 mr-1" />
+                                  Stop
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-3 w-3 mr-1" />
+                                  Preview
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No Results */}
+            {filteredMyAvatars.length === 0 && filteredPublicAvatars.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No avatars found</p>
+            )}
+          </div>
         )}
 
         {/* Action Buttons */}
