@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { apiRequest } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 import { type Project } from "@shared/schema"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScoreBadge } from "@/components/score-badge"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 interface Stage3Props {
   project: Project
@@ -53,6 +54,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({})
   const [editedScenes, setEditedScenes] = useState<Record<number, string>>({})
   const [isEditing, setIsEditing] = useState<number | null>(null)
+  const { toast } = useToast()
 
   // Get content from step data (step 2 saves as "text" for custom or "content" for news)
   const content = stepData?.content || stepData?.text || ""
@@ -79,9 +81,65 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
     analyzeMutation.mutate(selectedFormat)
   }
 
-  const handleProceed = () => {
-    // In real implementation, save analysis and proceed to stage 4
-    console.log("Proceeding with", { selectedFormat, selectedVariants, editedScenes, analysis })
+  // Save step data mutation
+  const saveStepMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stageNumber: 3,
+        data: {
+          selectedFormat,
+          selectedVariants,
+          editedScenes,
+          overallScore: analysis?.overallScore,
+          overallComment: analysis?.overallComment,
+          scenes: analysis?.scenes
+        }
+      })
+    }
+  })
+
+  // Update project stage mutation
+  const updateProjectMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
+        currentStage: 4
+      })
+    },
+    onSuccess: async () => {
+      // Invalidate and wait for refetch to ensure UI updates
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      
+      toast({
+        title: "Analysis Saved",
+        description: "Moving to Voice Generation...",
+      })
+    }
+  })
+
+  const handleProceed = async () => {
+    if (!selectedFormat || !analysis) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please complete the analysis first",
+      })
+      return
+    }
+
+    try {
+      // Save step data first
+      await saveStepMutation.mutateAsync()
+      // Then update project stage (which will trigger navigation via refetch)
+      await updateProjectMutation.mutateAsync()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to save and proceed",
+      })
+    }
   }
 
   const getSceneText = (scene: AIAnalysis['scenes'][0]) => {
@@ -292,8 +350,20 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
                 <FileText className="h-4 w-4 mr-2" />
                 Export Script
               </Button>
-              <Button size="lg" onClick={handleProceed} data-testid="button-proceed-stage4">
-                Continue to Voice Generation
+              <Button 
+                size="lg" 
+                onClick={handleProceed} 
+                disabled={saveStepMutation.isPending || updateProjectMutation.isPending}
+                data-testid="button-proceed-stage4"
+              >
+                {(saveStepMutation.isPending || updateProjectMutation.isPending) ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Continue to Voice Generation"
+                )}
               </Button>
             </div>
           </>
