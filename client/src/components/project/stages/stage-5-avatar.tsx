@@ -65,11 +65,16 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       const response = await res.json() as { videoId: string }
       return response
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       console.log("Video generation started:", data)
       if (data?.videoId) {
         setGeneratedVideoId(data.videoId)
         setVideoStatus({ status: 'pending' })
+        
+        // Save videoId to DB immediately
+        await saveVideoIdToStepData(data.videoId, selectedAvatar!)
+        
+        // Start polling
         pollVideoStatus(data.videoId)
       }
     },
@@ -79,10 +84,28 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     }
   })
 
-  const saveToStepData = async (status: VideoStatus) => {
+  const saveVideoIdToStepData = async (videoId: string, avatarId: string) => {
+    // Save videoId immediately when generation starts
+    try {
+      await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stageNumber: 5,
+        data: {
+          videoId: videoId,
+          selectedAvatar: avatarId,
+          status: 'generating'
+        }
+      })
+      console.log("Video ID saved to step 5:", videoId)
+    } catch (err) {
+      console.error("Failed to save video ID:", err)
+    }
+  }
+
+  const saveCompletedVideoToStepData = async (status: VideoStatus) => {
     if (status.status !== 'completed' || !status.video_url) return
 
-    // Save video data to step data for Stage 6
+    // Update with completed video data
+    // Use stepData values as fallback if state is null (e.g. after page reload)
     try {
       await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stageNumber: 5,
@@ -90,13 +113,14 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
           videoUrl: status.video_url,
           thumbnailUrl: status.thumbnail_url,
           duration: status.duration,
-          selectedAvatar: selectedAvatar,
-          videoId: generatedVideoId
+          selectedAvatar: selectedAvatar || stepData?.selectedAvatar,
+          videoId: generatedVideoId || stepData?.videoId,
+          status: 'completed'
         }
       })
-      console.log("Video data saved to step 5")
+      console.log("Completed video data saved to step 5")
     } catch (err) {
-      console.error("Failed to save video data:", err)
+      console.error("Failed to save completed video data:", err)
     }
   }
 
@@ -112,7 +136,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
           clearInterval(intervalId)
           setPollingInterval(null)
           console.log("Video completed:", status.video_url)
-          await saveToStepData(status)
+          await saveCompletedVideoToStepData(status)
         } else if (status.status === 'failed') {
           clearInterval(intervalId)
           setPollingInterval(null)
@@ -135,7 +159,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       if (status.status === 'completed') {
         clearInterval(intervalId)
         setPollingInterval(null)
-        await saveToStepData(status)
+        await saveCompletedVideoToStepData(status)
       } else if (status.status === 'failed') {
         clearInterval(intervalId)
         setPollingInterval(null)
@@ -151,6 +175,44 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       if (pollingInterval) clearInterval(pollingInterval)
     }
   }, [pollingInterval])
+
+  // Restore polling on mount if there's an unfinished video
+  useEffect(() => {
+    const savedVideoId = stepData?.videoId
+    const savedStatus = stepData?.status
+    const savedVideoUrl = stepData?.videoUrl
+    const savedAvatar = stepData?.selectedAvatar
+
+    // If we have a videoId but no completed video, resume polling
+    if (savedVideoId && (!savedVideoUrl || savedStatus === 'generating')) {
+      console.log("Resuming video generation polling for:", savedVideoId)
+      setGeneratedVideoId(savedVideoId)
+      setVideoStatus({ status: 'pending' })
+      
+      // Restore avatar selection from saved data
+      if (savedAvatar) {
+        setSelectedAvatar(savedAvatar)
+      }
+      
+      pollVideoStatus(savedVideoId)
+    } else if (savedVideoUrl && savedStatus === 'completed') {
+      // If video is already completed, show it
+      console.log("Loading completed video from saved data")
+      setGeneratedVideoId(savedVideoId)
+      
+      // Restore avatar selection
+      if (savedAvatar) {
+        setSelectedAvatar(savedAvatar)
+      }
+      
+      setVideoStatus({
+        status: 'completed',
+        video_url: savedVideoUrl,
+        thumbnail_url: stepData?.thumbnailUrl,
+        duration: stepData?.duration
+      })
+    }
+  }, []) // Run only on mount
 
   // Group avatars by category
   const { myAvatars, publicAvatars } = useMemo(() => {
