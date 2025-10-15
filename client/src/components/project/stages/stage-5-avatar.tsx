@@ -89,7 +89,6 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     try {
       await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 5,
-        projectId: project.id,
         data: {
           videoId: videoId,
           selectedAvatar: avatarId,
@@ -110,7 +109,6 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     try {
       await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 5,
-        projectId: project.id,
         data: {
           videoUrl: status.video_url,
           thumbnailUrl: status.thumbnail_url,
