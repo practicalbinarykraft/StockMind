@@ -1,0 +1,294 @@
+// Reference: javascript_log_in_with_replit blueprint
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
+import Parser from "rss-parser";
+
+const rssParser = new Parser();
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware
+  await setupAuth(app);
+
+  // ============================================================================
+  // AUTH ROUTES
+  // ============================================================================
+  
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ============================================================================
+  // API KEYS ROUTES
+  // ============================================================================
+
+  app.get("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const keys = await storage.getApiKeys(userId);
+      res.json(keys);
+    } catch (error) {
+      console.error("Error fetching API keys:", error);
+      res.status(500).json({ message: "Failed to fetch API keys" });
+    }
+  });
+
+  app.post("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertApiKeySchema.parse(req.body);
+      const apiKey = await storage.createApiKey(userId, validated);
+      res.json(apiKey);
+    } catch (error: any) {
+      console.error("Error creating API key:", error);
+      res.status(400).json({ message: error.message || "Failed to create API key" });
+    }
+  });
+
+  app.delete("/api/settings/api-keys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.deleteApiKey(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting API key:", error);
+      res.status(500).json({ message: "Failed to delete API key" });
+    }
+  });
+
+  // ============================================================================
+  // RSS SOURCES ROUTES
+  // ============================================================================
+
+  app.get("/api/settings/rss-sources", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sources = await storage.getRssSources(userId);
+      res.json(sources);
+    } catch (error) {
+      console.error("Error fetching RSS sources:", error);
+      res.status(500).json({ message: "Failed to fetch RSS sources" });
+    }
+  });
+
+  app.post("/api/settings/rss-sources", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertRssSourceSchema.parse(req.body);
+      const source = await storage.createRssSource(userId, validated);
+
+      // Trigger parsing in background (don't await)
+      parseRssSource(source.id, source.url, userId).catch(err => 
+        console.error(`Background RSS parsing failed for ${source.id}:`, err)
+      );
+
+      res.json(source);
+    } catch (error: any) {
+      console.error("Error creating RSS source:", error);
+      res.status(400).json({ message: error.message || "Failed to create RSS source" });
+    }
+  });
+
+  app.patch("/api/settings/rss-sources/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const source = await storage.updateRssSource(id, userId, req.body);
+      if (!source) {
+        return res.status(404).json({ message: "RSS source not found" });
+      }
+      res.json(source);
+    } catch (error) {
+      console.error("Error updating RSS source:", error);
+      res.status(500).json({ message: "Failed to update RSS source" });
+    }
+  });
+
+  app.delete("/api/settings/rss-sources/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.deleteRssSource(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting RSS source:", error);
+      res.status(500).json({ message: "Failed to delete RSS source" });
+    }
+  });
+
+  // ============================================================================
+  // NEWS / RSS ITEMS ROUTES
+  // ============================================================================
+
+  app.get("/api/news", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const items = await storage.getRssItems(userId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching news items:", error);
+      res.status(500).json({ message: "Failed to fetch news items" });
+    }
+  });
+
+  // ============================================================================
+  // PROJECTS ROUTES
+  // ============================================================================
+
+  app.get("/api/projects", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const projects = await storage.getProjects(userId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
+  app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const project = await storage.getProject(id, userId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      res.json(project);
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      res.status(500).json({ message: "Failed to fetch project" });
+    }
+  });
+
+  app.post("/api/projects", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertProjectSchema.parse(req.body);
+      const project = await storage.createProject(userId, validated);
+      res.json(project);
+    } catch (error: any) {
+      console.error("Error creating project:", error);
+      res.status(400).json({ message: error.message || "Failed to create project" });
+    }
+  });
+
+  app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const project = await storage.updateProject(id, userId, req.body);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      res.json(project);
+    } catch (error) {
+      console.error("Error updating project:", error);
+      res.status(500).json({ message: "Failed to update project" });
+    }
+  });
+
+  app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.deleteProject(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ message: "Failed to delete project" });
+    }
+  });
+
+  // ============================================================================
+  // PROJECT STEPS ROUTES
+  // ============================================================================
+
+  app.get("/api/projects/:id/steps", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const steps = await storage.getProjectSteps(id);
+      res.json(steps);
+    } catch (error) {
+      console.error("Error fetching project steps:", error);
+      res.status(500).json({ message: "Failed to fetch project steps" });
+    }
+  });
+
+  app.post("/api/projects/:id/steps", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const validated = insertProjectStepSchema.parse({
+        ...req.body,
+        projectId: id,
+      });
+      const step = await storage.createProjectStep(validated);
+      res.json(step);
+    } catch (error: any) {
+      console.error("Error creating project step:", error);
+      res.status(400).json({ message: error.message || "Failed to create project step" });
+    }
+  });
+
+  // ============================================================================
+  // HELPER FUNCTIONS
+  // ============================================================================
+
+  async function parseRssSource(sourceId: string, url: string, userId: string) {
+    try {
+      console.log(`[RSS] Parsing source ${sourceId}: ${url}`);
+      const feed = await rssParser.parseURL(url);
+      
+      let itemCount = 0;
+      
+      for (const item of feed.items.slice(0, 20)) { // Limit to 20 items
+        try {
+          await storage.createRssItem({
+            sourceId,
+            title: item.title || 'Untitled',
+            url: item.link || url,
+            content: item.contentSnippet || item.content || '',
+            publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+            aiScore: null, // Will be scored later by AI
+            aiComment: null,
+          });
+          itemCount++;
+        } catch (err) {
+          console.error(`[RSS] Failed to save item:`, err);
+        }
+      }
+
+      await storage.updateRssSource(sourceId, userId, {
+        parseStatus: 'success',
+        lastParsed: new Date(),
+        itemCount,
+        parseError: null,
+      });
+
+      console.log(`[RSS] Successfully parsed ${itemCount} items from ${sourceId}`);
+
+      // TODO: Trigger AI scoring in background
+      // scoreNewsItems(sourceId, userId).catch(err => console.error('AI scoring failed:', err));
+
+    } catch (error: any) {
+      console.error(`[RSS] Parsing failed for ${sourceId}:`, error);
+      await storage.updateRssSource(sourceId, userId, {
+        parseStatus: 'error',
+        parseError: error.message || 'Failed to parse RSS feed',
+      });
+    }
+  }
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
