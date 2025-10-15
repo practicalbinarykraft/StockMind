@@ -40,9 +40,10 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
   const [videoStatus, setVideoStatus] = useState<VideoStatus | null>(null)
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
 
-  // Get script from Stage 4 data (or Stage 3 if no Stage 4)
-  const script = stepData[4]?.finalScript || stepData[3]?.selectedVariant || stepData[3]?.analyzedScript || ""
-  const voiceId = stepData[4]?.selectedVoice
+  // Get script and voice from Stage 4 data
+  const script = stepData?.finalScript || ""
+  const voiceId = stepData?.selectedVoice
+  const audioUrl = stepData?.audioUrl
 
   // Fetch avatars from HeyGen
   const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
