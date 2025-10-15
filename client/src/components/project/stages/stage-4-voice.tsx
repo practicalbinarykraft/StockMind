@@ -30,14 +30,11 @@ interface Voice {
 export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const { toast } = useToast()
 
-  // Get script from previous stage analysis
+  // stepData contains data from Stage 3 (analysis)
   const analysisData = stepData
-  const defaultScript = analysisData?.scenes?.map((s: any) => s.text).join(" ") || 
-                       analysisData?.text ||
-                       "Enter your script here..."
   
   const [mode, setMode] = useState<"generate" | "upload">("generate")
-  const [finalScript, setFinalScript] = useState(defaultScript)
+  const [finalScript, setFinalScript] = useState("")
   const [selectedVoice, setSelectedVoice] = useState<string>("")
   const [audioData, setAudioData] = useState<string | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -51,15 +48,57 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const uploadAudioRef = useRef<HTMLAudioElement | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const hasRestoredRef = useRef(false)
+
+  // Fetch Stage 4 saved data (for restoration)
+  const { data: stage4Data } = useQuery({
+    queryKey: ["/api/projects", project.id, "steps", 4],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/steps`)
+      if (!res.ok) throw new Error("Failed to fetch steps")
+      const steps = await res.json()
+      return steps.find((s: any) => s.stepNumber === 4)?.data
+    }
+  })
 
   // Fetch available voices
   const { data: voices, isLoading: voicesLoading, error: voicesError } = useQuery<Voice[]>({
     queryKey: ["/api/elevenlabs/voices"],
   })
 
-  // Set default voice when voices load
+  // Set default script from Stage 3 analysis data
   useEffect(() => {
-    if (voices && voices.length > 0 && !selectedVoice) {
+    if (analysisData && !finalScript && !hasRestoredRef.current) {
+      const defaultScript = analysisData.scenes?.map((s: any) => s.text).join(" ") || 
+                           analysisData.text ||
+                           ""
+      setFinalScript(defaultScript)
+    }
+  }, [analysisData])
+
+  // Restore state from Stage 4 saved data when it becomes available
+  useEffect(() => {
+    // Only restore once when stage4Data arrives and has a mode
+    if (stage4Data && stage4Data.mode && !hasRestoredRef.current) {
+      hasRestoredRef.current = true
+      setMode(stage4Data.mode)
+      
+      if (stage4Data.mode === "generate") {
+        if (stage4Data.finalScript) setFinalScript(stage4Data.finalScript)
+        if (stage4Data.selectedVoice) setSelectedVoice(stage4Data.selectedVoice)
+        if (stage4Data.audioData) setAudioData(stage4Data.audioData)
+      } else if (stage4Data.mode === "upload") {
+        if (stage4Data.audioUrl) {
+          setServerAudioUrl(stage4Data.audioUrl)
+          setUploadedAudioUrl(stage4Data.audioUrl)
+        }
+      }
+    }
+  }, [stage4Data])
+
+  // Set default voice when voices load (only if no voice already selected or saved)
+  useEffect(() => {
+    if (voices && voices.length > 0 && !selectedVoice && !stage4Data?.selectedVoice) {
       setSelectedVoice(voices[0].voice_id)
     }
   }, [voices, selectedVoice])
@@ -156,7 +195,9 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         return
       }
     } else if (mode === "upload") {
-      if (!uploadedFile || !serverAudioUrl) {
+      // Check for either newly uploaded audio OR previously saved audio from stage4Data
+      const hasAudio = serverAudioUrl || stage4Data?.audioUrl
+      if (!hasAudio) {
         toast({
           variant: "destructive",
           title: "Error",
@@ -215,9 +256,10 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           }
         : {
             mode: "upload",
-            audioUrl: serverAudioUrl,
-            filename: uploadedFile?.name,
-            filesize: uploadedFile?.size,
+            // Use new serverAudioUrl if available, otherwise use saved audioUrl from stage4Data
+            audioUrl: serverAudioUrl || stage4Data?.audioUrl,
+            filename: uploadedFile?.name || stage4Data?.filename,
+            filesize: uploadedFile?.size || stage4Data?.filesize,
           }
 
       return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
@@ -309,16 +351,26 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   }
 
   const handleUploadDownload = () => {
-    if (!uploadedFile) return
-
-    const url = URL.createObjectURL(uploadedFile)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = uploadedFile.name
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    if (uploadedFile) {
+      // Download from File object
+      const url = URL.createObjectURL(uploadedFile)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = uploadedFile.name
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } else if (uploadedAudioUrl) {
+      // Download from server URL
+      const a = document.createElement('a')
+      a.href = uploadedAudioUrl
+      a.download = stage4Data?.filename || 'audio.mp3'
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
   }
 
   // Get selected voice details
@@ -550,7 +602,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         </TabsContent>
 
         <TabsContent value="upload" className="space-y-6">
-          {!uploadedFile ? (
+          {!uploadedFile && !uploadedAudioUrl ? (
             <Card>
               <CardHeader>
                 <CardTitle>Upload Audio File</CardTitle>
@@ -615,9 +667,9 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
                           </div>
                           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
                             <span className="truncate max-w-[300px]" data-testid="text-uploaded-filename">
-                              {uploadedFile.name}
+                              {uploadedFile?.name || stage4Data?.filename || "Uploaded Audio"}
                             </span>
-                            <span>{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                            <span>{uploadedFile ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB` : stage4Data?.filesize ? `${(stage4Data.filesize / 1024 / 1024).toFixed(2)} MB` : ""}</span>
                           </div>
                         </div>
                         <Button variant="outline" size="icon" onClick={handleUploadDownload} data-testid="button-download-uploaded">
@@ -650,7 +702,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           <div className="flex justify-end gap-3">
             <Button
               size="lg"
-              disabled={!uploadedFile || !serverAudioUrl || uploadMutation.isPending || saveStepMutation.isPending || updateProjectMutation.isPending}
+              disabled={!(serverAudioUrl || stage4Data?.audioUrl) || uploadMutation.isPending || saveStepMutation.isPending || updateProjectMutation.isPending}
               onClick={handleProceed}
               data-testid="button-proceed-upload"
             >
