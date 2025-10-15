@@ -44,14 +44,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
   // Get script and voice from Stage 4 data
   const script = stepData?.finalScript || ""
   const voiceId = stepData?.selectedVoice
-  
-  // Convert relative audio URL to absolute public URL for HeyGen
-  const relativeAudioUrl = stepData?.audioUrl
-  const audioUrl = relativeAudioUrl 
-    ? (relativeAudioUrl.startsWith('http') 
-        ? relativeAudioUrl 
-        : `${window.location.origin}${relativeAudioUrl}`)
-    : undefined
+  const audioUrl = stepData?.audioUrl  // Keep relative path for backend
 
   // Fetch avatars from HeyGen
   const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
@@ -67,8 +60,8 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       const response = await apiRequest(
         "POST",
         "/api/heygen/generate",
-        { avatarId: selectedAvatar, script, audioUrl }
-      ) as { videoId: string }
+        { avatarId: selectedAvatar, script, audioUrl, voiceId }
+      ) as unknown as { videoId: string }
       return response
     },
     onSuccess: (data) => {
@@ -110,7 +103,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     // Start polling with a local interval reference
     const intervalId = setInterval(async () => {
       try {
-        const status = await apiRequest("GET", `/api/heygen/status/${videoId}`) as VideoStatus
+        const status = await apiRequest("GET", `/api/heygen/status/${videoId}`) as unknown as VideoStatus
         setVideoStatus(status)
 
         if (status.status === 'completed') {

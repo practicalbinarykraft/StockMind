@@ -403,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/heygen/generate", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { avatarId, script, audioUrl, dimension } = req.body;
+      const { avatarId, script, audioUrl, voiceId, dimension } = req.body;
 
       if (!avatarId || !script) {
         return res.status(400).json({ message: "Avatar ID and script are required" });
@@ -422,6 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avatar_id: avatarId,
         script,
         audio_url: audioUrl,
+        voice_id: voiceId,
         dimension
       });
 

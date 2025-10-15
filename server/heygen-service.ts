@@ -1,6 +1,9 @@
 import axios from 'axios'
+import fs from 'fs'
+import path from 'path'
 
 const HEYGEN_API_BASE = 'https://api.heygen.com'
+const ALLOWED_AUDIO_DIR = path.join(process.cwd(), 'uploads', 'audio')
 
 export interface HeyGenAvatar {
   avatar_id: string
@@ -15,6 +18,7 @@ export interface HeyGenVideoRequest {
   avatar_id: string
   script: string
   audio_url?: string
+  voice_id?: string
   dimension?: {
     width: number
     height: number
@@ -43,9 +47,9 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
     // Remove duplicates by avatar_id and add is_public flag
     const uniqueAvatars = Array.from(
       new Map(avatars.map((avatar: HeyGenAvatar) => [avatar.avatar_id, avatar])).values()
-    ).map((avatar: HeyGenAvatar) => ({
-      ...avatar,
-      is_public: avatar.avatar_id.includes('_public')
+    ).map((avatar) => ({
+      ...(avatar as HeyGenAvatar),
+      is_public: (avatar as HeyGenAvatar).avatar_id.includes('_public')
     }))
     
     return uniqueAvatars
@@ -55,11 +59,86 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
   }
 }
 
+async function uploadAudioToHeyGen(apiKey: string, audioPath: string): Promise<string> {
+  try {
+    console.log(`📤 Uploading audio to HeyGen: ${audioPath}`)
+    
+    // Security: Validate that the file path is within allowed directory
+    const normalizedPath = path.normalize(path.resolve(audioPath))
+    const allowedDirWithSep = ALLOWED_AUDIO_DIR + path.sep
+    
+    // Must start with allowed directory AND have path separator (or be exactly the dir)
+    if (normalizedPath !== ALLOWED_AUDIO_DIR && !normalizedPath.startsWith(allowedDirWithSep)) {
+      throw new Error('Invalid audio file path: access denied')
+    }
+    
+    // Reject directories, only allow files
+    if (!fs.existsSync(normalizedPath) || !fs.statSync(normalizedPath).isFile()) {
+      throw new Error('Audio file not found or is not a file')
+    }
+    
+    // Read local audio file
+    const audioBuffer = fs.readFileSync(normalizedPath)
+    
+    // Upload to HeyGen
+    const uploadResponse = await axios.post(
+      `${HEYGEN_API_BASE}/v1/asset`,
+      audioBuffer,
+      {
+        headers: {
+          'X-Api-Key': apiKey,
+          'Content-Type': 'audio/mpeg'
+        }
+      }
+    )
+    
+    const assetId = uploadResponse.data?.data?.id
+    if (!assetId) {
+      throw new Error('No asset_id returned from HeyGen upload')
+    }
+    
+    console.log(`✅ Audio uploaded to HeyGen: ${assetId}`)
+    return assetId
+  } catch (error: any) {
+    console.error('Audio upload error:', error.response?.data || error.message)
+    throw new Error('Failed to upload audio to HeyGen')
+  }
+}
+
 export async function generateHeyGenVideo(
   apiKey: string,
   request: HeyGenVideoRequest
 ): Promise<string> {
   try {
+    let voiceConfig
+
+    if (request.audio_url) {
+      console.log(`🎵 Using audio mode with file: ${request.audio_url}`)
+      
+      // Convert URL to local path if needed
+      // /uploads/audio/proj-123.mp3 → ./uploads/audio/proj-123.mp3
+      const audioPath = request.audio_url.startsWith('/')
+        ? `.${request.audio_url}`
+        : request.audio_url
+      
+      // Upload audio and get asset_id
+      const audioAssetId = await uploadAudioToHeyGen(apiKey, audioPath)
+      
+      voiceConfig = {
+        type: 'audio',
+        audio_asset_id: audioAssetId
+      }
+    } else {
+      // Fallback to text-to-speech mode
+      console.log('📝 Using text-to-speech mode')
+      voiceConfig = {
+        type: 'text',
+        input_text: request.script,
+        voice_id: request.voice_id || '2d5b0e6cf36f460aa7fc47e3eee4ba54',
+        speed: 1.0
+      }
+    }
+
     const payload = {
       video_inputs: [
         {
@@ -68,14 +147,7 @@ export async function generateHeyGenVideo(
             avatar_id: request.avatar_id,
             avatar_style: 'normal'
           },
-          voice: request.audio_url ? {
-            type: 'audio',
-            audio_url: request.audio_url
-          } : {
-            type: 'text',
-            input_text: request.script,
-            speed: 1.0
-          }
+          voice: voiceConfig
         }
       ],
       dimension: request.dimension || {
@@ -83,6 +155,8 @@ export async function generateHeyGenVideo(
         height: 720
       }
     }
+
+    console.log('🎬 Generating video with HeyGen...')
 
     const response = await axios.post(
       `${HEYGEN_API_BASE}/v2/video/generate`,
@@ -101,6 +175,7 @@ export async function generateHeyGenVideo(
       throw new Error('No video_id returned from HeyGen')
     }
 
+    console.log(`✅ Video generation started: ${videoId}`)
     return videoId
   } catch (error: any) {
     console.error('HeyGen video generation error:', error.response?.data || error.message)
