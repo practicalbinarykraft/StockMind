@@ -38,10 +38,15 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const [selectedVoice, setSelectedVoice] = useState<string>("")
   const [audioData, setAudioData] = useState<string | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isUploadPlaying, setIsUploadPlaying] = useState(false)
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const uploadAudioRef = useRef<HTMLAudioElement | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Fetch available voices
   const { data: voices, isLoading: voicesLoading, error: voicesError } = useQuery<Voice[]>({
@@ -139,6 +144,78 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     console.log("Proceeding to Stage 5", { finalScript, selectedVoice, audioData: !!audioData })
   }
 
+  // File upload handlers
+  const handleFileSelect = (file: File) => {
+    // Validate file type
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-m4a', 'audio/mp4']
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|m4a)$/i)) {
+      alert('Please upload a valid audio file (MP3, WAV, or M4A)')
+      return
+    }
+
+    // Validate file size (25MB max)
+    if (file.size > 25 * 1024 * 1024) {
+      alert('File size must be less than 25MB')
+      return
+    }
+
+    setUploadedFile(file)
+    const url = URL.createObjectURL(file)
+    setUploadedAudioUrl(url)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  const handleUploadPlayPause = () => {
+    if (!uploadAudioRef.current || !uploadedAudioUrl) return
+
+    if (isUploadPlaying) {
+      uploadAudioRef.current.pause()
+      setIsUploadPlaying(false)
+    } else {
+      uploadAudioRef.current.play()
+      setIsUploadPlaying(true)
+    }
+  }
+
+  const handleUploadDownload = () => {
+    if (!uploadedFile) return
+
+    const url = URL.createObjectURL(uploadedFile)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = uploadedFile.name
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // Get selected voice details
   const selectedVoiceDetails = voices?.find(v => v.voice_id === selectedVoice)
 
@@ -154,7 +231,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         </p>
       </div>
 
-      <Tabs value={mode} onValueChange={(v) => setMode(v as "generate" | "upload")} className="mb-6">
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "generate" | "upload")}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="generate" data-testid="tab-generate">
             <Mic className="h-4 w-4 mr-2" />
@@ -166,7 +243,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="generate" className="mt-6 space-y-6">
+        <TabsContent value="generate" className="space-y-6">
         {/* Script Editor */}
         <Card>
           <CardHeader>
@@ -360,28 +437,109 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         </div>
         </TabsContent>
 
-        <TabsContent value="upload" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Audio File</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed rounded-lg p-12 text-center hover-elevate cursor-pointer transition-all">
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-lg font-medium mb-2">Drag & Drop Audio File</p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  or click to browse (MP3, WAV, M4A - max 25MB)
-                </p>
-                <input type="file" className="hidden" accept="audio/*" />
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="upload" className="space-y-6">
+          {!uploadedFile ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Audio File</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-12 text-center hover-elevate cursor-pointer transition-all ${
+                    isDragging ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  data-testid="dropzone-upload"
+                >
+                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-lg font-medium mb-2">Drag & Drop Audio File</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    or click to browse (MP3, WAV, M4A - max 25MB)
+                  </p>
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    className="hidden" 
+                    accept="audio/mpeg,audio/wav,audio/mp3,audio/x-m4a,audio/mp4,.mp3,.wav,.m4a"
+                    onChange={handleFileInputChange}
+                    data-testid="input-upload-file"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {uploadedAudioUrl && (
+                <>
+                  <audio
+                    ref={uploadAudioRef}
+                    src={uploadedAudioUrl}
+                    onEnded={() => setIsUploadPlaying(false)}
+                  />
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Uploaded Audio</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handleUploadPlayPause}
+                          data-testid="button-play-uploaded"
+                        >
+                          {isUploadPlaying ? (
+                            <Pause className="h-5 w-5" />
+                          ) : (
+                            <Play className="h-5 w-5" />
+                          )}
+                        </Button>
+                        <div className="flex-1">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full bg-primary transition-all ${isUploadPlaying ? 'w-full' : 'w-0'}`} />
+                          </div>
+                          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                            <span className="truncate max-w-[300px]" data-testid="text-uploaded-filename">
+                              {uploadedFile.name}
+                            </span>
+                            <span>{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="icon" onClick={handleUploadDownload} data-testid="button-download-uploaded">
+                          <Download className="h-5 w-5" />
+                        </Button>
+                      </div>
+                      <div className="mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setUploadedFile(null)
+                            setUploadedAudioUrl(null)
+                            if (fileInputRef.current) {
+                              fileInputRef.current.value = ''
+                            }
+                          }}
+                          data-testid="button-change-file"
+                        >
+                          Change File
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </>
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-3">
             <Button
               size="lg"
-              disabled
+              disabled={!uploadedFile}
+              onClick={handleProceed}
               data-testid="button-proceed-upload"
             >
               Continue to Avatar Selection
