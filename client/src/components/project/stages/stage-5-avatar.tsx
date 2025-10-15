@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { type Project } from "@shared/schema"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle } from "lucide-react"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe } from "lucide-react"
 
 interface Stage5Props {
   project: Project
@@ -21,6 +21,7 @@ interface HeyGenAvatar {
   gender?: string
   preview_image_url?: string
   preview_video_url?: string
+  is_public?: boolean
 }
 
 interface VideoStatus {
@@ -148,9 +149,22 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     }
   }, [pollingInterval])
 
-  const filteredAvatars = avatars?.filter(avatar =>
+  // Group avatars by category
+  const { myAvatars, publicAvatars } = useMemo(() => {
+    const all = avatars || []
+    const my = all.filter(avatar => !avatar.is_public)
+    const pub = all.filter(avatar => avatar.is_public)
+    return { myAvatars: my, publicAvatars: pub }
+  }, [avatars])
+
+  // Apply search filter
+  const filteredMyAvatars = myAvatars.filter(avatar =>
     avatar.avatar_name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  )
+  
+  const filteredPublicAvatars = publicAvatars.filter(avatar =>
+    avatar.avatar_name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const handlePreview = (avatarId: string, previewUrl?: string) => {
     if (!previewUrl) return
