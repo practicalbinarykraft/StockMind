@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Mic, Play, Pause, Download, Loader2, AlertCircle, Volume2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Mic, Play, Pause, Download, Loader2, AlertCircle, Volume2, Upload } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -32,9 +33,11 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
                        analysisData?.text ||
                        "Enter your script here..."
   
+  const [mode, setMode] = useState<"generate" | "upload">("generate")
   const [finalScript, setFinalScript] = useState(defaultScript)
   const [selectedVoice, setSelectedVoice] = useState<string>("")
   const [audioData, setAudioData] = useState<string | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -144,14 +147,26 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Mic className="h-8 w-8 text-chart-2" />
-          <h1 className="text-3xl font-bold">Voice Generation</h1>
+          <h1 className="text-3xl font-bold">Voice & Audio</h1>
         </div>
         <p className="text-lg text-muted-foreground">
-          Select a voice and generate professional voiceover
+          Generate AI voiceover or upload your own audio file
         </p>
       </div>
 
-      <div className="space-y-6">
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "generate" | "upload")} className="mb-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="generate" data-testid="tab-generate">
+            <Mic className="h-4 w-4 mr-2" />
+            Generate Voice
+          </TabsTrigger>
+          <TabsTrigger value="upload" data-testid="tab-upload">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Audio
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="generate" className="mt-6 space-y-6">
         {/* Script Editor */}
         <Card>
           <CardHeader>
@@ -343,7 +358,37 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             Continue to Avatar Selection
           </Button>
         </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="upload" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload Audio File</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border-2 border-dashed rounded-lg p-12 text-center hover-elevate cursor-pointer transition-all">
+                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-lg font-medium mb-2">Drag & Drop Audio File</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  or click to browse (MP3, WAV, M4A - max 25MB)
+                </p>
+                <input type="file" className="hidden" accept="audio/*" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3">
+            <Button
+              size="lg"
+              disabled
+              data-testid="button-proceed-upload"
+            >
+              Continue to Avatar Selection
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
