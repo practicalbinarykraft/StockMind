@@ -25,7 +25,16 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Enhanced Stage 4 Voice Generation
+- **2025-10-15 (Latest)**: Fixed Critical Stage 4 Audio Storage Bug
+  - ✅ FIXED Error 413 "request entity too large" when saving generated audio
+  - Root cause: 5MB base64 audio saved directly in database via JSON
+  - Solution: Auto-upload generated audio to `/api/audio/upload`, save only URL in database
+  - Generate flow: base64 → Blob → File → server upload → store audioUrl (not audioData)
+  - Updated restoration logic to load from audioUrl for both generate and upload modes
+  - Audio preview/download works with both server URLs and base64 (backward compatibility)
+  - Continue button validates serverAudioUrl presence
+
+- **2025-10-15 (Earlier)**: Enhanced Stage 4 Voice Generation
   - ✅ Fixed Stage 4 data restoration bug - separated Stage 3 analysis data from Stage 4 saved data
   - ✅ Added voice grouping: "My Voices" (custom) and "Public Voices" (ElevenLabs library)
   - ✅ Dual-mode interface: "Generate Voice" (AI) and "Upload Audio" (manual file upload)
