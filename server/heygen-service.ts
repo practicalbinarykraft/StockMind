@@ -37,7 +37,14 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
       }
     })
 
-    return response.data?.data?.avatars || []
+    const avatars = response.data?.data?.avatars || []
+    
+    // Remove duplicates by avatar_id
+    const uniqueAvatars = Array.from(
+      new Map(avatars.map((avatar: HeyGenAvatar) => [avatar.avatar_id, avatar])).values()
+    )
+    
+    return uniqueAvatars
   } catch (error: any) {
     console.error('HeyGen API error:', error.response?.data || error.message)
     throw new Error(error.response?.data?.message || 'Failed to fetch avatars from HeyGen')
