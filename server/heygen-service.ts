@@ -62,11 +62,14 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
 
 async function uploadAudioToHeyGen(apiKey: string, audioPath: string): Promise<string> {
   try {
-    console.log(`📤 Uploading audio to HeyGen: ${audioPath}`)
-    
     // Security: Validate that the file path is within allowed directory
     const normalizedPath = path.normalize(path.resolve(audioPath))
     const allowedDirWithSep = ALLOWED_AUDIO_DIR + path.sep
+    
+    console.log(`📤 Uploading audio to HeyGen:`)
+    console.log(`   Original: ${audioPath}`)
+    console.log(`   Normalized: ${normalizedPath}`)
+    console.log(`   Allowed dir: ${ALLOWED_AUDIO_DIR}`)
     
     // Must start with allowed directory AND have path separator (or be exactly the dir)
     if (normalizedPath !== ALLOWED_AUDIO_DIR && !normalizedPath.startsWith(allowedDirWithSep)) {
@@ -120,7 +123,9 @@ export async function generateHeyGenVideo(
       // /uploads/audio/proj-123.mp3 → /home/runner/workspace/uploads/audio/proj-123.mp3
       const audioPath = request.audio_url.startsWith('/')
         ? path.join(process.cwd(), request.audio_url)
-        : request.audio_url
+        : path.join(process.cwd(), request.audio_url)
+      
+      console.log(`📁 Resolved audio path: ${audioPath}`)
       
       // Upload audio and get asset_id
       const audioAssetId = await uploadAudioToHeyGen(apiKey, audioPath)
