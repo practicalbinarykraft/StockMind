@@ -57,7 +57,8 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       const res = await fetch(`/api/projects/${project.id}/steps`)
       if (!res.ok) throw new Error("Failed to fetch steps")
       const steps = await res.json()
-      return steps.find((s: any) => s.stepNumber === 4)?.data
+      const step4 = steps.find((s: any) => s.stepNumber === 4)
+      return step4?.data ?? null
     }
   })
 
