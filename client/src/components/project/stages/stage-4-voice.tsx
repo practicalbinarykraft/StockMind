@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
-import { apiRequest } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 import { type Project } from "@shared/schema"
+import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,6 +28,8 @@ interface Voice {
 }
 
 export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
+  const { toast } = useToast()
+
   // Get script from previous stage analysis
   const analysisData = stepData
   const defaultScript = analysisData?.scenes?.map((s: any) => s.text).join(" ") || 
@@ -39,6 +42,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const [audioData, setAudioData] = useState<string | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null)
+  const [serverAudioUrl, setServerAudioUrl] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isUploadPlaying, setIsUploadPlaying] = useState(false)
@@ -140,9 +144,107 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     URL.revokeObjectURL(url)
   }
 
-  const handleProceed = () => {
-    console.log("Proceeding to Stage 5", { finalScript, selectedVoice, audioData: !!audioData })
+  const handleProceed = async () => {
+    // Validate based on mode
+    if (mode === "generate") {
+      if (!audioData || !selectedVoice) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please generate audio first",
+        })
+        return
+      }
+    } else if (mode === "upload") {
+      if (!uploadedFile || !serverAudioUrl) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: uploadMutation.isPending ? "Audio is uploading, please wait..." : "Please upload an audio file first",
+        })
+        return
+      }
+    }
+
+    try {
+      await saveStepMutation.mutateAsync()
+      await updateProjectMutation.mutateAsync()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to save and proceed",
+      })
+    }
   }
+
+  // Upload mutation
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('audio', file)
+      
+      const res = await fetch("/api/audio/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      })
+      
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || "Failed to upload audio")
+      }
+      
+      return await res.json()
+    },
+    onSuccess: (data) => {
+      console.log('Audio uploaded successfully:', data)
+      setServerAudioUrl(data.audioUrl)
+    },
+  })
+
+  // Save step data mutation
+  const saveStepMutation = useMutation({
+    mutationFn: async () => {
+      const stepDataToSave = mode === "generate" 
+        ? {
+            mode: "generate",
+            finalScript,
+            selectedVoice,
+            audioData,
+          }
+        : {
+            mode: "upload",
+            audioUrl: serverAudioUrl,
+            filename: uploadedFile?.name,
+            filesize: uploadedFile?.size,
+          }
+
+      return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 4,
+        data: stepDataToSave
+      })
+    }
+  })
+
+  // Update project stage mutation
+  const updateProjectMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
+        currentStage: 5
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      
+      toast({
+        title: "Audio Saved",
+        description: "Moving to Avatar Selection...",
+      })
+    }
+  })
 
   // File upload handlers
   const handleFileSelect = (file: File) => {
@@ -162,6 +264,9 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     setUploadedFile(file)
     const url = URL.createObjectURL(file)
     setUploadedAudioUrl(url)
+    
+    // Upload to server
+    uploadMutation.mutate(file)
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -429,10 +534,17 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           <Button
             size="lg"
             onClick={handleProceed}
-            disabled={!audioData}
+            disabled={!audioData || saveStepMutation.isPending || updateProjectMutation.isPending}
             data-testid="button-proceed-stage5"
           >
-            Continue to Avatar Selection
+            {saveStepMutation.isPending || updateProjectMutation.isPending ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Saving...
+              </>
+            ) : (
+              "Continue to Avatar Selection"
+            )}
           </Button>
         </div>
         </TabsContent>
@@ -538,11 +650,23 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           <div className="flex justify-end gap-3">
             <Button
               size="lg"
-              disabled={!uploadedFile}
+              disabled={!uploadedFile || !serverAudioUrl || uploadMutation.isPending || saveStepMutation.isPending || updateProjectMutation.isPending}
               onClick={handleProceed}
               data-testid="button-proceed-upload"
             >
-              Continue to Avatar Selection
+              {uploadMutation.isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Uploading...
+                </>
+              ) : saveStepMutation.isPending || updateProjectMutation.isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                "Continue to Avatar Selection"
+              )}
             </Button>
           </div>
         </TabsContent>
