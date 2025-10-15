@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
 import Parser from "rss-parser";
+import { scoreNewsItem, analyzeScript } from "./ai-service";
 
 const rssParser = new Parser();
 
@@ -211,6 +212,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // AI ANALYSIS ROUTES
+  // ============================================================================
+
+  app.post("/api/ai/analyze-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { format, content } = req.body;
+
+      if (!format || !content) {
+        return res.status(400).json({ message: "Format and content are required" });
+      }
+
+      // Get user's Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No Anthropic API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[AI] Analyzing script for format: ${format}`);
+      const analysis = await analyzeScript(apiKey.encryptedKey, format, content);
+      
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Error analyzing script:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze script" });
+    }
+  });
+
+  // ============================================================================
   // PROJECT STEPS ROUTES
   // ============================================================================
 
@@ -250,18 +282,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const feed = await rssParser.parseURL(url);
       
       let itemCount = 0;
+      const createdItems: any[] = [];
       
       for (const item of feed.items.slice(0, 20)) { // Limit to 20 items
         try {
-          await storage.createRssItem({
+          const rssItem = await storage.createRssItem({
             sourceId,
             title: item.title || 'Untitled',
             url: item.link || url,
             content: item.contentSnippet || item.content || '',
             publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
-            aiScore: null, // Will be scored later by AI
+            aiScore: null,
             aiComment: null,
           });
+          createdItems.push(rssItem);
           itemCount++;
         } catch (err) {
           console.error(`[RSS] Failed to save item:`, err);
@@ -277,8 +311,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[RSS] Successfully parsed ${itemCount} items from ${sourceId}`);
 
-      // TODO: Trigger AI scoring in background
-      // scoreNewsItems(sourceId, userId).catch(err => console.error('AI scoring failed:', err));
+      // Trigger AI scoring in background
+      scoreRssItems(createdItems, userId).catch(err => 
+        console.error('AI scoring failed:', err)
+      );
 
     } catch (error: any) {
       console.error(`[RSS] Parsing failed for ${sourceId}:`, error);
@@ -286,6 +322,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parseStatus: 'error',
         parseError: error.message || 'Failed to parse RSS feed',
       });
+    }
+  }
+
+  async function scoreRssItems(items: any[], userId: string) {
+    try {
+      // Get user's Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        console.log('[AI] No Anthropic API key found for user, skipping scoring');
+        return;
+      }
+
+      console.log(`[AI] Scoring ${items.length} RSS items...`);
+      
+      for (const item of items) {
+        try {
+          const result = await scoreNewsItem(
+            apiKey.encryptedKey, // This is decrypted in getUserApiKey
+            item.title,
+            item.content
+          );
+
+          // Update the item with AI score
+          await storage.updateRssItem(item.id, {
+            aiScore: result.score,
+            aiComment: result.comment,
+          });
+
+          console.log(`[AI] Scored item "${item.title}": ${result.score}/100`);
+        } catch (err) {
+          console.error(`[AI] Failed to score item "${item.title}":`, err);
+        }
+      }
+
+      console.log(`[AI] Completed scoring ${items.length} items`);
+    } catch (error) {
+      console.error('[AI] Scoring failed:', error);
     }
   }
 
