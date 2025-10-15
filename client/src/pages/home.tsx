@@ -6,21 +6,56 @@ import {
   Plus,
   FolderOpen,
   Trash2,
+  MoreVertical,
+  Edit,
 } from "lucide-react"
 import { useLocation } from "wouter"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation } from "@tanstack/react-query"
 import type { Project } from "@shared/schema"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 
 export default function Home() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [, setLocation] = useLocation()
   const [filter, setFilter] = useState<"all" | "draft" | "completed" | "deleted">("all")
   const { toast } = useToast()
+  
+  // Dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [newTitle, setNewTitle] = useState("")
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -39,10 +74,80 @@ export default function Home() {
     queryKey: ["/api/projects"],
   })
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      return await apiRequest("DELETE", `/api/projects/${projectId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      toast({
+        title: "Project Deleted",
+        description: "Project has been moved to deleted. Can be restored within 7 days.",
+      })
+      setDeleteDialogOpen(false)
+      setSelectedProject(null)
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete project",
+      })
+    }
+  })
+
+  // Rename mutation
+  const renameMutation = useMutation({
+    mutationFn: async ({ projectId, title }: { projectId: string, title: string }) => {
+      return await apiRequest("PATCH", `/api/projects/${projectId}`, { title })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      toast({
+        title: "Project Renamed",
+        description: "Project name has been updated successfully.",
+      })
+      setRenameDialogOpen(false)
+      setSelectedProject(null)
+      setNewTitle("")
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to rename project",
+      })
+    }
+  })
+
   const filteredProjects = projects?.filter(p => {
     if (filter === "all") return p.status !== "deleted"
     return p.status === filter
   }) || []
+
+  const handleDelete = (project: Project) => {
+    setSelectedProject(project)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleRename = (project: Project) => {
+    setSelectedProject(project)
+    setNewTitle(project.title || "")
+    setRenameDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (selectedProject) {
+      deleteMutation.mutate(selectedProject.id)
+    }
+  }
+
+  const confirmRename = () => {
+    if (selectedProject && newTitle.trim()) {
+      renameMutation.mutate({ projectId: selectedProject.id, title: newTitle.trim() })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -160,21 +265,66 @@ export default function Home() {
             {filteredProjects.map((project) => (
               <Card
                 key={project.id}
-                className="hover-elevate active-elevate-2 cursor-pointer transition-all"
-                onClick={() => setLocation(`/project/${project.id}`)}
+                className="hover-elevate active-elevate-2 transition-all"
                 data-testid={`card-project-${project.id}`}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg line-clamp-1">
-                      {project.title || "Untitled Project"}
-                    </CardTitle>
-                    <Badge variant={project.status === "completed" ? "default" : "secondary"}>
-                      {project.status}
-                    </Badge>
+                    <div 
+                      className="flex-1 cursor-pointer"
+                      onClick={() => setLocation(`/project/${project.id}`)}
+                    >
+                      <CardTitle className="text-lg line-clamp-1">
+                        {project.title || "Untitled Project"}
+                      </CardTitle>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={project.status === "completed" ? "default" : "secondary"}>
+                        {project.status}
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid={`button-menu-${project.id}`}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRename(project)
+                            }}
+                            data-testid={`menu-rename-${project.id}`}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(project)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                            data-testid={`menu-delete-${project.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent 
+                  className="cursor-pointer"
+                  onClick={() => setLocation(`/project/${project.id}`)}
+                >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Source:</span>
@@ -206,6 +356,75 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the project to Deleted. You can restore it within 7 days.
+              After 7 days, the project will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Project</DialogTitle>
+            <DialogDescription>
+              Enter a new name for your project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-title">Project Name</Label>
+              <Input
+                id="project-title"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Enter project name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newTitle.trim()) {
+                    confirmRename()
+                  }
+                }}
+                data-testid="input-rename-project"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRenameDialogOpen(false)}
+              data-testid="button-cancel-rename"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRename}
+              disabled={!newTitle.trim() || renameMutation.isPending}
+              data-testid="button-confirm-rename"
+            >
+              {renameMutation.isPending ? "Renaming..." : "Rename"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
