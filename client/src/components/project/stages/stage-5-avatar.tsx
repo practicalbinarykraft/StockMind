@@ -57,11 +57,12 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     mutationFn: async () => {
       if (!selectedAvatar || !script) return null
       
-      const response = await apiRequest(
+      const res = await apiRequest(
         "POST",
         "/api/heygen/generate",
         { avatarId: selectedAvatar, script, audioUrl, voiceId }
-      ) as unknown as { videoId: string }
+      )
+      const response = await res.json() as { videoId: string }
       return response
     },
     onSuccess: (data) => {
@@ -103,7 +104,8 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     // Start polling with a local interval reference
     const intervalId = setInterval(async () => {
       try {
-        const status = await apiRequest("GET", `/api/heygen/status/${videoId}`) as unknown as VideoStatus
+        const res = await apiRequest("GET", `/api/heygen/status/${videoId}`)
+        const status = await res.json() as VideoStatus
         setVideoStatus(status)
 
         if (status.status === 'completed') {
@@ -126,7 +128,8 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
 
     // Check status immediately (before first interval)
     try {
-      const status = await apiRequest("GET", `/api/heygen/status/${videoId}`) as VideoStatus
+      const res = await apiRequest("GET", `/api/heygen/status/${videoId}`)
+      const status = await res.json() as VideoStatus
       setVideoStatus(status)
 
       if (status.status === 'completed') {
