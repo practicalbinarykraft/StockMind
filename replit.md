@@ -25,7 +25,16 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Completed full MVP pipeline (Stages 1-6)
+- **2025-10-15 (Latest)**: Enhanced Stage 4 Voice Generation
+  - ✅ Fixed Stage 4 data restoration bug - separated Stage 3 analysis data from Stage 4 saved data
+  - ✅ Added voice grouping: "My Voices" (custom) and "Public Voices" (ElevenLabs library)
+  - ✅ Dual-mode interface: "Generate Voice" (AI) and "Upload Audio" (manual file upload)
+  - ✅ Voice selection UI with icons, counts, preview buttons, and proper categorization
+  - Fixed TanStack Query undefined data error with proper null coalescing
+  - Script auto-loads from Stage 3 analysis for new projects
+  - Upload mode with drag & drop, audio preview, and server storage
+
+- **2025-10-15 (Earlier)**: Completed full MVP pipeline (Stages 1-6)
   - ✅ Stage 4: ElevenLabs voice generation with preview playback and audio download
   - ✅ Stage 5: HeyGen avatar video generation with real-time progress polling
   - ✅ Stage 6: Final export with video display, download, share, and project completion
