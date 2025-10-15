@@ -79,8 +79,22 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
       setAnalysis(data)
       setSelectedFormat(data.format)
       
-      // Save to cache immediately after analysis
-      saveStepMutation.mutate()
+      // Save to cache immediately with fresh data (don't rely on state!)
+      apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 3,
+        data: {
+          selectedFormat: data.format,
+          selectedVariants: {},
+          editedScenes: {},
+          overallScore: data.overallScore,
+          overallComment: data.overallComment,
+          scenes: data.scenes
+        }
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      }).catch(err => {
+        console.error("Failed to cache analysis:", err)
+      })
     },
   })
 
