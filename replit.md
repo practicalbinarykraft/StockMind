@@ -25,7 +25,14 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Added Auto-Save for Stage 4 Audio
+- **2025-10-15 (Latest)**: Fixed Stage 5 Data Access Bug
+  - ✅ FIXED: Stage 5 crash when trying to access stepData[4] 
+  - Root cause: stepData is Stage 4 object, not array of all steps
+  - Changed script access from stepData[4]?.finalScript to stepData?.finalScript
+  - Changed voice access from stepData[4]?.selectedVoice to stepData?.selectedVoice
+  - Stage 5 now correctly loads avatars and displays video generation UI
+
+- **2025-10-15 (Earlier)**: Added Auto-Save for Stage 4 Audio
   - ✅ FIXED: Audio now persists immediately after generation (no data loss on refresh)
   - Auto-save flow: Generate → Upload to server → Immediately save to database
   - Database saves audioUrl (not base64) to prevent 413 errors
