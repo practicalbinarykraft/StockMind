@@ -8,6 +8,7 @@ import {
   Trash2,
   MoreVertical,
   Edit,
+  RotateCcw,
 } from "lucide-react"
 import { useLocation } from "wouter"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -53,6 +54,7 @@ export default function Home() {
   
   // Dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [newTitle, setNewTitle] = useState("")
@@ -121,6 +123,53 @@ export default function Home() {
     }
   })
 
+  // Restore mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      return await apiRequest("PATCH", `/api/projects/${projectId}`, { 
+        status: 'draft',
+        deletedAt: null
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      toast({
+        title: "Project Restored",
+        description: "Project has been restored to drafts.",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to restore project",
+      })
+    }
+  })
+
+  // Permanent delete mutation
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      return await apiRequest("DELETE", `/api/projects/${projectId}/permanent`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      toast({
+        title: "Project Deleted Permanently",
+        description: "Project has been permanently deleted from the database.",
+      })
+      setPermanentDeleteDialogOpen(false)
+      setSelectedProject(null)
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete project permanently",
+      })
+    }
+  })
+
   const filteredProjects = projects?.filter(p => {
     if (filter === "all") return p.status !== "deleted"
     return p.status === filter
@@ -137,9 +186,24 @@ export default function Home() {
     setRenameDialogOpen(true)
   }
 
+  const handleRestore = (project: Project) => {
+    restoreMutation.mutate(project.id)
+  }
+
+  const handlePermanentDelete = (project: Project) => {
+    setSelectedProject(project)
+    setPermanentDeleteDialogOpen(true)
+  }
+
   const confirmDelete = () => {
     if (selectedProject) {
       deleteMutation.mutate(selectedProject.id)
+    }
+  }
+
+  const confirmPermanentDelete = () => {
+    if (selectedProject) {
+      permanentDeleteMutation.mutate(selectedProject.id)
     }
   }
 
@@ -295,27 +359,55 @@ export default function Home() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleRename(project)
-                            }}
-                            data-testid={`menu-rename-${project.id}`}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(project)
-                            }}
-                            className="text-destructive focus:text-destructive"
-                            data-testid={`menu-delete-${project.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {project.status === 'deleted' ? (
+                            <>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRestore(project)
+                                }}
+                                data-testid={`menu-restore-${project.id}`}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Restore
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePermanentDelete(project)
+                                }}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`menu-delete-permanent-${project.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Permanently
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRename(project)
+                                }}
+                                data-testid={`menu-rename-${project.id}`}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDelete(project)
+                                }}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`menu-delete-${project.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -425,6 +517,35 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={permanentDeleteDialogOpen} onOpenChange={setPermanentDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This action <strong>cannot be undone</strong>. This will permanently delete the project 
+                and all associated data from the database.
+              </p>
+              <p className="text-destructive font-medium">
+                Are you absolutely sure you want to continue?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-permanent-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmPermanentDelete}
+              disabled={permanentDeleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-permanent-delete"
+            >
+              {permanentDeleteMutation.isPending ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

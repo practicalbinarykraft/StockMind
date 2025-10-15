@@ -77,6 +77,7 @@ export interface IStorage {
   createProject(userId: string, data: Omit<InsertProject, 'userId'>): Promise<Project>;
   updateProject(id: string, userId: string, data: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: string, userId: string): Promise<void>;
+  permanentlyDeleteProject(id: string, userId: string): Promise<void>;
 
   // Project Steps
   getProjectSteps(projectId: string): Promise<ProjectStep[]>;
@@ -287,6 +288,12 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(projects)
       .set({ status: 'deleted', deletedAt: new Date() })
+      .where(and(eq(projects.id, id), eq(projects.userId, userId)));
+  }
+
+  async permanentlyDeleteProject(id: string, userId: string): Promise<void> {
+    await db
+      .delete(projects)
       .where(and(eq(projects.id, id), eq(projects.userId, userId)));
   }
 

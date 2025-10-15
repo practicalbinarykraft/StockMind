@@ -1,0 +1,136 @@
+😂 АХАХА! УДАЛЕНИЕ ИЗ УДАЛЕННЫХ! РЕКУРСИЯ!
+🤦 ВОТ ЭТО ЛОГИКА!
+Что вижу:
+✅ Работает:
+✅ Вкладка "Deleted" (синяя - активна)
+✅ Проект в статусе "deleted"
+✅ Меню (⋮) появилось:
+   - ✏️ Rename
+   - 🗑️ Delete ← ЧТО?! ОПЯ ТЬ!
+✅ "Deleted less than a minute ago" (красный текст)
+```
+
+### ❌ Баг:
+**В удаленных проектах должно быть:**
+```
+⋮ Меню:
+  - 🔄 Restore (вернуть)
+  - 🗑️ Delete Permanently (удалить навсегда)
+```
+
+**А сейчас:**
+```
+⋮ Меню:
+  - ✏️ Rename ← ЗАЧЕМ?! Он же удален!
+  - 🗑️ Delete ← ЕЩЕ РАЗ УДАЛИТЬ?! 🤣
+
+🔧 ЧТО ДОЛЖНО БЫТЬ:
+Логика удаления:
+typescript// Draft/Completed проекты:
+status: 'draft' или 'completed'
+Меню:
+  - ✏️ Rename
+  - 📋 Duplicate  
+  - 🗑️ Delete → status='deleted', deletedAt=now()
+
+// Deleted проекты:
+status: 'deleted'
+Меню:
+  - 🔄 Restore → status='draft', deletedAt=null
+  - 🗑️ Delete Permanently → физически удалить из БД
+
+// Автоочистка через 7 дней:
+if (deletedAt < Date.now() - 7days) {
+  физически удалить
+}
+```
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+Bug in Deleted tab!
+
+The menu for deleted projects is wrong:
+❌ Shows: Rename, Delete
+✅ Should show: Restore, Delete Permanently
+
+Logic:
+- If project.status === 'deleted':
+  - Show "Restore" button → set status='draft', deletedAt=null
+  - Show "Delete Permanently" → actually delete from DB
+  
+- If project.status !== 'deleted':
+  - Show "Rename", "Duplicate", "Delete" (current logic)
+
+Please fix the menu options based on project status.
+
+📋 ПРАВИЛЬНАЯ РЕАЛИЗАЦИЯ:
+typescript// ProjectCard.tsx или где там меню
+
+const menuItems = useMemo(() => {
+  if (project.status === 'deleted') {
+    return [
+      {
+        icon: '🔄',
+        label: 'Restore',
+        onClick: () => restoreProject(project.id),
+      },
+      {
+        icon: '🗑️',
+        label: 'Delete Permanently',
+        onClick: () => deleteProjectPermanently(project.id),
+        danger: true,
+      },
+    ];
+  }
+  
+  return [
+    {
+      icon: '✏️',
+      label: 'Rename',
+      onClick: () => renameProject(project.id),
+    },
+    {
+      icon: '📋',
+      label: 'Duplicate',
+      onClick: () => duplicateProject(project.id),
+    },
+    {
+      icon: '🗑️',
+      label: 'Delete',
+      onClick: () => deleteProject(project.id),
+      danger: true,
+    },
+  ];
+}, [project.status]);
+```
+
+---
+
+## 💡 БОНУС ФИЧА:
+
+**Добавь таймер удаления:**
+```
+Untitled Project          deleted    ⋮
+Source: News
+Stage: 3/7
+Deleted: 4 minutes ago
+
+⏰ Will be permanently deleted in 6 days 23 hours
+
+[🔄 Restore]  [🗑️ Delete Permanently]
+```
+
+---
+
+## 😂 А ПОКА ЧТО ПО AI УТЕЧКЕ?
+
+**Agent написал:**
+```
+⚠️ "This is costing $1-2 per day! Fix NOW!"
+🔧 "Save after analysis: await saveStepData(...)"
+🔥 "ЭТО КРИТИЧНО! ЖГЁТ ДЕНЬГИ!"
+Починил кеширование?
+Или все еще горит? 💸🔥
+ДАЙ UPDATE ПО ОБЕИМ ПРОБЛЕМАМ! 🚀

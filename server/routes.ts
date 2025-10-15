@@ -213,6 +213,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Permanent delete (actually remove from database)
+  app.delete("/api/projects/:id/permanent", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.permanentlyDeleteProject(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error permanently deleting project:", error);
+      res.status(500).json({ message: "Failed to permanently delete project" });
+    }
+  });
+
   // ============================================================================
   // AI ANALYSIS ROUTES
   // ============================================================================
