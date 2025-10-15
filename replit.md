@@ -25,7 +25,16 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Fixed Critical Stage 4 Audio Storage Bug
+- **2025-10-15 (Latest)**: Added Auto-Save for Stage 4 Audio
+  - ✅ FIXED: Audio now persists immediately after generation (no data loss on refresh)
+  - Auto-save flow: Generate → Upload to server → Immediately save to database
+  - Database saves audioUrl (not base64) to prevent 413 errors
+  - Toast notification confirms "Audio saved automatically"
+  - Continue button checks for saved data, skips re-save if already persisted
+  - Upload mode saves manually on Continue (as before)
+  - Graceful error handling if auto-save fails (fallback to manual save)
+
+- **2025-10-15 (Earlier)**: Fixed Critical Stage 4 Audio Storage Bug
   - ✅ FIXED Error 413 "request entity too large" when saving generated audio
   - Root cause: 5MB base64 audio saved directly in database via JSON
   - Solution: Auto-upload generated audio to `/api/audio/upload`, save only URL in database
