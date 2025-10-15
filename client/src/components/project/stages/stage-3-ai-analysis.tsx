@@ -8,9 +8,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScoreBadge } from "@/components/score-badge"
-import { Sparkles, FileText, Edit2, Loader2, AlertCircle } from "lucide-react"
+import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Stage3Props {
   project: Project
@@ -54,6 +64,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({})
   const [editedScenes, setEditedScenes] = useState<Record<number, string>>({})
   const [isEditing, setIsEditing] = useState<number | null>(null)
+  const [reanalyzeDialogOpen, setReanalyzeDialogOpen] = useState(false)
   const { toast } = useToast()
 
   // Get content from step data (step 2 saves as "text" for custom or "content" for news)
@@ -67,17 +78,43 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
     onSuccess: (data) => {
       setAnalysis(data)
       setSelectedFormat(data.format)
+      
+      // Save to cache immediately after analysis
+      saveStepMutation.mutate()
     },
   })
 
-  // Auto-analyze on mount if content exists and no analysis yet
+  // Load cached analysis from stepData on mount
   useEffect(() => {
-    if (content && !analysis && !analyzeMutation.isPending) {
+    // CHECK CACHE FIRST! Don't call AI if we have cached data
+    if (stepData?.scenes && stepData?.overallScore !== undefined) {
+      // Load from cache
+      setAnalysis({
+        format: stepData.selectedFormat || 'news',
+        overallScore: stepData.overallScore,
+        overallComment: stepData.overallComment || '',
+        scenes: stepData.scenes
+      })
+      setSelectedFormat(stepData.selectedFormat || 'news')
+      setSelectedVariants(stepData.selectedVariants || {})
+      setEditedScenes(stepData.editedScenes || {})
+    } else if (content && !analysis && !analyzeMutation.isPending) {
+      // Only call AI if NO cache exists
       analyzeMutation.mutate(selectedFormat)
     }
   }, [content])
 
   const handleAnalyze = () => {
+    // If analysis already exists (from cache), show cost warning
+    if (analysis) {
+      setReanalyzeDialogOpen(true)
+    } else {
+      analyzeMutation.mutate(selectedFormat)
+    }
+  }
+
+  const confirmReanalyze = () => {
+    setReanalyzeDialogOpen(false)
     analyzeMutation.mutate(selectedFormat)
   }
 
@@ -193,25 +230,37 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
             </div>
 
             {/* Analyze Button */}
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-col items-center gap-2">
               <Button
                 size="lg"
                 onClick={handleAnalyze}
                 disabled={analyzeMutation.isPending || !content}
                 data-testid="button-analyze"
+                variant={analysis ? "outline" : "default"}
               >
                 {analyzeMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Analyzing...
                   </>
+                ) : analysis ? (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Re-analyze with Selected Format
+                  </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    {analysis ? "Re-analyze with Selected Format" : "Analyze Content"}
+                    Analyze Content
                   </>
                 )}
               </Button>
+              {analysis && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  Re-analyzing will use AI credits (~$0.05)
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -386,6 +435,41 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
           </Card>
         )}
       </div>
+
+      {/* Re-analyze Confirmation Dialog */}
+      <AlertDialog open={reanalyzeDialogOpen} onOpenChange={setReanalyzeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-amber-500" />
+              Re-analyze Content?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This will call the AI API again and use credits (~$0.05 per analysis).
+              </p>
+              <p className="text-sm">
+                Your current analysis is already saved. Only re-analyze if:
+              </p>
+              <ul className="text-sm list-disc list-inside space-y-1 ml-2">
+                <li>You changed the format template</li>
+                <li>You want different AI-generated variants</li>
+                <li>The current analysis has issues</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-reanalyze">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmReanalyze}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="button-confirm-reanalyze"
+            >
+              Re-analyze (~$0.05)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
