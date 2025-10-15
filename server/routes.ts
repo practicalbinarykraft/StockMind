@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
 import Parser from "rss-parser";
 import { scoreNewsItem, analyzeScript } from "./ai-service";
+import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 
 const rssParser = new Parser();
 
@@ -239,6 +240,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error analyzing script:", error);
       res.status(500).json({ message: error.message || "Failed to analyze script" });
+    }
+  });
+
+  // ============================================================================
+  // ELEVENLABS ROUTES
+  // ============================================================================
+
+  app.get("/api/elevenlabs/voices", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get user's ElevenLabs API key
+      const apiKey = await storage.getUserApiKey(userId, 'elevenlabs');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No ElevenLabs API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[ElevenLabs] Fetching voices for user ${userId}`);
+      const voices = await fetchVoices(apiKey.encryptedKey);
+      
+      res.json(voices);
+    } catch (error: any) {
+      console.error("Error fetching voices:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch voices" });
+    }
+  });
+
+  app.post("/api/elevenlabs/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { voiceId, text, voiceSettings } = req.body;
+
+      if (!voiceId || !text) {
+        return res.status(400).json({ message: "Voice ID and text are required" });
+      }
+
+      // Get user's ElevenLabs API key
+      const apiKey = await storage.getUserApiKey(userId, 'elevenlabs');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No ElevenLabs API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[ElevenLabs] Generating speech for user ${userId}, voice ${voiceId}`);
+      const audioBuffer = await generateSpeech(apiKey.encryptedKey, voiceId, text, {
+        voice_settings: voiceSettings,
+      });
+
+      // Return audio as base64 for easy frontend handling
+      const audioBase64 = audioBuffer.toString('base64');
+      res.json({ 
+        audio: audioBase64,
+        format: 'mp3',
+        size: audioBuffer.length 
+      });
+    } catch (error: any) {
+      console.error("Error generating speech:", error);
+      res.status(500).json({ message: error.message || "Failed to generate speech" });
     }
   });
 
