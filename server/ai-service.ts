@@ -22,7 +22,7 @@ export interface ScriptAnalysis {
 export async function scoreNewsItem(
   apiKey: string,
   title: string,
-  content: string
+  content: string,
 ): Promise<NewsScoreResult> {
   const anthropic = new Anthropic({ apiKey });
 
@@ -44,8 +44,8 @@ Respond in JSON format:
 }`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20240620",
-    max_tokens: 256,
+    model: "claude-sonnet-4-5",
+    max_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -69,7 +69,7 @@ Respond in JSON format:
 export async function analyzeScript(
   apiKey: string,
   format: string,
-  content: string
+  content: string,
 ): Promise<ScriptAnalysis> {
   const anthropic = new Anthropic({ apiKey });
 
@@ -98,7 +98,7 @@ Respond in JSON format:
 }`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20240620",
+    model: "claude-sonnet-4-5",
     max_tokens: 2048,
     messages: [{ role: "user", content: prompt }],
   });
