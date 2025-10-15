@@ -164,10 +164,35 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         const uploadData = await uploadRes.json()
         setServerAudioUrl(uploadData.audioUrl)
         
-        toast({
-          title: "Audio generated successfully",
-          description: "Audio file has been saved",
-        })
+        // Auto-save to database after successful upload
+        try {
+          const stepDataToSave = {
+            mode: "generate",
+            finalScript,
+            selectedVoice,
+            audioUrl: uploadData.audioUrl,
+          }
+
+          await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+            stepNumber: 4,
+            data: stepDataToSave
+          })
+
+          // Invalidate queries to refresh data
+          await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
+          
+          toast({
+            title: "Audio saved",
+            description: "Audio has been generated and saved automatically",
+          })
+        } catch (saveError) {
+          console.error('Error auto-saving:', saveError)
+          toast({
+            variant: "destructive",
+            title: "Warning",
+            description: "Audio generated but failed to auto-save. Please click Continue to save manually.",
+          })
+        }
       } catch (error) {
         console.error('Error uploading audio:', error)
         toast({
