@@ -25,7 +25,19 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Fixed Critical HeyGen API Integration Bug
+- **2025-10-15 (Latest)**: Implemented Reliable Video Generation with Auto-Resume
+  - ✅ CRITICAL FIX: Video generation now reliable even if user closes tab/refreshes page
+  - **Immediate persistence:** videoId saved to database instantly when generation starts
+  - **Auto-resume polling:** On return to Stage 5, system checks for unfinished videos and resumes status polling
+  - **State restoration:** selectedAvatar, videoId, and videoStatus restored from database
+  - **Data protection:** Fallback to stepData values prevents null overwrites during resumed sessions
+  - **Three scenarios covered:**
+    * Continuous generation → completion (no interruption)
+    * Generation → user exits → returns before completion → polling resumes → shows completed video
+    * Generation → user exits → completes while away → returns → shows ready video immediately
+  - All architect security reviews passed
+
+- **2025-10-15 (Earlier)**: Fixed Critical HeyGen API Integration Bug
   - ✅ FIXED: HeyGen API error "voice_id is invalid: Field required"
   - Root cause: HeyGen does NOT accept audio_url parameter directly
   - Solution: Implemented proper audio upload workflow:
