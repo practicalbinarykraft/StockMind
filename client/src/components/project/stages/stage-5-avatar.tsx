@@ -76,6 +76,27 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     }
   })
 
+  const saveToStepData = async (status: VideoStatus) => {
+    if (status.status !== 'completed' || !status.video_url) return
+
+    // Save video data to step data for Stage 6
+    try {
+      await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stageNumber: 5,
+        data: {
+          videoUrl: status.video_url,
+          thumbnailUrl: status.thumbnail_url,
+          duration: status.duration,
+          selectedAvatar: selectedAvatar,
+          videoId: generatedVideoId
+        }
+      })
+      console.log("Video data saved to step 5")
+    } catch (err) {
+      console.error("Failed to save video data:", err)
+    }
+  }
+
   const pollVideoStatus = async (videoId: string) => {
     // Start polling with a local interval reference
     const intervalId = setInterval(async () => {
@@ -87,6 +108,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
           clearInterval(intervalId)
           setPollingInterval(null)
           console.log("Video completed:", status.video_url)
+          await saveToStepData(status)
         } else if (status.status === 'failed') {
           clearInterval(intervalId)
           setPollingInterval(null)
@@ -105,7 +127,11 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       const status = await apiRequest("GET", `/api/heygen/status/${videoId}`) as VideoStatus
       setVideoStatus(status)
 
-      if (status.status === 'completed' || status.status === 'failed') {
+      if (status.status === 'completed') {
+        clearInterval(intervalId)
+        setPollingInterval(null)
+        await saveToStepData(status)
+      } else if (status.status === 'failed') {
         clearInterval(intervalId)
         setPollingInterval(null)
       }
