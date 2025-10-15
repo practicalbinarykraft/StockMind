@@ -279,38 +279,31 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   }
 
   const handleProceed = async () => {
-    // Validate based on mode
-    if (mode === "generate") {
-      // Check for serverAudioUrl (file uploaded to server)
-      if (!serverAudioUrl) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Please generate audio first",
-        })
-        return
-      }
-    } else if (mode === "upload") {
-      // Check for either newly uploaded audio OR previously saved audio from stage4Data
-      const hasAudio = serverAudioUrl || stage4Data?.audioUrl
-      if (!hasAudio) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: uploadMutation.isPending ? "Audio is uploading, please wait..." : "Please upload an audio file first",
-        })
-        return
-      }
+    // Check if we have saved audio data (from auto-save or manual upload)
+    const hasSavedAudio = stage4Data?.audioUrl || serverAudioUrl
+    
+    if (!hasSavedAudio) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: mode === "generate" ? "Please generate audio first" : "Please upload an audio file first",
+      })
+      return
     }
 
     try {
-      await saveStepMutation.mutateAsync()
+      // If audio not auto-saved yet (upload mode), save it now
+      if (!stage4Data?.audioUrl && serverAudioUrl) {
+        await saveStepMutation.mutateAsync()
+      }
+      
+      // Move to next stage
       await updateProjectMutation.mutateAsync()
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to save and proceed",
+        description: error.message || "Failed to proceed to next stage",
       })
     }
   }
