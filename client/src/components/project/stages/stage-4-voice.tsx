@@ -243,7 +243,8 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const handleProceed = async () => {
     // Validate based on mode
     if (mode === "generate") {
-      if (!audioData || !selectedVoice) {
+      // Check for serverAudioUrl (file uploaded to server)
+      if (!serverAudioUrl) {
         toast({
           variant: "destructive",
           title: "Error",
@@ -309,7 +310,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             mode: "generate",
             finalScript,
             selectedVoice,
-            audioData,
+            audioUrl: serverAudioUrl, // Save URL instead of base64 audioData
           }
         : {
             mode: "upload",
