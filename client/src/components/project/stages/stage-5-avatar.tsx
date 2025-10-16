@@ -47,6 +47,11 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const voiceId = stepData?.selectedVoice
   const audioUrl = stepData?.audioUrl  // Keep relative path for backend
 
+  // Debug logs
+  console.log("Stage 5 received stepData (step 4):", stepData)
+  console.log("Stage 5 received step5Data (step 5):", step5Data)
+  console.log("Script extracted:", script)
+
   // Fetch avatars from HeyGen
   const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
     queryKey: ["/api/heygen/avatars"],
