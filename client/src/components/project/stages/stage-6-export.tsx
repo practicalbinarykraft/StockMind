@@ -31,6 +31,29 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
   const thumbnailUrl = step5Data?.thumbnailUrl
   const selectedAvatar = step5Data?.selectedAvatar
 
+  // Calculate timecodes based on video duration and number of scenes
+  const scenesWithTimecodes = scenes.map((scene: any, index: number) => {
+    if (!videoDuration || scenes.length === 0) return { ...scene, startTime: 0, endTime: 0, duration: 0 }
+    
+    const sceneDuration = videoDuration / scenes.length
+    const startTime = index * sceneDuration
+    const endTime = (index + 1) * sceneDuration
+    
+    return {
+      ...scene,
+      startTime,
+      endTime,
+      duration: sceneDuration
+    }
+  })
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
   // Complete project mutation
   const completeProjectMutation = useMutation({
     mutationFn: async () => {
@@ -123,29 +146,32 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
         </Alert>
       ) : (
         <div className="space-y-6">
-          {/* Scenes Overview */}
-          {scenes.length > 0 && (
+          {/* Timeline with Timecodes */}
+          {scenesWithTimecodes.length > 0 && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Сцены проекта</CardTitle>
+                  <CardTitle>Timeline проекта</CardTitle>
                   {videoDuration && (
                     <Badge variant="secondary" className="text-base">
-                      {videoDuration.toFixed(1)}s
+                      Длительность: {formatTime(videoDuration)}
                     </Badge>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {scenes.map((scene: any, index: number) => (
+                  {scenesWithTimecodes.map((scene: any, index: number) => (
                     <div 
                       key={index} 
                       className="flex items-start gap-4 p-3 rounded-md bg-muted/50"
                     >
                       <div className="flex-1">
-                        <div className="text-sm text-muted-foreground mb-1">
+                        <div className="font-medium mb-1">
                           Сцена {index + 1}
+                        </div>
+                        <div className="text-sm text-muted-foreground mb-2">
+                          {formatTime(scene.startTime)} - {formatTime(scene.endTime)} ({Math.round(scene.duration)}s)
                         </div>
                         <div className="text-sm">{scene.text}</div>
                       </div>
