@@ -59,6 +59,7 @@ export interface IStorage {
   createApiKey(userId: string, data: Omit<InsertApiKey, 'userId' | 'encryptedKey'> & { key: string }): Promise<ApiKey>;
   deleteApiKey(id: string, userId: string): Promise<void>;
   getUserApiKey(userId: string, provider: string): Promise<ApiKey | undefined>;
+  getApiKeyById(id: string, userId: string): Promise<ApiKey | undefined>;
 
   // RSS Sources
   getRssSources(userId: string): Promise<RssSource[]>;
@@ -175,6 +176,24 @@ export class DatabaseStorage implements IStorage {
     }
     
     console.log(`[Storage] No API key found for userId: ${userId}, provider: ${provider}`);
+    return undefined;
+  }
+
+  async getApiKeyById(id: string, userId: string): Promise<ApiKey | undefined> {
+    const [key] = await db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)))
+      .limit(1);
+    
+    if (key) {
+      // Decrypt the key before returning
+      return {
+        ...key,
+        encryptedKey: decryptApiKey(key.encryptedKey),
+      };
+    }
+    
     return undefined;
   }
 

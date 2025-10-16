@@ -16,6 +16,7 @@ import {
   Rss,
   Eye,
   EyeOff,
+  CheckCircle2,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -146,6 +147,38 @@ export default function Settings() {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Test API Key Mutation
+  const testApiKeyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/settings/api-keys/${id}/test`, {})
+      return await res.json()
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "API Key Test Successful",
+        description: data.message || "The API key is working correctly!",
+      })
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "API Key Test Failed",
+        description: error.message || "The API key appears to be invalid",
         variant: "destructive",
       })
     },
@@ -403,15 +436,28 @@ export default function Settings() {
                         Updated {formatDistanceToNow(new Date(key.updatedAt), { addSuffix: true })}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteApiKeyMutation.mutate(key.id)}
-                      disabled={deleteApiKeyMutation.isPending}
-                      data-testid={`button-delete-key-${key.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {key.provider === 'anthropic' && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => testApiKeyMutation.mutate(key.id)}
+                          disabled={testApiKeyMutation.isPending}
+                          data-testid={`button-test-key-${key.id}`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteApiKeyMutation.mutate(key.id)}
+                        disabled={deleteApiKeyMutation.isPending}
+                        data-testid={`button-delete-key-${key.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

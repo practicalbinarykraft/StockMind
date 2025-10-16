@@ -102,6 +102,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/settings/api-keys/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Get the API key from database (with decrypted value)
+      const apiKey = await storage.getApiKeyById(id, userId);
+      
+      if (!apiKey) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+      
+      // Test based on provider
+      if (apiKey.provider === 'anthropic') {
+        const Anthropic = (await import('@anthropic-ai/sdk')).default;
+        const anthropic = new Anthropic({ apiKey: apiKey.encryptedKey }); // encryptedKey is actually decrypted here
+        
+        // Simple test message with correct Anthropic API schema
+        const message = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 50, // Note: SDK accepts max_tokens, not max_output_tokens
+          messages: [{ 
+            role: 'user', 
+            content: 'Say "API key is working!" in one sentence.' 
+          }],
+        });
+        
+        const textContent = message.content.find((c: any) => c.type === 'text');
+        res.json({ 
+          success: true, 
+          message: (textContent as any)?.text || 'Test successful',
+          provider: apiKey.provider 
+        });
+      } else {
+        res.json({ success: true, message: `${apiKey.provider} key test not yet implemented` });
+      }
+    } catch (error: any) {
+      console.error("Error testing API key:", error);
+      
+      if (error.message?.includes('invalid') || error.message?.includes('authentication')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "API key is invalid or expired" 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: error.message || "Failed to test API key" 
+      });
+    }
+  });
+
   // ============================================================================
   // RSS SOURCES ROUTES
   // ============================================================================
