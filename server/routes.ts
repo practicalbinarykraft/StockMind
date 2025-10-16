@@ -5,9 +5,10 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
 import Parser from "rss-parser";
-import { scoreNewsItem, analyzeScript } from "./ai-service";
+import { scoreNewsItem, analyzeScript, generateAiPrompt } from "./ai-service";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
+import { generateKieVideo, getKieVideoStatus } from "./kie-service";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -487,6 +488,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating project step:", error);
       res.status(400).json({ message: error.message || "Failed to create project step" });
+    }
+  });
+
+  // ============================================================================
+  // B-ROLL GENERATION ROUTES (STAGE 7)
+  // ============================================================================
+
+  app.post("/api/projects/:id/broll/generate-prompt", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { shotInstructions, sceneText } = req.body;
+
+      if (!shotInstructions) {
+        return res.status(400).json({ message: "Shot instructions required" });
+      }
+
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Anthropic API key not configured. Please add it in Settings." 
+        });
+      }
+
+      console.log(`[B-Roll] Generating AI prompt for scene...`);
+      const aiPrompt = await generateAiPrompt(apiKey.encryptedKey, shotInstructions, sceneText);
+      
+      res.json({ aiPrompt });
+    } catch (error: any) {
+      console.error("Error generating AI prompt:", error);
+      res.status(500).json({ message: error.message || "Failed to generate AI prompt" });
+    }
+  });
+
+  app.post("/api/projects/:id/broll/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { sceneId, aiPrompt } = req.body;
+
+      if (!aiPrompt) {
+        return res.status(400).json({ message: "AI prompt required" });
+      }
+
+      const apiKey = await storage.getUserApiKey(userId, 'kie');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Kie.ai API key not configured. Please add it in Settings." 
+        });
+      }
+
+      console.log(`[B-Roll] Generating video for scene ${sceneId}...`);
+      const taskId = await generateKieVideo(apiKey.encryptedKey, {
+        prompt: aiPrompt,
+        model: 'veo3_fast',
+        aspectRatio: '9:16',
+        requestId: `${id}-${sceneId}`
+      });
+      
+      res.json({ taskId });
+    } catch (error: any) {
+      console.error("Error generating B-Roll:", error);
+      res.status(500).json({ message: error.message || "Failed to generate B-Roll" });
+    }
+  });
+
+  app.get("/api/projects/:id/broll/status/:taskId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { taskId } = req.params;
+
+      const apiKey = await storage.getUserApiKey(userId, 'kie');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Kie.ai API key not configured" 
+        });
+      }
+
+      console.log(`[B-Roll] Checking status for task ${taskId}`);
+      const status = await getKieVideoStatus(apiKey.encryptedKey, taskId);
+      
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error checking B-Roll status:", error);
+      res.status(500).json({ message: error.message || "Failed to check video status" });
     }
   });
 
