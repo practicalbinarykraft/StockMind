@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   timestamp,
@@ -180,6 +181,7 @@ export const projectSteps = pgTable("project_steps", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   index("project_steps_project_id_idx").on(table.projectId),
+  uniqueIndex("project_steps_project_step_unique").on(table.projectId, table.stepNumber),
 ]);
 
 export const insertProjectStepSchema = createInsertSchema(projectSteps).omit({

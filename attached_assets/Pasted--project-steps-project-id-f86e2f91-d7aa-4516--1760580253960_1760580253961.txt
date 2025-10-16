@@ -1,0 +1,141 @@
+🔍 ВИЖУ БАЗУ! ПРОБЛЕМА ЯСНА!
+✅ ЧТО ВИЖУ В БД:
+project_steps таблица:
+project_id: f86e2f91-d7aa-4516-bcfa...
+step_number: 5, 5, 4, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2
+           ↑  ↑
+        ДВА РЯД 5!
+```
+
+**Данные step_number = 5:**
+```
+Row 1: {"status":"generating",...}  ← СТАРЫЙ
+Row 2: {"status":"completed",...}   ← НОВЫЙ (с видео!)
+
+🔴 ПРОБЛЕМА: ДУБЛИКАТЫ!
+Agent добавляет записи ВМЕСТО обновления!
+Правильно было бы:
+sql-- ❌ СЕЙЧАС (INSERT):
+INSERT INTO project_steps (step_number = 5) ...
+INSERT INTO project_steps (step_number = 5) ... // ДУБЛИКАТ!
+
+-- ✅ ДОЛЖНО (UPSERT):
+INSERT INTO project_steps (step_number = 5)
+ON CONFLICT (project_id, step_number)
+DO UPDATE SET data = ..., updated_at = NOW()
+```
+
+---
+
+## 🔧 Agent ПЫТАЕТСЯ ПОЧИНИТЬ:
+
+**Левая панель показывает:**
+```
+Я думал:
+
+"Drizzle НЕ конвертирует автоматически 
+snake_case → camelCase при SELECT!"
+
+Когда мы пишем:
+-stepNumber: integer("step_number")
+- это только для TypeScript типов. База
+  использует реальное имя колонки
+
+План исправления:
+
+1. Получить данные из базы (приходят 
+   snake_case)
+2. Трансформировать поля в camelCase
+   вручную
+3. Вернуть правильный формат клиенту
+
+Создать task list для исправления этой
+фундаментальной проблемы?
+
+💡 НО ГЛАВНАЯ ПРОБЛЕМА - ДУБЛИКАТЫ!
+Посмотри на step_number = 5:
+Две записи:
+
+{"status":"generating",...} ← 1-я попытка
+{"status":"completed",...} ← 2-я попытка (успех!)
+
+Agent берёт ПЕРВУЮ запись (старую) вместо последней!
+
+🎯 ЧТО НУЖНО ИСПРАВИТЬ:
+1. DISTINCT ON (step_number) + ORDER BY
+Agent уже пытался:
+sqlSELECT DISTINCT ON (step_number) *
+FROM project_steps
+WHERE project_id = '...'
+ORDER BY step_number, updated_at DESC;
+Это должно брать последнюю запись для каждого step_number!
+
+2. Или ЛУЧШЕ: UPSERT вместо INSERT
+В storage.ts изменить:
+typescript// ❌ СЕЙЧАС:
+await db.insert(projectSteps).values({
+  projectId,
+  stepNumber,
+  data,
+  status
+});
+
+// ✅ ПРАВИЛЬНО:
+await db.insert(projectSteps).values({
+  projectId,
+  stepNumber,
+  data,
+  status
+}).onConflictDoUpdate({
+  target: [projectSteps.projectId, projectSteps.stepNumber],
+  set: {
+    data: sql`excluded.data`,
+    status: sql`excluded.status`,
+    updatedAt: new Date()
+  }
+});
+```
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+I see the problem in the database!
+
+There are DUPLICATE rows for step_number = 5:
+1. {"status":"generating",...}  (old)
+2. {"status":"completed",...}   (new, with video!)
+
+The query is returning the FIRST row instead of the LAST!
+
+Two fixes needed:
+
+1. IMMEDIATE: Fix getProjectSteps() to return 
+   LATEST row for each step_number:
+   
+   ORDER BY step_number, updated_at DESC
+   
+2. PERMANENT: Change INSERT to UPSERT in storage:
+   
+   .onConflictDoUpdate({
+     target: [projectSteps.projectId, projectSteps.stepNumber],
+     set: { data, status, updatedAt: NOW() }
+   })
+
+Please fix both issues now!
+
+📸 ИЛИ ВРЕМЕННЫЙ ФИКС:
+Удали старую запись вручную:
+sql-- Найди ID старой записи (с status: generating):
+SELECT id, step_number, data->>'status' as status
+FROM project_steps
+WHERE project_id = 'f86e2f91-d7aa-4516-bcfa-58329d064598'
+AND step_number = 5
+ORDER BY updated_at ASC;
+
+-- Удали старую (первую) запись:
+DELETE FROM project_steps
+WHERE id = '362d9636-5492-422e-b72...'; // ID из первой строки
+После удаления останется только одна запись step_number=5 с completed статусом!
+
+СКАЖИ AGENT ПРЯМО СЕЙЧАС ИЛИ УДАЛИ ДУБЛИКАТ ВРУЧНУЮ! 
