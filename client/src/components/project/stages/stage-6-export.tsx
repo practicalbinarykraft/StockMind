@@ -54,6 +54,18 @@ export function Stage6FinalExport({ project, stepData }: Stage6Props) {
     }
   })
 
+  // Continue to Storyboard mutation
+  const continueToStoryboardMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+        currentStage: 7
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+    }
+  })
+
   const handleDownload = () => {
     if (!videoUrl) return
     window.open(videoUrl, '_blank')
@@ -176,8 +188,16 @@ export function Stage6FinalExport({ project, stepData }: Stage6Props) {
 
         {/* Action Buttons */}
         <div className="flex gap-3">
-          <Button variant="outline" size="lg" className="flex-1" data-testid="button-stage7">
-            Add Storyboard (Optional)
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="flex-1 gap-2" 
+            onClick={() => continueToStoryboardMutation.mutate()}
+            disabled={continueToStoryboardMutation.isPending}
+            data-testid="button-stage7"
+          >
+            <Film className="h-5 w-5" />
+            Add B-Roll (Optional)
           </Button>
           <Button size="lg" className="flex-1 gap-2" onClick={handleComplete} data-testid="button-complete">
             <CheckCircle2 className="h-5 w-5" />

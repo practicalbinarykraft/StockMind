@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe } from "lucide-react"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight } from "lucide-react"
 
 interface Stage5Props {
   project: Project
@@ -81,6 +81,18 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     onError: (error: any) => {
       console.error("Video generation failed:", error)
       setVideoStatus({ status: 'failed', error_message: error.message })
+    }
+  })
+
+  // Continue to next stage mutation
+  const continueToStage6Mutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+        currentStage: 6
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
     }
   })
 
@@ -306,7 +318,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
                     </AlertDescription>
                   </Alert>
                   {videoStatus.video_url && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
                         <video
                           src={videoStatus.video_url}
@@ -315,18 +327,30 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
                           data-testid="video-generated"
                         />
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (videoStatus.video_url) {
-                            window.open(videoStatus.video_url, '_blank')
-                          }
-                        }}
-                        data-testid="button-download-video"
-                      >
-                        Download Video
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (videoStatus.video_url) {
+                              window.open(videoStatus.video_url, '_blank')
+                            }
+                          }}
+                          data-testid="button-download-video"
+                        >
+                          Download Video
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="gap-2 ml-auto"
+                          onClick={() => continueToStage6Mutation.mutate()}
+                          disabled={continueToStage6Mutation.isPending}
+                          data-testid="button-continue-stage6"
+                        >
+                          Continue to Final Export
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>

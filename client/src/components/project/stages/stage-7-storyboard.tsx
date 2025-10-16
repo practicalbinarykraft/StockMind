@@ -1,7 +1,10 @@
 import { type Project } from "@shared/schema"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Film, Plus, Download } from "lucide-react"
+import { Film, Plus, CheckCircle2, ArrowLeft } from "lucide-react"
+import { useMutation } from "@tanstack/react-query"
+import { apiRequest, queryClient } from "@/lib/queryClient"
+import { useToast } from "@/hooks/use-toast"
 
 interface Stage7Props {
   project: Project
@@ -9,6 +12,45 @@ interface Stage7Props {
 }
 
 export function Stage7Storyboard({ project }: Stage7Props) {
+  const { toast } = useToast()
+
+  // Go back to Stage 6 mutation
+  const backToStage6Mutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+        currentStage: 6
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+    }
+  })
+
+  // Complete project mutation
+  const completeProjectMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+        status: 'completed',
+        currentStage: 6  // Go back to Stage 6 after completing
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      toast({
+        title: "Project Completed",
+        description: "Your video project has been finalized!",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to complete project",
+      })
+    }
+  })
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
@@ -50,12 +92,26 @@ export function Stage7Storyboard({ project }: Stage7Props) {
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3">
-          <Button variant="outline" size="lg" data-testid="button-skip-storyboard">
-            Skip This Step
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="gap-2"
+            onClick={() => backToStage6Mutation.mutate()}
+            disabled={backToStage6Mutation.isPending}
+            data-testid="button-skip-storyboard"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Export
           </Button>
-          <Button size="lg" className="gap-2" data-testid="button-finalize">
-            <Download className="h-4 w-4" />
-            Finalize Video
+          <Button 
+            size="lg" 
+            className="gap-2" 
+            onClick={() => completeProjectMutation.mutate()}
+            disabled={completeProjectMutation.isPending}
+            data-testid="button-finalize"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Complete Project
           </Button>
         </div>
       </div>
