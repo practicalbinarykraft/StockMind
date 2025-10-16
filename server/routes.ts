@@ -408,6 +408,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analysis);
     } catch (error: any) {
       console.error("Error analyzing script:", error);
+      
+      // Check for authentication errors from Anthropic
+      if (error.message?.includes('invalid x-api-key') || error.message?.includes('authentication')) {
+        return res.status(400).json({ 
+          message: "Invalid Anthropic API key. Please verify your API key in Settings is correct." 
+        });
+      }
+      
       res.status(500).json({ message: error.message || "Failed to analyze script" });
     }
   });
