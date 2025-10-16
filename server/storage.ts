@@ -121,12 +121,13 @@ export class DatabaseStorage implements IStorage {
     data: Omit<InsertApiKey, 'userId' | 'encryptedKey'> & { key: string }
   ): Promise<ApiKey> {
     const { key, ...rest } = data;
+    const trimmedKey = key.trim(); // Remove whitespace
     const [apiKey] = await db
       .insert(apiKeys)
       .values({
         ...rest,
         userId,
-        encryptedKey: encryptApiKey(key),
+        encryptedKey: encryptApiKey(trimmedKey),
       })
       .returning();
     return apiKey;
@@ -142,7 +143,9 @@ export class DatabaseStorage implements IStorage {
     const [key] = await db
       .select()
       .from(apiKeys)
-      .where(and(eq(apiKeys.userId, userId), eq(apiKeys.provider, provider), eq(apiKeys.isActive, true)));
+      .where(and(eq(apiKeys.userId, userId), eq(apiKeys.provider, provider), eq(apiKeys.isActive, true)))
+      .orderBy(desc(apiKeys.updatedAt))
+      .limit(1);
     
     if (key) {
       // Decrypt the key before returning
