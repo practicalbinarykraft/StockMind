@@ -10,22 +10,36 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - **User-friendly workflow**: Clear progression through each production stage
 
 ## Current State
-**Development Phase:** Core MVP Complete - Stages 1-6 Fully Functional
+**Development Phase:** Complete MVP - All 7 Stages Fully Functional
 - ✅ Complete auth system with Replit Auth
 - ✅ Full backend API with encrypted API key storage
 - ✅ RSS parsing with background AI scoring (Anthropic)
-- ✅ Stages 1-6 fully functional with real AI integrations:
+- ✅ Stages 1-7 fully functional with real AI integrations:
   - Stage 1: Source Selection (News/Custom Script)
   - Stage 2: Content Input (RSS feed with AI scores)
   - Stage 3: AI Analysis (Anthropic - scene breakdown, variants, scoring)
   - Stage 4: Voice Generation (ElevenLabs - preview, selection, audio generation)
   - Stage 5: Avatar Selection (HeyGen - preview, video generation, progress tracking)
-  - Stage 6: Final Export (video display, download, share, project completion)
-- ⏳ Stage 7 Storyboard (Kie.ai B-roll) - optional feature
+  - Stage 6: Final Export (video display, download, share, screenshot, navigation to Stage 7)
+  - Stage 7: B-Roll Generation (Kie.ai - per-scene AI prompts, video generation, preview)
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-16 (Latest)**: Redesigned Stage 6 - Complete Pipeline Export View
+- **2025-10-16 (Latest)**: Completed Stage 7 - B-Roll Generation with Kie.ai
+  - ✅ Implemented complete B-Roll generation workflow for optional video enhancement
+  - ✅ Split layout: 65% left (Stage 6 content) + 35% right (B-Roll generation panel)
+  - ✅ Per-scene B-Roll generation (NOT batch) - user selects each scene individually
+  - ✅ Two-step AI workflow:
+    * Step 1: Claude generates cinematic AI prompt from user's shot instructions
+    * Step 2: Kie.ai generates B-Roll video using AI prompt (veo3_fast model, 9:16 aspect)
+  - ✅ Real-time polling with functional state updates to avoid stale closures
+  - ✅ Video preview, download, and persistence to database
+  - ✅ Error handling with toast notifications for generation and save failures
+  - ✅ Complete data flow: Stage 7 receives data from Steps 3, 4, 5, and 7
+  - All architect reviews passed with security validation
+  - Ready for manual testing with valid API keys
+
+- **2025-10-16 (Earlier)**: Redesigned Stage 6 - Complete Pipeline Export View
   - ✅ Complete UI overhaul: Stage 6 now shows full production pipeline instead of just video
   - ✅ New Timeline component: Displays all scenes with timecodes (00:00-00:05 3s format) and AI scores
   - ✅ Script display: Shows final script text in full
