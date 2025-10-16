@@ -98,6 +98,8 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
       })
     },
     onSuccess: () => {
+      // Dual invalidation to ensure UI refresh
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
     }
   })
