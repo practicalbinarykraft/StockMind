@@ -322,6 +322,14 @@ export class DatabaseStorage implements IStorage {
     const [step] = await db
       .insert(projectSteps)
       .values(data)
+      .onConflictDoUpdate({
+        target: [projectSteps.projectId, projectSteps.stepNumber],
+        set: {
+          data: sql`excluded.data`,
+          completedAt: sql`excluded.completed_at`,
+          updatedAt: new Date()
+        }
+      })
       .returning();
     return step;
   }
