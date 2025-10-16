@@ -9,6 +9,9 @@ import {
   MoreVertical,
   Edit,
   RotateCcw,
+  Film,
+  Clock,
+  Layout,
 } from "lucide-react"
 import { useLocation } from "wouter"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -16,6 +19,7 @@ import type { Project } from "@shared/schema"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -326,32 +330,61 @@ export default function Home() {
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map((project) => (
-              <Card
-                key={project.id}
-                className="hover-elevate active-elevate-2 transition-all"
-                data-testid={`card-project-${project.id}`}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div 
-                      className="flex-1 cursor-pointer"
-                      onClick={() => setLocation(`/project/${project.id}`)}
-                    >
-                      <CardTitle className="text-lg line-clamp-1">
-                        {project.title || "Untitled Project"}
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2">
+            {filteredProjects.map((project: any) => {
+              const progress = (project.currentStage / 7) * 100;
+              const getProgressColor = () => {
+                if (progress < 25) return "rgb(239 68 68)"; // red-500
+                if (progress < 75) return "rgb(234 179 8)"; // yellow-500
+                return "rgb(34 197 94)"; // green-500
+              };
+              
+              return (
+                <Card
+                  key={project.id}
+                  className="overflow-hidden hover-elevate active-elevate-2 transition-all group"
+                  data-testid={`card-project-${project.id}`}
+                >
+                  {/* Thumbnail */}
+                  <div 
+                    className="relative h-40 bg-muted cursor-pointer"
+                    onClick={() => setLocation(`/project/${project.id}`)}
+                  >
+                    {project.stats?.thumbnailUrl ? (
+                      <img 
+                        src={project.stats.thumbnailUrl} 
+                        alt={project.displayTitle || project.title || "Project"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <Film className="w-16 h-16 text-muted-foreground/30" />
+                      </div>
+                    )}
+                    
+                    {/* Status Badge Overlay */}
+                    <div className="absolute top-2 right-2">
                       <Badge variant={project.status === "completed" ? "default" : "secondary"}>
                         {project.status}
                       </Badge>
+                    </div>
+                  </div>
+
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setLocation(`/project/${project.id}`)}
+                      >
+                        <CardTitle className="text-base line-clamp-2">
+                          {project.displayTitle || project.title || "Untitled Project"}
+                        </CardTitle>
+                      </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-8 w-8 -mt-1"
                             onClick={(e) => e.stopPropagation()}
                             data-testid={`button-menu-${project.id}`}
                           >
@@ -411,40 +444,71 @@ export default function Home() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent 
-                  className="cursor-pointer"
-                  onClick={() => setLocation(`/project/${project.id}`)}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Source:</span>
-                      <span className="font-medium capitalize">{project.sourceType}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Stage:</span>
-                      <span className="font-medium">{project.currentStage} / 7</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Updated:</span>
-                      <span className="font-medium">
-                        {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {project.status === "deleted" && project.deletedAt && (
-                    <div className="mt-4 pt-4 border-t">
-                      <div className="flex items-center gap-2 text-xs text-destructive">
-                        <Trash2 className="h-3 w-3" />
-                        Deleted {formatDistanceToNow(new Date(project.deletedAt), { addSuffix: true })}
+                  </CardHeader>
+
+                  <CardContent 
+                    className="pt-0 pb-4 cursor-pointer space-y-3"
+                    onClick={() => setLocation(`/project/${project.id}`)}
+                  >
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Stage {project.currentStage}/7</span>
+                        <span className="font-medium">{Math.round(progress)}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full transition-all"
+                          style={{ 
+                            width: `${progress}%`,
+                            backgroundColor: getProgressColor()
+                          }}
+                        />
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Stats */}
+                    {project.stats && (project.stats.scenesCount > 0 || project.stats.duration > 0) && (
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {project.stats.scenesCount > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Layout className="h-3 w-3" />
+                            <span>{project.stats.scenesCount} scenes</span>
+                          </div>
+                        )}
+                        {project.stats.duration > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{Math.round(project.stats.duration)}s</span>
+                          </div>
+                        )}
+                        {project.stats.format && project.stats.format !== "unknown" && (
+                          <div className="flex items-center gap-1">
+                            <Film className="h-3 w-3" />
+                            <span className="capitalize">{project.stats.format}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Updated Time */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Updated:</span>
+                      <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
+                    </div>
+                    
+                    {project.status === "deleted" && project.deletedAt && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-center gap-2 text-xs text-destructive">
+                          <Trash2 className="h-3 w-3" />
+                          Deleted {formatDistanceToNow(new Date(project.deletedAt), { addSuffix: true })}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

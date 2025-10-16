@@ -185,7 +185,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const projects = await storage.getProjects(userId);
-      res.json(projects);
+      
+      // Enrich projects with auto-title and stats from steps
+      const enrichedProjects = await Promise.all(projects.map(async (project) => {
+        const steps = await storage.getProjectSteps(project.id);
+        
+        // Auto-generate title from Step 3 first scene if no title set
+        let autoTitle = project.title;
+        if (!autoTitle || autoTitle === "Untitled Project") {
+          const step3 = steps.find(s => s.stepNumber === 3);
+          const step3Data = step3?.data as any;
+          if (step3Data?.scenes && step3Data.scenes.length > 0) {
+            const firstSceneText = step3Data.scenes[0].text || "";
+            autoTitle = firstSceneText.substring(0, 50) + (firstSceneText.length > 50 ? "..." : "");
+          }
+        }
+        
+        // Extract stats from steps
+        const step3 = steps.find(s => s.stepNumber === 3);
+        const step4 = steps.find(s => s.stepNumber === 4);
+        const step5 = steps.find(s => s.stepNumber === 5);
+        const step3Data = step3?.data as any;
+        const step4Data = step4?.data as any;
+        const step5Data = step5?.data as any;
+        
+        const stats = {
+          scenesCount: step3Data?.scenes?.length || 0,
+          duration: step5Data?.duration || step4Data?.duration || 0,
+          format: step3Data?.selectedFormat || step3Data?.format || "unknown",
+          thumbnailUrl: step5Data?.thumbnailUrl || null,
+        };
+        
+        return {
+          ...project,
+          displayTitle: autoTitle || project.title || "Untitled Project",
+          stats,
+        };
+      }));
+      
+      res.json(enrichedProjects);
     } catch (error) {
       console.error("Error fetching projects:", error);
       res.status(500).json({ message: "Failed to fetch projects" });
