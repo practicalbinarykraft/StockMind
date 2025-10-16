@@ -20,7 +20,7 @@ import {
   type InsertProjectStep,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
@@ -299,11 +299,16 @@ export class DatabaseStorage implements IStorage {
 
   // Project Steps
   async getProjectSteps(projectId: string): Promise<ProjectStep[]> {
-    return await db
-      .select()
-      .from(projectSteps)
-      .where(eq(projectSteps.projectId, projectId))
-      .orderBy(projectSteps.stepNumber);
+    // Get only the latest record for each stepNumber using DISTINCT ON
+    const result = await db.execute<ProjectStep>(
+      sql`
+        SELECT DISTINCT ON (step_number) *
+        FROM project_steps
+        WHERE project_id = ${projectId}
+        ORDER BY step_number, updated_at DESC
+      `
+    );
+    return result.rows as ProjectStep[];
   }
 
   async createProjectStep(data: InsertProjectStep): Promise<ProjectStep> {
