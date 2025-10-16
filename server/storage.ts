@@ -258,11 +258,27 @@ export class DatabaseStorage implements IStorage {
         allItems.push(...sourceItems);
       }
       
-      // Sort by AI score descending (nulls last)
+      // Sort by AI score descending (nulls last), then by publishedAt descending
       return allItems.sort((a, b) => {
+        // Items without score go to the end
+        if (a.aiScore === null && b.aiScore === null) {
+          // Both null - sort by date
+          const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+          const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+          return bDate - aDate;
+        }
         if (a.aiScore === null) return 1;
         if (b.aiScore === null) return -1;
-        return b.aiScore - a.aiScore;
+        
+        // Primary sort: by AI score (higher first)
+        if (b.aiScore !== a.aiScore) {
+          return b.aiScore - a.aiScore;
+        }
+        
+        // Secondary sort: by published date (newer first)
+        const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+        return bDate - aDate;
       });
     }
     

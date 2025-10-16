@@ -41,6 +41,7 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const [freshnessFilter, setFreshnessFilter] = useState<string>("all")
   const [minScore, setMinScore] = useState<number>(0)
   const [showFilters, setShowFilters] = useState(false)
+  const [showAllOldNews, setShowAllOldNews] = useState(false)
 
   // Fetch news items if source is news
   const { data: newsItems, isLoading: newsLoading, refetch: refetchNews } = useQuery<EnrichedRssItem[]>({
@@ -493,10 +494,15 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
                     <h2 className="text-xl font-semibold">Older ({oldNews.length})</h2>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {oldNews.slice(0, 6).map(item => <NewsCard key={item.id} item={item} />)}
+                    {(showAllOldNews ? oldNews : oldNews.slice(0, 6)).map(item => <NewsCard key={item.id} item={item} />)}
                   </div>
-                  {oldNews.length > 6 && (
-                    <Button variant="outline" className="w-full mt-4">
+                  {oldNews.length > 6 && !showAllOldNews && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full mt-4"
+                      onClick={() => setShowAllOldNews(true)}
+                      data-testid="button-show-more-old"
+                    >
                       Show {oldNews.length - 6} More Older Articles
                     </Button>
                   )}
