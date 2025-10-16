@@ -93,7 +93,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   // Continue to next stage mutation
   const continueToStage6Mutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
         currentStage: 6
       })
     },
