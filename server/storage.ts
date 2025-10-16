@@ -167,8 +167,8 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (key) {
-      console.log(`[Storage] Found API key: id=${key.id}, isActive=${key.isActive}, provider=${key.provider}`);
-      // Decrypt the key before returning
+      console.log(`[Storage] Found API key: id=${key.id}, isActive=${key.isActive}, provider=${key.provider} (key length: ${key.encryptedKey.length} chars encrypted)`);
+      // Decrypt the key before returning (DO NOT LOG DECRYPTED VALUE)
       return {
         ...key,
         encryptedKey: decryptApiKey(key.encryptedKey),

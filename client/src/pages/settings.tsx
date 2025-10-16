@@ -155,8 +155,8 @@ export default function Settings() {
   // Test API Key Mutation
   const testApiKeyMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/settings/api-keys/${id}/test`, {})
-      return await res.json()
+      // apiRequest already returns parsed JSON, no need to call .json() again
+      return await apiRequest("POST", `/api/settings/api-keys/${id}/test`, {})
     },
     onSuccess: (data) => {
       toast({
