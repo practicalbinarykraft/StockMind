@@ -124,6 +124,9 @@ export class DatabaseStorage implements IStorage {
   ): Promise<ApiKey> {
     const { key, ...rest } = data;
     const trimmedKey = key.trim(); // Remove whitespace
+    
+    console.log(`[Storage] Creating API key for userId: ${userId}, provider: ${rest.provider}, isActive: ${rest.isActive ?? true}`);
+    
     const [apiKey] = await db
       .insert(apiKeys)
       .values({
@@ -132,6 +135,8 @@ export class DatabaseStorage implements IStorage {
         encryptedKey: encryptApiKey(trimmedKey),
       })
       .returning();
+    
+    console.log(`[Storage] Created API key: id=${apiKey.id}, provider=${apiKey.provider}, isActive=${apiKey.isActive}`);
     return apiKey;
   }
 
@@ -142,6 +147,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserApiKey(userId: string, provider: string): Promise<ApiKey | undefined> {
+    console.log(`[Storage] Getting API key for userId: ${userId}, provider: ${provider}`);
+    
     const [key] = await db
       .select()
       .from(apiKeys)
@@ -150,12 +157,15 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (key) {
+      console.log(`[Storage] Found API key: id=${key.id}, isActive=${key.isActive}, provider=${key.provider}`);
       // Decrypt the key before returning
       return {
         ...key,
         encryptedKey: decryptApiKey(key.encryptedKey),
       };
     }
+    
+    console.log(`[Storage] No API key found for userId: ${userId}, provider: ${provider}`);
     return undefined;
   }
 
