@@ -531,7 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "AI prompt required" });
       }
 
-      const apiKey = await storage.getUserApiKey(userId, 'kie');
+      const apiKey = await storage.getUserApiKey(userId, 'kieai');
       if (!apiKey) {
         return res.status(404).json({ 
           message: "Kie.ai API key not configured. Please add it in Settings." 
@@ -558,7 +558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { taskId } = req.params;
 
-      const apiKey = await storage.getUserApiKey(userId, 'kie');
+      const apiKey = await storage.getUserApiKey(userId, 'kieai');
       if (!apiKey) {
         return res.status(404).json({ 
           message: "Kie.ai API key not configured" 
