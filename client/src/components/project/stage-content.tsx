@@ -14,6 +14,7 @@ interface StageContentProps {
 
 export function StageContent({ project, steps }: StageContentProps) {
   // Debug logs
+  console.log("StageContent received project.currentStage:", project.currentStage)
   console.log("StageContent received steps:", steps)
   console.log("StageContent steps count:", steps?.length)
   

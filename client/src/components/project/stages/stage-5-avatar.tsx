@@ -97,10 +97,10 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
         currentStage: 6
       })
     },
-    onSuccess: () => {
-      // Dual invalidation to ensure UI refresh
+    onSuccess: async () => {
+      // Force refetch to ensure UI updates immediately
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
     }
   })
 
