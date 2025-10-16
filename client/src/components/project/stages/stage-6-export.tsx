@@ -8,6 +8,7 @@ import { Download, CheckCircle2, Film, AlertCircle, Camera, Play, Pause } from "
 import { useState, useRef } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
+import html2canvas from "html2canvas"
 
 interface Stage6Props {
   project: Project
@@ -20,6 +21,7 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
   const { toast } = useToast()
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const screenshotRef = useRef<HTMLDivElement>(null)
 
   // Extract data from each step
   const scenes = step3Data?.scenes || []
@@ -116,11 +118,38 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
     setIsPlaying(false)
   }
 
-  const handleSaveScreenshot = () => {
-    toast({
-      title: "Скриншот сохранён",
-      description: "Timeline и сценарий сохранены в изображение",
-    })
+  const handleSaveScreenshot = async () => {
+    if (!screenshotRef.current) return
+    
+    try {
+      const canvas = await html2canvas(screenshotRef.current, {
+        backgroundColor: '#000000',
+        scale: 2, // Higher quality
+      })
+      
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `reelrepurposer-${project.id}-timeline.png`
+        link.click()
+        URL.revokeObjectURL(url)
+        
+        toast({
+          title: "Скриншот сохранён",
+          description: "Timeline и сценарий сохранены в изображение",
+        })
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Не удалось создать скриншот",
+      })
+    }
   }
 
   const hasRequiredData = videoUrl || audioUrl || finalScript || scenes.length > 0
@@ -146,68 +175,71 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
         </Alert>
       ) : (
         <div className="space-y-6">
-          {/* Timeline with Timecodes */}
-          {scenesWithTimecodes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Timeline проекта</CardTitle>
-                  {videoDuration && (
-                    <Badge variant="secondary" className="text-base">
-                      Длительность: {formatTime(videoDuration)}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {scenesWithTimecodes.map((scene: any, index: number) => (
-                    <div 
-                      key={index} 
-                      className="flex items-start gap-4 p-3 rounded-md bg-muted/50"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium mb-1">
-                          Сцена {index + 1}
+          {/* Screenshot Section - Timeline and Script */}
+          <div ref={screenshotRef} className="space-y-6">
+            {/* Timeline with Timecodes */}
+            {scenesWithTimecodes.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Timeline проекта</CardTitle>
+                    {videoDuration && (
+                      <Badge variant="secondary" className="text-base">
+                        Длительность: {formatTime(videoDuration)}
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {scenesWithTimecodes.map((scene: any, index: number) => (
+                      <div 
+                        key={index} 
+                        className="flex items-start gap-4 p-3 rounded-md bg-muted/50"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium mb-1">
+                            Сцена {index + 1}
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">
+                            {formatTime(scene.startTime)} - {formatTime(scene.endTime)} ({Math.round(scene.duration)}s)
+                          </div>
+                          <div className="text-sm">{scene.text}</div>
                         </div>
-                        <div className="text-sm text-muted-foreground mb-2">
-                          {formatTime(scene.startTime)} - {formatTime(scene.endTime)} ({Math.round(scene.duration)}s)
-                        </div>
-                        <div className="text-sm">{scene.text}</div>
+                        {scene.score !== undefined && (
+                          <Badge 
+                            variant="outline"
+                            className={
+                              scene.score >= 90 ? "border-chart-2 text-chart-2" :
+                              scene.score >= 70 ? "border-chart-3 text-chart-3" :
+                              scene.score >= 50 ? "border-chart-4 text-chart-4" :
+                              "border-chart-5 text-chart-5"
+                            }
+                          >
+                            {scene.score}/100
+                          </Badge>
+                        )}
                       </div>
-                      {scene.score !== undefined && (
-                        <Badge 
-                          variant="outline"
-                          className={
-                            scene.score >= 90 ? "border-chart-2 text-chart-2" :
-                            scene.score >= 70 ? "border-chart-3 text-chart-3" :
-                            scene.score >= 50 ? "border-chart-4 text-chart-4" :
-                            "border-chart-5 text-chart-5"
-                          }
-                        >
-                          {scene.score}/100
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Script */}
-          {finalScript && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Сценарий</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {finalScript}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+            {/* Script */}
+            {finalScript && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Сценарий</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {finalScript}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* Audio Player */}
           {audioUrl && (
