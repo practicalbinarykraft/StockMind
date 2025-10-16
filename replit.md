@@ -25,7 +25,17 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-15 (Latest)**: Implemented Reliable Video Generation with Auto-Resume
+- **2025-10-16 (Latest)**: Completed Navigation Flow for Stages 5→6→7
+  - ✅ Stage 5: Added "Continue to Final Export" button (appears when video generation completes)
+  - ✅ Stage 6: Added "Add B-Roll Footage (Optional)" button to navigate to Stage 7
+  - ✅ Stage 7: Added "Back to Export" button (returns to Stage 6) and "Complete Project" button
+  - ✅ Complete Project: Marks project as 'completed' and navigates back to Stage 6
+  - ✅ Dual query invalidation: All mutations invalidate both ["/api/projects"] and ["/api/projects", id] for proper UI refresh
+  - ✅ Button states: All buttons properly disabled during mutations to prevent double-clicks
+  - ✅ End-to-end workflow: Users can now complete full pipeline from Stage 1 through Stage 7
+  - All architect reviews passed with no security issues
+
+- **2025-10-15 (Earlier)**: Implemented Reliable Video Generation with Auto-Resume
   - ✅ CRITICAL FIX: Video generation now reliable even if user closes tab/refreshes page
   - **Immediate persistence:** videoId saved to database instantly when generation starts
   - **Auto-resume polling:** On return to Stage 5, system checks for unfinished videos and resumes status polling
