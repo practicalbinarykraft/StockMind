@@ -37,6 +37,8 @@ export default function ProjectWorkflow() {
   const { data: steps } = useQuery<ProjectStep[]>({
     queryKey: ["/api/projects", projectId, "steps"],
     enabled: !!projectId,
+    staleTime: 0,  // Force fresh data
+    gcTime: 0,     // Clear cache immediately
   })
 
   if (projectLoading) {
