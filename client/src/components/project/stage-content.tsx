@@ -41,7 +41,12 @@ export function StageContent({ project, steps }: StageContentProps) {
           step5Data={getStepData(5)} 
         />
       case 6:
-        return <Stage6FinalExport project={project} stepData={getStepData(5)} />
+        return <Stage6FinalExport 
+          project={project} 
+          step3Data={getStepData(3)}
+          step4Data={getStepData(4)}
+          step5Data={getStepData(5)}
+        />
       case 7:
         return <Stage7Storyboard project={project} stepData={getStepData(6)} />
       default:
