@@ -17,22 +17,20 @@ export function Stage6FinalExport({ project, stepData }: Stage6Props) {
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
 
-  // Get video data from Stage 5
-  const videoUrl = stepData[5]?.videoUrl
-  const videoDuration = stepData[5]?.duration
-  const thumbnailUrl = stepData[5]?.thumbnailUrl
+  // Get video data from Stage 5 (stepData is the data from step 5)
+  const videoUrl = stepData?.videoUrl
+  const videoDuration = stepData?.duration
+  const thumbnailUrl = stepData?.thumbnailUrl
+  const selectedAvatar = stepData?.selectedAvatar
   
-  // Get other data from previous stages
-  const selectedTemplate = stepData[3]?.selectedTemplate
-  const selectedVoice = stepData[4]?.selectedVoice
-  const selectedAvatar = stepData[5]?.selectedAvatar
-  const scriptScore = stepData[3]?.overallScore
+  // Note: Other stage data would need to be passed separately if needed
+  // For now, we only display the video from Stage 5
 
   // Complete project mutation
   const completeProjectMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest(
-        "PUT",
+        "PATCH",
         `/api/projects/${project.id}`,
         { status: 'completed' }
       )
@@ -57,12 +55,13 @@ export function Stage6FinalExport({ project, stepData }: Stage6Props) {
   // Continue to Storyboard mutation
   const continueToStoryboardMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
         currentStage: 7
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
     }
   })
 
@@ -157,28 +156,10 @@ export function Stage6FinalExport({ project, stepData }: Stage6Props) {
                     <span className="font-medium">{videoDuration.toFixed(1)}s</span>
                   </div>
                 )}
-                {selectedTemplate && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Format:</span>
-                    <span className="font-medium">{selectedTemplate}</span>
-                  </div>
-                )}
-                {selectedVoice && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Voice:</span>
-                    <span className="font-medium">{selectedVoice}</span>
-                  </div>
-                )}
                 {selectedAvatar && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Avatar:</span>
                     <span className="font-medium">{selectedAvatar}</span>
-                  </div>
-                )}
-                {scriptScore !== undefined && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">AI Score:</span>
-                    <span className="font-medium">{scriptScore}/100</span>
                   </div>
                 )}
               </CardContent>

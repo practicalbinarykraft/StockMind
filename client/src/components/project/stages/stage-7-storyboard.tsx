@@ -17,26 +17,27 @@ export function Stage7Storyboard({ project }: Stage7Props) {
   // Go back to Stage 6 mutation
   const backToStage6Mutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
         currentStage: 6
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
     }
   })
 
   // Complete project mutation
   const completeProjectMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("PUT", `/api/projects/${project.id}`, {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
         status: 'completed',
         currentStage: 6  // Go back to Stage 6 after completing
       })
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
       toast({
         title: "Project Completed",
         description: "Your video project has been finalized!",
