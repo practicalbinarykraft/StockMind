@@ -25,7 +25,21 @@ A comprehensive AI-powered video production pipeline that transforms news conten
 - ⏳ Instagram/YouTube parsing - additional source types
 
 ## Recent Changes
-- **2025-10-16 (Latest)**: Completed Navigation Flow for Stages 5→6→7
+- **2025-10-16 (Latest)**: Redesigned Stage 6 - Complete Pipeline Export View
+  - ✅ Complete UI overhaul: Stage 6 now shows full production pipeline instead of just video
+  - ✅ New Timeline component: Displays all scenes with timecodes (00:00-00:05 3s format) and AI scores
+  - ✅ Script display: Shows final script text in full
+  - ✅ Audio player: Play/pause controls with download button for MP3
+  - ✅ Video player: Full video display with download button for MP4
+  - ✅ Three action buttons:
+    * 📸 Save Screenshot (timeline + script) - placeholder for future implementation
+    * 🎨 Add Storyboard → (navigate to Stage 7 for B-roll generation)
+    * ✅ Complete Project (mark as finished)
+  - Data flow fixed: Stage 6 now receives data from Steps 3, 4, 5 simultaneously
+  - Russian UI labels throughout
+  - All architect reviews passed - no security issues
+
+- **2025-10-16 (Earlier)**: Completed Navigation Flow for Stages 5→6→7
   - ✅ Stage 5: Added "Continue to Final Export" button (appears when video generation completes)
   - ✅ Stage 6: Added "Add B-Roll Footage (Optional)" button to navigate to Stage 7
   - ✅ Stage 7: Added "Back to Export" button (returns to Stage 6) and "Complete Project" button
