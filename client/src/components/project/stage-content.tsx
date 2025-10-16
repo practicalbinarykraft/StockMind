@@ -48,7 +48,13 @@ export function StageContent({ project, steps }: StageContentProps) {
           step5Data={getStepData(5)}
         />
       case 7:
-        return <Stage7Storyboard project={project} stepData={getStepData(6)} />
+        return <Stage7Storyboard 
+          project={project} 
+          step3Data={getStepData(3)}
+          step4Data={getStepData(4)}
+          step5Data={getStepData(5)}
+          step7Data={getStepData(7)}
+        />
       default:
         return <div className="p-8">Unknown stage</div>
     }
