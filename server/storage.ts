@@ -299,16 +299,23 @@ export class DatabaseStorage implements IStorage {
 
   // Project Steps
   async getProjectSteps(projectId: string): Promise<ProjectStep[]> {
-    // Get only the latest record for each stepNumber using DISTINCT ON
-    const result = await db.execute<ProjectStep>(
-      sql`
-        SELECT DISTINCT ON (step_number) *
-        FROM project_steps
-        WHERE project_id = ${projectId}
-        ORDER BY step_number, updated_at DESC
-      `
-    );
-    return result.rows as ProjectStep[];
+    // Get all steps first
+    const allSteps = await db
+      .select()
+      .from(projectSteps)
+      .where(eq(projectSteps.projectId, projectId))
+      .orderBy(desc(projectSteps.updatedAt));
+    
+    // Group by stepNumber and keep only the latest (first) one for each
+    const latestStepsMap = new Map<number, ProjectStep>();
+    for (const step of allSteps) {
+      if (!latestStepsMap.has(step.stepNumber)) {
+        latestStepsMap.set(step.stepNumber, step);
+      }
+    }
+    
+    // Convert back to array and sort by stepNumber
+    return Array.from(latestStepsMap.values()).sort((a, b) => a.stepNumber - b.stepNumber);
   }
 
   async createProjectStep(data: InsertProjectStep): Promise<ProjectStep> {
