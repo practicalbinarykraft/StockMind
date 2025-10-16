@@ -30,10 +30,16 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ### Core Features & Design
 - **7-Stage Workflow**: A structured pipeline guiding users from Source Selection, Content Input (RSS feeds with AI scores or custom scripts), AI Analysis (scene breakdown, variants, scoring), Voice Generation, Avatar Selection, Final Export, to optional B-Roll Generation.
 - **UI/UX**: Professional, dark-mode first design inspired by Material Design 3, utilizing Shadcn UI components for consistency. Features responsive design, including a mobile-adapted sidebar with a hamburger menu.
+- **Enhanced Dashboard**: Rich project cards with visual feedback including:
+  - Auto-generated titles from Stage 3 first scene text (50 chars max)
+  - Thumbnail previews from HeyGen video generation or Film icon placeholder
+  - Color-coded progress bars (red < 25%, yellow 25-75%, green > 75%) with inline RGB styling
+  - Smart stats display showing scenes count, duration, and format with icons
+  - Status badges and interactive hover effects
 - **AI-powered Content Analysis**: Anthropic Claude is used for virality scoring (0-100) of news articles and detailed script analysis, including scene breakdowns and rewrite variants.
 - **High-Quality Media Generation**: Integration with ElevenLabs for voice synthesis and HeyGen for AI avatar video generation. Optional B-roll generation is handled by Kie.ai.
 - **Robust Data Handling**: All API keys are stored encrypted in the PostgreSQL database. The system features auto-save functionality for generated audio and reliable video generation with auto-resume capabilities, persisting video IDs and statuses to prevent data loss.
-- **Project Management**: Includes features for managing projects with Drafts, Completed, and Deleted statuses, progress tracking, and auto-save.
+- **Project Management**: Includes features for managing projects with Drafts, Completed, and Deleted statuses, progress tracking, and auto-save. Backend enriches project data by extracting metadata from project steps for enhanced dashboard display.
 - **Settings Management**: CRUD operations for API keys with encryption and masked display, and management of RSS sources including auto-parsing and topic categorization.
 - **Security**: Utilizes Replit Auth for secure authentication and session management. API keys are stored encrypted, not in environment variables.
 
