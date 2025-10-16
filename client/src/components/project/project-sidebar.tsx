@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   Lock,
+  X,
 } from "lucide-react"
 import { useLocation } from "wouter"
 
@@ -28,9 +29,10 @@ const STAGES = [
 
 interface ProjectSidebarProps {
   project: Project
+  onClose?: () => void
 }
 
-export function ProjectSidebar({ project }: ProjectSidebarProps) {
+export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
   const [, setLocation] = useLocation()
   
   const currentStage = project.currentStage
@@ -45,15 +47,29 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
     <div className="w-64 border-r bg-sidebar flex flex-col h-full">
       {/* Header */}
       <div className="p-6 border-b border-sidebar-border">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setLocation("/")}
-          className="mb-4"
-          data-testid="button-back-home"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation("/")}
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Close button for mobile */}
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="md:hidden"
+              data-testid="button-close-sidebar"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
         <h2 className="text-sm font-semibold text-sidebar-foreground/70 mb-1">
           Project Workflow
         </h2>

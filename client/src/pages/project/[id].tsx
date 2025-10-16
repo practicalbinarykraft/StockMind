@@ -2,12 +2,13 @@ import { useParams, useLocation } from "wouter"
 import { useQuery } from "@tanstack/react-query"
 import type { Project, ProjectStep } from "@shared/schema"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Menu } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ProjectSidebar } from "@/components/project/project-sidebar"
 import { StageContent } from "@/components/project/stage-content"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect } from "react"
 
 export default function ProjectWorkflow() {
   const params = useParams()
@@ -15,6 +16,18 @@ export default function ProjectWorkflow() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
   const projectId = params.id
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Close sidebar when window resizes to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -44,7 +57,7 @@ export default function ProjectWorkflow() {
   if (projectLoading) {
     return (
       <div className="flex h-screen">
-        <div className="w-64 border-r bg-sidebar p-6">
+        <div className="w-64 border-r bg-sidebar p-6 hidden md:block">
           <Skeleton className="h-6 w-32 mb-8" />
           <div className="space-y-4">
             {[1, 2, 3, 4, 5, 6, 7].map((i) => (
@@ -78,9 +91,43 @@ export default function ProjectWorkflow() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background relative">
+      {/* Mobile Menu Button */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setIsSidebarOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-40"
+        data-testid="button-mobile-menu"
+        aria-label="Open navigation menu"
+      >
+        <Menu className="h-6 w-6" />
+      </Button>
+
+      {/* Backdrop Overlay (Mobile Only) */}
+      {isSidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsSidebarOpen(false)}
+          data-testid="sidebar-backdrop"
+        />
+      )}
+
       {/* Sidebar */}
-      <ProjectSidebar project={project} />
+      <div className={`
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+        fixed md:static
+        inset-y-0 left-0
+        z-50 md:z-auto
+        transition-transform duration-300 ease-in-out
+        w-64
+      `}>
+        <ProjectSidebar 
+          project={project} 
+          onClose={() => setIsSidebarOpen(false)}
+        />
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
