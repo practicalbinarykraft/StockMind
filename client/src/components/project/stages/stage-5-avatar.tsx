@@ -12,7 +12,8 @@ import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, Arr
 
 interface Stage5Props {
   project: Project
-  stepData: any
+  stepData: any  // Step 4 data (voice, script, audio)
+  step5Data?: any  // Step 5 data (video status, videoId, videoUrl)
 }
 
 interface HeyGenAvatar {
@@ -32,7 +33,7 @@ interface VideoStatus {
   error_message?: string
 }
 
-export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
+export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Props) {
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [previewingAvatar, setPreviewingAvatar] = useState<string | null>(null)
@@ -117,7 +118,7 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
     if (status.status !== 'completed' || !status.video_url) return
 
     // Update with completed video data
-    // Use stepData values as fallback if state is null (e.g. after page reload)
+    // Use step5Data values as fallback if state is null (e.g. after page reload)
     try {
       await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 5,
@@ -125,8 +126,8 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
           videoUrl: status.video_url,
           thumbnailUrl: status.thumbnail_url,
           duration: status.duration,
-          selectedAvatar: selectedAvatar || stepData?.selectedAvatar,
-          videoId: generatedVideoId || stepData?.videoId,
+          selectedAvatar: selectedAvatar || step5Data?.selectedAvatar,
+          videoId: generatedVideoId || step5Data?.videoId,
           status: 'completed'
         }
       })
@@ -190,10 +191,10 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
 
   // Restore polling on mount if there's an unfinished video
   useEffect(() => {
-    const savedVideoId = stepData?.videoId
-    const savedStatus = stepData?.status
-    const savedVideoUrl = stepData?.videoUrl
-    const savedAvatar = stepData?.selectedAvatar
+    const savedVideoId = step5Data?.videoId
+    const savedStatus = step5Data?.status
+    const savedVideoUrl = step5Data?.videoUrl
+    const savedAvatar = step5Data?.selectedAvatar
 
     // If we have a videoId but no completed video, resume polling
     if (savedVideoId && (!savedVideoUrl || savedStatus === 'generating')) {
@@ -220,11 +221,11 @@ export function Stage5AvatarSelection({ project, stepData }: Stage5Props) {
       setVideoStatus({
         status: 'completed',
         video_url: savedVideoUrl,
-        thumbnail_url: stepData?.thumbnailUrl,
-        duration: stepData?.duration
+        thumbnail_url: step5Data?.thumbnailUrl,
+        duration: step5Data?.duration
       })
     }
-  }, []) // Run only on mount
+  }, [step5Data]) // Re-run when step5Data changes
 
   // Group avatars by category
   const { myAvatars, publicAvatars } = useMemo(() => {
