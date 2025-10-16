@@ -44,7 +44,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
   }
 
   return (
-    <div className="w-64 border-r bg-sidebar flex flex-col h-full">
+    <div className="w-64 border-r bg-sidebar flex flex-col h-full pointer-events-auto">
       {/* Header */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center justify-between mb-4">
