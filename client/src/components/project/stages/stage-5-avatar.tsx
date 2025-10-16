@@ -200,6 +200,10 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     const savedStatus = step5Data?.status
     const savedVideoUrl = step5Data?.videoUrl
     const savedAvatar = step5Data?.selectedAvatar
+    
+    console.log("DEBUG: step5Data =", step5Data)
+    console.log("DEBUG: savedVideoUrl =", savedVideoUrl)
+    console.log("DEBUG: savedStatus =", savedStatus)
 
     // If we have a videoId but no completed video, resume polling
     if (savedVideoId && (!savedVideoUrl || savedStatus === 'generating')) {
