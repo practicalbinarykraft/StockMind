@@ -265,7 +265,25 @@ export class DatabaseStorage implements IStorage {
     action: string,
     projectId?: string
   ): Promise<RssItem | undefined> {
+    // First verify the item belongs to user's sources
     const [item] = await db
+      .select()
+      .from(rssItems)
+      .where(eq(rssItems.id, id));
+    
+    if (!item) return undefined;
+    
+    // Check if source belongs to user
+    const userSources = await this.getRssSources(userId);
+    const sourceIds = userSources.map(s => s.id);
+    
+    if (!sourceIds.includes(item.sourceId)) {
+      // Item doesn't belong to user's sources
+      return undefined;
+    }
+    
+    // Now safe to update
+    const [updated] = await db
       .update(rssItems)
       .set({
         userAction: action,
@@ -275,7 +293,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(rssItems.id, id))
       .returning();
-    return item;
+    return updated;
   }
 
   // Projects

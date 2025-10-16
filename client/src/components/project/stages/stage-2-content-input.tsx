@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { type Project } from "@shared/schema"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { useToast } from "@/hooks/use-toast"
@@ -14,10 +15,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatDistanceToNow } from "date-fns"
+import { RefreshCw, ThumbsDown, Check, Flame, Zap, Newspaper, Calendar, Filter, Eye, EyeOff } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface Stage2Props {
   project: Project
   stepData: any
+}
+
+interface EnrichedRssItem extends RssItem {
+  freshnessLabel: 'hot' | 'trending' | 'recent' | 'old'
 }
 
 export function Stage2ContentInput({ project, stepData }: Stage2Props) {
@@ -28,13 +35,55 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const [customText, setCustomText] = useState("")
 
   // News filter state
-  const [topicFilter, setTopicFilter] = useState<string>("all")
   const [searchTerm, setSearchTerm] = useState("")
+  const [hideDismissed, setHideDismissed] = useState(true)
+  const [hideUsed, setHideUsed] = useState(true)
+  const [freshnessFilter, setFreshnessFilter] = useState<string>("all")
+  const [minScore, setMinScore] = useState<number>(0)
+  const [showFilters, setShowFilters] = useState(false)
 
   // Fetch news items if source is news
-  const { data: newsItems, isLoading: newsLoading } = useQuery<RssItem[]>({
+  const { data: newsItems, isLoading: newsLoading, refetch: refetchNews } = useQuery<EnrichedRssItem[]>({
     queryKey: ["/api/news"],
     enabled: sourceChoice === "news",
+    refetchInterval: 15 * 60 * 1000, // Auto-refresh every 15 minutes
+  })
+
+  // Manual refresh mutation
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/news/refresh", {})
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] })
+      toast({
+        title: "News Refreshed",
+        description: `Found ${data.newItems} new articles`,
+      })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Refresh Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Dismiss news mutation
+  const dismissMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return await apiRequest("PATCH", `/api/news/${itemId}/action`, {
+        action: "dismissed",
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] })
+      toast({
+        title: "Article Dismissed",
+        description: "This article won't be shown again",
+      })
+    },
   })
 
   const proceedMutation = useMutation({
@@ -85,7 +134,13 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     proceedMutation.mutate({ type: "custom", text: customText })
   }
 
-  const handleNewsSelect = (newsItem: RssItem) => {
+  const handleNewsSelect = async (newsItem: EnrichedRssItem) => {
+    // Mark as selected
+    await apiRequest("PATCH", `/api/news/${newsItem.id}/action`, {
+      action: "selected",
+      projectId: project.id,
+    })
+
     proceedMutation.mutate({
       type: "news",
       newsId: newsItem.id,
@@ -96,12 +151,125 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     })
   }
 
+  const handleDismiss = (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation()
+    dismissMutation.mutate(itemId)
+  }
+
+  // Filter news
   const filteredNews = newsItems?.filter(item => {
     const matchesSearch = !searchTerm || item.title.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
+    const matchesDismissed = !hideDismissed || item.userAction !== 'dismissed'
+    const matchesUsed = !hideUsed || item.userAction !== 'selected'
+    const matchesFreshness = freshnessFilter === 'all' || item.freshnessLabel === freshnessFilter
+    const matchesScore = !item.aiScore || item.aiScore >= minScore
+    
+    return matchesSearch && matchesDismissed && matchesUsed && matchesFreshness && matchesScore
   }) || []
 
-  const uniqueTopics: string[] = []
+  // Group by freshness
+  const hotNews = filteredNews.filter(item => item.freshnessLabel === 'hot')
+  const trendingNews = filteredNews.filter(item => item.freshnessLabel === 'trending')
+  const recentNews = filteredNews.filter(item => item.freshnessLabel === 'recent')
+  const oldNews = filteredNews.filter(item => item.freshnessLabel === 'old')
+
+  const getBadgeConfig = (label: string) => {
+    switch (label) {
+      case 'hot':
+        return { icon: Flame, label: 'Hot', variant: 'destructive' as const }
+      case 'trending':
+        return { icon: Zap, label: 'Trending', variant: 'default' as const }
+      case 'recent':
+        return { icon: Newspaper, label: 'Recent', variant: 'secondary' as const }
+      default:
+        return { icon: Calendar, label: 'Old', variant: 'outline' as const }
+    }
+  }
+
+  const NewsCard = ({ item }: { item: EnrichedRssItem }) => {
+    const badge = getBadgeConfig(item.freshnessLabel)
+    const isDismissed = item.userAction === 'dismissed'
+    const isUsed = item.userAction === 'selected'
+
+    return (
+      <Card
+        className={`relative cursor-pointer hover-elevate active-elevate-2 transition-all ${
+          isDismissed ? 'opacity-50' : ''
+        } ${isUsed ? 'border-green-500 dark:border-green-600' : ''}`}
+        onClick={() => !isDismissed && !isUsed && handleNewsSelect(item)}
+        data-testid={`card-news-${item.id}`}
+      >
+        {/* Thumbnail */}
+        {item.imageUrl && (
+          <div className="relative h-40 overflow-hidden rounded-t-md">
+            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        <CardContent className="pt-4 pb-4">
+          {/* Badges Row */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <Badge variant={badge.variant} className="gap-1">
+              <badge.icon className="h-3 w-3" />
+              {badge.label}
+            </Badge>
+            {item.aiScore !== null && (
+              <ScoreBadge score={item.aiScore} size="sm" />
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="font-semibold line-clamp-2 mb-2">{item.title}</h3>
+
+          {/* Content */}
+          <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+            {item.content}
+          </p>
+
+          {/* Meta Info */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+            {item.publishedAt && (
+              <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+            )}
+          </div>
+
+          {/* Actions */}
+          {!isDismissed && !isUsed && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleNewsSelect(item)
+                }}
+                data-testid={`button-select-${item.id}`}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Select
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => handleDismiss(e, item.id)}
+                disabled={dismissMutation.isPending}
+                data-testid={`button-dismiss-${item.id}`}
+              >
+                <ThumbsDown className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {isUsed && (
+            <Badge variant="outline" className="w-full justify-center">
+              <Check className="h-3 w-3 mr-1" />
+              Used in project
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -150,38 +318,97 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Filters */}
+          {/* Toolbar */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="search">Search</Label>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[200px]">
                   <Input
-                    id="search"
                     placeholder="Search articles..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="mt-2"
                     data-testid="input-search-news"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="topic">Topic</Label>
-                  <Select value={topicFilter} onValueChange={setTopicFilter}>
-                    <SelectTrigger id="topic" className="mt-2" data-testid="select-topic">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Topics</SelectItem>
-                      {uniqueTopics.map(topic => (
-                        <SelectItem key={topic} value={topic}>
-                          {topic}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={refreshMutation.isPending}
+                  data-testid="button-refresh"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  data-testid="button-toggle-filters"
+                >
+                  {showFilters ? <EyeOff className="h-4 w-4 mr-2" /> : <Filter className="h-4 w-4 mr-2" />}
+                  Filters
+                </Button>
               </div>
+
+              {/* Advanced Filters */}
+              {showFilters && (
+                <div className="mt-4 pt-4 border-t grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="hide-dismissed"
+                      checked={hideDismissed}
+                      onCheckedChange={(checked) => setHideDismissed(checked as boolean)}
+                      data-testid="checkbox-hide-dismissed"
+                    />
+                    <label htmlFor="hide-dismissed" className="text-sm">
+                      Hide Dismissed
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="hide-used"
+                      checked={hideUsed}
+                      onCheckedChange={(checked) => setHideUsed(checked as boolean)}
+                      data-testid="checkbox-hide-used"
+                    />
+                    <label htmlFor="hide-used" className="text-sm">
+                      Hide Used
+                    </label>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="freshness" className="text-xs">Freshness</Label>
+                    <Select value={freshnessFilter} onValueChange={setFreshnessFilter}>
+                      <SelectTrigger id="freshness" className="mt-1" data-testid="select-freshness">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="hot">Hot (last hour)</SelectItem>
+                        <SelectItem value="trending">Trending (last 6h)</SelectItem>
+                        <SelectItem value="recent">Recent (last 24h)</SelectItem>
+                        <SelectItem value="old">Older</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="min-score" className="text-xs">Min Score</Label>
+                    <Input
+                      id="min-score"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={minScore}
+                      onChange={(e) => setMinScore(parseInt(e.target.value) || 0)}
+                      className="mt-1"
+                      data-testid="input-min-score"
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -202,38 +429,79 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
             <Card>
               <CardContent className="py-16 text-center">
                 <p className="text-muted-foreground">
-                  No news articles found. Add RSS sources in Settings.
+                  No news articles found. {newsItems && newsItems.length > 0 ? 'Try adjusting filters.' : 'Add RSS sources in Settings.'}
                 </p>
+                {newsItems && newsItems.length === 0 && (
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => refreshMutation.mutate()}
+                    disabled={refreshMutation.isPending}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh News
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredNews.map(item => (
-                <Card
-                  key={item.id}
-                  className="cursor-pointer hover-elevate active-elevate-2 transition-all"
-                  onClick={() => handleNewsSelect(item)}
-                  data-testid={`card-news-${item.id}`}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <h3 className="font-semibold line-clamp-2 flex-1">{item.title}</h3>
-                      {item.aiScore !== null && (
-                        <ScoreBadge score={item.aiScore} size="sm" />
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-                      {item.content}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{item.source?.topic || "Uncategorized"}</span>
-                      {item.publishedAt && (
-                        <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="space-y-8">
+              {/* Hot News */}
+              {hotNews.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Flame className="h-5 w-5 text-red-500" />
+                    <h2 className="text-xl font-semibold">Hot News ({hotNews.length})</h2>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {hotNews.map(item => <NewsCard key={item.id} item={item} />)}
+                  </div>
+                </div>
+              )}
+
+              {/* Trending News */}
+              {trendingNews.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Zap className="h-5 w-5 text-yellow-500" />
+                    <h2 className="text-xl font-semibold">Trending ({trendingNews.length})</h2>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {trendingNews.map(item => <NewsCard key={item.id} item={item} />)}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent News */}
+              {recentNews.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Newspaper className="h-5 w-5 text-blue-500" />
+                    <h2 className="text-xl font-semibold">Recent ({recentNews.length})</h2>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {recentNews.map(item => <NewsCard key={item.id} item={item} />)}
+                  </div>
+                </div>
+              )}
+
+              {/* Old News - Collapsed by default */}
+              {oldNews.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="h-5 w-5 text-gray-500" />
+                    <h2 className="text-xl font-semibold">Older ({oldNews.length})</h2>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {oldNews.slice(0, 6).map(item => <NewsCard key={item.id} item={item} />)}
+                  </div>
+                  {oldNews.length > 6 && (
+                    <Button variant="outline" className="w-full mt-4">
+                      Show {oldNews.length - 6} More Older Articles
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
