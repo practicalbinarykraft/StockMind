@@ -13,8 +13,14 @@ interface StageContentProps {
 }
 
 export function StageContent({ project, steps }: StageContentProps) {
+  // Debug logs
+  console.log("StageContent received steps:", steps)
+  console.log("StageContent steps count:", steps?.length)
+  
   const getStepData = (stepNumber: number) => {
-    return steps.find(s => s.stepNumber === stepNumber)?.data
+    const step = steps.find(s => s.stepNumber === stepNumber)
+    console.log(`getStepData(${stepNumber}):`, step?.data)
+    return step?.data
   }
 
   const renderStage = () => {
