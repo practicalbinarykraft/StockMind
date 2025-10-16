@@ -3,6 +3,14 @@
 ## Overview
 ReelRepurposer is a comprehensive AI-powered video production pipeline designed for professional content creators to efficiently transform news content into engaging short-form videos. It automates the video production process from source selection to final export through a 7-stage workflow, featuring AI-driven content analysis, high-quality voiceover generation (ElevenLabs), and avatar video production (HeyGen). The project aims to scale video production, provide smart content analysis with virality scoring, and deliver professional-grade video output through a user-friendly interface.
 
+## Recent Updates (October 16, 2025)
+- **Automatic AI Scoring**: News articles are now automatically scored when loading Stage 2, using Anthropic Claude to analyze virality potential (0-100 scale) with Russian commentary
+- **Smart News Sorting**: Articles intelligently sorted by AI score (highest first) and publication date (freshest first when scores equal)
+- **Visual Score Badges**: Color-coded badges display AI scores with intuitive color scheme (green 70-100, yellow 50-69, red <50)
+- **API Key Testing**: New "Test API Key" button in Settings allows validating Anthropic credentials directly from the UI
+- **Enhanced Security**: Removed API key logging to prevent secret exposure, added ownership validation for all RSS operations
+- **UI Improvements**: Fixed "Show More Older Articles" button functionality for better news browsing experience
+
 ## User Preferences
 - **Theme**: Dark mode primary, light mode secondary
 - **Design approach**: Professional, production-tool focused (Material Design 3 inspired)
