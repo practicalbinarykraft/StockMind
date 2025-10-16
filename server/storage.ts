@@ -141,9 +141,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteApiKey(id: string, userId: string): Promise<void> {
-    await db
+    console.log(`[Storage] Deleting API key: id=${id}, userId=${userId}`);
+    
+    const result = await db
       .delete(apiKeys)
-      .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)));
+      .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)))
+      .returning();
+    
+    if (result.length > 0) {
+      console.log(`[Storage] Successfully deleted API key: id=${result[0].id}, provider=${result[0].provider}`);
+    } else {
+      console.log(`[Storage] WARNING: No API key deleted for id=${id}, userId=${userId} - key not found or userId mismatch`);
+    }
   }
 
   async getUserApiKey(userId: string, provider: string): Promise<ApiKey | undefined> {
