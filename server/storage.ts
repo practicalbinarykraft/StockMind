@@ -68,8 +68,10 @@ export interface IStorage {
 
   // RSS Items
   getRssItems(userId?: string): Promise<RssItem[]>;
+  getRssItemsBySource(sourceId: string): Promise<RssItem[]>;
   createRssItem(data: InsertRssItem): Promise<RssItem>;
   updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined>;
+  updateRssItemAction(id: string, userId: string, action: string, projectId?: string): Promise<RssItem | undefined>;
 
   // Projects
   getProjects(userId: string): Promise<Project[]>;
@@ -244,6 +246,33 @@ export class DatabaseStorage implements IStorage {
     const [item] = await db
       .update(rssItems)
       .set(data)
+      .where(eq(rssItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async getRssItemsBySource(sourceId: string): Promise<RssItem[]> {
+    return await db
+      .select()
+      .from(rssItems)
+      .where(eq(rssItems.sourceId, sourceId))
+      .orderBy(desc(rssItems.publishedAt));
+  }
+
+  async updateRssItemAction(
+    id: string,
+    userId: string,
+    action: string,
+    projectId?: string
+  ): Promise<RssItem | undefined> {
+    const [item] = await db
+      .update(rssItems)
+      .set({
+        userAction: action,
+        actionAt: new Date(),
+        usedInProject: projectId || null,
+        userId, // Set userId if not already set
+      })
       .where(eq(rssItems.id, id))
       .returning();
     return item;

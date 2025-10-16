@@ -116,17 +116,32 @@ export type RssSource = typeof rssSources.$inferSelect;
 export const rssItems = pgTable("rss_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sourceId: varchar("source_id").notNull().references(() => rssSources.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Added for user-specific actions
   title: text("title").notNull(),
   url: text("url").notNull(),
   content: text("content"), // Article content/description
   imageUrl: text("image_url"),
-  aiScore: integer("ai_score"), // 0-100 virality score from AI
+  aiScore: integer("ai_score"), // 0-100 virality score from AI (Stage 1 selection score)
   aiComment: text("ai_comment"), // AI's comment on why this score
+  
+  // User interaction tracking
+  userAction: varchar("user_action", { length: 20 }), // 'selected', 'dismissed', 'seen', null
+  actionAt: timestamp("action_at"), // When user performed action
+  usedInProject: varchar("used_in_project"), // Project ID if used
+  
+  // Detailed scoring (for future AI scoring)
+  freshnessScore: integer("freshness_score"), // 0-100 based on time
+  viralityScore: integer("virality_score"), // 0-100 trending potential
+  qualityScore: integer("quality_score"), // 0-100 source quality
+  
   publishedAt: timestamp("published_at"),
   parsedAt: timestamp("parsed_at").defaultNow().notNull(),
 }, (table) => [
   index("rss_items_source_id_idx").on(table.sourceId),
+  index("rss_items_user_id_idx").on(table.userId),
   index("rss_items_ai_score_idx").on(table.aiScore),
+  index("rss_items_user_action_idx").on(table.userAction),
+  index("rss_items_published_at_idx").on(table.publishedAt),
 ]);
 
 export const insertRssItemSchema = createInsertSchema(rssItems).omit({

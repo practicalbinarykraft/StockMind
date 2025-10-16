@@ -170,10 +170,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const items = await storage.getRssItems(userId);
-      res.json(items);
+      
+      // Add freshness label based on publishedAt
+      const enrichedItems = items.map(item => {
+        let freshnessLabel = 'old';
+        if (item.publishedAt) {
+          const hoursAgo = (Date.now() - new Date(item.publishedAt).getTime()) / (1000 * 60 * 60);
+          if (hoursAgo < 1) freshnessLabel = 'hot';
+          else if (hoursAgo < 6) freshnessLabel = 'trending';
+          else if (hoursAgo < 24) freshnessLabel = 'recent';
+        }
+        
+        return {
+          ...item,
+          freshnessLabel,
+        };
+      });
+      
+      res.json(enrichedItems);
     } catch (error) {
       console.error("Error fetching news items:", error);
       res.status(500).json({ message: "Failed to fetch news items" });
+    }
+  });
+
+  // Update news item action (dismiss, select, seen)
+  app.patch("/api/news/:id/action", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { action, projectId } = req.body; // action: 'dismissed' | 'selected' | 'seen'
+      
+      const updated = await storage.updateRssItemAction(id, userId, action, projectId);
+      if (!updated) {
+        return res.status(404).json({ message: "News item not found" });
+      }
+      
+      res.json({ success: true, item: updated });
+    } catch (error) {
+      console.error("Error updating news item action:", error);
+      res.status(500).json({ message: "Failed to update news item" });
+    }
+  });
+
+  // Manual refresh news from RSS sources
+  app.post("/api/news/refresh", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sources = await storage.getRssSources(userId);
+      
+      let totalNew = 0;
+      for (const source of sources.filter(s => s.isActive)) {
+        try {
+          const feed = await rssParser.parseURL(source.url);
+          const existingUrls = new Set((await storage.getRssItemsBySource(source.id)).map(item => item.url));
+          
+          for (const item of feed.items) {
+            if (!existingUrls.has(item.link || '')) {
+              await storage.createRssItem({
+                sourceId: source.id,
+                userId,
+                title: item.title || 'Untitled',
+                url: item.link || '',
+                content: item.contentSnippet || item.content || '',
+                imageUrl: item.enclosure?.url || null,
+                publishedAt: item.pubDate ? new Date(item.pubDate) : null,
+              });
+              totalNew++;
+            }
+          }
+          
+          await storage.updateRssSource(source.id, userId, {
+            lastParsed: new Date(),
+            parseStatus: 'success',
+            itemCount: feed.items.length,
+          });
+        } catch (error: any) {
+          console.error(`Error parsing RSS ${source.name}:`, error);
+          await storage.updateRssSource(source.id, userId, {
+            parseStatus: 'error',
+            parseError: error.message,
+          });
+        }
+      }
+      
+      res.json({ success: true, newItems: totalNew });
+    } catch (error) {
+      console.error("Error refreshing news:", error);
+      res.status(500).json({ message: "Failed to refresh news" });
     }
   });
 
