@@ -240,6 +240,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
+      // Auto-score items without AI score in background
+      const itemsWithoutScore = items.filter(item => item.aiScore === null);
+      if (itemsWithoutScore.length > 0) {
+        console.log(`[AI] Found ${itemsWithoutScore.length} items without AI score, starting auto-scoring...`);
+        scoreRssItems(itemsWithoutScore, userId).catch(err => 
+          console.error('[AI] Auto-scoring failed:', err)
+        );
+      }
+      
       res.json(enrichedItems);
     } catch (error) {
       console.error("Error fetching news items:", error);
