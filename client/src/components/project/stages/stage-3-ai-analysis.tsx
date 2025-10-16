@@ -65,6 +65,8 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const [editedScenes, setEditedScenes] = useState<Record<number, string>>({})
   const [isEditing, setIsEditing] = useState<number | null>(null)
   const [reanalyzeDialogOpen, setReanalyzeDialogOpen] = useState(false)
+  const [variantScores, setVariantScores] = useState<Record<string, number>>({}) // sceneId-variantIdx -> score
+  const [scoringVariant, setScoringVariant] = useState<string | null>(null) // "sceneId-variantIdx" during scoring
   const { toast } = useToast()
 
   // Get content from step data (step 2 saves as "text" for custom or "content" for news)
@@ -98,6 +100,14 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
     },
   })
 
+  // Score variant mutation
+  const scoreVariantMutation = useMutation({
+    mutationFn: async ({ text }: { text: string }) => {
+      const res = await apiRequest("POST", "/api/ai/score-text", { text })
+      return await res.json()
+    },
+  })
+
   // Load cached analysis from stepData on mount
   useEffect(() => {
     // CHECK CACHE FIRST! Don't call AI if we have cached data
@@ -112,6 +122,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
       setSelectedFormat(stepData.selectedFormat || 'news')
       setSelectedVariants(stepData.selectedVariants || {})
       setEditedScenes(stepData.editedScenes || {})
+      setVariantScores(stepData.variantScores || {}) // Restore variant scores!
     } else if (content && !analysis && !analyzeMutation.isPending) {
       // Only call AI if NO cache exists
       analyzeMutation.mutate(selectedFormat)
@@ -141,6 +152,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
           selectedFormat,
           selectedVariants,
           editedScenes,
+          variantScores, // Save variant scores!
           overallScore: analysis?.overallScore,
           overallComment: analysis?.overallComment,
           scenes: analysis?.scenes
@@ -199,6 +211,91 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
       return scene.variants[selectedVariants[scene.id]]
     }
     return scene.text
+  }
+
+  const getSceneScore = (scene: AIAnalysis['scenes'][0]) => {
+    // If scene is edited, can't show accurate score
+    if (editedScenes[scene.id]) return scene.score
+    
+    // If variant is selected, use variant score
+    if (selectedVariants[scene.id] !== undefined) {
+      const scoreKey = `${scene.id}-${selectedVariants[scene.id]}`
+      return variantScores[scoreKey] ?? scene.score // fallback to original if not scored yet
+    }
+    
+    // Original text, use original score
+    return scene.score
+  }
+
+  const handleVariantChange = async (sceneId: number, variantValue: string, scene: AIAnalysis['scenes'][0]) => {
+    if (variantValue === "original") {
+      // Switch to original - remove from selectedVariants
+      const newVariants = { ...selectedVariants }
+      delete newVariants[sceneId]
+      setSelectedVariants(newVariants)
+      
+      // Auto-save with updated variants
+      await autoSaveCache(newVariants, variantScores)
+    } else {
+      const variantIdx = parseInt(variantValue)
+      const newVariants = { ...selectedVariants, [sceneId]: variantIdx }
+      setSelectedVariants(newVariants)
+      
+      // Check if we already have score for this variant
+      const scoreKey = `${sceneId}-${variantIdx}`
+      if (variantScores[scoreKey] === undefined) {
+        // Need to score this variant
+        const variantText = scene.variants[variantIdx]
+        setScoringVariant(scoreKey)
+        
+        try {
+          const result = await scoreVariantMutation.mutateAsync({ text: variantText })
+          const newScores = { ...variantScores, [scoreKey]: result.score }
+          setVariantScores(newScores)
+          
+          // Auto-save with updated variants AND scores
+          await autoSaveCache(newVariants, newScores)
+        } catch (error) {
+          console.error('Failed to score variant:', error)
+          toast({
+            variant: "destructive",
+            title: "Scoring Failed",
+            description: "Could not calculate score for this variant",
+          })
+        } finally {
+          setScoringVariant(null)
+        }
+      } else {
+        // Variant already scored, just auto-save selection
+        await autoSaveCache(newVariants, variantScores)
+      }
+    }
+  }
+
+  // Auto-save cache helper - accepts fresh values to avoid stale state
+  const autoSaveCache = async (
+    freshVariants: Record<number, number>,
+    freshScores: Record<string, number>
+  ) => {
+    if (!analysis) return
+    
+    try {
+      await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 3,
+        data: {
+          selectedFormat,
+          selectedVariants: freshVariants,
+          editedScenes,
+          variantScores: freshScores,
+          overallScore: analysis.overallScore,
+          overallComment: analysis.overallComment,
+          scenes: analysis.scenes
+        }
+      })
+      console.log("✅ Auto-saved:", { variants: freshVariants, scores: freshScores })
+    } catch (error) {
+      console.error("Failed to auto-save:", error)
+    }
   }
 
   return (
@@ -337,7 +434,14 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Badge variant="outline">Scene {scene.id}</Badge>
-                        <ScoreBadge score={scene.score} size="sm" data-testid={`score-scene-${scene.id}`} />
+                        {scoringVariant === `${scene.id}-${selectedVariants[scene.id]}` ? (
+                          <div className="flex items-center gap-2 px-3 py-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span className="text-xs text-muted-foreground">Scoring...</span>
+                          </div>
+                        ) : (
+                          <ScoreBadge score={getSceneScore(scene)} size="sm" data-testid={`score-scene-${scene.id}`} />
+                        )}
                       </div>
                       {isEditing === scene.id ? (
                         <Button
@@ -372,15 +476,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
                     ) : (
                       <Tabs
                         value={selectedVariants[scene.id]?.toString() || "original"}
-                        onValueChange={(value) => {
-                          if (value === "original") {
-                            const newVariants = { ...selectedVariants }
-                            delete newVariants[scene.id]
-                            setSelectedVariants(newVariants)
-                          } else {
-                            setSelectedVariants({ ...selectedVariants, [scene.id]: parseInt(value) })
-                          }
-                        }}
+                        onValueChange={(value) => handleVariantChange(scene.id, value, scene)}
                       >
                         <TabsList className="mb-3">
                           <TabsTrigger value="original" data-testid={`tab-original-${scene.id}`}>

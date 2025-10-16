@@ -145,24 +145,39 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   }
 
   const pollVideoStatus = async (videoId: string) => {
+    console.log(`🎬 Starting polling for video: ${videoId}`)
+    
     // Start polling with a local interval reference
     const intervalId = setInterval(async () => {
       try {
+        console.log(`🔄 Polling video status for: ${videoId}`)
         const res = await apiRequest("GET", `/api/heygen/status/${videoId}`)
         const status = await res.json() as VideoStatus
-        setVideoStatus(status)
+        console.log(`📊 Video status received:`, status)
+        
+        // Use functional update to avoid stale closure
+        setVideoStatus(prevStatus => {
+          console.log(`Previous status:`, prevStatus, `New status:`, status)
+          return status
+        })
 
         if (status.status === 'completed') {
+          console.log("✅ Video generation completed!")
           clearInterval(intervalId)
           setPollingInterval(null)
-          console.log("Video completed:", status.video_url)
           await saveCompletedVideoToStepData(status)
+          
+          // Invalidate queries to refresh UI
+          await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
         } else if (status.status === 'failed') {
+          console.error("❌ Video generation failed:", status.error_message)
           clearInterval(intervalId)
           setPollingInterval(null)
+        } else {
+          console.log(`⏳ Video still processing... status: ${status.status}`)
         }
       } catch (err) {
-        console.error("Error checking video status:", err)
+        console.error("❌ Error checking video status:", err)
         clearInterval(intervalId)
         setPollingInterval(null)
       }
@@ -172,20 +187,26 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
 
     // Check status immediately (before first interval)
     try {
+      console.log(`🔍 Checking initial video status for: ${videoId}`)
       const res = await apiRequest("GET", `/api/heygen/status/${videoId}`)
       const status = await res.json() as VideoStatus
+      console.log(`📊 Initial video status:`, status)
+      
       setVideoStatus(status)
 
       if (status.status === 'completed') {
+        console.log("✅ Video already completed!")
         clearInterval(intervalId)
         setPollingInterval(null)
         await saveCompletedVideoToStepData(status)
+        await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
       } else if (status.status === 'failed') {
+        console.error("❌ Video generation failed:", status.error_message)
         clearInterval(intervalId)
         setPollingInterval(null)
       }
     } catch (err) {
-      console.error("Error checking initial video status:", err)
+      console.error("❌ Error checking initial video status:", err)
     }
   }
 

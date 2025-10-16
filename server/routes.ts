@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
 import Parser from "rss-parser";
-import { scoreNewsItem, analyzeScript, generateAiPrompt } from "./ai-service";
+import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText } from "./ai-service";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
@@ -287,6 +287,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error analyzing script:", error);
       res.status(500).json({ message: error.message || "Failed to analyze script" });
+    }
+  });
+
+  app.post("/api/ai/score-text", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+
+      // Get user's Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(400).json({ 
+          message: "No Anthropic API key configured. Please add your API key in Settings." 
+        });
+      }
+
+      console.log(`[AI] Scoring text (${text.length} chars)`);
+      const result = await scoreText(apiKey.encryptedKey, text);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error scoring text:", error);
+      res.status(500).json({ message: error.message || "Failed to score text" });
     }
   });
 

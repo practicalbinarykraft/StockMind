@@ -66,6 +66,56 @@ Respond in JSON format:
   };
 }
 
+export async function scoreText(
+  apiKey: string,
+  text: string,
+): Promise<{ score: number }> {
+  const anthropic = new Anthropic({ apiKey });
+
+  const prompt = `You are analyzing a video script scene for its viral potential in short-form video content.
+
+Scene Text: "${text}"
+
+Rate this scene's engagement and viral potential from 0-100, where:
+- 90-100: Extremely engaging - powerful hook, emotional, memorable
+- 70-89: High engagement - interesting, clear message, good pacing
+- 50-69: Moderate engagement - decent content, room for improvement
+- 0-49: Low engagement - weak hook, unclear, needs work
+
+Consider:
+- Hook strength (first 2-3 words)
+- Clarity and conciseness
+- Emotional impact
+- Visual appeal
+- Shareability
+
+Respond ONLY with JSON format (no markdown, no backticks):
+{
+  "score": <number 0-100>
+}`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 256,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const textContent = message.content.find((c) => c.type === "text");
+  if (!textContent || textContent.type !== "text") {
+    throw new Error("No text response from AI");
+  }
+
+  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("Could not parse AI response");
+  }
+
+  const result = JSON.parse(jsonMatch[0]);
+  return {
+    score: Math.min(100, Math.max(0, result.score)),
+  };
+}
+
 export async function analyzeScript(
   apiKey: string,
   format: string,
