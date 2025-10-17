@@ -14,9 +14,12 @@ import { ScoreBadge } from "@/components/score-badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { formatDistanceToNow } from "date-fns"
-import { RefreshCw, ThumbsDown, Check, Flame, Zap, Newspaper, Calendar, Filter, Eye, EyeOff } from "lucide-react"
+import { formatDistanceToNow, format } from "date-fns"
+import { RefreshCw, ThumbsDown, Check, Flame, Zap, Newspaper, Calendar, Filter, Eye, EyeOff, CalendarIcon } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
 
 interface Stage2Props {
   project: Project
@@ -44,6 +47,8 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const [showFilters, setShowFilters] = useState(false)
   const [showAllOldNews, setShowAllOldNews] = useState(false)
   const [selectedSource, setSelectedSource] = useState<string>("all")
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
 
   // Fetch RSS sources for filter
   const { data: rssSources } = useQuery({
@@ -73,6 +78,33 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     onError: (error: Error) => {
       toast({
         title: "Refresh Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Parse extended period (more items)
+  const parseExtendedMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/news/refresh-extended", {
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+      })
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] })
+      const message = startDate && endDate 
+        ? `Parsed ${data.totalProcessed} items, ${data.newItems} new (RSS feeds may not support full date range)`
+        : `Loaded ${data.newItems} new articles`
+      toast({
+        title: "Extended Parsing Complete",
+        description: message,
+      })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Extended Parse Failed",
         description: error.message,
         variant: "destructive",
       })
@@ -174,7 +206,32 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     const matchesScore = !item.aiScore || item.aiScore >= minScore
     const matchesSource = selectedSource === 'all' || item.sourceName === selectedSource
     
-    return matchesSearch && matchesDismissed && matchesUsed && matchesFreshness && matchesScore && matchesSource
+    // Date range filtering
+    let matchesDateRange = true
+    if (startDate || endDate) {
+      // If date filter is active, exclude items without publishedAt
+      if (!item.publishedAt) {
+        matchesDateRange = false
+      } else {
+        const itemDate = new Date(item.publishedAt)
+        
+        // Normalize startDate to beginning of day (00:00:00)
+        if (startDate) {
+          const start = new Date(startDate)
+          start.setHours(0, 0, 0, 0)
+          if (itemDate < start) matchesDateRange = false
+        }
+        
+        // Normalize endDate to end of day (23:59:59)
+        if (endDate) {
+          const end = new Date(endDate)
+          end.setHours(23, 59, 59, 999)
+          if (itemDate > end) matchesDateRange = false
+        }
+      }
+    }
+    
+    return matchesSearch && matchesDismissed && matchesUsed && matchesFreshness && matchesScore && matchesSource && matchesDateRange
   }) || []
 
   // Group by freshness
@@ -360,6 +417,16 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
 
                 <Button
                   variant="outline"
+                  onClick={() => parseExtendedMutation.mutate()}
+                  disabled={parseExtendedMutation.isPending}
+                  data-testid="button-parse-extended"
+                >
+                  <Calendar className={`h-4 w-4 mr-2 ${parseExtendedMutation.isPending ? 'animate-spin' : ''}`} />
+                  Parse Extended
+                </Button>
+
+                <Button
+                  variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
                   data-testid="button-toggle-filters"
                 >
@@ -440,6 +507,60 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="start-date" className="text-xs">From Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full mt-1 justify-start text-left font-normal",
+                            !startDate && "text-muted-foreground"
+                          )}
+                          data-testid="button-start-date"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {startDate ? format(startDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={startDate}
+                          onSelect={setStartDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="end-date" className="text-xs">To Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full mt-1 justify-start text-left font-normal",
+                            !endDate && "text-muted-foreground"
+                          )}
+                          data-testid="button-end-date"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {endDate ? format(endDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={endDate}
+                          onSelect={setEndDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               )}

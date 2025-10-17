@@ -323,6 +323,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Extended parsing (fetches all available items from RSS feeds)
+  // NOTE: RSS feeds typically only return latest N items (10-50), so date range is used for filtering, not fetching
+  app.post("/api/news/refresh-extended", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate } = req.body;
+      const sources = await storage.getRssSources(userId);
+      
+      // Log date range for debugging (RSS feeds won't honor this, but we log it for transparency)
+      if (startDate && endDate) {
+        console.log(`[Extended Parse] User requested date range: ${startDate} to ${endDate}`);
+        console.log('[Extended Parse] Note: RSS feeds typically only provide latest items, date range filtering happens client-side');
+      }
+      
+      let totalNew = 0;
+      let totalProcessed = 0;
+      for (const source of sources.filter(s => s.isActive)) {
+        try {
+          const feed = await rssParser.parseURL(source.url);
+          const existingUrls = new Set((await storage.getRssItemsBySource(source.id)).map(item => item.url));
+          
+          // Process ALL items from the feed (extended parsing)
+          for (const item of feed.items) {
+            totalProcessed++;
+            if (!existingUrls.has(item.link || '')) {
+              await storage.createRssItem({
+                sourceId: source.id,
+                userId,
+                title: item.title || 'Untitled',
+                url: item.link || '',
+                content: item.contentSnippet || item.content || '',
+                imageUrl: item.enclosure?.url || null,
+                publishedAt: item.pubDate ? new Date(item.pubDate) : null,
+              });
+              totalNew++;
+            }
+          }
+          
+          await storage.updateRssSource(source.id, userId, {
+            lastParsed: new Date(),
+            parseStatus: 'success',
+            itemCount: feed.items.length,
+          });
+        } catch (error: any) {
+          console.error(`Error parsing RSS ${source.name} (extended):`, error);
+          await storage.updateRssSource(source.id, userId, {
+            parseStatus: 'error',
+            parseError: error.message,
+          });
+        }
+      }
+      
+      res.json({ success: true, newItems: totalNew, totalProcessed });
+    } catch (error) {
+      console.error("Error in extended refresh:", error);
+      res.status(500).json({ message: "Failed to perform extended refresh" });
+    }
+  });
+
   // ============================================================================
   // PROJECTS ROUTES
   // ============================================================================
