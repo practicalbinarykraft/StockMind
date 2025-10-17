@@ -1,0 +1,180 @@
+🎯 ОТЛИЧНО! Agent НАШЁЛ ПРОБЛЕМЫ!
+🔴 КРИТИЧНЫЕ БАГИ:
+1. Возвращаются новости ТОЛЬКО с первого источника!
+typescript// storage.ts line 249 - БАГ!
+const items = await db.select()
+  .from(rssItems)
+  .where(eq(rssItems.sourceId, sources[0].id)) // ← ТОЛЬКО ПЕРВЫЙ!
+  .limit(50);
+Должно быть:
+typescript// Новости со ВСЕХ источников!
+const items = await db.select()
+  .from(rssItems)
+  .where(inArray(rssItems.sourceId, sources.map(s => s.id)))
+  .orderBy(desc(rssItems.pubDate))
+  .limit(100);
+```
+
+---
+
+## ✨ ЧТО НУЖНО ДОБАВИТЬ:
+
+### 1. **Показ источника** 📰
+```
+┌────────────────────────────────┐
+│ [Thumbnail]                    │
+│ 🔥 Hot            95/100       │
+├────────────────────────────────┤
+│ Waymo robotaxi in London       │
+│ ...                            │
+│                                │
+│ 📰 TechCrunch • 🕐 2h ago      │ ← Source name!
+└────────────────────────────────┘
+```
+
+---
+
+### 2. **Фильтр по источнику** 🔍
+```
+[Source: All Sources ▼]
+
+Dropdown:
+- All Sources (default)
+- TechCrunch
+- Reuters
+- Bloomberg
+- The Verge
+- ...
+```
+
+---
+
+### 3. **Date Range Picker** 📅
+```
+┌─────────────────────────────────┐
+│ Date Range:                     │
+│ [Oct 1, 2025] - [Oct 16, 2025] │
+│                                 │
+│ Quick filters:                  │
+│ [Today] [Last 7 days] [Month]  │
+│                                 │
+│ [🔄 Parse Period]               │
+└─────────────────────────────────┘
+```
+
+**Parse Period:**
+- Загружает RSS за выбранный период
+- Парсит все источники
+- Может занять время (показать progress)
+
+---
+
+### 4. **Enhanced UI с источниками** 🎨
+```
+┌──────────────────────────────────────┐
+│ [🔍 Search] [Source: All ▼] [Filters]│
+│                                      │
+│ Date: [Last 24 hours ▼]             │
+│ From: [Oct 15] To: [Oct 16]         │
+│ [Parse Selected Period]              │
+├──────────────────────────────────────┤
+│ 🔥 HOT (3)                           │
+│ ┌────────────┐ ┌────────────┐       │
+│ │[Thumb]     │ │[Thumb]     │       │
+│ │Waymo...    │ │OpenAI...   │       │
+│ │TechCrunch  │ │Reuters     │       │
+│ └────────────┘ └────────────┘       │
+└──────────────────────────────────────┘
+```
+
+---
+
+## ⚡ ПРИОРИТЕТ ЗАДАЧ:
+
+### Phase 1: КРИТИЧНЫЕ БАГИ (сначала!)
+
+1. **Исправить getRssItems()** - показывать ВСЕ источники
+2. **Добавить source name** на карточки
+3. **Source filter** dropdown
+
+### Phase 2: ADVANCED FEATURES
+
+4. **Date range picker**
+5. **Parse period** функция
+6. **Enhanced filtering**
+
+---
+
+## 💡 СКАЖИ AGENT:
+```
+YES! Fix the critical bug first!
+
+Priority order:
+1. Fix getRssItems() to show ALL sources (not just first one)
+2. Add source name display on each card
+3. Add source filter dropdown
+4. Add date range picker
+5. Add "Parse Period" button
+
+Start with #1 - fix the bug where only first source is shown!
+This is critical!
+
+Then add source display and filters.
+
+Do it now!
+```
+
+---
+
+## 📊 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:
+
+**После фикса:**
+```
+Stage 1: Select News Article
+
+[Search] [Source: All ▼] [Date: Last 24h ▼]
+
+📰 Sources:
+- TechCrunch (15 articles)
+- Reuters (8 articles)
+- Bloomberg (12 articles)
+- The Verge (6 articles)
+
+🔥 HOT (3)
+[Card] Waymo... • TechCrunch • 2h ago
+[Card] OpenAI... • Reuters • 4h ago
+
+⚡ TRENDING (7)
+[Card] Tesla... • Bloomberg • 5h ago
+...
+
+🎯 PARSE PERIOD ЛОГИКА:
+typescript// Для массового парсинга:
+async function parseRssForPeriod(
+  sources: RssSource[],
+  startDate: Date,
+  endDate: Date
+) {
+  for (const source of sources) {
+    const items = await fetchRss(source.url);
+    
+    const filtered = items.filter(item => {
+      const pubDate = new Date(item.pubDate);
+      return pubDate >= startDate && pubDate <= endDate;
+    });
+    
+    await saveRssItems(filtered);
+  }
+}
+```
+
+**Кнопка:**
+```
+[🔄 Parse Period] 
+→ Shows progress: "Parsing TechCrunch... 3/10"
+→ Takes 30-60s for month
+→ Shows notification: "Loaded 247 articles from 5 sources"
+
+AGENT ГОТОВ НАЧАТЬ!
+ОДОБРИ ЕГО TASK LIST! ✅
+ИЛИ СКАЖИ: "START BUILDING!" 🚀
