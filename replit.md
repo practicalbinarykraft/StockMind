@@ -3,7 +3,17 @@
 ## Overview
 ReelRepurposer is a comprehensive AI-powered video production pipeline designed for professional content creators to efficiently transform news content into engaging short-form videos. It automates the video production process from source selection to final export through a 7-stage workflow, featuring AI-driven content analysis, high-quality voiceover generation (ElevenLabs), and avatar video production (HeyGen). The project aims to scale video production, provide smart content analysis with virality scoring, and deliver professional-grade video output through a user-friendly interface.
 
-## Recent Updates (October 16, 2025)
+## Recent Updates
+
+### October 17, 2025
+- **Source Identification**: News cards now display source name with 📰 emoji (e.g., "📰 TechCrunch • 2h ago")
+- **Source Filtering**: Dropdown filter with "All Sources" option plus all user's RSS sources for targeted content selection
+- **Date Range Filtering**: Added "From" and "To" date pickers with full-day inclusive filtering (normalized boundaries: start 00:00:00, end 23:59:59.999)
+- **Extended Parsing**: New "Parse Extended" button fetches all available RSS items with date range awareness (RSS limitations documented in UI)
+- **Enhanced Filter Logic**: All filters (search, dismissed/used, freshness, score, source, date range) now work together with AND logic
+- **Critical Bug Fix**: Fixed getRssItems() to return items from all user sources (previously only returned from first source)
+
+### October 16, 2025
 - **Automatic AI Scoring**: News articles are now automatically scored when loading Stage 2, using Anthropic Claude to analyze virality potential (0-100 scale) with Russian commentary
 - **Smart News Sorting**: Articles intelligently sorted by AI score (highest first) and publication date (freshest first when scores equal)
 - **Visual Score Badges**: Color-coded badges display AI scores with intuitive color scheme (green 70-100, yellow 50-69, red <50)
