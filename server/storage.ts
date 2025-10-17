@@ -68,7 +68,7 @@ export interface IStorage {
   deleteRssSource(id: string, userId: string): Promise<void>;
 
   // RSS Items
-  getRssItems(userId?: string): Promise<RssItem[]>;
+  getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>>;
   getRssItemsBySource(sourceId: string): Promise<RssItem[]>;
   createRssItem(data: InsertRssItem): Promise<RssItem>;
   updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined>;
@@ -233,8 +233,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(rssSources.id, id), eq(rssSources.userId, userId)));
   }
 
-  // RSS Items
-  async getRssItems(userId?: string): Promise<RssItem[]> {
+  // RSS Items with source information
+  async getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>> {
     if (userId) {
       // Get items from sources owned by this user
       const userSources = await this.getRssSources(userId);
@@ -242,20 +242,23 @@ export class DatabaseStorage implements IStorage {
       
       if (sourceIds.length === 0) return [];
       
-      // Query items from user's sources only
-      const items = await db
-        .select()
-        .from(rssItems)
-        .where(eq(rssItems.sourceId, sourceIds[0])); // Simplified for first source
+      // Create a map of sourceId -> sourceName for quick lookup
+      const sourceNameMap = new Map(userSources.map(s => [s.id, s.name]));
       
-      // Get all items from all sources
-      const allItems: RssItem[] = [];
+      // Get all items from all user sources
+      const allItems: Array<RssItem & { sourceName: string }> = [];
       for (const sourceId of sourceIds) {
         const sourceItems = await db
           .select()
           .from(rssItems)
           .where(eq(rssItems.sourceId, sourceId));
-        allItems.push(...sourceItems);
+        
+        // Add source name to each item
+        const enrichedItems = sourceItems.map(item => ({
+          ...item,
+          sourceName: sourceNameMap.get(sourceId) || 'Unknown Source'
+        }));
+        allItems.push(...enrichedItems);
       }
       
       // Sort by AI score descending (nulls last), then by publishedAt descending
@@ -285,7 +288,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(rssItems)
-      .orderBy(desc(rssItems.aiScore));
+      .orderBy(desc(rssItems.aiScore))
+      .then(items => items.map(item => ({ ...item, sourceName: 'Unknown Source' })));
   }
 
   async createRssItem(data: InsertRssItem): Promise<RssItem> {

@@ -25,6 +25,7 @@ interface Stage2Props {
 
 interface EnrichedRssItem extends RssItem {
   freshnessLabel: 'hot' | 'trending' | 'recent' | 'old'
+  sourceName: string
 }
 
 export function Stage2ContentInput({ project, stepData }: Stage2Props) {
@@ -42,6 +43,13 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const [minScore, setMinScore] = useState<number>(0)
   const [showFilters, setShowFilters] = useState(false)
   const [showAllOldNews, setShowAllOldNews] = useState(false)
+  const [selectedSource, setSelectedSource] = useState<string>("all")
+
+  // Fetch RSS sources for filter
+  const { data: rssSources } = useQuery({
+    queryKey: ["/api/settings/rss-sources"],
+    enabled: sourceChoice === "news",
+  })
 
   // Fetch news items if source is news
   const { data: newsItems, isLoading: newsLoading, refetch: refetchNews } = useQuery<EnrichedRssItem[]>({
@@ -164,8 +172,9 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     const matchesUsed = !hideUsed || item.userAction !== 'selected'
     const matchesFreshness = freshnessFilter === 'all' || item.freshnessLabel === freshnessFilter
     const matchesScore = !item.aiScore || item.aiScore >= minScore
+    const matchesSource = selectedSource === 'all' || item.sourceName === selectedSource
     
-    return matchesSearch && matchesDismissed && matchesUsed && matchesFreshness && matchesScore
+    return matchesSearch && matchesDismissed && matchesUsed && matchesFreshness && matchesScore && matchesSource
   }) || []
 
   // Group by freshness
@@ -228,9 +237,16 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
           </p>
 
           {/* Meta Info */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap">
+            <div className="flex items-center gap-1">
+              <Newspaper className="h-3 w-3" />
+              <span className="font-medium">{item.sourceName}</span>
+            </div>
             {item.publishedAt && (
-              <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+              <>
+                <span>•</span>
+                <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+              </>
             )}
           </div>
 
@@ -407,6 +423,23 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
                       className="mt-1"
                       data-testid="input-min-score"
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="source" className="text-xs">Source</Label>
+                    <Select value={selectedSource} onValueChange={setSelectedSource}>
+                      <SelectTrigger id="source" className="mt-1" data-testid="select-source">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        {(rssSources as any[])?.map((source: any) => (
+                          <SelectItem key={source.id} value={source.name}>
+                            {source.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               )}
