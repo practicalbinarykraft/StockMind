@@ -6,6 +6,16 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ## Recent Updates
 
 ### October 22, 2025
+- **Instagram Integration - Phase 3.5 Complete**: Video Download System implemented
+  - Added schema fields: localVideoPath, localThumbnailPath, downloadStatus, downloadError
+  - Created `server/instagram-download.ts` with retry logic (3 attempts, exponential backoff, 60s timeout)
+  - Implemented `updateInstagramItemDownloadStatus()` storage method
+  - Integrated background download in parse route (non-blocking)
+  - Videos saved to `/uploads/instagram-reels/{id}.mp4` (critical for Phase 5 transcription)
+  - Status flow: pending → downloading → completed/failed
+  - Infrastructure: directory created, .gitignore updated
+  - Production-ready: Architect review passed - solves Apify URL expiration problem (24-48h)
+
 - **Instagram Integration - Phase 3 Complete**: Instagram Items Storage implemented
   - Created `instagram_items` table with comprehensive schema (video metadata, engagement metrics, AI scoring fields)
   - Added UNIQUE constraint on (userId, externalId) to prevent duplicate Reels
