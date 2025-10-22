@@ -9,6 +9,7 @@ import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText } from "./ai-
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
+import { scrapeInstagramReels } from "./apify-service";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -254,6 +255,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting Instagram source:", error);
       res.status(500).json({ message: "Failed to delete Instagram source" });
+    }
+  });
+
+  app.post("/api/instagram/sources/:id/parse", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { resultsLimit = 50 } = req.body;
+
+      // Get Instagram source and verify ownership
+      const sources = await storage.getInstagramSources(userId);
+      const source = sources.find(s => s.id === id);
+
+      if (!source) {
+        return res.status(404).json({ message: "Instagram source not found" });
+      }
+
+      // Get Apify API key
+      const apiKeys = await storage.getApiKeys(userId);
+      const apifyKey = apiKeys.find(key => key.provider === 'apify');
+
+      if (!apifyKey) {
+        return res.status(400).json({ 
+          message: "Apify API key not configured. Please add it in Settings." 
+        });
+      }
+
+      // Update status to 'parsing'
+      await storage.updateInstagramSource(id, userId, { 
+        parseStatus: 'parsing',
+        parseError: null 
+      });
+
+      console.log(`[Instagram] Starting to parse @${source.username} (limit: ${resultsLimit})`);
+
+      // Start scraping (this will take some time)
+      const result = await scrapeInstagramReels(
+        source.username,
+        apifyKey.encryptedKey, // Actually decrypted by storage
+        resultsLimit
+      );
+
+      if (result.success) {
+        // Update source with success status
+        await storage.updateInstagramSource(id, userId, {
+          parseStatus: 'success',
+          lastParsed: new Date(),
+          itemCount: result.itemCount,
+          parseError: null,
+        });
+
+        console.log(`[Instagram] Successfully parsed ${result.itemCount} Reels from @${source.username}`);
+
+        // TODO Phase 3: Save items to instagram_items table
+        
+        res.json({
+          success: true,
+          itemCount: result.itemCount,
+          items: result.items,
+        });
+      } else {
+        // Update source with error status
+        await storage.updateInstagramSource(id, userId, {
+          parseStatus: 'error',
+          parseError: result.error || 'Unknown error',
+        });
+
+        console.error(`[Instagram] Failed to parse @${source.username}:`, result.error);
+
+        res.status(500).json({
+          success: false,
+          message: result.error || 'Failed to scrape Instagram Reels',
+        });
+      }
+    } catch (error: any) {
+      console.error("Error parsing Instagram source:", error);
+      
+      // Update source with error status
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.updateInstagramSource(id, userId, {
+        parseStatus: 'error',
+        parseError: error.message || 'Unknown error',
+      }).catch(err => console.error('Failed to update error status:', err));
+
+      res.status(500).json({ message: error.message || "Failed to parse Instagram source" });
     }
   });
 
