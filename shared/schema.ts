@@ -248,6 +248,8 @@ export const instagramItems = pgTable("instagram_items", {
   index("instagram_items_ai_score_idx").on(table.aiScore),
   index("instagram_items_user_action_idx").on(table.userAction),
   index("instagram_items_published_at_idx").on(table.publishedAt),
+  // Prevent duplicate Reels for same user
+  uniqueIndex("instagram_items_user_external_id_unique").on(table.userId, table.externalId),
 ]);
 
 export const insertInstagramItemSchema = createInsertSchema(instagramItems).omit({

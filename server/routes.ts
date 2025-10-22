@@ -315,17 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         for (const reel of result.items) {
           try {
-            // Check if item already exists (by externalId and sourceId)
-            const existingItems = await storage.getInstagramItemsBySource(id);
-            const exists = existingItems.some(item => item.externalId === reel.id);
-
-            if (exists) {
-              console.log(`[Instagram] Skipping duplicate Reel: ${reel.shortCode}`);
-              skippedCount++;
-              continue;
-            }
-
-            // Create Instagram item
+            // Try to create Instagram item - unique constraint will prevent duplicates
             await storage.createInstagramItem({
               sourceId: id,
               userId,
@@ -360,7 +350,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             savedCount++;
           } catch (error: any) {
-            console.error(`[Instagram] Error saving Reel ${reel.shortCode}:`, error.message);
+            // Check if error is due to unique constraint violation
+            if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
+              console.log(`[Instagram] Skipping duplicate Reel: ${reel.shortCode}`);
+              skippedCount++;
+            } else {
+              console.error(`[Instagram] Error saving Reel ${reel.shortCode}:`, error.message);
+            }
           }
         }
 
@@ -407,6 +403,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).catch(err => console.error('Failed to update error status:', err));
 
       res.status(500).json({ message: error.message || "Failed to parse Instagram source" });
+    }
+  });
+
+  // ============================================================================
+  // INSTAGRAM ITEMS ROUTES
+  // ============================================================================
+
+  app.get("/api/instagram/items", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sourceId } = req.query;
+
+      const items = await storage.getInstagramItems(userId, sourceId);
+      
+      res.json(items);
+    } catch (error: any) {
+      console.error("Error fetching Instagram items:", error);
+      res.status(500).json({ message: "Failed to fetch Instagram items" });
     }
   });
 

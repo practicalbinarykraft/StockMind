@@ -1,0 +1,238 @@
+🔍 ПРОВЕРКА PHASE 2: ХОРОШО, НО ЕСТЬ ПРОБЕЛЫ!
+✅ ЧТО СДЕЛАНО ПРАВИЛЬНО:
+1. Базовая структура ✅
+typescript// server/apify-service.ts
+✅ scrapeInstagramReels() - основная функция
+✅ testApifyApiKey() - валидация
+✅ Официальный apify/instagram-reel-scraper
+✅ TypeScript типизация
+2. API Route ✅
+typescriptPOST /api/instagram/sources/:id/parse
+✅ Валидация владельца
+✅ Проверка Apify key
+✅ Статусы: pending → parsing → success/error
+3. UI/UX ✅
+typescript✅ Parse button
+✅ Status badges (pending/parsing/success/error)
+✅ Toast notifications
+✅ Error handling
+
+🔴 ЧТО ОТСУТСТВУЕТ (КРИТИЧНО!):
+Сравнение со старым проектом:
+ФичаСтарый проектAgent Phase 2СтатусIdempotencyrequest_id + external_id❌ Нет🔴 КРИТИЧНОVideo DownloadСкачивал mp4 файлы❌ Нет🔴 КРИТИЧНОPer-Reel Storageingest_items таблица❌ Нет🔴 КРИТИЧНОWebhook Callback/api/ingest/callback❌ Polling вместо webhook🟡 ЖелательноQueue Systemtranscribe:start event❌ Нет🟡 ЖелательноMetadata Extractionduration, fps, size❌ Нет🟡 ЖелательноRetry Logic3 попытки с backoff❌ Нет🟡 Желательно
+
+🎯 ЧТО НУЖНО ДОБАВИТЬ:
+1. IDEMPOTENCY (критично!)
+typescript// Из старого проекта:
+const externalId = extractInstagramPostId(url); // "CxYzAbc123"
+
+// Проверка дубликата:
+const existing = await db.query(
+  'SELECT * FROM instagram_items WHERE external_id = $1',
+  [externalId]
+);
+
+if (existing.rows.length > 0) {
+  return existing.rows[0]; // Не парсим второй раз!
+}
+Сейчас: Если кликнуть "Parse" дважды → задублируются Reels!
+Нужно: Дедупликация по Instagram post ID
+
+2. VIDEO DOWNLOAD (критично!)
+typescript// Из старого проекта:
+async function downloadAndStore(videoUrl: string, reelId: string) {
+  const response = await axios.get(videoUrl, { responseType: 'stream' });
+  const videoPath = `./uploads/viral-reels/${reelId}.mp4`;
+  
+  const writer = fs.createWriteStream(videoPath);
+  response.data.pipe(writer);
+  
+  await new Promise((resolve, reject) => {
+    writer.on('finish', resolve);
+    writer.on('error', reject);
+  });
+  
+  return videoPath;
+}
+Сейчас: Apify возвращает URL, но видео НЕ скачивается!
+Проблема: URL может истечь, нужен локальный файл для транскрибации!
+Нужно: Скачать mp4 и сохранить в /uploads/viral-reels/
+
+3. INSTAGRAM_ITEMS TABLE (критично!)
+sql-- Из старого проекта (адаптировано):
+CREATE TABLE instagram_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Source tracking
+  source_id UUID REFERENCES instagram_sources(id),
+  
+  -- Idempotency
+  external_id VARCHAR UNIQUE, -- Instagram shortcode "CxYzAbc123"
+  
+  -- URLs
+  post_url TEXT NOT NULL,
+  video_url TEXT,
+  video_path VARCHAR, -- Local: /uploads/viral-reels/{id}.mp4
+  
+  -- Metadata from Apify
+  caption TEXT,
+  likes_count INTEGER,
+  comments_count INTEGER,
+  views_count INTEGER,
+  engagement_rate DECIMAL,
+  
+  -- Video metadata
+  duration_sec DECIMAL,
+  width INTEGER,
+  height INTEGER,
+  
+  -- Transcription (later)
+  transcript TEXT,
+  transcript_segments JSONB,
+  
+  -- Status
+  status VARCHAR DEFAULT 'pending', -- pending/downloaded/transcribed/analyzed
+  
+  -- User actions (like rss_items)
+  user_action VARCHAR, -- 'selected', 'dismissed', 'seen'
+  
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_instagram_external_id ON instagram_items(external_id);
+CREATE INDEX idx_instagram_source_id ON instagram_items(source_id);
+Сейчас: Только instagram_sources таблица (список источников)
+Нужно: instagram_items для КАЖДОГО рила отдельно!
+Почему важно:
+
+Дедупликация
+Статусы по каждому рилу
+User actions (dismissed/selected)
+Транскрипты
+Связь с проектами
+
+
+4. PROPER FLOW (из старого проекта)
+typescript// Старый проект:
+1. Parse (Apify) → получить список Reels
+2. For each Reel:
+   a. Check duplicate (external_id)
+   b. Download video → /uploads/viral-reels/
+   c. Extract metadata (ffprobe)
+   d. Save to instagram_items table
+   e. Trigger transcription queue
+3. Update source status
+
+// Agent сейчас:
+1. Parse (Apify) → получить список
+2. Update source.itemCount
+3. ??? Reels куда-то сохраняются?
+```
+
+**Проблема:** Не видно где хранятся ОТДЕЛЬНЫЕ рилы!
+
+**Нужно:** Полный flow как в старом проекте!
+
+---
+
+## 📊 АРХИТЕКТУРА СРАВНЕНИЕ:
+
+### **Старый проект (правильно):**
+```
+Instagram URL
+     ↓
+normalize_url() → external_id
+     ↓
+check_duplicate() → if exists, return
+     ↓
+apify.scrape()
+     ↓
+download_video() → save mp4
+     ↓
+extract_metadata() → ffprobe
+     ↓
+save_to_ingest_items()
+     ↓
+trigger_transcription_queue()
+```
+
+### **Agent Phase 2 (неполно):**
+```
+Instagram Source
+     ↓
+apify.scrape()
+     ↓
+??? где данные?
+     ↓
+update source.itemCount
+```
+
+**Отсутствует:**
+- Дедупликация
+- Скачивание видео
+- Per-reel хранение
+- Очередь транскрибации
+
+---
+
+## ⚡ ЧТО СКАЗАТЬ AGENT:
+```
+Phase 2 is good foundation, but incomplete!
+
+Missing critical features from old project:
+
+1. IDEMPOTENCY:
+   - Add external_id (Instagram shortcode) to instagram_items
+   - Check for duplicates before parsing
+   - Use request_id for API calls
+
+2. VIDEO DOWNLOAD:
+   - Download mp4 from Apify result
+   - Save to /uploads/viral-reels/{reelId}.mp4
+   - Store video_path in DB
+   - Extract metadata with ffprobe
+
+3. INSTAGRAM_ITEMS TABLE:
+   - Create table for EACH reel (not just source)
+   - Store: external_id, video_path, metadata, transcript
+   - Status tracking: pending → downloaded → transcribed
+   - User actions: dismissed/selected/seen
+
+4. PROPER FLOW:
+   For each reel from Apify:
+   - Check duplicate by external_id
+   - Download video
+   - Extract metadata
+   - Save to instagram_items
+   - Prepare for transcription
+
+Current implementation only:
+- Parses Instagram source
+- Updates itemCount
+- But individual reels NOT stored!
+
+Please add Phase 2.5: Complete Storage & Download
+Before moving to Phase 3!
+
+This is critical for transcription (Phase 5)!
+```
+
+---
+
+## 🎯 ИТОГОВАЯ ОЦЕНКА:
+
+**Phase 2 Completeness: 40%**
+```
+✅ Apify integration (20%)
+✅ UI/UX (10%)
+✅ Error handling (10%)
+❌ Idempotency (15%)
+❌ Video download (20%)
+❌ Per-reel storage (15%)
+❌ Metadata extraction (5%)
+❌ Queue system (5%)
+Вердикт:
+🟡 Phase 2 - FOUNDATION GOOD, BUT INCOMPLETE
+Нужно: Phase 2.5 - Complete Storage & Download
+Потом: Phase 3 → 5 → 6 → 7
