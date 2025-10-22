@@ -502,6 +502,37 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async updateInstagramItemDownloadStatus(
+    id: string,
+    status: 'pending' | 'downloading' | 'completed' | 'failed',
+    localVideoPath?: string,
+    localThumbnailPath?: string,
+    downloadError?: string
+  ): Promise<InstagramItem | undefined> {
+    const updateData: Partial<InstagramItem> = {
+      downloadStatus: status,
+    };
+    
+    if (localVideoPath !== undefined) {
+      updateData.localVideoPath = localVideoPath;
+    }
+    
+    if (localThumbnailPath !== undefined) {
+      updateData.localThumbnailPath = localThumbnailPath;
+    }
+    
+    if (downloadError !== undefined) {
+      updateData.downloadError = downloadError;
+    }
+    
+    const [item] = await db
+      .update(instagramItems)
+      .set(updateData)
+      .where(eq(instagramItems.id, id))
+      .returning();
+    return item;
+  }
+
   // Projects
   async getProjects(userId: string): Promise<Project[]> {
     return await db
