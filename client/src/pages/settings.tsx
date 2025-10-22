@@ -14,6 +14,7 @@ import {
   Trash2, 
   Key,
   Rss,
+  Instagram,
   Eye,
   EyeOff,
   CheckCircle2,
@@ -21,7 +22,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import type { ApiKey, RssSource } from "@shared/schema"
+import type { ApiKey, RssSource, InstagramSource } from "@shared/schema"
 import { StatusBadge } from "@/components/status-badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDistanceToNow } from "date-fns"
@@ -43,6 +44,7 @@ export default function Settings() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false)
   const [showRssDialog, setShowRssDialog] = useState(false)
+  const [showInstagramDialog, setShowInstagramDialog] = useState(false)
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -72,6 +74,12 @@ export default function Settings() {
     topic: "",
   })
 
+  // Instagram Source State
+  const [instagramForm, setInstagramForm] = useState({
+    username: "",
+    description: "",
+  })
+
   // Fetch API Keys
   const { data: apiKeys, isLoading: keysLoading } = useQuery<ApiKey[]>({
     queryKey: ["/api/settings/api-keys"],
@@ -80,6 +88,11 @@ export default function Settings() {
   // Fetch RSS Sources
   const { data: rssSources, isLoading: sourcesLoading } = useQuery<RssSource[]>({
     queryKey: ["/api/settings/rss-sources"],
+  })
+
+  // Fetch Instagram Sources
+  const { data: instagramSources, isLoading: instagramLoading } = useQuery<InstagramSource[]>({
+    queryKey: ["/api/settings/instagram-sources"],
   })
 
   // Add API Key Mutation
@@ -257,6 +270,75 @@ export default function Settings() {
       toast({
         title: "RSS Source Deleted",
         description: "The RSS source has been removed.",
+      })
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Add Instagram Source Mutation
+  const addInstagramSourceMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/settings/instagram-sources", {
+        username: instagramForm.username,
+        description: instagramForm.description || null,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      setShowInstagramDialog(false)
+      setInstagramForm({ username: "", description: "" })
+      toast({
+        title: "Instagram Source Added",
+        description: "The Instagram account has been added successfully.",
+      })
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Delete Instagram Source Mutation
+  const deleteInstagramSourceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/settings/instagram-sources/${id}`, {})
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      toast({
+        title: "Instagram Source Deleted",
+        description: "The Instagram source has been removed.",
       })
     },
     onError: (error: Error) => {
@@ -619,6 +701,144 @@ export default function Settings() {
                 <Rss className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-sm text-muted-foreground">
                   No RSS sources configured yet. Add your first source to start parsing news.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Instagram Sources Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Instagram className="h-5 w-5" />
+                  Instagram Sources
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  Manage Instagram accounts to scrape Reels from. Requires Apify API key.
+                </CardDescription>
+              </div>
+              <Dialog open={showInstagramDialog} onOpenChange={setShowInstagramDialog}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2" data-testid="button-add-instagram">
+                    <Plus className="h-4 w-4" />
+                    Add Account
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Instagram Account</DialogTitle>
+                    <DialogDescription>
+                      Add an Instagram username to scrape Reels content.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram-username">Username</Label>
+                      <Input
+                        id="instagram-username"
+                        placeholder="techcrunch"
+                        value={instagramForm.username}
+                        onChange={(e) => setInstagramForm({ ...instagramForm, username: e.target.value })}
+                        data-testid="input-instagram-username"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter username without @ symbol
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram-description">Description (Optional)</Label>
+                      <Textarea
+                        id="instagram-description"
+                        placeholder="Tech news & updates"
+                        value={instagramForm.description}
+                        onChange={(e) => setInstagramForm({ ...instagramForm, description: e.target.value })}
+                        data-testid="input-instagram-description"
+                        rows={3}
+                      />
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={() => addInstagramSourceMutation.mutate()}
+                      disabled={!instagramForm.username || addInstagramSourceMutation.isPending}
+                      data-testid="button-save-instagram"
+                    >
+                      {addInstagramSourceMutation.isPending ? "Adding..." : "Add Instagram Account"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {instagramLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map((i) => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : instagramSources && instagramSources.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {instagramSources.map((source) => (
+                  <div
+                    key={source.id}
+                    className="p-4 rounded-lg border border-border space-y-3"
+                    data-testid={`instagram-source-${source.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold line-clamp-1">@{source.username}</h4>
+                        {source.description && (
+                          <p className="text-sm text-muted-foreground">{source.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => deleteInstagramSourceMutation.mutate(source.id)}
+                        disabled={deleteInstagramSourceMutation.isPending}
+                        data-testid={`button-delete-instagram-${source.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge
+                          status={source.parseStatus as "success" | "error" | "pending"}
+                          text={source.parseStatus === "success" ? `${source.itemCount} reels` : source.parseStatus}
+                        />
+                      </div>
+                      {source.parseError && (
+                        <p className="text-xs text-destructive">{source.parseError}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {source.lastParsed
+                          ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true })}`
+                          : "Not parsed yet"}
+                      </p>
+                    </div>
+
+                    {source.profileUrl && (
+                      <p className="text-xs text-muted-foreground truncate" title={source.profileUrl}>
+                        {source.profileUrl}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Instagram className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">
+                  No Instagram sources configured yet. Add your first account to start scraping Reels.
                 </p>
               </div>
             )}
