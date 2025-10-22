@@ -172,10 +172,10 @@ export default function Settings() {
       // apiRequest already returns parsed JSON, no need to call .json() again
       return await apiRequest("POST", `/api/settings/api-keys/${id}/test`, {})
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "API Key Test Successful",
-        description: data.message || "The API key is working correctly!",
+        description: data?.message || "The API key is working correctly!",
       })
     },
     onError: (error: Error) => {
@@ -355,6 +355,38 @@ export default function Settings() {
       }
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Parse Instagram Source Mutation
+  const parseInstagramSourceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/instagram/sources/${id}/parse`, { resultsLimit: 50 })
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      toast({
+        title: "Parsing Complete",
+        description: `Successfully parsed ${data.itemCount} Reels.`,
+      })
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Parsing Failed",
         description: error.message,
         variant: "destructive",
       })
@@ -677,7 +709,7 @@ export default function Settings() {
                       <div className="flex items-center gap-2">
                         <StatusBadge
                           status={source.parseStatus as "success" | "error" | "pending"}
-                          text={source.parseStatus === "success" ? `${source.itemCount} items` : source.parseStatus}
+                          text={source.parseStatus === "success" ? `${source.itemCount} items` : source.parseStatus || 'pending'}
                         />
                       </div>
                       {source.parseError && (
@@ -797,23 +829,46 @@ export default function Settings() {
                           <p className="text-sm text-muted-foreground">{source.description}</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => deleteInstagramSourceMutation.mutate(source.id)}
-                        disabled={deleteInstagramSourceMutation.isPending}
-                        data-testid={`button-delete-instagram-${source.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => parseInstagramSourceMutation.mutate(source.id)}
+                          disabled={parseInstagramSourceMutation.isPending || source.parseStatus === 'parsing'}
+                          data-testid={`button-parse-instagram-${source.id}`}
+                          title="Parse Reels"
+                        >
+                          <Instagram className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => deleteInstagramSourceMutation.mutate(source.id)}
+                          disabled={deleteInstagramSourceMutation.isPending}
+                          data-testid={`button-delete-instagram-${source.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <StatusBadge
-                          status={source.parseStatus as "success" | "error" | "pending"}
-                          text={source.parseStatus === "success" ? `${source.itemCount} reels` : source.parseStatus}
+                          status={
+                            source.parseStatus === 'parsing' 
+                              ? 'pending' 
+                              : source.parseStatus as "success" | "error" | "pending"
+                          }
+                          text={
+                            source.parseStatus === "success" 
+                              ? `${source.itemCount} reels` 
+                              : source.parseStatus === 'parsing'
+                              ? 'Parsing...'
+                              : source.parseStatus || 'pending'
+                          }
                         />
                       </div>
                       {source.parseError && (
