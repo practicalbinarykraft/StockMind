@@ -153,6 +153,41 @@ export type InsertRssItem = z.infer<typeof insertRssItemSchema>;
 export type RssItem = typeof rssItems.$inferSelect;
 
 // ============================================================================
+// INSTAGRAM SOURCES TABLE
+// ============================================================================
+
+export const instagramSources = pgTable("instagram_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  username: varchar("username", { length: 255 }).notNull(), // Instagram username (e.g. "techcrunch")
+  profileUrl: text("profile_url"), // Full Instagram profile URL
+  description: text("description"), // User-provided description
+  isActive: boolean("is_active").default(true).notNull(),
+  lastParsed: timestamp("last_parsed"),
+  parseStatus: varchar("parse_status", { length: 20 }).default('pending'), // 'success', 'error', 'pending'
+  parseError: text("parse_error"),
+  itemCount: integer("item_count").default(0).notNull(), // Number of reels parsed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("instagram_sources_user_id_idx").on(table.userId),
+]);
+
+export const insertInstagramSourceSchema = createInsertSchema(instagramSources).omit({
+  id: true,
+  userId: true,
+  lastParsed: true,
+  parseStatus: true,
+  parseError: true,
+  itemCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInstagramSource = z.infer<typeof insertInstagramSourceSchema>;
+export type InstagramSource = typeof instagramSources.$inferSelect;
+
+// ============================================================================
 // PROJECTS TABLE
 // ============================================================================
 
@@ -218,6 +253,7 @@ export type ProjectStep = typeof projectSteps.$inferSelect;
 export const usersRelations = relations(users, ({ many }) => ({
   apiKeys: many(apiKeys),
   rssSources: many(rssSources),
+  instagramSources: many(instagramSources),
   projects: many(projects),
 }));
 
@@ -240,6 +276,13 @@ export const rssItemsRelations = relations(rssItems, ({ one }) => ({
   source: one(rssSources, {
     fields: [rssItems.sourceId],
     references: [rssSources.id],
+  }),
+}));
+
+export const instagramSourcesRelations = relations(instagramSources, ({ one }) => ({
+  user: one(users, {
+    fields: [instagramSources.userId],
+    references: [users.id],
   }),
 }));
 
