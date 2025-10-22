@@ -5,6 +5,16 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 
 ## Recent Updates
 
+### October 22, 2025
+- **Instagram Integration - Phase 2 Complete**: Apify scraping service fully integrated
+  - Created `server/apify-service.ts` with `scrapeInstagramReels()` function using official `apify/instagram-reel-scraper` actor
+  - Implemented API key validation with `testApifyApiKey()` before scraping to prevent failed runs
+  - Added POST `/api/instagram/sources/:id/parse` endpoint with ownership validation and status tracking
+  - Parse button in Settings UI with Instagram icon, status badges (pending/parsing/success/error)
+  - Full error handling: missing keys, invalid keys, scraping failures all surface to UI with clear messages
+  - Status flow: pending → parsing → success (with itemCount) or error (with parseError)
+  - Production-ready: Architect review passed with proper credential decryption via `getUserApiKey()`
+
 ### October 17, 2025
 - **Source Identification**: News cards now display source name with 📰 emoji (e.g., "📰 TechCrunch • 2h ago")
 - **Source Filtering**: Dropdown filter with "All Sources" option plus all user's RSS sources for targeted content selection
@@ -64,14 +74,16 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ### Database Schema
 - `users`: User accounts.
 - `sessions`: Session storage.
-- `api_keys`: Encrypted API keys for external services.
+- `api_keys`: Encrypted API keys for external services (Anthropic, ElevenLabs, HeyGen, Kie.ai, **Apify**).
 - `rss_sources`: News RSS feed configurations.
 - `rss_items`: Parsed news articles with AI scores.
+- `instagram_sources`: Instagram accounts for Reels scraping (username, parse_status, item_count, parse_error).
 - `projects`: Video production projects.
 - `project_steps`: Step-by-step progress tracking within projects.
 
 ## External Dependencies
 - **Anthropic Claude**: Used for AI content analysis, news scoring, and script analysis.
+- **Apify**: Official `apify/instagram-reel-scraper` actor for Instagram Reels content extraction (Phase 2 complete).
 - **ElevenLabs**: Integrated for high-quality voice generation.
 - **HeyGen**: Used for avatar video generation.
 - **Kie.ai**: Utilized for optional AI B-roll footage generation per scene.
