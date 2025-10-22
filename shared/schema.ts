@@ -201,9 +201,15 @@ export const instagramItems = pgTable("instagram_items", {
   shortCode: varchar("short_code", { length: 255 }), // Instagram shortCode
   caption: text("caption"), // Reel caption/description
   url: text("url").notNull(), // Instagram Reel URL
-  videoUrl: text("video_url").notNull(), // Direct video URL
-  thumbnailUrl: text("thumbnail_url"), // Thumbnail image
+  videoUrl: text("video_url").notNull(), // Direct video URL from Apify
+  thumbnailUrl: text("thumbnail_url"), // Thumbnail image URL from Apify
   videoDuration: integer("video_duration"), // Duration in seconds
+  
+  // Local storage (critical for transcription - Apify URLs expire in 24-48h!)
+  localVideoPath: text("local_video_path"), // /uploads/instagram-reels/{id}.mp4
+  localThumbnailPath: text("local_thumbnail_path"), // /uploads/instagram-reels/{id}.jpg
+  downloadStatus: varchar("download_status", { length: 20 }).default('pending'), // pending/downloading/completed/failed
+  downloadError: text("download_error"), // Error message if download failed
   
   // Engagement metrics
   likesCount: integer("likes_count").default(0).notNull(),
