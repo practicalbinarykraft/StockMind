@@ -4,3 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Uploaded media files
+uploads/audio/*
+uploads/instagram-reels/*
+!uploads/audio/.gitkeep
+!uploads/instagram-reels/.gitkeep
