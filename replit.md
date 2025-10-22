@@ -6,6 +6,16 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ## Recent Updates
 
 ### October 22, 2025
+- **Instagram Integration - Phase 3 Complete**: Instagram Items Storage implemented
+  - Created `instagram_items` table with comprehensive schema (video metadata, engagement metrics, AI scoring fields)
+  - Added UNIQUE constraint on (userId, externalId) to prevent duplicate Reels
+  - Implemented Storage methods: `getInstagramItems()`, `createInstagramItem()`, `updateInstagramItemAction()`
+  - Enhanced parse endpoint to save scraped Reels to database with duplicate detection
+  - Added GET `/api/instagram/items` endpoint with optional sourceId filtering
+  - Efficient bulk insert with per-item error handling (savedCount/skippedCount tracking)
+  - Smart sorting: AI score descending → published date descending
+  - Production-ready: Architect review passed with database-level duplicate protection
+
 - **Instagram Integration - Phase 2 Complete**: Apify scraping service fully integrated
   - Created `server/apify-service.ts` with `scrapeInstagramReels()` function using official `apify/instagram-reel-scraper` actor
   - Implemented API key validation with `testApifyApiKey()` before scraping to prevent failed runs
@@ -78,6 +88,7 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 - `rss_sources`: News RSS feed configurations.
 - `rss_items`: Parsed news articles with AI scores.
 - `instagram_sources`: Instagram accounts for Reels scraping (username, parse_status, item_count, parse_error).
+- `instagram_items`: Scraped Instagram Reels with video metadata, engagement metrics, AI scoring, and user tracking.
 - `projects`: Video production projects.
 - `project_steps`: Step-by-step progress tracking within projects.
 
