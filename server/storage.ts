@@ -5,6 +5,7 @@ import {
   rssSources,
   rssItems,
   instagramSources,
+  instagramItems,
   projects,
   projectSteps,
   type User,
@@ -17,6 +18,8 @@ import {
   type InsertRssItem,
   type InstagramSource,
   type InsertInstagramSource,
+  type InstagramItem,
+  type InsertInstagramItem,
   type Project,
   type InsertProject,
   type ProjectStep,
@@ -82,6 +85,13 @@ export interface IStorage {
   createRssItem(data: InsertRssItem): Promise<RssItem>;
   updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined>;
   updateRssItemAction(id: string, userId: string, action: string, projectId?: string): Promise<RssItem | undefined>;
+
+  // Instagram Items
+  getInstagramItems(userId: string, sourceId?: string): Promise<InstagramItem[]>;
+  getInstagramItemsBySource(sourceId: string): Promise<InstagramItem[]>;
+  createInstagramItem(data: InsertInstagramItem): Promise<InstagramItem>;
+  updateInstagramItem(id: string, data: Partial<InstagramItem>): Promise<InstagramItem | undefined>;
+  updateInstagramItemAction(id: string, userId: string, action: string, projectId?: string): Promise<InstagramItem | undefined>;
 
   // Projects
   getProjects(userId: string): Promise<Project[]>;
@@ -395,6 +405,99 @@ export class DatabaseStorage implements IStorage {
         userId, // Set userId if not already set
       })
       .where(eq(rssItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Instagram Items
+  async getInstagramItems(userId: string, sourceId?: string): Promise<InstagramItem[]> {
+    if (sourceId) {
+      // Get items from specific source
+      return await db
+        .select()
+        .from(instagramItems)
+        .where(and(eq(instagramItems.userId, userId), eq(instagramItems.sourceId, sourceId)))
+        .orderBy(desc(instagramItems.publishedAt));
+    }
+    
+    // Get all items for user, sorted by AI score and published date
+    const items = await db
+      .select()
+      .from(instagramItems)
+      .where(eq(instagramItems.userId, userId));
+    
+    // Sort by AI score descending (nulls last), then by publishedAt descending
+    return items.sort((a, b) => {
+      // Items without score go to the end
+      if (a.aiScore === null && b.aiScore === null) {
+        // Both null - sort by date
+        const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+        return bDate - aDate;
+      }
+      if (a.aiScore === null) return 1;
+      if (b.aiScore === null) return -1;
+      
+      // Primary sort: by AI score (higher first)
+      if (b.aiScore !== a.aiScore) {
+        return b.aiScore - a.aiScore;
+      }
+      
+      // Secondary sort: by published date (newer first)
+      const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return bDate - aDate;
+    });
+  }
+
+  async getInstagramItemsBySource(sourceId: string): Promise<InstagramItem[]> {
+    return await db
+      .select()
+      .from(instagramItems)
+      .where(eq(instagramItems.sourceId, sourceId))
+      .orderBy(desc(instagramItems.publishedAt));
+  }
+
+  async createInstagramItem(data: InsertInstagramItem): Promise<InstagramItem> {
+    const [item] = await db
+      .insert(instagramItems)
+      .values(data)
+      .returning();
+    return item;
+  }
+
+  async updateInstagramItem(id: string, data: Partial<InstagramItem>): Promise<InstagramItem | undefined> {
+    const [item] = await db
+      .update(instagramItems)
+      .set(data)
+      .where(eq(instagramItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async updateInstagramItemAction(
+    id: string,
+    userId: string,
+    action: string,
+    projectId?: string
+  ): Promise<InstagramItem | undefined> {
+    // First verify the item belongs to user
+    const [item] = await db
+      .select()
+      .from(instagramItems)
+      .where(and(eq(instagramItems.id, id), eq(instagramItems.userId, userId)));
+    
+    if (!item) return undefined;
+    
+    // Now safe to update
+    const [updated] = await db
+      .update(instagramItems)
+      .set({
+        userAction: action,
+        actionAt: new Date(),
+        usedInProject: projectId || null,
+      })
+      .where(eq(instagramItems.id, id))
       .returning();
     return updated;
   }

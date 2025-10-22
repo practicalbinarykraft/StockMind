@@ -188,6 +188,77 @@ export type InsertInstagramSource = z.infer<typeof insertInstagramSourceSchema>;
 export type InstagramSource = typeof instagramSources.$inferSelect;
 
 // ============================================================================
+// INSTAGRAM ITEMS TABLE (Scraped Instagram Reels)
+// ============================================================================
+
+export const instagramItems = pgTable("instagram_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceId: varchar("source_id").notNull().references(() => instagramSources.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Instagram metadata
+  externalId: varchar("external_id", { length: 255 }).notNull(), // Instagram post ID or shortCode
+  shortCode: varchar("short_code", { length: 255 }), // Instagram shortCode
+  caption: text("caption"), // Reel caption/description
+  url: text("url").notNull(), // Instagram Reel URL
+  videoUrl: text("video_url").notNull(), // Direct video URL
+  thumbnailUrl: text("thumbnail_url"), // Thumbnail image
+  videoDuration: integer("video_duration"), // Duration in seconds
+  
+  // Engagement metrics
+  likesCount: integer("likes_count").default(0).notNull(),
+  commentsCount: integer("comments_count").default(0).notNull(),
+  videoViewCount: integer("video_view_count").default(0),
+  videoPlayCount: integer("video_play_count").default(0),
+  sharesCount: integer("shares_count").default(0),
+  
+  // Content metadata
+  hashtags: text("hashtags").array(), // Array of hashtags
+  mentions: text("mentions").array(), // Array of @mentions
+  
+  // Owner information
+  ownerUsername: varchar("owner_username", { length: 255 }),
+  ownerFullName: varchar("owner_full_name", { length: 255 }),
+  ownerId: varchar("owner_id", { length: 255 }),
+  
+  // Music info (stored as JSONB)
+  musicInfo: jsonb("music_info"), // { artist, songName, originalAudio }
+  
+  // AI scoring (similar to RSS items)
+  aiScore: integer("ai_score"), // 0-100 virality score from AI
+  aiComment: text("ai_comment"), // AI's comment on why this score
+  
+  // User interaction tracking
+  userAction: varchar("user_action", { length: 20 }), // 'selected', 'dismissed', 'seen', null
+  actionAt: timestamp("action_at"), // When user performed action
+  usedInProject: varchar("used_in_project"), // Project ID if used
+  
+  // Detailed scoring (for future AI scoring)
+  freshnessScore: integer("freshness_score"), // 0-100 based on time
+  viralityScore: integer("virality_score"), // 0-100 trending potential
+  qualityScore: integer("quality_score"), // 0-100 content quality
+  
+  // Timestamps
+  publishedAt: timestamp("published_at"), // When posted on Instagram
+  parsedAt: timestamp("parsed_at").defaultNow().notNull(), // When scraped by us
+}, (table) => [
+  index("instagram_items_source_id_idx").on(table.sourceId),
+  index("instagram_items_user_id_idx").on(table.userId),
+  index("instagram_items_external_id_idx").on(table.externalId),
+  index("instagram_items_ai_score_idx").on(table.aiScore),
+  index("instagram_items_user_action_idx").on(table.userAction),
+  index("instagram_items_published_at_idx").on(table.publishedAt),
+]);
+
+export const insertInstagramItemSchema = createInsertSchema(instagramItems).omit({
+  id: true,
+  parsedAt: true,
+});
+
+export type InsertInstagramItem = z.infer<typeof insertInstagramItemSchema>;
+export type InstagramItem = typeof instagramItems.$inferSelect;
+
+// ============================================================================
 // PROJECTS TABLE
 // ============================================================================
 
