@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertApiKeySchema, insertRssSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
+import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
 import Parser from "rss-parser";
 import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText } from "./ai-service";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
@@ -212,6 +212,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting RSS source:", error);
       res.status(500).json({ message: "Failed to delete RSS source" });
+    }
+  });
+
+  // ============================================================================
+  // INSTAGRAM SOURCES ROUTES
+  // ============================================================================
+
+  app.get("/api/settings/instagram-sources", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sources = await storage.getInstagramSources(userId);
+      res.json(sources);
+    } catch (error) {
+      console.error("Error fetching Instagram sources:", error);
+      res.status(500).json({ message: "Failed to fetch Instagram sources" });
+    }
+  });
+
+  app.post("/api/settings/instagram-sources", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertInstagramSourceSchema.parse(req.body);
+      const source = await storage.createInstagramSource(userId, validated);
+      
+      // TODO: Future - trigger Apify parsing in background
+
+      res.json(source);
+    } catch (error: any) {
+      console.error("Error creating Instagram source:", error);
+      res.status(400).json({ message: error.message || "Failed to create Instagram source" });
+    }
+  });
+
+  app.delete("/api/settings/instagram-sources/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.deleteInstagramSource(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting Instagram source:", error);
+      res.status(500).json({ message: "Failed to delete Instagram source" });
     }
   });
 
