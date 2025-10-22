@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Newspaper, FileText, Instagram, Youtube, Mic, Lock } from "lucide-react"
 import { useMutation } from "@tanstack/react-query"
-import { apiRequest } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 import { useToast } from "@/hooks/use-toast"
 import { isUnauthorizedError } from "@/lib/authUtils"
 import { useAuth } from "@/hooks/useAuth"
@@ -87,6 +87,13 @@ export default function NewProject() {
     },
     onSuccess: (data: any) => {
       console.log("Project created with ID:", data.id)
+      
+      // Update cache directly with new project (works even when query is not active)
+      queryClient.setQueryData(["/api/projects"], (oldProjects: any[] | undefined) => {
+        return [...(oldProjects || []), data]
+      })
+      
+      console.log("✅ Projects cache updated with new project, redirecting...")
       setLocation(`/project/${data.id}`)
     },
     onError: (error: Error) => {

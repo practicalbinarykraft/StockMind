@@ -34,6 +34,7 @@ const API_PROVIDERS = [
   { value: "elevenlabs", label: "ElevenLabs", description: "For voice generation" },
   { value: "heygen", label: "HeyGen", description: "For avatar video generation" },
   { value: "kieai", label: "Kie.ai", description: "For B-roll footage generation" },
+  { value: "apify", label: "Apify", description: "For Instagram scraping and data extraction" },
 ]
 
 export default function Settings() {

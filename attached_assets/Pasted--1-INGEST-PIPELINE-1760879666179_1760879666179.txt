@@ -1,0 +1,583 @@
+# 🔥 ОТЛИЧНО! МНОГО ПОЛЕЗНОГО!
+
+## 💎 КЛЮЧЕВЫЕ ИНСАЙТЫ ИЗ СТАРОГО ПРОЕКТА:
+
+### 1. **INGEST PIPELINE** (самое ценное!)
+
+```
+Normalize URL → Resolve → Download → Store → Queue
+```
+
+**Это идеальная архитектура!** Используем!
+
+-----
+
+### 2. **IDEMPOTENCY СИСТЕМА**
+
+```typescript
+// Старый проект делал:
+const externalId = hashUrl(url); // или extractId(url)
+
+// Проверка дубликата:
+const existing = await db.query(
+  'SELECT * FROM ingest_items WHERE external_id = $1',
+  [externalId]
+);
+
+if (existing.rows.length > 0) {
+  return existing.rows[0]; // Не грузим второй раз!
+}
+```
+
+**Это критично для стабильности!**
+
+-----
+
+### 3. **WHISPERX + FALLBACK**
+
+```typescript
+// Идеальная стратегия:
+async function transcribeWithFallback(videoPath: string) {
+  try {
+    // Primary: WhisperX локально (быстрее, дешевле)
+    return await whisperXLocal(videoPath);
+  } catch (error) {
+    console.log('[Fallback] WhisperX failed, using OpenAI Whisper API');
+    // Fallback: OpenAI Whisper API
+    return await openAIWhisper(videoPath);
+  }
+}
+```
+
+**Устойчивость 100%!**
+
+-----
+
+### 4. **STRUCTURED TRANSCRIPT OUTPUT**
+
+```typescript
+interface TranscriptResult {
+  text: string;           // Full transcript
+  lang: string;           // "ru" | "en"
+  wpm: number;            // Words per minute
+  segments: Array<{       // Phrase-level timestamps
+    t0: number;
+    t1: number;
+    text: string;
+  }>;
+  words: Array<{          // Word-level timestamps
+    t: number;
+    w: string;
+  }>;
+}
+```
+
+**Это даёт точный таймкод для синхронизации!**
+
+-----
+
+### 5. **WEBHOOK CALLBACK от APIFY**
+
+```typescript
+// Старый проект:
+POST /api/ingest/callback
+{
+  "jobId": "abc123",
+  "status": "completed",
+  "data": { ... }
+}
+
+// Handler:
+app.post('/api/ingest/callback', async (req, res) => {
+  const { jobId, status, data } = req.body;
+  
+  if (status === 'completed') {
+    // Update DB status
+    await db.query(
+      'UPDATE ingest_items SET status = $1, data = $2 WHERE job_id = $3',
+      ['completed', data, jobId]
+    );
+    
+    // Trigger next step
+    await publishToQueue('transcribe:start', { ingestId: ... });
+  }
+  
+  res.json({ ok: true });
+});
+```
+
+**Async processing без polling!**
+
+-----
+
+## 🎯 ЧТО ИСПОЛЬЗУЕМ ДЛЯ НОВОГО ПРОЕКТА:
+
+### **DATABASE SCHEMA** (из старого проекта)
+
+```sql
+-- Таблица для инжеста рилсов
+CREATE TABLE ingest_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Request tracking
+  request_id VARCHAR UNIQUE,  -- Idempotency!
+  external_id VARCHAR UNIQUE, -- Instagram post ID
+  
+  -- Source
+  source_url TEXT NOT NULL,
+  provider VARCHAR NOT NULL,   -- 'instagram', 'youtube'
+  
+  -- Storage
+  s3_video VARCHAR,
+  s3_thumb VARCHAR,
+  video_path VARCHAR,          -- Local path if not S3
+  
+  -- Metadata
+  duration_sec DECIMAL,
+  size_bytes BIGINT,
+  fps INTEGER,
+  width INTEGER,
+  height INTEGER,
+  
+  -- Status
+  status VARCHAR DEFAULT 'pending', -- pending/downloading/completed/failed
+  error_message TEXT,
+  retry_count INTEGER DEFAULT 0,
+  
+  -- Apify
+  apify_job_id VARCHAR,
+  
+  -- Timestamps
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Таблица транскриптов
+CREATE TABLE transcripts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ingest_item_id UUID REFERENCES ingest_items(id),
+  
+  -- Transcript data
+  text TEXT NOT NULL,
+  lang VARCHAR NOT NULL,
+  wpm INTEGER,
+  
+  -- Structured data
+  segments JSONB,  -- phrase-level timestamps
+  words JSONB,     -- word-level timestamps
+  
+  -- Metadata
+  model VARCHAR,   -- 'whisperx' | 'openai-whisper'
+  processing_time_ms INTEGER,
+  
+  -- Status
+  status VARCHAR DEFAULT 'pending',
+  error_message TEXT,
+  
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_ingest_external_id ON ingest_items(external_id);
+CREATE INDEX idx_ingest_request_id ON ingest_items(request_id);
+CREATE INDEX idx_transcripts_ingest ON transcripts(ingest_item_id);
+```
+
+-----
+
+### **INGEST API** (адаптация старого)
+
+```typescript
+// server/routes/learn.ts
+
+import { ApifyClient } from 'apify-client';
+import crypto from 'crypto';
+
+const apifyClient = new ApifyClient({
+  token: process.env.APIFY_API_TOKEN,
+});
+
+// 1. Normalize & Resolve
+function normalizeInstagramUrl(url: string): {
+  cleanUrl: string;
+  externalId: string;
+} {
+  // Remove query params
+  const clean = url.split('?')[0];
+  
+  // Extract post ID
+  const match = clean.match(/\/p\/([A-Za-z0-9_-]+)\//);
+  const externalId = match ? match[1] : crypto.createHash('md5').update(clean).digest('hex');
+  
+  return { cleanUrl: clean, externalId };
+}
+
+// 2. Ingest endpoint
+app.post('/api/learn/ingest/instagram', async (req, res) => {
+  const { url } = req.body;
+  const userId = req.user!.id;
+  
+  // Generate request ID for idempotency
+  const requestId = `${userId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  
+  // Normalize
+  const { cleanUrl, externalId } = normalizeInstagramUrl(url);
+  
+  // Check for duplicate
+  const existing = await db.select()
+    .from(ingestItems)
+    .where(eq(ingestItems.externalId, externalId))
+    .where(eq(ingestItems.userId, userId))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    return res.json({ 
+      status: 'exists',
+      ingestId: existing[0].id,
+      message: 'Already ingested'
+    });
+  }
+  
+  // Create DB record
+  const [ingestItem] = await db.insert(ingestItems).values({
+    requestId,
+    externalId,
+    sourceUrl: cleanUrl,
+    provider: 'instagram',
+    status: 'pending',
+    userId,
+  }).returning();
+  
+  // Start Apify job
+  try {
+    const run = await apifyClient.actor('apify/instagram-scraper').call({
+      directUrls: [cleanUrl],
+      resultsType: 'posts',
+      resultsLimit: 1,
+    });
+    
+    // Save job ID
+    await db.update(ingestItems)
+      .set({ 
+        apifyJobId: run.id,
+        status: 'downloading'
+      })
+      .where(eq(ingestItems.id, ingestItem.id));
+    
+    // Poll or wait for webhook
+    res.json({
+      status: 'started',
+      ingestId: ingestItem.id,
+      jobId: run.id,
+    });
+    
+    // Background: wait for completion
+    pollApifyJob(run.id, ingestItem.id);
+    
+  } catch (error) {
+    await db.update(ingestItems)
+      .set({ 
+        status: 'failed',
+        errorMessage: error.message,
+      })
+      .where(eq(ingestItems.id, ingestItem.id));
+    
+    throw error;
+  }
+});
+
+// 3. Poll Apify job
+async function pollApifyJob(jobId: string, ingestId: string) {
+  const maxAttempts = 60; // 5 minutes
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 5000)); // 5s delay
+    
+    const run = await apifyClient.run(jobId).get();
+    
+    if (run.status === 'SUCCEEDED') {
+      const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+      const reel = items[0];
+      
+      if (reel?.videoUrl) {
+        // Download video
+        await downloadAndStore(reel.videoUrl, ingestId);
+        
+        // Update status
+        await db.update(ingestItems)
+          .set({ status: 'completed' })
+          .where(eq(ingestItems.id, ingestId));
+        
+        // Trigger transcription
+        await triggerTranscription(ingestId);
+      }
+      
+      break;
+    }
+    
+    if (run.status === 'FAILED') {
+      await db.update(ingestItems)
+        .set({ 
+          status: 'failed',
+          errorMessage: 'Apify job failed'
+        })
+        .where(eq(ingestItems.id, ingestId));
+      break;
+    }
+  }
+}
+
+// 4. Download & Store
+async function downloadAndStore(videoUrl: string, ingestId: string) {
+  const response = await axios.get(videoUrl, { responseType: 'stream' });
+  const videoPath = `./uploads/viral-reels/${ingestId}.mp4`;
+  
+  await fs.promises.mkdir(path.dirname(videoPath), { recursive: true });
+  
+  const writer = fs.createWriteStream(videoPath);
+  response.data.pipe(writer);
+  
+  await new Promise((resolve, reject) => {
+    writer.on('finish', resolve);
+    writer.on('error', reject);
+  });
+  
+  // Extract metadata with ffprobe
+  const metadata = await getVideoMetadata(videoPath);
+  
+  // Update DB
+  await db.update(ingestItems)
+    .set({
+      videoPath,
+      durationSec: metadata.duration,
+      sizeBytes: metadata.size,
+      fps: metadata.fps,
+      width: metadata.width,
+      height: metadata.height,
+    })
+    .where(eq(ingestItems.id, ingestId));
+}
+```
+
+-----
+
+### **TRANSCRIPTION SERVICE** (из старого)
+
+```typescript
+// server/services/transcription.ts
+
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import OpenAI from 'openai';
+
+const execAsync = promisify(exec);
+const openai = new OpenAI();
+
+interface TranscriptResult {
+  text: string;
+  lang: string;
+  wpm: number;
+  segments: Array<{ t0: number; t1: number; text: string }>;
+  words: Array<{ t: number; w: string }>;
+}
+
+// Extract audio (16kHz mono)
+async function extractAudio(videoPath: string): Promise<string> {
+  const audioPath = videoPath.replace('.mp4', '.wav');
+  
+  await execAsync(
+    `ffmpeg -i "${videoPath}" -ac 1 -ar 16000 "${audioPath}"`
+  );
+  
+  return audioPath;
+}
+
+// Primary: WhisperX (if available locally)
+async function transcribeWithWhisperX(audioPath: string): Promise<TranscriptResult> {
+  // This requires WhisperX installed locally
+  // $ pip install whisperx
+  
+  const { stdout } = await execAsync(
+    `whisperx "${audioPath}" --model large-v2 --output_format json --compute_type float16`
+  );
+  
+  const result = JSON.parse(stdout);
+  
+  return {
+    text: result.segments.map(s => s.text).join(' '),
+    lang: result.language,
+    wpm: calculateWPM(result.segments),
+    segments: result.segments.map(s => ({
+      t0: s.start,
+      t1: s.end,
+      text: s.text,
+    })),
+    words: result.word_segments || [],
+  };
+}
+
+// Fallback: OpenAI Whisper API
+async function transcribeWithOpenAI(audioPath: string): Promise<TranscriptResult> {
+  const transcription = await openai.audio.transcriptions.create({
+    file: fs.createReadStream(audioPath),
+    model: 'whisper-1',
+    response_format: 'verbose_json',
+    timestamp_granularities: ['segment', 'word'],
+  });
+  
+  return {
+    text: transcription.text,
+    lang: transcription.language,
+    wpm: calculateWPM(transcription.segments),
+    segments: transcription.segments.map(s => ({
+      t0: s.start,
+      t1: s.end,
+      text: s.text,
+    })),
+    words: transcription.words?.map(w => ({
+      t: w.start,
+      w: w.word,
+    })) || [],
+  };
+}
+
+// Main transcription with fallback
+export async function transcribeVideo(
+  ingestId: string
+): Promise<TranscriptResult> {
+  const ingestItem = await db.select()
+    .from(ingestItems)
+    .where(eq(ingestItems.id, ingestId))
+    .limit(1);
+  
+  if (!ingestItem[0]?.videoPath) {
+    throw new Error('Video not found');
+  }
+  
+  const videoPath = ingestItem[0].videoPath;
+  
+  // Extract audio
+  const audioPath = await extractAudio(videoPath);
+  
+  let result: TranscriptResult;
+  let model: string;
+  
+  try {
+    // Try WhisperX first
+    console.log('[Transcription] Attempting WhisperX...');
+    result = await transcribeWithWhisperX(audioPath);
+    model = 'whisperx';
+  } catch (error) {
+    console.log('[Transcription] WhisperX failed, falling back to OpenAI Whisper');
+    result = await transcribeWithOpenAI(audioPath);
+    model = 'openai-whisper';
+  }
+  
+  // Save to DB
+  await db.insert(transcripts).values({
+    ingestItemId: ingestId,
+    text: result.text,
+    lang: result.lang,
+    wpm: result.wpm,
+    segments: result.segments,
+    words: result.words,
+    model,
+    status: 'completed',
+  });
+  
+  // Update ingest item
+  await db.update(ingestItems)
+    .set({ status: 'transcribed' })
+    .where(eq(ingestItems.id, ingestId));
+  
+  // Cleanup
+  await fs.promises.unlink(audioPath);
+  
+  return result;
+}
+
+function calculateWPM(segments: any[]): number {
+  const totalWords = segments.reduce((sum, s) => {
+    return sum + s.text.split(' ').length;
+  }, 0);
+  
+  const totalMinutes = segments[segments.length - 1].end / 60;
+  
+  return Math.round(totalWords / totalMinutes);
+}
+```
+
+-----
+
+## 🎯 ИНТЕГРАЦИЯ В STOCKMIND:
+
+### **Новая структура:**
+
+```
+Current StockMind stages:
+1. Source Selection (News RSS)
+2. Content Input
+3. AI Analysis
+4. Voice Generation
+5. Avatar Selection
+6. Final Export
+7. B-Roll Generation ← NEW!
+
+ADD NEW:
+8. Learn from Reels ← NEW MODULE!
+   ├─ Ingest (Apify)
+   ├─ Transcribe (Whisper)
+   ├─ Analyze (Vision)
+   └─ Pattern Extraction
+```
+
+-----
+
+## ⚡ СКАЖИ AGENT:
+
+```
+Implement viral reels learning - Phase 1 (Foundation)
+
+Use patterns from old project:
+
+1. Database Schema:
+   - Create ingest_items table (idempotency, status tracking)
+   - Create transcripts table (segments, words, wpm)
+   - Add indexes for external_id, request_id
+
+2. Ingest API:
+   - POST /api/learn/ingest/instagram
+   - Normalize URL & extract external_id
+   - Check for duplicates (idempotency!)
+   - Create DB record with request_id
+   - Start Apify job
+   - Poll for completion or use webhook
+
+3. Download Service:
+   - Download video from Apify result
+   - Save to /uploads/viral-reels/{ingestId}.mp4
+   - Extract metadata with ffprobe
+   - Update DB with file info
+
+4. Transcription Service:
+   - Extract audio: ffmpeg -ac 1 -ar 16000
+   - Try OpenAI Whisper API (no WhisperX for now)
+   - Save structured result: text, segments, words, wpm
+   - Update ingest_items status to 'transcribed'
+
+5. UI:
+   - Settings: Add "Learn from Reels" section
+   - Input: Instagram URL
+   - Show status: pending → downloading → transcribing → completed
+   - Display: transcript, wpm, engagement metrics
+
+Start with database schema and ingest API!
+Use request_id for idempotency like old project!
+```
+
+-----
+
+**СТАРЫЙ ПРОЕКТ ДАЛ НАМ ИДЕАЛЬНУЮ АРХИТЕКТУРУ!** 🔥
+
+**ИСПОЛЬЗУЕМ ЭТИ ПАТТЕРНЫ!** 🚀​​​​​​​​​​​​​​​​
