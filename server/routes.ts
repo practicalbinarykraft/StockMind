@@ -9,7 +9,7 @@ import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText } from "./ai-
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
-import { scrapeInstagramReels } from "./apify-service";
+import { scrapeInstagramReels, testApifyApiKey } from "./apify-service";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -272,13 +272,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Instagram source not found" });
       }
 
-      // Get Apify API key
-      const apiKeys = await storage.getApiKeys(userId);
-      const apifyKey = apiKeys.find(key => key.provider === 'apify');
+      // Get Apify API key (decrypted)
+      const apifyKey = await storage.getUserApiKey(userId, 'apify');
 
       if (!apifyKey) {
         return res.status(400).json({ 
           message: "Apify API key not configured. Please add it in Settings." 
+        });
+      }
+
+      // Test Apify API key before scraping
+      console.log(`[Instagram] Testing Apify API key before scraping...`);
+      const isValidKey = await testApifyApiKey(apifyKey.encryptedKey);
+      
+      if (!isValidKey) {
+        return res.status(400).json({ 
+          message: "Invalid Apify API key. Please check your credentials in Settings." 
         });
       }
 
@@ -293,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Start scraping (this will take some time)
       const result = await scrapeInstagramReels(
         source.username,
-        apifyKey.encryptedKey, // Actually decrypted by storage
+        apifyKey.encryptedKey, // Already decrypted by getUserApiKey
         resultsLimit
       );
 
