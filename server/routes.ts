@@ -10,6 +10,7 @@ import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
 import { scrapeInstagramReels, testApifyApiKey } from "./apify-service";
+import { downloadInstagramMedia } from "./instagram-download";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -44,6 +45,52 @@ const upload = multer({
     }
   }
 });
+
+// Background download helper for Instagram media
+// Downloads video + thumbnail without blocking the response
+async function downloadInstagramMediaBackground(
+  itemId: string,
+  videoUrl: string,
+  thumbnailUrl: string | null
+): Promise<void> {
+  try {
+    // Update status to 'downloading'
+    await storage.updateInstagramItemDownloadStatus(itemId, 'downloading');
+
+    // Download media (with retry logic built-in)
+    const result = await downloadInstagramMedia(videoUrl, thumbnailUrl, itemId);
+
+    // Check results
+    if (result.video.success) {
+      await storage.updateInstagramItemDownloadStatus(
+        itemId,
+        'completed',
+        result.video.localPath,
+        result.thumbnail?.localPath,
+        undefined
+      );
+      console.log(`[Instagram] ✅ Downloaded media for item: ${itemId}`);
+    } else {
+      await storage.updateInstagramItemDownloadStatus(
+        itemId,
+        'failed',
+        undefined,
+        undefined,
+        result.video.error
+      );
+      console.error(`[Instagram] ❌ Failed to download video for item: ${itemId} - ${result.video.error}`);
+    }
+  } catch (error: any) {
+    console.error(`[Instagram] ❌ Background download error for item ${itemId}:`, error.message);
+    await storage.updateInstagramItemDownloadStatus(
+      itemId,
+      'failed',
+      undefined,
+      undefined,
+      error.message
+    ).catch(err => console.error('Failed to update download status:', err));
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -316,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const reel of result.items) {
           try {
             // Try to create Instagram item - unique constraint will prevent duplicates
-            await storage.createInstagramItem({
+            const item = await storage.createInstagramItem({
               sourceId: id,
               userId,
               externalId: reel.id,
@@ -346,9 +393,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               viralityScore: null,
               qualityScore: null,
               publishedAt: reel.timestamp ? new Date(reel.timestamp) : null,
+              downloadStatus: 'pending', // Will download in background
             });
 
             savedCount++;
+
+            // Download video in background (non-blocking)
+            // This is critical because Apify URLs expire in 24-48h!
+            downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null);
+
           } catch (error: any) {
             // Check if error is due to unique constraint violation
             if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
