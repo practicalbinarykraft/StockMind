@@ -307,6 +307,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (result.success) {
+        console.log(`[Instagram] Successfully parsed ${result.itemCount} Reels from @${source.username}`);
+
+        // Save Reels to database
+        let savedCount = 0;
+        let skippedCount = 0;
+
+        for (const reel of result.items) {
+          try {
+            // Check if item already exists (by externalId and sourceId)
+            const existingItems = await storage.getInstagramItemsBySource(id);
+            const exists = existingItems.some(item => item.externalId === reel.id);
+
+            if (exists) {
+              console.log(`[Instagram] Skipping duplicate Reel: ${reel.shortCode}`);
+              skippedCount++;
+              continue;
+            }
+
+            // Create Instagram item
+            await storage.createInstagramItem({
+              sourceId: id,
+              userId,
+              externalId: reel.id,
+              shortCode: reel.shortCode,
+              caption: reel.caption || null,
+              url: reel.url,
+              videoUrl: reel.videoUrl,
+              thumbnailUrl: reel.thumbnailUrl || null,
+              videoDuration: reel.videoDuration || null,
+              likesCount: reel.likesCount,
+              commentsCount: reel.commentsCount,
+              videoViewCount: reel.videoViewCount || null,
+              videoPlayCount: reel.videoPlayCount || null,
+              sharesCount: reel.sharesCount || null,
+              hashtags: reel.hashtags || [],
+              mentions: reel.mentions || [],
+              ownerUsername: reel.ownerUsername || null,
+              ownerFullName: reel.ownerFullName || null,
+              ownerId: reel.ownerId || null,
+              musicInfo: reel.musicInfo || null,
+              aiScore: null, // Will be scored later
+              aiComment: null,
+              userAction: null,
+              actionAt: null,
+              usedInProject: null,
+              freshnessScore: null,
+              viralityScore: null,
+              qualityScore: null,
+              publishedAt: reel.timestamp ? new Date(reel.timestamp) : null,
+            });
+
+            savedCount++;
+          } catch (error: any) {
+            console.error(`[Instagram] Error saving Reel ${reel.shortCode}:`, error.message);
+          }
+        }
+
+        console.log(`[Instagram] Saved ${savedCount} new Reels, skipped ${skippedCount} duplicates`);
+
         // Update source with success status
         await storage.updateInstagramSource(id, userId, {
           parseStatus: 'success',
@@ -314,14 +373,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           itemCount: result.itemCount,
           parseError: null,
         });
-
-        console.log(`[Instagram] Successfully parsed ${result.itemCount} Reels from @${source.username}`);
-
-        // TODO Phase 3: Save items to instagram_items table
         
         res.json({
           success: true,
           itemCount: result.itemCount,
+          savedCount,
+          skippedCount,
           items: result.items,
         });
       } else {
