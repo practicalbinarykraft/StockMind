@@ -4,6 +4,7 @@ import {
   apiKeys,
   rssSources,
   rssItems,
+  instagramSources,
   projects,
   projectSteps,
   type User,
@@ -14,6 +15,8 @@ import {
   type InsertRssSource,
   type RssItem,
   type InsertRssItem,
+  type InstagramSource,
+  type InsertInstagramSource,
   type Project,
   type InsertProject,
   type ProjectStep,
@@ -66,6 +69,12 @@ export interface IStorage {
   createRssSource(userId: string, data: Omit<InsertRssSource, 'userId'>): Promise<RssSource>;
   updateRssSource(id: string, userId: string, data: Partial<RssSource>): Promise<RssSource | undefined>;
   deleteRssSource(id: string, userId: string): Promise<void>;
+
+  // Instagram Sources
+  getInstagramSources(userId: string): Promise<InstagramSource[]>;
+  createInstagramSource(userId: string, data: Omit<InsertInstagramSource, 'userId'>): Promise<InstagramSource>;
+  updateInstagramSource(id: string, userId: string, data: Partial<InstagramSource>): Promise<InstagramSource | undefined>;
+  deleteInstagramSource(id: string, userId: string): Promise<void>;
 
   // RSS Items
   getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>>;
@@ -231,6 +240,42 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(rssSources)
       .where(and(eq(rssSources.id, id), eq(rssSources.userId, userId)));
+  }
+
+  // Instagram Sources
+  async getInstagramSources(userId: string): Promise<InstagramSource[]> {
+    return await db
+      .select()
+      .from(instagramSources)
+      .where(eq(instagramSources.userId, userId))
+      .orderBy(desc(instagramSources.createdAt));
+  }
+
+  async createInstagramSource(userId: string, data: Omit<InsertInstagramSource, 'userId'>): Promise<InstagramSource> {
+    const [source] = await db
+      .insert(instagramSources)
+      .values({ ...data, userId })
+      .returning();
+    return source;
+  }
+
+  async updateInstagramSource(
+    id: string,
+    userId: string,
+    data: Partial<InstagramSource>
+  ): Promise<InstagramSource | undefined> {
+    const [source] = await db
+      .update(instagramSources)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(instagramSources.id, id), eq(instagramSources.userId, userId)))
+      .returning();
+    return source;
+  }
+
+  async deleteInstagramSource(id: string, userId: string): Promise<void> {
+    await db
+      .delete(instagramSources)
+      .where(and(eq(instagramSources.id, id), eq(instagramSources.userId, userId)));
   }
 
   // RSS Items with source information
