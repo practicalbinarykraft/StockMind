@@ -52,7 +52,8 @@ const upload = multer({
 async function downloadInstagramMediaBackground(
   itemId: string,
   videoUrl: string,
-  thumbnailUrl: string | null
+  thumbnailUrl: string | null,
+  userId?: string
 ): Promise<void> {
   try {
     // Update status to 'downloading'
@@ -71,6 +72,12 @@ async function downloadInstagramMediaBackground(
         undefined
       );
       console.log(`[Instagram] ✅ Downloaded media for item: ${itemId}`);
+      
+      // Auto-start transcription after successful download (Phase 5)
+      if (userId && result.video.localPath) {
+        console.log(`[Instagram] 🎙️ Auto-starting transcription for item: ${itemId}`);
+        transcribeInstagramItemBackground(itemId, result.video.localPath, userId);
+      }
     } else {
       await storage.updateInstagramItemDownloadStatus(
         itemId,
@@ -446,7 +453,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Download video in background (non-blocking)
             // This is critical because Apify URLs expire in 24-48h!
-            downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null);
+            // After download, auto-transcribe using OpenAI Whisper (Phase 5)
+            downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId);
 
           } catch (error: any) {
             // Check if error is due to unique constraint violation
