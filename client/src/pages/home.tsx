@@ -386,8 +386,13 @@ export default function Home() {
                         className="flex-1 cursor-pointer"
                         onClick={() => setLocation(`/project/${project.id}`)}
                       >
-                        <CardTitle className="text-base line-clamp-2">
-                          {project.displayTitle || project.title || "Untitled Project"}
+                        <CardTitle className="text-base line-clamp-2 flex items-center gap-2">
+                          {project.sourceType === 'instagram' && (
+                            <Instagram className="h-4 w-4 text-primary flex-shrink-0" />
+                          )}
+                          <span className="line-clamp-2">
+                            {project.displayTitle || project.title || "Untitled Project"}
+                          </span>
                         </CardTitle>
                       </div>
                       <DropdownMenu>
