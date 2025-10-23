@@ -92,12 +92,27 @@ export interface IStorage {
   createInstagramItem(data: InsertInstagramItem): Promise<InstagramItem>;
   updateInstagramItem(id: string, data: Partial<InstagramItem>): Promise<InstagramItem | undefined>;
   updateInstagramItemAction(id: string, userId: string, action: string, projectId?: string): Promise<InstagramItem | undefined>;
+  updateInstagramItemDownloadStatus(
+    id: string,
+    status: 'pending' | 'downloading' | 'completed' | 'failed',
+    localVideoPath?: string,
+    localThumbnailPath?: string,
+    downloadError?: string
+  ): Promise<InstagramItem | undefined>;
   updateInstagramItemTranscription(
     id: string,
     status: 'pending' | 'processing' | 'completed' | 'failed',
     transcriptionText?: string,
     language?: string,
     transcriptionError?: string
+  ): Promise<InstagramItem | undefined>;
+  updateInstagramItemAiScore(
+    id: string,
+    aiScore: number,
+    aiComment: string,
+    freshnessScore?: number,
+    viralityScore?: number,
+    qualityScore?: number
   ): Promise<InstagramItem | undefined>;
 
   // Projects
@@ -561,6 +576,39 @@ export class DatabaseStorage implements IStorage {
     
     if (transcriptionError !== undefined) {
       updateData.transcriptionError = transcriptionError;
+    }
+    
+    const [item] = await db
+      .update(instagramItems)
+      .set(updateData)
+      .where(eq(instagramItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async updateInstagramItemAiScore(
+    id: string,
+    aiScore: number,
+    aiComment: string,
+    freshnessScore?: number,
+    viralityScore?: number,
+    qualityScore?: number
+  ): Promise<InstagramItem | undefined> {
+    const updateData: Partial<InstagramItem> = {
+      aiScore,
+      aiComment,
+    };
+    
+    if (freshnessScore !== undefined) {
+      updateData.freshnessScore = freshnessScore;
+    }
+    
+    if (viralityScore !== undefined) {
+      updateData.viralityScore = viralityScore;
+    }
+    
+    if (qualityScore !== undefined) {
+      updateData.qualityScore = qualityScore;
     }
     
     const [item] = await db
