@@ -538,12 +538,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`[Instagram] Saved ${savedCount} new Reels, skipped ${skippedCount} duplicates`);
 
-        // Update source with success status
+        // Find the most recent Reel (by publishedAt) to track last scraped
+        const latestReel = result.items.reduce((latest, current) => {
+          if (!current.timestamp) return latest;
+          if (!latest || !latest.timestamp) return current;
+          return new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest;
+        }, result.items[0]);
+
+        // Update source with success status and track last scraped Reel
         await storage.updateInstagramSource(id, userId, {
           parseStatus: 'success',
           lastParsed: new Date(),
           itemCount: result.itemCount,
           parseError: null,
+          lastScrapedDate: latestReel?.timestamp ? new Date(latestReel.timestamp) : new Date(),
+          lastScrapedReelId: latestReel?.id || null,
         });
         
         res.json({

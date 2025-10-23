@@ -80,6 +80,14 @@ export default function Settings() {
     description: "",
   })
 
+  // Instagram Parse Settings Dialog
+  const [showParseDialog, setShowParseDialog] = useState(false)
+  const [parseSourceId, setParseSourceId] = useState<string | null>(null)
+  const [parseConfig, setParseConfig] = useState({
+    resultsLimit: 50,
+    parseMode: 'all' as 'all' | 'new', // 'all' or 'new' (only new since last scrape)
+  })
+
   // Fetch API Keys
   const { data: apiKeys, isLoading: keysLoading } = useQuery<ApiKey[]>({
     queryKey: ["/api/settings/api-keys"],
@@ -94,6 +102,9 @@ export default function Settings() {
   const { data: instagramSources, isLoading: instagramLoading } = useQuery<InstagramSource[]>({
     queryKey: ["/api/settings/instagram-sources"],
   })
+
+  // Get selected source for parse dialog
+  const selectedParseSource = instagramSources?.find(s => s.id === parseSourceId)
 
   // Add API Key Mutation
   const addApiKeyMutation = useMutation({
@@ -363,14 +374,19 @@ export default function Settings() {
 
   // Parse Instagram Source Mutation
   const parseInstagramSourceMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("POST", `/api/instagram/sources/${id}/parse`, { resultsLimit: 50 })
+    mutationFn: async () => {
+      if (!parseSourceId) throw new Error("No source selected");
+      return apiRequest("POST", `/api/instagram/sources/${parseSourceId}/parse`, { 
+        resultsLimit: parseConfig.resultsLimit,
+        parseMode: parseConfig.parseMode,
+      })
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      setShowParseDialog(false)
       toast({
         title: "Parsing Complete",
-        description: `Successfully parsed ${data.itemCount} Reels.`,
+        description: `Successfully parsed ${data.itemCount} Reels (${data.savedCount} new, ${data.skippedCount} duplicates).`,
       })
     },
     onError: (error: Error) => {
@@ -392,6 +408,16 @@ export default function Settings() {
       })
     },
   })
+
+  const handleOpenParseDialog = (sourceId: string) => {
+    setParseSourceId(sourceId)
+    setShowParseDialog(true)
+    // Reset to defaults when opening
+    setParseConfig({
+      resultsLimit: 50,
+      parseMode: 'all',
+    })
+  }
 
   const maskApiKey = (key: string) => {
     if (!key) return ""

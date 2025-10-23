@@ -50,7 +50,7 @@ export async function scrapeInstagramReels(
 
     // Prepare input for the Instagram Reel Scraper actor
     const input = {
-      directUrls: [`https://www.instagram.com/${username}/`],
+      username: username,  // Apify requires 'username' field
       resultsLimit,
     };
 

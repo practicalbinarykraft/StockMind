@@ -167,6 +167,11 @@ export const instagramSources = pgTable("instagram_sources", {
   parseStatus: varchar("parse_status", { length: 20 }).default('pending'), // 'success', 'error', 'pending'
   parseError: text("parse_error"),
   itemCount: integer("item_count").default(0).notNull(), // Number of reels parsed
+  
+  // Smart parsing: track last scraped Reel to avoid duplicates and enable "new only" mode
+  lastScrapedDate: timestamp("last_scraped_date"), // Date of last scraped Reel (for smart filtering)
+  lastScrapedReelId: varchar("last_scraped_reel_id", { length: 255 }), // External ID of last scraped Reel
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
@@ -180,6 +185,8 @@ export const insertInstagramSourceSchema = createInsertSchema(instagramSources).
   parseStatus: true,
   parseError: true,
   itemCount: true,
+  lastScrapedDate: true,
+  lastScrapedReelId: true,
   createdAt: true,
   updatedAt: true,
 });
