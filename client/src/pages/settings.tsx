@@ -907,8 +907,8 @@ export default function Settings() {
                       variant="default"
                       size="sm"
                       className="w-full gap-2"
-                      onClick={() => parseInstagramSourceMutation.mutate(source.id)}
-                      disabled={parseInstagramSourceMutation.isPending || source.parseStatus === 'parsing'}
+                      onClick={() => handleOpenParseDialog(source.id)}
+                      disabled={source.parseStatus === 'parsing'}
                       data-testid={`button-parse-instagram-${source.id}`}
                     >
                       <Instagram className="h-4 w-4" />
@@ -928,6 +928,86 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Instagram Parse Settings Dialog */}
+      <Dialog open={showParseDialog} onOpenChange={setShowParseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Настройки парсинга Reels</DialogTitle>
+            <DialogDescription>
+              Настройте параметры парсинга для @{selectedParseSource?.username}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Количество Reels для парсинга</Label>
+              <Select
+                value={parseConfig.resultsLimit.toString()}
+                onValueChange={(value) => setParseConfig({ ...parseConfig, resultsLimit: parseInt(value) })}
+              >
+                <SelectTrigger data-testid="select-results-limit">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 Reels</SelectItem>
+                  <SelectItem value="20">20 Reels</SelectItem>
+                  <SelectItem value="50">50 Reels (по умолчанию)</SelectItem>
+                  <SelectItem value="100">100 Reels</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Чем больше Reels, тем дороже парсинг в Apify кредитах
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Режим парсинга</Label>
+              <Select
+                value={parseConfig.parseMode}
+                onValueChange={(value: 'all' | 'new') => setParseConfig({ ...parseConfig, parseMode: value })}
+              >
+                <SelectTrigger data-testid="select-parse-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все Reels</SelectItem>
+                  <SelectItem value="new">Только новые (с последнего раза)</SelectItem>
+                </SelectContent>
+              </Select>
+              {selectedParseSource?.lastScrapedDate && parseConfig.parseMode === 'new' && (
+                <p className="text-xs text-success">
+                  ✓ Загрузим только Reels новее {formatDistanceToNow(new Date(selectedParseSource.lastScrapedDate), { addSuffix: true })}
+                </p>
+              )}
+              {!selectedParseSource?.lastScrapedDate && parseConfig.parseMode === 'new' && (
+                <p className="text-xs text-muted-foreground">
+                  Это первый парсинг - загрузим все доступные Reels
+                </p>
+              )}
+            </div>
+
+            <div className="p-3 bg-muted rounded-md text-sm">
+              <p className="font-medium mb-1">Что будет спарсено:</p>
+              <ul className="text-muted-foreground space-y-1">
+                <li>• До {parseConfig.resultsLimit} последних Reels</li>
+                <li>• Видео, описание, статистика</li>
+                <li>• Автоматическая транскрипция речи</li>
+                <li>• AI-анализ и оценка контента</li>
+              </ul>
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={() => parseInstagramSourceMutation.mutate()}
+              disabled={parseInstagramSourceMutation.isPending}
+              data-testid="button-start-parsing"
+            >
+              {parseInstagramSourceMutation.isPending ? 'Запуск парсинга...' : 'Начать парсинг'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
