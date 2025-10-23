@@ -63,6 +63,13 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     refetchInterval: 15 * 60 * 1000, // Auto-refresh every 15 minutes
   })
 
+  // Fetch Instagram Reel if source is instagram
+  const instagramItemId = stepData?.instagramItemId
+  const { data: instagramReel, isLoading: instagramLoading } = useQuery<any>({
+    queryKey: ["/api/instagram/items", instagramItemId],
+    enabled: sourceChoice === "instagram" && !!instagramItemId,
+  })
+
   // Manual refresh mutation
   const refreshMutation = useMutation({
     mutationFn: async () => {
@@ -189,6 +196,30 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
       content: newsItem.content,
       url: newsItem.url,
       score: newsItem.aiScore,
+    })
+  }
+
+  const handleInstagramContinue = async () => {
+    if (!instagramReel) return
+
+    // Mark as used
+    await apiRequest("PATCH", `/api/instagram/items/${instagramReel.id}/action`, {
+      action: "used",
+      projectId: project.id,
+    })
+
+    proceedMutation.mutate({
+      type: "instagram",
+      instagramItemId: instagramReel.id,
+      transcription: instagramReel.transcriptionText,
+      caption: instagramReel.caption,
+      language: instagramReel.language || "unknown",
+      url: instagramReel.url,
+      aiScore: instagramReel.aiScore,
+      freshnessScore: instagramReel.freshnessScore,
+      viralityScore: instagramReel.viralityScore,
+      qualityScore: instagramReel.qualityScore,
+      aiComment: instagramReel.aiComment,
     })
   }
 
@@ -349,17 +380,18 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">
-          {sourceChoice === "news" ? "Select News Article" : "Enter Your Script"}
+          {sourceChoice === "news" && "Select News Article"}
+          {sourceChoice === "custom" && "Enter Your Script"}
+          {sourceChoice === "instagram" && "Instagram Reel Content"}
         </h1>
         <p className="text-lg text-muted-foreground">
-          {sourceChoice === "news" 
-            ? "Choose an article from your RSS feeds to transform into video"
-            : "Provide the text content for your video"
-          }
+          {sourceChoice === "news" && "Choose an article from your RSS feeds to transform into video"}
+          {sourceChoice === "custom" && "Provide the text content for your video"}
+          {sourceChoice === "instagram" && "Review the transcribed Reel content and proceed"}
         </p>
       </div>
 
-      {sourceChoice === "custom" ? (
+      {sourceChoice === "custom" && (
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-4">
@@ -390,7 +422,115 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {sourceChoice === "instagram" && (
+        <div className="space-y-4">
+          {instagramLoading && (
+            <Card>
+              <CardContent className="pt-6 pb-6">
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!instagramLoading && !instagramReel && (
+            <Card>
+              <CardContent className="pt-6 pb-6">
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>Instagram Reel not found</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!instagramLoading && instagramReel && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-6">
+                  {/* Reel Info */}
+                  <div className="flex gap-4">
+                    <div className="relative flex-shrink-0 w-32 h-40 bg-muted rounded-md overflow-hidden">
+                      {instagramReel.thumbnailUrl && (
+                        <img 
+                          src={instagramReel.thumbnailUrl} 
+                          alt="Reel thumbnail" 
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <h3 className="font-semibold text-lg">@{instagramReel.ownerUsername}</h3>
+                        {instagramReel.caption && (
+                          <p className="text-sm text-muted-foreground mt-1">{instagramReel.caption}</p>
+                        )}
+                      </div>
+                      
+                      {/* AI Score */}
+                      {typeof instagramReel.aiScore === 'number' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">AI Score:</span>
+                          <ScoreBadge score={instagramReel.aiScore} />
+                          {instagramReel.freshnessScore !== null && (
+                            <Badge variant="outline" className="text-xs">
+                              Freshness: {instagramReel.freshnessScore}
+                            </Badge>
+                          )}
+                          {instagramReel.viralityScore !== null && (
+                            <Badge variant="outline" className="text-xs">
+                              Virality: {instagramReel.viralityScore}
+                            </Badge>
+                          )}
+                          {instagramReel.qualityScore !== null && (
+                            <Badge variant="outline" className="text-xs">
+                              Quality: {instagramReel.qualityScore}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* AI Comment */}
+                      {instagramReel.aiComment && (
+                        <div className="p-3 bg-muted/50 rounded text-sm italic border-l-2 border-primary/50">
+                          {instagramReel.aiComment}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Transcription */}
+                  <div>
+                    <Label>Transcription ({instagramReel.language || "Unknown"})</Label>
+                    <div className="mt-2 p-4 bg-muted/50 rounded-md border">
+                      <p className="text-sm whitespace-pre-wrap">
+                        {instagramReel.transcriptionText}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {instagramReel.transcriptionText?.length || 0} characters
+                    </p>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={handleInstagramContinue}
+                    disabled={proceedMutation.isPending}
+                    className="w-full sm:w-auto"
+                    data-testid="button-instagram-continue"
+                  >
+                    {proceedMutation.isPending ? "Saving..." : "Continue to AI Analysis"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {sourceChoice === "news" && (
         <div className="space-y-6">
           {/* Toolbar */}
           <Card>

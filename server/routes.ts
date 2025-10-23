@@ -600,6 +600,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/instagram/items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      const items = await storage.getInstagramItems(userId);
+      const item = items.find(i => i.id === id);
+
+      if (!item) {
+        return res.status(404).json({ message: "Instagram item not found" });
+      }
+
+      res.json(item);
+    } catch (error: any) {
+      console.error("Error fetching Instagram item:", error);
+      res.status(500).json({ message: "Failed to fetch Instagram item" });
+    }
+  });
+
   app.patch("/api/instagram/items/:id/action", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
