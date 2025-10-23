@@ -2,12 +2,16 @@ import { useState } from "react"
 import { useLocation } from "wouter"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Newspaper, FileText, Instagram, Youtube, Mic, Lock } from "lucide-react"
-import { useMutation } from "@tanstack/react-query"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Newspaper, FileText, Instagram, Youtube, Mic, Lock, Play, RefreshCw } from "lucide-react"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { useToast } from "@/hooks/use-toast"
 import { isUnauthorizedError } from "@/lib/authUtils"
 import { useAuth } from "@/hooks/useAuth"
+import { ScoreBadge } from "@/components/score-badge"
+import { formatDistanceToNow } from "date-fns"
 
 const SOURCE_TYPES = [
   {
@@ -31,11 +35,11 @@ const SOURCE_TYPES = [
   {
     id: "instagram",
     title: "Instagram Reels",
-    description: "Use Instagram Reels page in Settings to create projects",
+    description: "Choose from transcribed Instagram Reels",
     icon: Instagram,
     color: "text-chart-4",
     bgColor: "bg-chart-4/10",
-    available: false,  // Use /instagram-reels page instead
+    available: true,
   },
   {
     id: "youtube",
@@ -62,6 +66,13 @@ export default function NewProject() {
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
+  const [showInstagramPicker, setShowInstagramPicker] = useState(false)
+
+  // Fetch Instagram Reels for picker
+  const { data: instagramReels, isLoading: reelsLoading } = useQuery<any[]>({
+    queryKey: ["/api/instagram/items"],
+    enabled: showInstagramPicker,
+  })
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -116,10 +127,32 @@ export default function NewProject() {
     },
   })
 
+  // Create project from Instagram Reel
+  const createInstagramProjectMutation = useMutation({
+    mutationFn: async (reelId: string) => {
+      const response = await apiRequest("POST", `/api/projects/from-instagram/${reelId}`, {})
+      const data = await response.json()
+      return data
+    },
+    onSuccess: (data: any) => {
+      queryClient.setQueryData(["/api/projects"], (oldProjects: any[] | undefined) => {
+        return [...(oldProjects || []), data]
+      })
+      setShowInstagramPicker(false)
+      setLocation(`/project/${data.id}`)
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
   const handleSourceSelect = (sourceId: string, available: boolean) => {
     if (!available) {
       const descriptions: Record<string, string> = {
-        instagram: "Use the Instagram Reels page in Settings to create projects from Reels.",
         youtube: "YouTube integration coming soon.",
         audio: "Audio file integration coming soon.",
       }
@@ -127,6 +160,12 @@ export default function NewProject() {
         title: "Not Available",
         description: descriptions[sourceId] || "This source type is not available yet.",
       })
+      return
+    }
+    
+    // Special handling for Instagram - show picker dialog
+    if (sourceId === "instagram") {
+      setShowInstagramPicker(true)
       return
     }
     
@@ -208,6 +247,90 @@ export default function NewProject() {
           </div>
         )}
       </div>
+
+      {/* Instagram Reel Picker Dialog */}
+      <Dialog open={showInstagramPicker} onOpenChange={setShowInstagramPicker}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Choose Instagram Reel</DialogTitle>
+            <DialogDescription>
+              Select a transcribed Reel to create your project
+            </DialogDescription>
+          </DialogHeader>
+
+          {reelsLoading && (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {!reelsLoading && (!instagramReels || instagramReels.length === 0) && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No Instagram Reels available</p>
+              <p className="text-sm mt-2">Add Instagram accounts in Settings to scrape Reels</p>
+            </div>
+          )}
+
+          {!reelsLoading && instagramReels && instagramReels.length > 0 && (
+            <div className="grid gap-4">
+              {instagramReels
+                .filter(reel => reel.transcriptionStatus === 'completed' && !reel.action)
+                .map((reel) => (
+                <Card
+                  key={reel.id}
+                  className="cursor-pointer hover-elevate"
+                  onClick={() => createInstagramProjectMutation.mutate(reel.id)}
+                  data-testid={`card-reel-${reel.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex gap-4">
+                      <div className="relative flex-shrink-0 w-24 h-32 bg-muted rounded overflow-hidden">
+                        {reel.thumbnailUrl && (
+                          <>
+                            <img 
+                              src={reel.thumbnailUrl} 
+                              alt="Reel thumbnail" 
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <Play className="h-8 w-8 text-white" />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold mb-1">@{reel.ownerUsername}</h3>
+                        {reel.caption && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                            {reel.caption}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {typeof reel.aiScore === 'number' && (
+                            <ScoreBadge score={reel.aiScore} />
+                          )}
+                          {reel.publishedAt && (
+                            <Badge variant="outline" className="text-xs">
+                              {formatDistanceToNow(new Date(reel.publishedAt), { addSuffix: true })}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {createInstagramProjectMutation.isPending && (
+            <div className="flex items-center justify-center gap-3 py-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm text-muted-foreground">Creating project...</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
