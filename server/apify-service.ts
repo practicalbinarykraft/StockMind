@@ -1,5 +1,15 @@
 import { ApifyClient } from 'apify-client';
 
+// Helper function to add timeout to promises
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+}
+
 export interface InstagramReelData {
   id: string;
   shortCode: string;
@@ -56,13 +66,21 @@ export async function scrapeInstagramReels(
 
     console.log(`Starting Apify scraping for Instagram user: ${username}`);
 
-    // Run the actor and wait for it to finish
-    const run = await client.actor('apify/instagram-reel-scraper').call(input);
+    // Run the actor and wait for it to finish (with 3 minute timeout)
+    const run = await withTimeout(
+      client.actor('apify/instagram-reel-scraper').call(input),
+      180000, // 3 minutes timeout
+      `Apify scraping timeout (3 minutes) for user: ${username}`
+    );
 
     console.log(`Apify run finished: ${run.id}, status: ${run.status}`);
 
-    // Fetch results from the dataset
-    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    // Fetch results from the dataset (with 30 second timeout)
+    const { items } = await withTimeout(
+      client.dataset(run.defaultDatasetId).listItems(),
+      30000, // 30 seconds timeout
+      `Apify dataset fetch timeout for user: ${username}`
+    );
 
     console.log(`Fetched ${items.length} Reels from @${username}`);
 
