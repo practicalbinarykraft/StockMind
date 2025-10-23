@@ -12,6 +12,7 @@ import {
   Film,
   Clock,
   Layout,
+  Instagram,
 } from "lucide-react"
 import { useLocation } from "wouter"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -258,7 +259,7 @@ export default function Home() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-8">
+        <div className="mb-8 flex gap-3 flex-wrap">
           <Button
             size="lg"
             onClick={() => setLocation("/project/new")}
@@ -267,6 +268,16 @@ export default function Home() {
           >
             <Plus className="h-5 w-5" />
             New Project
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => setLocation("/instagram-reels")}
+            className="gap-2"
+            data-testid="button-instagram-reels"
+          >
+            <Instagram className="h-5 w-5" />
+            Instagram Reels
           </Button>
         </div>
 
