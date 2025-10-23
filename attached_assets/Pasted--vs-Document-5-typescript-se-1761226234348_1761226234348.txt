@@ -1,0 +1,369 @@
+🔍 СРАВНЕНИЕ КОДА: СТАРЫЙ vs НОВЫЙ
+📊 КЛЮЧЕВЫЕ ОТЛИЧИЯ:
+СТАРЫЙ ПРОЕКТ (Document 5) ✅
+typescript// server/apify-service.ts
+
+✅ Нормализация данных:
+   - mapApifyReel() с safe number conversion
+   - Float → Integer (Math.round)
+   - isFinite() validation
+   - Safe defaults
+
+✅ Функция для refresh:
+   - fetchSingleReelData(shortCode)
+   - Получает fresh videoUrl когда URL истекает
+
+✅ Mutual recovery:
+   - shortCode ↔ URL восстановление
+   - Если нет shortCode, извлекает из URL
+   - Если нет URL, строит из shortCode
+
+✅ Детальное логирование:
+   - Sample fields
+   - Duration normalization
+   - Field discovery
+
+✅ Multiple duration fields:
+   - videoDuration ?? durationInSeconds ?? duration
+
+НОВЫЙ ПРОЕКТ (Document 6) ⚡
+typescript// server/apify-service.ts
+
+✅ Timeouts:
+   - 3 минуты для scraping
+   - 30 секунд для dataset fetch
+   - Предотвращает зависание
+
+✅ API Key как параметр:
+   - scrapeInstagramReels(username, apiKey, limit)
+   - Более гибко (не только env)
+
+✅ Structured результат:
+   - ApifyScrapingResult с success/error
+   - Четкая структура ответа
+
+✅ Test функция:
+   - testApifyApiKey()
+   - Валидация ключа
+
+❌ НЕТ safe number conversion
+❌ НЕТ fetchSingleReelData()
+❌ НЕТ нормализации float → int
+❌ НЕТ mutual recovery
+❌ Меньше логирования
+
+🔴 КРИТИЧНЫЕ ПРОБЛЕМЫ В НОВОМ:
+1. NO SAFE NUMBER CONVERSION
+typescript// Новый код (ОПАСНО):
+likesCount: item.likesCount || 0,
+videoViewCount: item.videoViewCount,
+videoDuration: item.videoDuration,
+
+// Проблема:
+// Если Apify вернёт 45.7 секунд → БД получит float!
+// PostgreSQL integer поле НЕ примет float!
+Старый код (ПРАВИЛЬНО):
+typescriptconst safeNumber = (value: any, defaultValue: number = 0): number => {
+  const num = Number(value);
+  return isFinite(num) && num >= 0 ? Math.round(num) : defaultValue;
+};
+
+videoDuration: safeNumber(rawDuration, 0),
+likesCount: safeNumber(reel.likesCount, 0),
+
+2. NO fetchSingleReelData()
+typescript// Старый проект ИМЕЛ:
+async function fetchSingleReelData(shortCode: string)
+
+// Зачем нужно?
+// - Instagram video URLs истекают через 24-48 часов
+// - Для транскрипции нужен свежий URL
+// - Refresh без full re-parse
+Новый проект НЕ ИМЕЕТ эту функцию!
+
+3. NO MUTUAL RECOVERY
+typescript// Старый код (SMART):
+let shortCode = item.shortCode || '';
+let url = item.url || '';
+
+// Если нет shortCode, извлечь из URL
+if (!shortCode && url) {
+  const match = url.match(/\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+  if (match) shortCode = match[1];
+}
+
+// Если нет URL, построить из shortCode
+if (shortCode && !url) {
+  url = `https://www.instagram.com/reel/${shortCode}/`;
+}
+
+// Новый код: НЕТ этой логики!
+
+✅ ЧТО ХОРОШО В НОВОМ:
+1. TIMEOUTS
+typescriptfunction withTimeout<T>(
+  promise: Promise<T>, 
+  timeoutMs: number, 
+  errorMessage: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+}
+
+// Usage:
+await withTimeout(
+  client.actor('...').call(input),
+  180000, // 3 minutes
+  'Timeout!'
+);
+Это ОТЛИЧНО! Предотвращает зависание!
+
+2. STRUCTURED RESULT
+typescriptinterface ApifyScrapingResult {
+  success: boolean;
+  items: InstagramReelData[];
+  error?: string;
+  itemCount: number;
+}
+
+// Caller знает успех/неудачу
+const result = await scrapeInstagramReels(...);
+if (!result.success) {
+  console.error(result.error);
+}
+Это ХОРОШО! Четкая структура!
+
+3. TEST FUNCTION
+typescriptasync function testApifyApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const client = new ApifyClient({ token: apiKey });
+    await client.actor('apify/instagram-reel-scraper').get();
+    return true;
+  } catch {
+    return false;
+  }
+}
+Это ПОЛЕЗНО! Валидация перед use!
+
+🎯 ИДЕАЛЬНОЕ РЕШЕНИЕ:
+ОБЪЕДИНИТЬ ЛУЧШЕЕ ИЗ ОБОИХ!
+typescript// server/apify-service.ts (HYBRID)
+
+import { ApifyClient } from 'apify-client';
+
+// ✅ От нового: Timeout helper
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+}
+
+// ✅ От старого: Safe number conversion
+function safeNumber(value: any, defaultValue: number = 0): number {
+  const num = Number(value);
+  return isFinite(num) && num >= 0 ? Math.round(num) : defaultValue;
+}
+
+// ✅ От старого: Нормализация с safe types
+function mapApifyReel(reel: any, shortCodeFallback?: string) {
+  let shortCode = reel.shortCode || shortCodeFallback || '';
+  let url = reel.url || '';
+
+  // ✅ От старого: Mutual recovery
+  if (!shortCode && url) {
+    const match = url.match(/\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+    if (match) shortCode = match[1];
+  }
+
+  if (shortCode && !url) {
+    url = `https://www.instagram.com/reel/${shortCode}/`;
+  }
+
+  // ✅ От старого: Safe integers для БД
+  const rawDuration = reel.videoDuration ?? reel.durationInSeconds ?? reel.duration ?? 0;
+  const normalizedDuration = safeNumber(rawDuration, 0);
+
+  return {
+    shortCode,
+    url,
+    caption: (reel.caption || '').trim(),
+    videoUrl: reel.videoUrl || '',
+    thumbnailUrl: reel.thumbnailUrl || reel.displayUrl || '',
+    videoViewCount: safeNumber(reel.videoViewCount || reel.videoPlayCount, 0),
+    likesCount: safeNumber(reel.likesCount, 0),
+    commentsCount: safeNumber(reel.commentsCount, 0),
+    videoDuration: normalizedDuration,
+    timestamp: reel.timestamp || null,
+    // ... other fields
+  };
+}
+
+// ✅ От нового: Structured result + timeouts
+export async function scrapeInstagramReels(
+  username: string,
+  apiKey: string,
+  resultsLimit: number = 50
+): Promise<ApifyScrapingResult> {
+  try {
+    const client = new ApifyClient({ token: apiKey });
+
+    const run = await withTimeout(
+      client.actor('apify/instagram-reel-scraper').call({
+        username: [username],
+        resultsLimit,
+      }),
+      180000, // 3 min timeout
+      `Timeout for user: ${username}`
+    );
+
+    const { items } = await withTimeout(
+      client.dataset(run.defaultDatasetId).listItems(),
+      30000, // 30 sec timeout
+      `Dataset timeout for user: ${username}`
+    );
+
+    // ✅ От старого: Использовать mapApifyReel с safe conversion
+    const transformedItems = items.map((item: any) => 
+      mapApifyReel(item)
+    );
+
+    return {
+      success: true,
+      items: transformedItems,
+      itemCount: transformedItems.length,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      items: [],
+      error: error.message,
+      itemCount: 0,
+    };
+  }
+}
+
+// ✅ От старого: Refresh function для expired URLs
+export async function fetchSingleReelData(
+  shortCode: string,
+  apiKey: string
+): Promise<InstagramReelData | null> {
+  try {
+    const client = new ApifyClient({ token: apiKey });
+    
+    const run = await withTimeout(
+      client.actor('apify/instagram-reel-scraper').call({
+        directUrls: [`https://www.instagram.com/reel/${shortCode}/`],
+        resultsLimit: 1,
+      }),
+      60000, // 1 min timeout
+      `Timeout fetching reel: ${shortCode}`
+    );
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    
+    if (!items || items.length === 0) return null;
+
+    return mapApifyReel(items[0], shortCode);
+  } catch (error) {
+    console.error('[Apify] Error fetching single reel:', error);
+    throw error;
+  }
+}
+
+// ✅ От нового: Test function
+export async function testApifyApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const client = new ApifyClient({ token: apiKey });
+    await client.actor('apify/instagram-reel-scraper').get();
+    return true;
+  } catch {
+    return false;
+  }
+}
+```
+
+---
+
+## ⚡ ЧТО СКАЗАТЬ AGENT:
+```
+Agent, compare your new code with old project!
+
+PROBLEMS in your implementation:
+
+1. NO SAFE NUMBER CONVERSION:
+   videoDuration might be float (45.7 seconds)
+   But database expects INTEGER
+   Will cause DB errors!
+   
+   OLD project had:
+   safeNumber() with Math.round() and isFinite() check
+
+2. NO fetchSingleReelData() function:
+   Instagram video URLs expire in 24-48 hours
+   Need to refresh URL before transcription
+   
+   OLD project had:
+   fetchSingleReelData(shortCode) to get fresh URL
+
+3. NO MUTUAL RECOVERY:
+   If shortCode missing, extract from URL
+   If URL missing, build from shortCode
+   
+   OLD project had this logic
+
+GOOD things in your code:
+✅ withTimeout() helper
+✅ Structured ApifyScrapingResult
+✅ testApifyApiKey() function
+✅ apiKey as parameter (flexible)
+
+SOLUTION: Merge both approaches!
+
+Please update server/apify-service.ts:
+1. Add safeNumber() function from old project
+2. Add mapApifyReel() with safe conversion
+3. Add fetchSingleReelData() for URL refresh
+4. Keep your timeout logic
+5. Keep your structured result
+6. Add mutual recovery for shortCode ↔ URL
+
+This combines best of both worlds!
+Critical for database integrity!
+```
+
+---
+
+## 📋 SUMMARY:
+```
+Старый проект:
+✅ Safe number conversion (critical!)
+✅ fetchSingleReelData() (needed!)
+✅ Mutual recovery
+✅ Detailed logging
+❌ No timeouts
+❌ No test function
+
+Новый проект:
+✅ Timeouts (excellent!)
+✅ Structured result
+✅ Test function
+✅ Flexible apiKey param
+❌ No safe conversion (critical bug!)
+❌ No refresh function
+❌ No mutual recovery
+
+IDEAL: Combine both! 🎯
+
+AGENT ДОЛЖЕН ОБЪЕДИНИТЬ ОБА ПОДХОДА! 🔧
+КРИТИЧНО: ДОБАВИТЬ SAFE NUMBER CONVERSION! 🔴

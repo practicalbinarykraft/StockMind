@@ -1,0 +1,215 @@
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({
+  token: process.env.APIFY_API_KEY,
+});
+
+export interface ApifyReelData {
+  shortCode: string;
+  url: string;
+  caption?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  videoViewCount?: number;
+  likesCount?: number;
+  commentsCount?: number;
+  timestamp?: string;
+  videoPlayCount?: number;
+  videoDuration?: number; // Duration in seconds
+}
+
+/**
+ * Normalized reel data with safe integer types for database storage
+ */
+export interface NormalizedReelData {
+  shortCode: string;
+  url: string;
+  caption: string;
+  videoUrl: string;
+  thumbnailUrl: string;
+  videoViewCount: number;
+  likesCount: number;
+  commentsCount: number;
+  timestamp: string | null;
+  videoDuration: number; // Integer seconds, safe for DB
+}
+
+/**
+ * Normalize Apify reel data to safe types for database storage.
+ * - Converts floats to integers (Math.round)
+ * - Validates all numbers (isFinite check)
+ * - Provides safe defaults for missing data
+ */
+export function mapApifyReel(reel: any, shortCodeFallback?: string): NormalizedReelData {
+  const shortCode = reel.shortCode || shortCodeFallback || '';
+  
+  // Safe number conversion with validation
+  const safeNumber = (value: any, defaultValue: number = 0): number => {
+    const num = Number(value);
+    return isFinite(num) && num >= 0 ? Math.round(num) : defaultValue;
+  };
+
+  // Extract duration from various possible fields
+  const rawDuration = reel.videoDuration ?? reel.durationInSeconds ?? reel.duration ?? 0;
+  const normalizedDuration = safeNumber(rawDuration, 0);
+
+  // Log if we had to correct the duration (float → int)
+  if (rawDuration !== normalizedDuration && rawDuration > 0) {
+    console.log(`[Apify] Normalized duration for ${shortCode}: ${rawDuration} → ${normalizedDuration}s`);
+  }
+
+  return {
+    shortCode,
+    url: reel.url || `https://www.instagram.com/reel/${shortCode}/`,
+    caption: (reel.caption || '').trim(),
+    videoUrl: reel.videoUrl || '',
+    thumbnailUrl: reel.thumbnailUrl || reel.displayUrl || '',
+    videoViewCount: safeNumber(reel.videoViewCount || reel.videoPlayCount, 0),
+    likesCount: safeNumber(reel.likesCount, 0),
+    commentsCount: safeNumber(reel.commentsCount, 0),
+    timestamp: reel.timestamp || null,
+    videoDuration: normalizedDuration,
+  };
+}
+
+/**
+ * Fetch a single reel's fresh data by shortCode to get updated videoUrl
+ */
+export async function fetchSingleReelData(shortCode: string): Promise<ApifyReelData | null> {
+  if (!shortCode || shortCode.trim().length === 0) {
+    throw new Error('Short code is required');
+  }
+
+  if (!process.env.APIFY_API_KEY) {
+    throw new Error('APIFY_API_KEY is not configured');
+  }
+
+  try {
+    console.log(`[Apify] Fetching fresh data for reel ${shortCode}...`);
+    
+    const run = await client.actor("apify/instagram-reel-scraper").call({
+      directUrls: [`https://www.instagram.com/reel/${shortCode}/`],
+      resultsLimit: 1,
+    });
+
+    if (!run || !run.defaultDatasetId) {
+      throw new Error('Apify actor run failed or returned no dataset');
+    }
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      console.log(`[Apify] No data found for reel ${shortCode}`);
+      return null;
+    }
+
+    const item: any = items[0];
+    console.log(`[Apify] Successfully fetched fresh data for ${shortCode}`);
+    
+    // Use normalized data to ensure safe types
+    const normalized = mapApifyReel(item, shortCode);
+    
+    return {
+      shortCode: normalized.shortCode,
+      url: normalized.url,
+      caption: normalized.caption,
+      videoUrl: normalized.videoUrl,
+      thumbnailUrl: normalized.thumbnailUrl,
+      videoViewCount: normalized.videoViewCount,
+      likesCount: normalized.likesCount,
+      commentsCount: normalized.commentsCount,
+      timestamp: normalized.timestamp || undefined,
+      videoPlayCount: normalized.videoViewCount,
+      videoDuration: normalized.videoDuration,
+    };
+  } catch (error) {
+    console.error('[Apify] Error fetching single reel:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to fetch reel from Instagram: ${message}`);
+  }
+}
+
+export async function fetchInstagramReels(username: string, limit: number = 50): Promise<ApifyReelData[]> {
+  if (!username || username.trim().length === 0) {
+    throw new Error('Username is required');
+  }
+
+  if (!process.env.APIFY_API_KEY) {
+    throw new Error('APIFY_API_KEY is not configured');
+  }
+
+  try {
+    console.log(`[Apify] Fetching reels for @${username} (limit: ${limit})...`);
+    
+    const run = await client.actor("apify/instagram-reel-scraper").call({
+      username: [username],
+      resultsLimit: limit,
+    });
+
+    if (!run || !run.defaultDatasetId) {
+      console.error('[Apify] Actor run failed or returned no dataset');
+      throw new Error('Apify actor run failed or returned no dataset');
+    }
+
+    console.log(`[Apify] Run successful, dataset ID: ${run.defaultDatasetId}`);
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    
+    if (!items || !Array.isArray(items)) {
+      console.warn(`[Apify] ⚠️ No items found for @${username} - items: ${items}`);
+      return [];
+    }
+
+    console.log(`[Apify] ✅ Fetched ${items.length} reels from @${username}`);
+    
+    // Log first item to see what fields Apify returns
+    if (items.length > 0) {
+      console.log('[Apify] Sample item fields:', Object.keys(items[0]));
+      console.log('[Apify] Sample duration fields:', {
+        videoDuration: items[0].videoDuration,
+        durationInSeconds: items[0].durationInSeconds,
+        duration: items[0].duration,
+        videoLength: items[0].videoLength,
+      });
+    }
+    
+    return items.map((item: any) => {
+      // Mutual recovery: shortCode ↔ URL
+      let shortCode = item.shortCode || item.id || '';
+      let url = item.url || '';
+
+      // If we have URL but no shortCode, extract it
+      if (!shortCode && url) {
+        const match = url.match(/\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+        if (match) {
+          shortCode = match[1];
+        }
+      }
+
+      // If we have shortCode but no URL, build it
+      if (shortCode && !url) {
+        url = `https://www.instagram.com/reel/${shortCode}/`;
+      }
+
+      // Use normalized data to ensure safe integer types
+      const normalized = mapApifyReel(item, shortCode);
+
+      return {
+        shortCode: normalized.shortCode,
+        url: normalized.url,
+        caption: normalized.caption,
+        videoUrl: normalized.videoUrl,
+        thumbnailUrl: normalized.thumbnailUrl,
+        videoViewCount: normalized.videoViewCount,
+        likesCount: normalized.likesCount,
+        commentsCount: normalized.commentsCount,
+        timestamp: normalized.timestamp || undefined,
+        videoPlayCount: normalized.videoViewCount,
+        videoDuration: normalized.videoDuration,
+      };
+    });
+  } catch (error) {
+    console.error('Apify fetch error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to fetch reels from Instagram: ${message}`);
+  }
+}
