@@ -728,7 +728,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error checking for new Reels:", error);
-      res.status(500).json({ message: "Failed to check for new Reels" });
+      
+      // Update failed checks counter
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      try {
+        await db
+          .update(instagramSources)
+          .set({
+            lastCheckedAt: new Date(),
+            failedChecks: sql`${instagramSources.failedChecks} + 1`,
+          })
+          .where(and(
+            eq(instagramSources.id, id),
+            eq(instagramSources.userId, userId)
+          ));
+      } catch (updateError) {
+        console.error("Failed to update failedChecks counter:", updateError);
+      }
+      
+      // Provide specific error messages
+      const errorMessage = error.message || "Failed to check for new Reels";
+      const isTimeout = errorMessage.includes('timeout');
+      
+      res.status(500).json({ 
+        message: isTimeout 
+          ? "Request timed out - Instagram scraping is taking longer than expected. Please try again."
+          : errorMessage
+      });
     }
   });
 
