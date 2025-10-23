@@ -136,7 +136,7 @@ export async function scrapeInstagramReels(
       resultsLimit,
     };
 
-    console.log(`Starting Apify scraping for Instagram user: ${username}`);
+    console.log(`[Apify] Starting scraping for Instagram user: @${username} (limit: ${resultsLimit})...`);
 
     // Run the actor and wait for it to finish (with 3 minute timeout)
     const run = await withTimeout(
@@ -154,34 +154,23 @@ export async function scrapeInstagramReels(
       `Apify dataset fetch timeout for user: ${username}`
     );
 
-    console.log(`Fetched ${items.length} Reels from @${username}`);
+    console.log(`[Apify] ✅ Fetched ${items.length} Reels from @${username}`);
+    
+    // Log first item to see what fields Apify returns
+    if (items.length > 0) {
+      console.log('[Apify] Sample item fields:', Object.keys(items[0]));
+      console.log('[Apify] Sample duration fields:', {
+        videoDuration: items[0].videoDuration,
+        durationInSeconds: items[0].durationInSeconds,
+        duration: items[0].duration,
+        videoLength: items[0].videoLength,
+      });
+    }
 
-    // Transform Apify results to our format
-    const transformedItems: InstagramReelData[] = items.map((item: any) => ({
-      id: item.id || item.shortCode,
-      shortCode: item.shortCode,
-      url: item.url,
-      caption: item.caption || '',
-      hashtags: item.hashtags || [],
-      mentions: item.mentions || [],
-      videoUrl: item.videoUrl,
-      thumbnailUrl: item.displayUrl || item.images?.[0],
-      videoDuration: item.videoDuration,
-      likesCount: item.likesCount || 0,
-      commentsCount: item.commentsCount || 0,
-      videoViewCount: item.videoViewCount,
-      videoPlayCount: item.videoPlayCount,
-      sharesCount: item.sharesCount,
-      timestamp: item.timestamp,
-      ownerUsername: item.ownerUsername,
-      ownerFullName: item.ownerFullName,
-      ownerId: item.ownerId,
-      musicInfo: item.musicInfo ? {
-        artist: item.musicInfo.artist,
-        songName: item.musicInfo.songName,
-        originalAudio: item.musicInfo.originalAudio,
-      } : undefined,
-    }));
+    // Transform Apify results using mapApifyReel for safe normalization
+    const transformedItems: InstagramReelData[] = items.map((item: any) => 
+      mapApifyReel(item)
+    );
 
     return {
       success: true,
