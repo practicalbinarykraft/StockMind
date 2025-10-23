@@ -332,7 +332,7 @@ export default function Home() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredProjects.map((project: any) => {
-              const progress = (project.currentStage / 7) * 100;
+              const progress = ((project.currentStage - 1) / 6) * 100;
               const getProgressColor = () => {
                 if (progress < 25) return "rgb(239 68 68)"; // red-500
                 if (progress < 75) return "rgb(234 179 8)"; // yellow-500

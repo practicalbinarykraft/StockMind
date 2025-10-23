@@ -18,7 +18,6 @@ import {
 import { useLocation } from "wouter"
 
 const STAGES = [
-  { number: 1, title: "Source Selection", icon: FileText },
   { number: 2, title: "Content Input", icon: Newspaper },
   { number: 3, title: "AI Analysis", icon: Sparkles },
   { number: 4, title: "Voice Generation", icon: Mic },
@@ -144,12 +143,12 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border">
         <div className="text-xs text-sidebar-foreground/50">
-          Stage {currentStage} of 7
+          Stage {currentStage - 1} of 6
         </div>
         <div className="mt-2 h-2 bg-sidebar-border rounded-full overflow-hidden">
           <div 
             className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${(currentStage / 7) * 100}%` }}
+            style={{ width: `${((currentStage - 1) / 6) * 100}%` }}
           />
         </div>
       </div>

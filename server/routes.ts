@@ -1027,7 +1027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? titleSource.substring(0, 47) + '...' 
         : titleSource;
 
-      // Create project
+      // Create project (start at Stage 2 - Content Input)
       const project = await storage.createProject(userId, {
         title,
         sourceType: 'instagram',
@@ -1051,33 +1051,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             views: item.videoViewCount,
           }
         },
-        currentStage: 1,
+        currentStage: 2,  // Skip Stage 1 (source already selected)
         status: 'draft',
       });
 
-      // Create Step 1 (Source Selection) - auto-complete
-      await storage.createProjectStep({
-        projectId: project.id,
-        stepNumber: 1,
-        data: {
-          sourceType: 'instagram',
-          itemId: item.id,
-          url: item.url,
-        },
-        completedAt: new Date(),
-      });
-
-      // Create Step 2 (Content Input) with transcription - auto-complete
+      // Create Step 2 (Content Input) with transcription
       await storage.createProjectStep({
         projectId: project.id,
         stepNumber: 2,
         data: {
+          id: item.id,  // CRITICAL: needed for marking as used and progression
           contentType: 'instagram',
-          transcription: item.transcriptionText,
+          transcriptionText: item.transcriptionText,  // Match API field names
           caption: item.caption,
           language: item.language,
+          aiScore: item.aiScore,
+          aiComment: item.aiComment,
+          freshnessScore: item.freshnessScore,
+          viralityScore: item.viralityScore,
+          qualityScore: item.qualityScore,
+          thumbnailUrl: item.thumbnailUrl,
+          url: item.url,
+          ownerUsername: item.ownerUsername,
         },
-        completedAt: new Date(),
       });
 
       // Update Instagram item to mark as used

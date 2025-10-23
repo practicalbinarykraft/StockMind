@@ -63,12 +63,16 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     refetchInterval: 15 * 60 * 1000, // Auto-refresh every 15 minutes
   })
 
-  // Fetch Instagram Reel if source is instagram
+  // Instagram Reel data - can be from stepData directly or fetched by ID
+  const hasInstagramData = stepData && (stepData.transcription || stepData.contentType === 'instagram')
   const instagramItemId = stepData?.instagramItemId
-  const { data: instagramReel, isLoading: instagramLoading } = useQuery<any>({
+  const { data: fetchedReel, isLoading: instagramLoading } = useQuery<any>({
     queryKey: [`/api/instagram/items/${instagramItemId}`],
-    enabled: sourceChoice === "instagram" && !!instagramItemId,
+    enabled: sourceChoice === "instagram" && !!instagramItemId && !hasInstagramData,
   })
+  
+  // Use stepData if available, otherwise use fetched data
+  const instagramReel = hasInstagramData ? stepData : fetchedReel
 
   // Manual refresh mutation
   const refreshMutation = useMutation({
