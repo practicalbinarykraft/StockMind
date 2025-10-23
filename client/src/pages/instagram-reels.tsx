@@ -26,7 +26,9 @@ import {
   CheckCircle2,
   Loader2,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  MessageSquare,
+  CircleDashed
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -123,6 +125,19 @@ export default function InstagramReelsPage() {
     }
   }
 
+  const getTranscriptionStatusBadge = (status: string | null) => {
+    switch (status) {
+      case 'completed':
+        return { icon: MessageSquare, label: 'Transcribed', variant: 'default' as const, color: 'text-green-600 dark:text-green-400' }
+      case 'processing':
+        return { icon: Loader2, label: 'Transcribing', variant: 'secondary' as const, color: 'text-blue-600 dark:text-blue-400' }
+      case 'failed':
+        return { icon: AlertCircle, label: 'Failed', variant: 'destructive' as const, color: 'text-red-600 dark:text-red-400' }
+      default:
+        return { icon: CircleDashed, label: 'Not transcribed', variant: 'outline' as const, color: 'text-muted-foreground' }
+    }
+  }
+
   const formatNumber = (num: number | null) => {
     if (!num) return '0'
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
@@ -134,6 +149,7 @@ export default function InstagramReelsPage() {
     const isDismissed = item.userAction === 'dismissed'
     const isUsed = item.userAction === 'selected'
     const downloadBadge = getDownloadStatusBadge(item.downloadStatus)
+    const transcriptionBadge = getTranscriptionStatusBadge(item.transcriptionStatus)
 
     return (
       <Card
@@ -174,11 +190,17 @@ export default function InstagramReelsPage() {
         <CardContent className="pt-4 pb-4">
           {/* Badges Row */}
           <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={downloadBadge.variant} className="gap-1">
                 <downloadBadge.icon className={`h-3 w-3 ${downloadBadge.icon === Loader2 ? 'animate-spin' : ''}`} />
                 {downloadBadge.label}
               </Badge>
+              {item.downloadStatus === 'completed' && (
+                <Badge variant={transcriptionBadge.variant} className="gap-1">
+                  <transcriptionBadge.icon className={`h-3 w-3 ${transcriptionBadge.icon === Loader2 ? 'animate-spin' : ''}`} />
+                  {transcriptionBadge.label}
+                </Badge>
+              )}
             </div>
             {item.aiScore !== null && (
               <ScoreBadge score={item.aiScore} size="sm" />
