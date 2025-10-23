@@ -6,16 +6,19 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ## Recent Updates
 
 ### October 23, 2025
-- **Instagram Integration - Phase 7 Complete**: Projects from Instagram Reels
-  - Created endpoint POST `/api/projects/from-instagram/:itemId` for one-click project creation
-  - Auto-populates Step 1 (Source Selection) and Step 2 (Content Input) with Reel data
-  - Step 2 includes transcription, caption, language, and AI scores for Stage 3 analysis
-  - UI replaced "Select" button with "Create Project" (Clapperboard icon) in Instagram Reels page
-  - Projects auto-navigate to project page after creation with all source data preserved
-  - Validation ensures transcription is complete before project creation
-  - Instagram projects show Instagram icon in home page project cards for easy identification
-  - Stage 3 (AI Analysis) now reads transcription from Instagram Reels seamlessly
-  - Full integration: Instagram Reels → Project → 7-Stage Workflow complete
+- **Instagram Integration - Correct UX Flow Implemented**: Instagram Reels integrated into Step 1
+  - **IMPORTANT UX FIX**: Instagram Reels selection now integrated into project creation workflow (Step 1)
+  - Step 1 updated with three source options: News Articles, Custom Script, Instagram Reels
+  - Clicking "Instagram Reels" in Step 1 opens dialog with list of available transcribed Reels
+  - Reel picker shows thumbnails, AI scores, engagement stats, transcription status
+  - Selecting Reel auto-populates Step 1 data and progresses to Step 2
+  - Step 2 displays full Reel content: transcription, caption, AI scores (overall/freshness/virality/quality), thumbnail
+  - Users review transcribed content and click "Continue to AI Analysis" to proceed
+  - Stage 3 (AI Analysis) reads transcription from Step 2 data seamlessly
+  - Backend: Added GET `/api/instagram/items/:id` endpoint for single Reel retrieval
+  - Removed "Instagram Reels" button from home page (was backwards UX)
+  - `/instagram-reels` page kept for Settings/management purposes
+  - Full workflow: New Project → Step 1 (choose Instagram) → Select Reel → Step 2 (review) → Continue to Stage 3
 
 - **Instagram Integration - Phase 6 Complete**: AI Content Analysis for Instagram Reels
   - Created `scoreInstagramReel()` function in ai-service.ts using Anthropic Claude for analyzing transcribed Reels
