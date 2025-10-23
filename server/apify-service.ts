@@ -10,6 +10,78 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
   ]);
 }
 
+/**
+ * Safe number conversion with validation
+ * Converts floats to integers (Math.round)
+ * Validates all numbers (isFinite check)
+ * Provides safe defaults for missing data
+ */
+function safeNumber(value: any, defaultValue: number = 0): number {
+  const num = Number(value);
+  return isFinite(num) && num >= 0 ? Math.round(num) : defaultValue;
+}
+
+/**
+ * Normalize Apify reel data to safe types for database storage
+ * - Converts floats to integers for duration/counts
+ * - Mutual recovery: shortCode ↔ URL
+ * - Handles multiple duration field names
+ * - Safe defaults for all fields
+ */
+function mapApifyReel(item: any, shortCodeFallback?: string): InstagramReelData {
+  // Mutual recovery: shortCode ↔ URL
+  let shortCode = item.shortCode || item.id || shortCodeFallback || '';
+  let url = item.url || '';
+
+  // If no shortCode but have URL, extract it
+  if (!shortCode && url) {
+    const match = url.match(/\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+    if (match) {
+      shortCode = match[1];
+    }
+  }
+
+  // If no URL but have shortCode, build it
+  if (shortCode && !url) {
+    url = `https://www.instagram.com/reel/${shortCode}/`;
+  }
+
+  // Handle multiple possible duration field names
+  const rawDuration = item.videoDuration ?? item.durationInSeconds ?? item.duration ?? item.videoLength ?? 0;
+  const normalizedDuration = safeNumber(rawDuration, 0);
+
+  // Log if we had to normalize duration (float → int)
+  if (rawDuration !== normalizedDuration && rawDuration > 0) {
+    console.log(`[Apify] Normalized duration for ${shortCode}: ${rawDuration} → ${normalizedDuration}s`);
+  }
+
+  return {
+    id: item.id || shortCode,
+    shortCode,
+    url,
+    caption: (item.caption || '').trim(),
+    hashtags: item.hashtags || [],
+    mentions: item.mentions || [],
+    videoUrl: item.videoUrl || '',
+    thumbnailUrl: item.thumbnailUrl || item.displayUrl || item.images?.[0] || '',
+    videoDuration: normalizedDuration,
+    likesCount: safeNumber(item.likesCount, 0),
+    commentsCount: safeNumber(item.commentsCount, 0),
+    videoViewCount: safeNumber(item.videoViewCount || item.videoPlayCount, 0),
+    videoPlayCount: safeNumber(item.videoPlayCount || item.videoViewCount, 0),
+    sharesCount: safeNumber(item.sharesCount, 0),
+    timestamp: item.timestamp || new Date().toISOString(),
+    ownerUsername: item.ownerUsername || '',
+    ownerFullName: item.ownerFullName,
+    ownerId: item.ownerId,
+    musicInfo: item.musicInfo ? {
+      artist: item.musicInfo.artist,
+      songName: item.musicInfo.songName,
+      originalAudio: item.musicInfo.originalAudio,
+    } : undefined,
+  };
+}
+
 export interface InstagramReelData {
   id: string;
   shortCode: string;
