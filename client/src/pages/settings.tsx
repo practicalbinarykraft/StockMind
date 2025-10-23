@@ -930,7 +930,7 @@ export default function Settings() {
 
       {/* Instagram Parse Settings Dialog */}
       <Dialog open={showParseDialog} onOpenChange={setShowParseDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Что парсить из @{selectedParseSource?.username}?</DialogTitle>
             <DialogDescription>
