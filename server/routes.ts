@@ -11,6 +11,7 @@ import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from ".
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
 import { scrapeInstagramReels, testApifyApiKey } from "./apify-service";
 import { downloadInstagramMedia } from "./instagram-download";
+import { transcribeInstagramVideo } from "./transcription-service";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -89,6 +90,51 @@ async function downloadInstagramMediaBackground(
       undefined,
       error.message
     ).catch(err => console.error('Failed to update download status:', err));
+  }
+}
+
+// Background transcription helper for Instagram Reels
+// Transcribes downloaded video without blocking the response
+async function transcribeInstagramItemBackground(
+  itemId: string,
+  localVideoPath: string,
+  userId: string
+): Promise<void> {
+  try {
+    console.log(`[Transcription] Starting background transcription for item: ${itemId}`);
+
+    // Transcribe the video using OpenAI Whisper
+    const result = await transcribeInstagramVideo(localVideoPath, userId);
+
+    // Check results
+    if (result.success) {
+      await storage.updateInstagramItemTranscription(
+        itemId,
+        'completed',
+        result.text,
+        result.language,
+        undefined
+      );
+      console.log(`[Transcription] ✅ Transcribed item: ${itemId} (${result.text?.length || 0} chars, language: ${result.language})`);
+    } else {
+      await storage.updateInstagramItemTranscription(
+        itemId,
+        'failed',
+        undefined,
+        undefined,
+        result.error
+      );
+      console.error(`[Transcription] ❌ Failed to transcribe item: ${itemId} - ${result.error}`);
+    }
+  } catch (error: any) {
+    console.error(`[Transcription] ❌ Background transcription error for item ${itemId}:`, error.message);
+    await storage.updateInstagramItemTranscription(
+      itemId,
+      'failed',
+      undefined,
+      undefined,
+      error.message
+    ).catch(err => console.error('Failed to update transcription status:', err));
   }
 }
 
@@ -497,6 +543,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating Instagram item action:", error);
       res.status(500).json({ message: "Failed to update Instagram item" });
+    }
+  });
+
+  app.post("/api/instagram/items/:id/transcribe", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Get the item and verify ownership
+      const items = await storage.getInstagramItems(userId);
+      const item = items.find(i => i.id === id);
+
+      if (!item) {
+        return res.status(404).json({ message: "Instagram item not found or not authorized" });
+      }
+
+      // Check if video is downloaded
+      if (!item.localVideoPath || item.downloadStatus !== 'completed') {
+        return res.status(400).json({ 
+          message: "Video must be downloaded before transcription. Current status: " + (item.downloadStatus || 'pending')
+        });
+      }
+
+      // Update status to processing
+      await storage.updateInstagramItemTranscription(id, 'processing');
+
+      // Start transcription in background (non-blocking)
+      transcribeInstagramItemBackground(id, item.localVideoPath, userId);
+
+      res.json({ 
+        message: "Transcription started",
+        status: "processing" 
+      });
+    } catch (error: any) {
+      console.error("Error starting transcription:", error);
+      res.status(500).json({ message: "Failed to start transcription" });
     }
   });
 
