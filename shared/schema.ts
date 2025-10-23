@@ -211,6 +211,12 @@ export const instagramItems = pgTable("instagram_items", {
   downloadStatus: varchar("download_status", { length: 20 }).default('pending'), // pending/downloading/completed/failed
   downloadError: text("download_error"), // Error message if download failed
   
+  // Transcription (Phase 5)
+  transcriptionText: text("transcription_text"), // Transcribed text from video
+  transcriptionStatus: varchar("transcription_status", { length: 20 }).default('pending'), // pending/processing/completed/failed
+  transcriptionError: text("transcription_error"), // Error message if transcription failed
+  language: varchar("language", { length: 10 }), // Detected language (e.g., 'ru', 'en')
+  
   // Engagement metrics
   likesCount: integer("likes_count").default(0).notNull(),
   commentsCount: integer("comments_count").default(0).notNull(),
