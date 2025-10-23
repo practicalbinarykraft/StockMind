@@ -29,7 +29,8 @@ import {
   ArrowLeft,
   MessageSquare,
   CircleDashed,
-  Sparkles
+  Sparkles,
+  Clapperboard
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -73,18 +74,26 @@ export default function InstagramReelsPage() {
     },
   })
 
-  // Select mutation (for future project creation)
-  const selectMutation = useMutation({
+  // Create project mutation (Phase 7)
+  const createProjectMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      return await apiRequest("PATCH", `/api/instagram/items/${itemId}/action`, {
-        action: "selected",
-      })
+      return await apiRequest("POST", `/api/projects/from-instagram/${itemId}`)
     },
-    onSuccess: () => {
+    onSuccess: (project: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/instagram/items"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
       toast({
-        title: "Reel Selected",
-        description: "Reel marked for future use",
+        title: "Project Created",
+        description: "Reel converted to project. Opening...",
+      })
+      // Navigate to the new project
+      setLocation(`/project/${project.id}`)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Create Project",
+        description: error.message || "Could not create project from Reel",
+        variant: "destructive",
       })
     },
   })
@@ -115,9 +124,9 @@ export default function InstagramReelsPage() {
     dismissMutation.mutate(itemId)
   }
 
-  const handleSelect = (e: React.MouseEvent, itemId: string) => {
+  const handleCreateProject = (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation()
-    selectMutation.mutate(itemId)
+    createProjectMutation.mutate(itemId)
   }
 
   const handleScore = (e: React.MouseEvent, itemId: string) => {
@@ -291,11 +300,21 @@ export default function InstagramReelsPage() {
                 <Button
                   size="sm"
                   className="flex-1"
-                  onClick={(e) => handleSelect(e, item.id)}
-                  data-testid={`button-select-${item.id}`}
+                  onClick={(e) => handleCreateProject(e, item.id)}
+                  disabled={item.transcriptionStatus !== 'completed' || createProjectMutation.isPending}
+                  data-testid={`button-create-project-${item.id}`}
                 >
-                  <Check className="h-4 w-4 mr-1" />
-                  Select
+                  {createProjectMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Clapperboard className="h-4 w-4 mr-1" />
+                      Create Project
+                    </>
+                  )}
                 </Button>
                 <Button
                   size="sm"
@@ -335,8 +354,8 @@ export default function InstagramReelsPage() {
           {/* Used/Dismissed Status */}
           {isUsed && (
             <div className="text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
-              <Check className="h-4 w-4" />
-              Selected for use
+              <Clapperboard className="h-4 w-4" />
+              Used in project
             </div>
           )}
           {isDismissed && (
