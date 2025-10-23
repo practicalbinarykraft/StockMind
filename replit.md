@@ -5,6 +5,18 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 
 ## Recent Updates
 
+### October 23, 2025
+- **Instagram Integration - Phase 4 Complete**: Content Selection UI implemented
+  - Created `/instagram-reels` page with card-based layout for browsing scraped Reels
+  - Comprehensive filtering: search (caption/username), source, AI score range, engagement metrics, download status
+  - Fixed critical bug: null AI scores now treated as 0 for filtering (visible when minScore=0, hidden when minScore>0)
+  - Video preview cards with thumbnails, play overlay, duration badge, engagement stats (views/likes/comments)
+  - User actions: Select (marks for project use) and Dismiss (hides from view)
+  - API endpoint: PATCH `/api/instagram/items/:id/action` with authentication and ownership validation
+  - Navigation: Added "Instagram Reels" button to home page quick actions
+  - UI mirrors RSS news Stage 2 pattern for consistency across content sources
+  - Production-ready: Architect review passed - all filters work correctly with AND logic
+
 ### October 22, 2025
 - **Instagram Integration - Phase 3.5 Complete**: Video Download System implemented
   - Added schema fields: localVideoPath, localThumbnailPath, downloadStatus, downloadError
@@ -104,7 +116,7 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 
 ## External Dependencies
 - **Anthropic Claude**: Used for AI content analysis, news scoring, and script analysis.
-- **Apify**: Official `apify/instagram-reel-scraper` actor for Instagram Reels content extraction (Phase 2 complete).
+- **Apify**: Official `apify/instagram-reel-scraper` actor for Instagram Reels content extraction (Phases 2-4 complete).
 - **ElevenLabs**: Integrated for high-quality voice generation.
 - **HeyGen**: Used for avatar video generation.
 - **Kie.ai**: Utilized for optional AI B-roll footage generation per scene.
