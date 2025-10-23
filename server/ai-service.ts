@@ -141,9 +141,9 @@ Respond in JSON format:
   return {
     score: Math.min(100, Math.max(0, result.score)),
     comment: result.comment || "Оценка контента Reels",
-    freshnessScore: result.freshnessScore ? Math.min(100, Math.max(0, result.freshnessScore)) : undefined,
-    viralityScore: result.viralityScore ? Math.min(100, Math.max(0, result.viralityScore)) : undefined,
-    qualityScore: result.qualityScore ? Math.min(100, Math.max(0, result.qualityScore)) : undefined,
+    freshnessScore: typeof result.freshnessScore === 'number' ? Math.min(100, Math.max(0, result.freshnessScore)) : undefined,
+    viralityScore: typeof result.viralityScore === 'number' ? Math.min(100, Math.max(0, result.viralityScore)) : undefined,
+    qualityScore: typeof result.qualityScore === 'number' ? Math.min(100, Math.max(0, result.qualityScore)) : undefined,
   };
 }
 
