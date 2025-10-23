@@ -66,7 +66,7 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   // Fetch Instagram Reel if source is instagram
   const instagramItemId = stepData?.instagramItemId
   const { data: instagramReel, isLoading: instagramLoading } = useQuery<any>({
-    queryKey: ["/api/instagram/items", instagramItemId],
+    queryKey: [`/api/instagram/items/${instagramItemId}`],
     enabled: sourceChoice === "instagram" && !!instagramItemId,
   })
 
