@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
 import Parser from "rss-parser";
-import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText } from "./ai-service";
+import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText, scoreInstagramReel } from "./ai-service";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
@@ -126,6 +126,12 @@ async function transcribeInstagramItemBackground(
         undefined
       );
       console.log(`[Transcription] ✅ Transcribed item: ${itemId} (${result.text?.length || 0} chars, language: ${result.language})`);
+      
+      // Auto-start AI scoring after successful transcription (Phase 6)
+      if (result.text) {
+        console.log(`[AI Score] 🎯 Auto-starting AI analysis for item: ${itemId}`);
+        scoreInstagramItemBackground(itemId, userId);
+      }
     } else {
       await storage.updateInstagramItemTranscription(
         itemId,
@@ -145,6 +151,66 @@ async function transcribeInstagramItemBackground(
       undefined,
       error.message
     ).catch(err => console.error('Failed to update transcription status:', err));
+  }
+}
+
+// Background AI scoring helper for Instagram Reels
+// Scores transcribed Reels without blocking the response
+async function scoreInstagramItemBackground(
+  itemId: string,
+  userId: string
+): Promise<void> {
+  try {
+    console.log(`[AI Score] Starting AI analysis for item: ${itemId}`);
+
+    // Get the item with transcription
+    const items = await storage.getInstagramItems(userId);
+    const item = items.find(i => i.id === itemId);
+
+    if (!item) {
+      console.error(`[AI Score] ❌ Item not found: ${itemId}`);
+      return;
+    }
+
+    if (!item.transcriptionText) {
+      console.error(`[AI Score] ❌ No transcription available for item: ${itemId}`);
+      return;
+    }
+
+    // Get Anthropic API key
+    const apiKeyRecord = await storage.getUserApiKey(userId, 'anthropic');
+    if (!apiKeyRecord) {
+      console.error(`[AI Score] ❌ Anthropic API key not found for user`);
+      return;
+    }
+
+    const apiKey = apiKeyRecord.encryptedKey; // Already decrypted by storage
+
+    // Score the Reel
+    const result = await scoreInstagramReel(
+      apiKey,
+      item.transcriptionText,
+      item.caption,
+      {
+        likes: item.likesCount,
+        comments: item.commentsCount,
+        views: item.videoViewCount,
+      }
+    );
+
+    // Update item with AI scores
+    await storage.updateInstagramItemAiScore(
+      itemId,
+      result.score,
+      result.comment,
+      result.freshnessScore,
+      result.viralityScore,
+      result.qualityScore
+    );
+
+    console.log(`[AI Score] ✅ Scored item: ${itemId} (overall: ${result.score}, freshness: ${result.freshnessScore}, virality: ${result.viralityScore}, quality: ${result.qualityScore})`);
+  } catch (error: any) {
+    console.error(`[AI Score] ❌ Background scoring error for item ${itemId}:`, error.message);
   }
 }
 
@@ -590,6 +656,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error starting transcription:", error);
       res.status(500).json({ message: "Failed to start transcription" });
+    }
+  });
+
+  // Score Instagram Reel with AI (Phase 6)
+  app.post("/api/instagram/items/:id/score", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Get the item and verify ownership
+      const items = await storage.getInstagramItems(userId);
+      const item = items.find(i => i.id === id);
+
+      if (!item) {
+        return res.status(404).json({ message: "Instagram item not found or not authorized" });
+      }
+
+      // Check if transcription is completed
+      if (!item.transcriptionText || item.transcriptionStatus !== 'completed') {
+        return res.status(400).json({ 
+          message: "Transcription must be completed before AI scoring. Current status: " + (item.transcriptionStatus || 'pending')
+        });
+      }
+
+      // Get Anthropic API key
+      const apiKeyRecord = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKeyRecord) {
+        return res.status(400).json({ 
+          message: "Anthropic API key not found. Please add it in Settings." 
+        });
+      }
+
+      const apiKey = apiKeyRecord.encryptedKey; // Already decrypted by storage
+
+      // Score the Reel
+      const result = await scoreInstagramReel(
+        apiKey,
+        item.transcriptionText,
+        item.caption,
+        {
+          likes: item.likesCount,
+          comments: item.commentsCount,
+          views: item.videoViewCount,
+        }
+      );
+
+      // Update item with AI scores
+      await storage.updateInstagramItemAiScore(
+        id,
+        result.score,
+        result.comment,
+        result.freshnessScore,
+        result.viralityScore,
+        result.qualityScore
+      );
+
+      res.json({ 
+        message: "AI scoring completed",
+        score: result.score,
+        comment: result.comment,
+        freshnessScore: result.freshnessScore,
+        viralityScore: result.viralityScore,
+        qualityScore: result.qualityScore,
+      });
+    } catch (error: any) {
+      console.error("Error scoring Instagram item:", error);
+      res.status(500).json({ message: "Failed to score Instagram item: " + error.message });
     }
   });
 
