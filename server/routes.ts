@@ -973,6 +973,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create project from Instagram Reel (Phase 7)
+  app.post("/api/projects/from-instagram/:itemId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { itemId } = req.params;
+
+      // Get the Instagram item
+      const items = await storage.getInstagramItems(userId);
+      const item = items.find(i => i.id === itemId);
+
+      if (!item) {
+        return res.status(404).json({ message: "Instagram Reel not found or not authorized" });
+      }
+
+      // Check if already used in a project
+      if (item.usedInProject) {
+        return res.status(400).json({ 
+          message: "This Reel is already used in another project",
+          projectId: item.usedInProject
+        });
+      }
+
+      // Check if transcription is available
+      if (!item.transcriptionText || item.transcriptionStatus !== 'completed') {
+        return res.status(400).json({ 
+          message: "Reel must be transcribed before creating a project. Current status: " + (item.transcriptionStatus || 'pending')
+        });
+      }
+
+      // Generate project title from caption or transcription (max 50 chars)
+      const titleSource = item.caption || item.transcriptionText || 'Instagram Reel';
+      const title = titleSource.length > 50 
+        ? titleSource.substring(0, 47) + '...' 
+        : titleSource;
+
+      // Create project
+      const project = await storage.createProject(userId, {
+        title,
+        sourceType: 'instagram',
+        sourceData: {
+          itemId: item.id,
+          externalId: item.externalId,
+          shortCode: item.shortCode,
+          url: item.url,
+          caption: item.caption,
+          ownerUsername: item.ownerUsername,
+          transcription: item.transcriptionText,
+          language: item.language,
+          aiScore: item.aiScore,
+          aiComment: item.aiComment,
+          freshnessScore: item.freshnessScore,
+          viralityScore: item.viralityScore,
+          qualityScore: item.qualityScore,
+          engagement: {
+            likes: item.likesCount,
+            comments: item.commentsCount,
+            views: item.videoViewCount,
+          }
+        },
+        currentStage: 1,
+        status: 'draft',
+      });
+
+      // Create Step 1 (Source Selection) - auto-complete
+      await storage.createProjectStep({
+        projectId: project.id,
+        stepNumber: 1,
+        data: {
+          sourceType: 'instagram',
+          itemId: item.id,
+          url: item.url,
+        },
+        completedAt: new Date(),
+      });
+
+      // Create Step 2 (Content Input) with transcription - auto-complete
+      await storage.createProjectStep({
+        projectId: project.id,
+        stepNumber: 2,
+        data: {
+          contentType: 'instagram',
+          transcription: item.transcriptionText,
+          caption: item.caption,
+          language: item.language,
+        },
+        completedAt: new Date(),
+      });
+
+      // Update Instagram item to mark as used
+      await storage.updateInstagramItemAction(itemId, 'selected', project.id);
+
+      console.log(`[Project] Created from Instagram Reel: ${project.id} (item: ${itemId})`);
+      res.json(project);
+    } catch (error: any) {
+      console.error("Error creating project from Instagram:", error);
+      res.status(500).json({ message: error.message || "Failed to create project from Instagram Reel" });
+    }
+  });
+
   app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
