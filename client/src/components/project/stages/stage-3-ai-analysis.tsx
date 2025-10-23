@@ -69,8 +69,11 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const [scoringVariant, setScoringVariant] = useState<string | null>(null) // "sceneId-variantIdx" during scoring
   const { toast } = useToast()
 
-  // Get content from step data (step 2 saves as "text" for custom or "content" for news)
-  const content = stepData?.content || stepData?.text || ""
+  // Get content from step data
+  // - Custom scripts: stepData.text
+  // - News: stepData.content
+  // - Instagram: stepData.transcription (Phase 7)
+  const content = stepData?.content || stepData?.text || stepData?.transcription || ""
 
   const analyzeMutation = useMutation({
     mutationFn: async (format: string) => {
