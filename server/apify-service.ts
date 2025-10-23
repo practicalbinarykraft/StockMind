@@ -203,6 +203,66 @@ export async function scrapeInstagramReels(
 }
 
 /**
+ * Fetch a single reel's fresh data by shortCode to get updated videoUrl
+ * Instagram video URLs expire after 24-48 hours, use this to refresh them
+ * @param shortCode - Instagram reel short code
+ * @param apiKey - Apify API key
+ * @returns Fresh reel data or null if not found
+ */
+export async function fetchSingleReelData(
+  shortCode: string,
+  apiKey: string
+): Promise<InstagramReelData | null> {
+  if (!shortCode || shortCode.trim().length === 0) {
+    throw new Error('Short code is required');
+  }
+
+  if (!apiKey) {
+    throw new Error('Apify API key is required');
+  }
+
+  try {
+    console.log(`[Apify] Fetching fresh data for reel ${shortCode}...`);
+    
+    const client = new ApifyClient({ token: apiKey });
+
+    // Use directUrls for single reel fetch (with 60 second timeout)
+    const run = await withTimeout(
+      client.actor('apify/instagram-reel-scraper').call({
+        directUrls: [`https://www.instagram.com/reel/${shortCode}/`],
+        resultsLimit: 1,
+      }),
+      60000, // 1 minute timeout
+      `Timeout fetching reel: ${shortCode}`
+    );
+
+    if (!run || !run.defaultDatasetId) {
+      throw new Error('Apify actor run failed or returned no dataset');
+    }
+
+    const { items } = await withTimeout(
+      client.dataset(run.defaultDatasetId).listItems(),
+      30000, // 30 seconds timeout
+      `Dataset timeout for reel: ${shortCode}`
+    );
+    
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      console.log(`[Apify] No data found for reel ${shortCode}`);
+      return null;
+    }
+
+    console.log(`[Apify] Successfully fetched fresh data for ${shortCode}`);
+    
+    // Use mapApifyReel for safe normalization
+    return mapApifyReel(items[0], shortCode);
+  } catch (error) {
+    console.error('[Apify] Error fetching single reel:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to fetch reel from Instagram: ${message}`);
+  }
+}
+
+/**
  * Test Apify API key by checking actor availability
  * @param apiKey - Apify API key to test
  * @returns True if key is valid
