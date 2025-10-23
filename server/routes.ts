@@ -477,6 +477,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/instagram/items/:id/action", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { action, projectId } = req.body;
+
+      if (!action || !['selected', 'dismissed', 'seen'].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+
+      const item = await storage.updateInstagramItemAction(id, userId, action, projectId);
+
+      if (!item) {
+        return res.status(404).json({ message: "Instagram item not found or not authorized" });
+      }
+
+      res.json(item);
+    } catch (error: any) {
+      console.error("Error updating Instagram item action:", error);
+      res.status(500).json({ message: "Failed to update Instagram item" });
+    }
+  });
+
   // ============================================================================
   // NEWS / RSS ITEMS ROUTES
   // ============================================================================

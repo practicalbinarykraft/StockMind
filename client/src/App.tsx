@@ -11,6 +11,7 @@ import Home from "@/pages/home"
 import Settings from "@/pages/settings"
 import NewProject from "@/pages/project/new"
 import ProjectWorkflow from "@/pages/project/[id]"
+import InstagramReels from "@/pages/instagram-reels"
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/" component={isAuthenticated ? Home : Landing} />
       <Route path="/home" component={Home} />
       <Route path="/settings" component={Settings} />
+      <Route path="/instagram-reels" component={InstagramReels} />
       <Route path="/project/new" component={NewProject} />
       <Route path="/project/:id" component={ProjectWorkflow} />
       <Route component={NotFound} />
