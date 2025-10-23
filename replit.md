@@ -6,6 +6,17 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ## Recent Updates
 
 ### October 23, 2025
+- **Instagram Integration - Phase 7 Complete**: Projects from Instagram Reels
+  - Created endpoint POST `/api/projects/from-instagram/:itemId` for one-click project creation
+  - Auto-populates Step 1 (Source Selection) and Step 2 (Content Input) with Reel data
+  - Step 2 includes transcription, caption, language, and AI scores for Stage 3 analysis
+  - UI replaced "Select" button with "Create Project" (Clapperboard icon) in Instagram Reels page
+  - Projects auto-navigate to project page after creation with all source data preserved
+  - Validation ensures transcription is complete before project creation
+  - Instagram projects show Instagram icon in home page project cards for easy identification
+  - Stage 3 (AI Analysis) now reads transcription from Instagram Reels seamlessly
+  - Full integration: Instagram Reels → Project → 7-Stage Workflow complete
+
 - **Instagram Integration - Phase 6 Complete**: AI Content Analysis for Instagram Reels
   - Created `scoreInstagramReel()` function in ai-service.ts using Anthropic Claude for analyzing transcribed Reels
   - Comprehensive analysis: transcription text + caption + engagement metrics → 0-100 score + Russian commentary
