@@ -83,10 +83,7 @@ export default function Settings() {
   // Instagram Parse Settings Dialog
   const [showParseDialog, setShowParseDialog] = useState(false)
   const [parseSourceId, setParseSourceId] = useState<string | null>(null)
-  const [parseConfig, setParseConfig] = useState({
-    resultsLimit: 50,
-    parseMode: 'all' as 'all' | 'new', // 'all' or 'new' (only new since last scrape)
-  })
+  const [parseMode, setParseMode] = useState<'latest-20' | 'latest-50' | 'latest-100' | 'new-only'>('latest-50')
 
   // Fetch API Keys
   const { data: apiKeys, isLoading: keysLoading } = useQuery<ApiKey[]>({
@@ -376,10 +373,16 @@ export default function Settings() {
   const parseInstagramSourceMutation = useMutation({
     mutationFn: async () => {
       if (!parseSourceId) throw new Error("No source selected");
-      return apiRequest("POST", `/api/instagram/sources/${parseSourceId}/parse`, { 
-        resultsLimit: parseConfig.resultsLimit,
-        parseMode: parseConfig.parseMode,
-      })
+      
+      // Convert parseMode to actual settings
+      const settings = {
+        'latest-20': { resultsLimit: 20, parseMode: 'all' as const },
+        'latest-50': { resultsLimit: 50, parseMode: 'all' as const },
+        'latest-100': { resultsLimit: 100, parseMode: 'all' as const },
+        'new-only': { resultsLimit: 100, parseMode: 'new' as const },
+      }[parseMode];
+      
+      return apiRequest("POST", `/api/instagram/sources/${parseSourceId}/parse`, settings)
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
@@ -412,11 +415,7 @@ export default function Settings() {
   const handleOpenParseDialog = (sourceId: string) => {
     setParseSourceId(sourceId)
     setShowParseDialog(true)
-    // Reset to defaults when opening
-    setParseConfig({
-      resultsLimit: 50,
-      parseMode: 'all',
-    })
+    setParseMode('latest-50') // Reset to default
   }
 
   const maskApiKey = (key: string) => {
@@ -933,67 +932,115 @@ export default function Settings() {
       <Dialog open={showParseDialog} onOpenChange={setShowParseDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Настройки парсинга Reels</DialogTitle>
+            <DialogTitle>Что парсить из @{selectedParseSource?.username}?</DialogTitle>
             <DialogDescription>
-              Настройте параметры парсинга для @{selectedParseSource?.username}
+              Выберите режим парсинга - система автоматически пропустит дубликаты
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Количество Reels для парсинга</Label>
-              <Select
-                value={parseConfig.resultsLimit.toString()}
-                onValueChange={(value) => setParseConfig({ ...parseConfig, resultsLimit: parseInt(value) })}
+            <div className="space-y-3">
+              <div 
+                className={`p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                  parseMode === 'latest-20' ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+                onClick={() => setParseMode('latest-20')}
+                data-testid="option-latest-20"
               >
-                <SelectTrigger data-testid="select-results-limit">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 Reels</SelectItem>
-                  <SelectItem value="20">20 Reels</SelectItem>
-                  <SelectItem value="50">50 Reels (по умолчанию)</SelectItem>
-                  <SelectItem value="100">100 Reels</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Чем больше Reels, тем дороже парсинг в Apify кредитах
-              </p>
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                    parseMode === 'latest-20' ? 'border-primary' : 'border-muted-foreground'
+                  }`}>
+                    {parseMode === 'latest-20' && <div className="h-2 w-2 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold">Последние 20 Reels</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Быстрая проверка новых Reels • ~$0.30 Apify
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className={`p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                  parseMode === 'latest-50' ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+                onClick={() => setParseMode('latest-50')}
+                data-testid="option-latest-50"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                    parseMode === 'latest-50' ? 'border-primary' : 'border-muted-foreground'
+                  }`}>
+                    {parseMode === 'latest-50' && <div className="h-2 w-2 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold">Последние 50 Reels</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Оптимальный выбор для регулярного парсинга • ~$0.70 Apify
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className={`p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                  parseMode === 'latest-100' ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+                onClick={() => setParseMode('latest-100')}
+                data-testid="option-latest-100"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                    parseMode === 'latest-100' ? 'border-primary' : 'border-muted-foreground'
+                  }`}>
+                    {parseMode === 'latest-100' && <div className="h-2 w-2 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold">Последние 100 Reels</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Полная загрузка архива • ~$1.30 Apify
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className={`p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                  parseMode === 'new-only' ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+                onClick={() => setParseMode('new-only')}
+                data-testid="option-new-only"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                    parseMode === 'new-only' ? 'border-primary' : 'border-muted-foreground'
+                  }`}>
+                    {parseMode === 'new-only' && <div className="h-2 w-2 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold">Только новые с последнего раза</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedParseSource?.lastScrapedDate 
+                        ? `Reels новее ${formatDistanceToNow(new Date(selectedParseSource.lastScrapedDate), { addSuffix: true })} • Макс 100 шт`
+                        : 'Первый парсинг - загрузит до 100 Reels • ~$1.30 Apify'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Режим парсинга</Label>
-              <Select
-                value={parseConfig.parseMode}
-                onValueChange={(value: 'all' | 'new') => setParseConfig({ ...parseConfig, parseMode: value })}
-              >
-                <SelectTrigger data-testid="select-parse-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все Reels</SelectItem>
-                  <SelectItem value="new">Только новые (с последнего раза)</SelectItem>
-                </SelectContent>
-              </Select>
-              {selectedParseSource?.lastScrapedDate && parseConfig.parseMode === 'new' && (
-                <p className="text-xs text-success">
-                  ✓ Загрузим только Reels новее {formatDistanceToNow(new Date(selectedParseSource.lastScrapedDate), { addSuffix: true })}
-                </p>
-              )}
-              {!selectedParseSource?.lastScrapedDate && parseConfig.parseMode === 'new' && (
-                <p className="text-xs text-muted-foreground">
-                  Это первый парсинг - загрузим все доступные Reels
-                </p>
-              )}
-            </div>
-
-            <div className="p-3 bg-muted rounded-md text-sm">
-              <p className="font-medium mb-1">Что будет спарсено:</p>
-              <ul className="text-muted-foreground space-y-1">
-                <li>• До {parseConfig.resultsLimit} последних Reels</li>
-                <li>• Видео, описание, статистика</li>
-                <li>• Автоматическая транскрипция речи</li>
-                <li>• AI-анализ и оценка контента</li>
+            <div className="p-3 bg-muted/50 rounded-md text-sm">
+              <p className="font-medium mb-2">📦 Что будет загружено:</p>
+              <ul className="text-muted-foreground space-y-1 text-xs">
+                <li>✓ Видео и превью (сохраняются локально)</li>
+                <li>✓ Описание, хэштеги, упоминания</li>
+                <li>✓ Статистика (лайки, просмотры, комментарии)</li>
+                <li>✓ Автоматическая транскрипция речи (OpenAI Whisper)</li>
+                <li>✓ AI-анализ вирусности (Anthropic Claude)</li>
+                <li>✓ Дубликаты пропускаются автоматически</li>
               </ul>
             </div>
 

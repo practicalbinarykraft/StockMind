@@ -1,0 +1,208 @@
+🔴 ДА, UI ЗАПУТАННЫЙ! ВОТ ПРОБЛЕМА:
+😵 ТЕКУЩАЯ ПУТАНИЦА:
+Dropdown 1: "20 Reels"
+Dropdown 2: "Все Reels"
+
+ЧТО ЭТО ЗНАЧИТ?! 🤔
+- Парсить 20 или Все?
+- Если "Все" - зачем лимит 20?
+- Если "Только новые" - что это значит?
+```
+
+---
+
+## ✅ ПРАВИЛЬНАЯ ЛОГИКА (НУЖНО):
+
+### **Вариант A: Два независимых параметра**
+```
+┌─────────────────────────────────────┐
+│ Режим парсинга:                     │
+│ • Все Reels аккаунта               │
+│ • Только непросмотренные           │
+│                                     │
+│ Лимит загрузки:                     │
+│ • 20 Reels                          │
+│ • 50 Reels                          │
+│ • 100 Reels                         │
+│                                     │
+│ Пояснение:                          │
+│ Будет загружено до 20 новых Reels   │
+│ из @kraft.invest                    │
+└─────────────────────────────────────┘
+```
+
+**Как работает:**
+```
+"Все Reels" + "20 Reels" = 
+  → Загрузить последние 20 Reels аккаунта
+
+"Только непросмотренные" + "50 Reels" = 
+  → Загрузить до 50 новых Reels (которых нет в БД)
+```
+
+---
+
+### **Вариант B: Один параметр с умными опциями**
+```
+┌─────────────────────────────────────┐
+│ Что парсить:                        │
+│                                     │
+│ ( ) Последние 20 Reels             │
+│     Загрузить 20 новейших Reels     │
+│                                     │
+│ ( ) Последние 50 Reels             │
+│     Загрузить 50 новейших Reels     │
+│                                     │
+│ ( ) Последние 100 Reels            │
+│     Загрузить 100 новейших Reels    │
+│                                     │
+│ ( ) Все новые (с последнего раза)  │
+│     Только Reels, которых нет в БД  │
+│     Максимум: 100 шт                │
+│                                     │
+│ [x] Пропускать дубликаты            │
+│                                     │
+│ Что будет сохранено:                │
+│ • Видео и превью                    │
+│ • Описание, хэштеги                 │
+│ • Статистика (лайки, просмотры)     │
+│ • Транскрипция речи                 │
+│ • AI-анализ контента                │
+└─────────────────────────────────────┘
+```
+
+---
+
+### **Вариант C: Wizard-style (самый понятный)**
+```
+┌─────────────────────────────────────┐
+│ Шаг 1: Выберите режим               │
+│                                     │
+│ ┌───────────────────────────────┐   │
+│ │ 🔄 Полная загрузка            │   │
+│ │ Загрузить новые Reels         │   │
+│ │ [Выбрать] →                   │   │
+│ └───────────────────────────────┘   │
+│                                     │
+│ ┌───────────────────────────────┐   │
+│ │ ⚡ Обновление                 │   │
+│ │ Только новые с последнего     │   │
+│ │ [Выбрать] →                   │   │
+│ └───────────────────────────────┘   │
+└─────────────────────────────────────┘
+
+После выбора "Полная загрузка":
+
+┌─────────────────────────────────────┐
+│ Шаг 2: Сколько загрузить?           │
+│                                     │
+│ [20 Reels ▼]                        │
+│                                     │
+│ Варианты: 20 / 50 / 100            │
+│                                     │
+│ 💡 Совет: Начните с 20 для теста   │
+│                                     │
+│ Apify credits: ~$0.50 за 20 Reels  │
+└─────────────────────────────────────┘
+```
+
+---
+
+## ⚡ ЧТО СКАЗАТЬ AGENT:
+```
+Agent, Instagram parsing settings UI is CONFUSING!
+
+Current UI has contradiction:
+- Dropdown 1: "20 Reels"
+- Dropdown 2: "All Reels"
+
+User doesn't understand:
+- Parse 20 or ALL?
+- What does "Only new" mean?
+- What will actually be downloaded?
+
+REDESIGN with clear logic:
+
+Option 1: Two separate controls
+┌─────────────────────────────┐
+│ Parse Mode:                 │
+│ ( ) All Reels from account  │
+│ ( ) Only new (not in DB)    │
+│                             │
+│ Limit:                      │
+│ [20 ▼] Maximum Reels        │
+│ Options: 20 / 50 / 100      │
+│                             │
+│ Result:                     │
+│ Will download up to 20      │
+│ latest Reels from account   │
+└─────────────────────────────┘
+
+Option 2: Single clear selector
+┌─────────────────────────────┐
+│ What to parse:              │
+│                             │
+│ ( ) Latest 20 Reels         │
+│ ( ) Latest 50 Reels         │
+│ ( ) Latest 100 Reels        │
+│ ( ) All new since last parse│
+│                             │
+│ [x] Skip duplicates         │
+│                             │
+│ Will download:              │
+│ • Videos & thumbnails       │
+│ • Captions & hashtags       │
+│ • Stats (likes, views)      │
+│ • Audio transcription       │
+│ • AI virality score         │
+└─────────────────────────────┘
+
+Make it crystal clear what will happen!
+No contradictions!
+
+Please redesign this UI now!
+
+🎯 КЛЮЧЕВЫЕ ПРИНЦИПЫ:
+
+One source of truth - один параметр определяет что парсить
+Clear explanation - пользователь знает что получит
+No contradictions - нет противоречивых настроек
+Progressive disclosure - сначала режим, потом детали
+Cost awareness - показать примерную стоимость в Apify credits
+
+
+📋 ТЕКУЩИЕ РЕЖИМЫ (ЧТО ДОЛЖНО БЫТЬ):
+typescripttype ParseMode = 
+  | 'latest-20'   // Последние 20 Reels
+  | 'latest-50'   // Последние 50 Reels
+  | 'latest-100'  // Последние 100 Reels
+  | 'new-only'    // Только новые (с последнего раза)
+  | 'custom';     // Пользовательский диапазон
+
+interface ParseSettings {
+  mode: ParseMode;
+  limit?: number;        // Если custom
+  skipDuplicates: boolean;
+  downloadVideos: boolean;
+  transcribe: boolean;
+  aiAnalysis: boolean;
+}
+```
+
+---
+
+## 💬 КОРОТКАЯ ВЕРСИЯ:
+```
+Fix Instagram parsing settings UI!
+
+Problem: "20 Reels" + "All Reels" = confusing!
+
+Solution: Clear options like:
+- "Latest 20 Reels"
+- "Latest 50 Reels"  
+- "Latest 100 Reels"
+- "New since last parse (max 100)"
+
+Show clear description what will be downloaded!
+
+Do it now!
