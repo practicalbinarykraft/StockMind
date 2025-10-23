@@ -103,7 +103,7 @@ export default function InstagramReelsPage() {
       item.ownerUsername?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesDismissed = !hideDismissed || item.userAction !== 'dismissed'
     const matchesUsed = !hideUsed || item.userAction !== 'selected'
-    const matchesScore = !item.aiScore || item.aiScore >= minScore
+    const matchesScore = (item.aiScore ?? 0) >= minScore
     const matchesSource = selectedSource === 'all' || item.sourceId === selectedSource
     const matchesDownloadStatus = downloadStatusFilter === 'all' || item.downloadStatus === downloadStatusFilter
     
