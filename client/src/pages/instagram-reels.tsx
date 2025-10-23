@@ -28,7 +28,8 @@ import {
   Filter,
   ArrowLeft,
   MessageSquare,
-  CircleDashed
+  CircleDashed,
+  Sparkles
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -88,6 +89,27 @@ export default function InstagramReelsPage() {
     },
   })
 
+  // AI scoring mutation (Phase 6)
+  const scoreMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return await apiRequest("POST", `/api/instagram/items/${itemId}/score`)
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/instagram/items"] })
+      toast({
+        title: "AI Analysis Complete",
+        description: `Score: ${data.score}/100 - ${data.comment}`,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "AI Analysis Failed",
+        description: error.message || "Failed to analyze Reel",
+        variant: "destructive",
+      })
+    },
+  })
+
   const handleDismiss = (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation()
     dismissMutation.mutate(itemId)
@@ -96,6 +118,11 @@ export default function InstagramReelsPage() {
   const handleSelect = (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation()
     selectMutation.mutate(itemId)
+  }
+
+  const handleScore = (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation()
+    scoreMutation.mutate(itemId)
   }
 
   // Filter items
@@ -250,26 +277,58 @@ export default function InstagramReelsPage() {
             )}
           </div>
 
+          {/* AI Comment */}
+          {item.aiComment && (
+            <div className="text-xs text-muted-foreground mb-3 italic border-l-2 border-primary pl-2">
+              {item.aiComment}
+            </div>
+          )}
+
           {/* Actions */}
           {!isDismissed && !isUsed && (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={(e) => handleSelect(e, item.id)}
-                data-testid={`button-select-${item.id}`}
-              >
-                <Check className="h-4 w-4 mr-1" />
-                Select
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => handleDismiss(e, item.id)}
-                data-testid={`button-dismiss-${item.id}`}
-              >
-                <ThumbsDown className="h-4 w-4" />
-              </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={(e) => handleSelect(e, item.id)}
+                  data-testid={`button-select-${item.id}`}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Select
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => handleDismiss(e, item.id)}
+                  data-testid={`button-dismiss-${item.id}`}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                </Button>
+              </div>
+              {/* AI Analysis Button - only show when transcribed but not scored */}
+              {item.transcriptionStatus === 'completed' && item.aiScore === null && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={(e) => handleScore(e, item.id)}
+                  disabled={scoreMutation.isPending}
+                  data-testid={`button-score-${item.id}`}
+                >
+                  {scoreMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      Analyze with AI
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
 
