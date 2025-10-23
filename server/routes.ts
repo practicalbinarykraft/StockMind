@@ -110,6 +110,9 @@ async function transcribeInstagramItemBackground(
   try {
     console.log(`[Transcription] Starting background transcription for item: ${itemId}`);
 
+    // Update status to 'processing' before starting transcription
+    await storage.updateInstagramItemTranscription(itemId, 'processing');
+
     // Transcribe the video using OpenAI Whisper
     const result = await transcribeInstagramVideo(localVideoPath, userId);
 
