@@ -835,17 +835,6 @@ export default function Settings() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => parseInstagramSourceMutation.mutate(source.id)}
-                          disabled={parseInstagramSourceMutation.isPending || source.parseStatus === 'parsing'}
-                          data-testid={`button-parse-instagram-${source.id}`}
-                          title="Parse Reels"
-                        >
-                          <Instagram className="h-4 w-4 text-primary" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
                           onClick={() => deleteInstagramSourceMutation.mutate(source.id)}
                           disabled={deleteInstagramSourceMutation.isPending}
                           data-testid={`button-delete-instagram-${source.id}`}
@@ -887,6 +876,18 @@ export default function Settings() {
                         {source.profileUrl}
                       </p>
                     )}
+
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => parseInstagramSourceMutation.mutate(source.id)}
+                      disabled={parseInstagramSourceMutation.isPending || source.parseStatus === 'parsing'}
+                      data-testid={`button-parse-instagram-${source.id}`}
+                    >
+                      <Instagram className="h-4 w-4" />
+                      {source.parseStatus === 'parsing' ? 'Парсинг...' : 'Запустить парсинг Reels'}
+                    </Button>
                   </div>
                 ))}
               </div>
