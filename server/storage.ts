@@ -92,6 +92,13 @@ export interface IStorage {
   createInstagramItem(data: InsertInstagramItem): Promise<InstagramItem>;
   updateInstagramItem(id: string, data: Partial<InstagramItem>): Promise<InstagramItem | undefined>;
   updateInstagramItemAction(id: string, userId: string, action: string, projectId?: string): Promise<InstagramItem | undefined>;
+  updateInstagramItemTranscription(
+    id: string,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    transcriptionText?: string,
+    language?: string,
+    transcriptionError?: string
+  ): Promise<InstagramItem | undefined>;
 
   // Projects
   getProjects(userId: string): Promise<Project[]>;
@@ -523,6 +530,37 @@ export class DatabaseStorage implements IStorage {
     
     if (downloadError !== undefined) {
       updateData.downloadError = downloadError;
+    }
+    
+    const [item] = await db
+      .update(instagramItems)
+      .set(updateData)
+      .where(eq(instagramItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async updateInstagramItemTranscription(
+    id: string,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    transcriptionText?: string,
+    language?: string,
+    transcriptionError?: string
+  ): Promise<InstagramItem | undefined> {
+    const updateData: Partial<InstagramItem> = {
+      transcriptionStatus: status,
+    };
+    
+    if (transcriptionText !== undefined) {
+      updateData.transcriptionText = transcriptionText;
+    }
+    
+    if (language !== undefined) {
+      updateData.language = language;
+    }
+    
+    if (transcriptionError !== undefined) {
+      updateData.transcriptionError = transcriptionError;
     }
     
     const [item] = await db
