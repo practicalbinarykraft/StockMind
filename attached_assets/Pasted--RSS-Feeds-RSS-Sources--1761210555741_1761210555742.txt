@@ -1,0 +1,411 @@
+💡 ДА! АВТООБНОВЛЕНИЕ КРИТИЧНО!
+🎯 КАК ДОЛЖНО РАБОТАТЬ:
+Как RSS Feeds (сейчас):
+RSS Sources:
+✅ Добавил источник
+✅ Автоматически обновляется каждые 15 минут
+✅ Новые статьи появляются автоматически
+✅ Уведомления о новом контенте
+```
+
+### **Instagram Sources (должно быть так же!):**
+```
+Instagram Sources:
+✅ Добавил аккаунт @kraft.invest
+✅ Автоматически проверяет новые Reels
+✅ Парсит новые Reels автоматически
+✅ Уведомления о новых вирусных Reels
+```
+
+---
+
+## 🏗️ АРХИТЕКТУРА AUTO-MONITORING:
+```
+┌─────────────────────────────────────┐
+│     INSTAGRAM SOURCE MONITORING     │
+└─────────────────────────────────────┘
+
+1. USER ADDS SOURCE:
+   - Username: @kraft.invest
+   - Auto-update: ON
+   - Check interval: Every 6 hours
+   
+2. CRON JOB (Background):
+   ┌─ Every 6 hours ─────────────┐
+   │                             │
+   │ For each active source:     │
+   │  1. Check last_parsed_at    │
+   │  2. Call Apify (light mode) │
+   │  3. Get latest Reels        │
+   │  4. Compare with DB         │
+   │  5. If new → Download       │
+   │  6. If viral → Notify user  │
+   │  7. Update last_checked_at  │
+   └─────────────────────────────┘
+
+3. NOTIFICATIONS:
+   - "3 new Reels from @kraft.invest"
+   - "Viral alert: 1M views Reel detected!"
+   - In-app badge + email (optional)
+
+📊 DATABASE SCHEMA UPDATE:
+sql-- Обновить instagram_sources таблицу:
+ALTER TABLE instagram_sources ADD COLUMN IF NOT EXISTS
+  -- Auto-update settings
+  auto_update_enabled BOOLEAN DEFAULT true,
+  check_interval_hours INTEGER DEFAULT 6, -- 6, 12, 24
+  
+  -- Monitoring status
+  last_checked_at TIMESTAMP,
+  last_successful_parse_at TIMESTAMP,
+  next_check_at TIMESTAMP,
+  
+  -- Statistics
+  total_checks INTEGER DEFAULT 0,
+  new_reels_found INTEGER DEFAULT 0,
+  failed_checks INTEGER DEFAULT 0,
+  
+  -- Notifications
+  notify_new_reels BOOLEAN DEFAULT true,
+  notify_viral_only BOOLEAN DEFAULT false, -- Only if high engagement
+  viral_threshold INTEGER DEFAULT 100000; -- 100k views = viral
+
+-- Index для cron job:
+CREATE INDEX idx_instagram_sources_next_check 
+  ON instagram_sources(next_check_at) 
+  WHERE auto_update_enabled = true;
+```
+
+---
+
+## 🎨 UI КОМПОНЕНТЫ:
+
+### **1. При добавлении источника:**
+```
+┌─────────────────────────────────────────┐
+│ Add Instagram Source                    │
+├─────────────────────────────────────────┤
+│ Username: [@kraft.invest          ]     │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ 🔄 Auto-Update Settings             │ │
+│ ├─────────────────────────────────────┤ │
+│ │                                     │ │
+│ │ [x] Enable auto-update              │ │
+│ │                                     │ │
+│ │ Check for new Reels every:          │ │
+│ │ ( ) 6 hours (recommended)           │ │
+│ │ ( ) 12 hours                        │ │
+│ │ ( ) 24 hours                        │ │
+│ │ ( ) Manual only                     │ │
+│ │                                     │ │
+│ │ Parse limit per check: [20 ▼]      │ │
+│ │                                     │ │
+│ │ [x] Notify me about new Reels       │ │
+│ │ [ ] Only notify viral Reels         │ │
+│ │     (> 100k views)                  │ │
+│ │                                     │ │
+│ │ 💡 Auto-update uses Apify credits   │ │
+│ │    Estimated: ~$2/month per account │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ [Initial Parse Settings...]             │
+│                                         │
+│ [Cancel]  [Add Source]                  │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### **2. В списке источников:**
+```
+┌──────────────────────────────────────────────┐
+│ Instagram Sources                            │
+├──────────────────────────────────────────────┤
+│                                              │
+│ @kraft.invest                                │
+│ ┌──────────────────────────────────────────┐ │
+│ │ 🟢 Auto-update: ON                       │ │
+│ │ ⏰ Next check: in 2 hours                │ │
+│ │ 📊 Last check: 4 hours ago               │ │
+│ │ ✨ Found 3 new Reels today               │ │
+│ │                                          │ │
+│ │ [Pause Auto-update] [Check Now] [•••]    │ │
+│ └──────────────────────────────────────────┘ │
+│                                              │
+│ @cristiano                                   │
+│ ┌──────────────────────────────────────────┐ │
+│ │ ⏸️ Auto-update: PAUSED                   │ │
+│ │ 📊 Last check: 2 days ago                │ │
+│ │                                          │ │
+│ │ [Resume Auto-update] [Check Now] [•••]   │ │
+│ └──────────────────────────────────────────┘ │
+└──────────────────────────────────────────────┘
+```
+
+---
+
+### **3. Уведомления:**
+```
+┌────────────────────────────────────┐
+│ 🔔 Notifications                   │
+├────────────────────────────────────┤
+│                                    │
+│ ⚡ Viral Reel Detected!            │
+│ @kraft.invest posted a Reel        │
+│ with 1.2M views                    │
+│ 2 hours ago                        │
+│ [View Reel →]                      │
+│                                    │
+│ ────────────────────────────────   │
+│                                    │
+│ 📱 3 New Reels                     │
+│ @cristiano posted 3 new Reels      │
+│ 6 hours ago                        │
+│ [Browse Reels →]                   │
+│                                    │
+└────────────────────────────────────┘
+
+🔧 BACKEND IMPLEMENTATION:
+Cron Job (Node-Cron):
+typescript// server/cron/instagram-monitor.ts
+
+import cron from 'node-cron';
+import { db } from '../db';
+import { instagramSources, instagramItems } from '../db/schema';
+import { scrapeInstagramReels } from '../apify-service';
+
+// Запускать каждый час
+cron.schedule('0 * * * *', async () => {
+  console.log('[Cron] Instagram monitor started');
+  
+  // Найти источники которые нужно проверить
+  const sourcesToCheck = await db.select()
+    .from(instagramSources)
+    .where(sql`
+      auto_update_enabled = true 
+      AND next_check_at <= NOW()
+    `);
+  
+  console.log(`[Cron] Found ${sourcesToCheck.length} sources to check`);
+  
+  for (const source of sourcesToCheck) {
+    try {
+      await checkSourceForUpdates(source);
+    } catch (error) {
+      console.error(`[Cron] Error checking ${source.username}:`, error);
+      
+      await db.update(instagramSources)
+        .set({ 
+          failedChecks: sql`failed_checks + 1`,
+          lastCheckedAt: new Date(),
+          nextCheckAt: sql`NOW() + INTERVAL '${source.checkIntervalHours} hours'`
+        })
+        .where(eq(instagramSources.id, source.id));
+    }
+  }
+});
+
+async function checkSourceForUpdates(source: InstagramSource) {
+  console.log(`[Monitor] Checking ${source.username}...`);
+  
+  // Получить API key пользователя
+  const apifyKey = await getUserApiKey(source.userId, 'apify');
+  if (!apifyKey) {
+    console.log(`[Monitor] No Apify key for user ${source.userId}`);
+    return;
+  }
+  
+  // Парсить последние 20 Reels (light check)
+  const result = await scrapeInstagramReels(
+    source.username,
+    apifyKey,
+    { limit: 20, mode: 'lightweight' }
+  );
+  
+  let newReelsCount = 0;
+  let viralReelsCount = 0;
+  
+  // Проверить какие Reels новые
+  for (const reel of result.items) {
+    // Проверка дубликата
+    const existing = await db.select()
+      .from(instagramItems)
+      .where(eq(instagramItems.externalId, reel.shortCode))
+      .limit(1);
+    
+    if (existing.length === 0) {
+      // Новый Reel!
+      await db.insert(instagramItems).values({
+        sourceId: source.id,
+        userId: source.userId,
+        externalId: reel.shortCode,
+        videoUrl: reel.videoUrl,
+        thumbnailUrl: reel.displayUrl,
+        caption: reel.caption,
+        likesCount: reel.likesCount,
+        commentsCount: reel.commentsCount,
+        videoViewCount: reel.videoViewCount,
+        ownerUsername: reel.ownerUsername,
+        publishedAt: reel.timestamp,
+      });
+      
+      newReelsCount++;
+      
+      // Проверка на вирусность
+      if (reel.videoViewCount >= source.viralThreshold) {
+        viralReelsCount++;
+      }
+    }
+  }
+  
+  // Обновить статистику источника
+  await db.update(instagramSources)
+    .set({
+      lastCheckedAt: new Date(),
+      lastSuccessfulParseAt: new Date(),
+      nextCheckAt: sql`NOW() + INTERVAL '${source.checkIntervalHours} hours'`,
+      totalChecks: sql`total_checks + 1`,
+      newReelsFound: sql`new_reels_found + ${newReelsCount}`,
+      failedChecks: 0, // reset on success
+    })
+    .where(eq(instagramSources.id, source.id));
+  
+  // Отправить уведомления
+  if (newReelsCount > 0 && source.notifyNewReels) {
+    if (source.notifyViralOnly && viralReelsCount > 0) {
+      await sendNotification(source.userId, {
+        type: 'viral_reel',
+        message: `🔥 ${viralReelsCount} viral Reels from @${source.username}`,
+        sourceId: source.id,
+      });
+    } else if (!source.notifyViralOnly) {
+      await sendNotification(source.userId, {
+        type: 'new_reels',
+        message: `📱 ${newReelsCount} new Reels from @${source.username}`,
+        sourceId: source.id,
+      });
+    }
+  }
+  
+  console.log(`[Monitor] ✅ ${source.username}: ${newReelsCount} new Reels`);
+}
+
+API Endpoints:
+typescript// server/routes.ts
+
+// Toggle auto-update
+app.patch('/api/instagram/sources/:id/auto-update', async (req, res) => {
+  const { id } = req.params;
+  const { enabled, intervalHours } = req.body;
+  const userId = req.user!.id;
+  
+  await db.update(instagramSources)
+    .set({
+      autoUpdateEnabled: enabled,
+      checkIntervalHours: intervalHours,
+      nextCheckAt: enabled 
+        ? sql`NOW() + INTERVAL '${intervalHours} hours'`
+        : null
+    })
+    .where(eq(instagramSources.id, id))
+    .where(eq(instagramSources.userId, userId));
+  
+  res.json({ success: true });
+});
+
+// Manual check now
+app.post('/api/instagram/sources/:id/check-now', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user!.id;
+  
+  const source = await db.select()
+    .from(instagramSources)
+    .where(eq(instagramSources.id, id))
+    .where(eq(instagramSources.userId, userId))
+    .limit(1);
+  
+  if (!source[0]) {
+    return res.status(404).json({ error: 'Source not found' });
+  }
+  
+  // Trigger check immediately
+  await checkSourceForUpdates(source[0]);
+  
+  res.json({ success: true });
+});
+```
+
+---
+
+## ⚡ ЧТО СКАЗАТЬ AGENT:
+```
+Agent, add AUTO-UPDATE feature for Instagram Sources!
+
+Like RSS feeds auto-refresh, Instagram sources should auto-monitor new Reels!
+
+REQUIREMENTS:
+
+1. Database Schema:
+   ALTER TABLE instagram_sources ADD:
+   - auto_update_enabled (boolean, default true)
+   - check_interval_hours (6/12/24 hours)
+   - last_checked_at (timestamp)
+   - next_check_at (timestamp)
+   - notify_new_reels (boolean)
+   - notify_viral_only (boolean)
+   - viral_threshold (integer, default 100000)
+   - total_checks, new_reels_found, failed_checks
+
+2. Cron Job (node-cron):
+   - Run every hour
+   - Query sources where next_check_at <= NOW()
+   - Parse latest 20 Reels (lightweight)
+   - Check for duplicates by external_id
+   - If new → save to instagram_items
+   - Update source statistics
+   - Send notifications if enabled
+
+3. UI Updates:
+   - Add "Auto-Update Settings" section when adding source
+   - Toggle: Enable/Disable auto-update
+   - Select interval: 6h / 12h / 24h
+   - Notifications: All new Reels or Viral only
+   - Show auto-update status in sources list
+   - Show "Next check in X hours"
+   - Show "Found X new Reels today"
+   - Button: "Pause/Resume" auto-update
+   - Button: "Check Now" (manual trigger)
+
+4. API Endpoints:
+   - PATCH /api/instagram/sources/:id/auto-update
+   - POST /api/instagram/sources/:id/check-now
+
+5. Notifications:
+   - In-app notification badge
+   - Toast: "3 new Reels from @kraft.invest"
+   - Toast: "Viral alert: 1M views Reel!"
+
+This makes Instagram monitoring AUTOMATIC like RSS!
+User adds source once → system monitors forever!
+
+Implement this now!
+
+📋 ПРИОРИТЕТЫ:
+Phase 1: Infrastructure (30 min)
+
+Database schema
+Cron job setup
+Deduplication logic
+
+Phase 2: UI (20 min)
+
+Auto-update toggle
+Status indicators
+Manual "Check Now"
+
+Phase 3: Notifications (20 min)
+
+In-app notifications
+Toast messages
+Badge counters
