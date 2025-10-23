@@ -77,7 +77,8 @@ export default function InstagramReelsPage() {
   // Create project mutation (Phase 7)
   const createProjectMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      return await apiRequest("POST", `/api/projects/from-instagram/${itemId}`)
+      const res = await apiRequest("POST", `/api/projects/from-instagram/${itemId}`)
+      return await res.json()
     },
     onSuccess: (project: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/instagram/items"] })
