@@ -930,11 +930,11 @@ export default function Settings() {
 
       {/* Instagram Parse Settings Dialog */}
       <Dialog open={showParseDialog} onOpenChange={setShowParseDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Что парсить из @{selectedParseSource?.username}?</DialogTitle>
             <DialogDescription>
-              Выберите режим парсинга - система автоматически пропустит дубликаты
+              Выберите режим парсинга - дубликаты пропускаются автоматически
             </DialogDescription>
           </DialogHeader>
 
@@ -978,7 +978,7 @@ export default function Settings() {
                   <div className="flex-1">
                     <h4 className="font-semibold">Последние 50 Reels</h4>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Оптимальный выбор для регулярного парсинга • ~$0.70 Apify
+                      Оптимальный вариант • ~$0.70 Apify
                     </p>
                   </div>
                 </div>
