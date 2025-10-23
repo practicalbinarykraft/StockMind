@@ -23,6 +23,7 @@ import {
   Pause,
   Play,
   RefreshCw,
+  Loader2,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -1187,8 +1188,17 @@ export default function Settings() {
                         disabled={checkInstagramNowMutation.isPending}
                         data-testid={`button-check-now-${source.id}`}
                       >
-                        <RefreshCw className="h-4 w-4" />
-                        Check Now
+                        {checkInstagramNowMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Проверяю...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4" />
+                            Check Now
+                          </>
+                        )}
                       </Button>
                     </div>
 
