@@ -6,6 +6,18 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ## Recent Updates
 
 ### October 23, 2025
+- **Instagram Integration - Phase 5 Complete**: Automatic Video Transcription implemented
+  - Extended schema with transcription fields (transcriptionText, transcriptionStatus, transcriptionError, language)
+  - Created `server/transcription-service.ts` using OpenAI Whisper-1 model for speech-to-text
+  - Implemented retry logic (3 attempts, exponential backoff) with file validation and error handling
+  - Added storage method: `updateInstagramItemTranscription()` for status tracking
+  - API endpoint: POST `/api/instagram/items/:id/transcribe` for manual transcription triggers
+  - Automatic transcription: Auto-starts after successful video download in background (non-blocking)
+  - Transcription flow: pending → processing → completed/failed
+  - UI updates: Transcription status badges in Reels cards (MessageSquare icon, color-coded)
+  - Critical for Phase 6: Transcribed text enables AI content analysis of Instagram Reels
+  - OpenAI API key stored encrypted, accessed via `getUserApiKey()` pattern
+
 - **Instagram Integration - Phase 4 Complete**: Content Selection UI implemented
   - Created `/instagram-reels` page with card-based layout for browsing scraped Reels
   - Comprehensive filtering: search (caption/username), source, AI score range, engagement metrics, download status
@@ -106,7 +118,7 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ### Database Schema
 - `users`: User accounts.
 - `sessions`: Session storage.
-- `api_keys`: Encrypted API keys for external services (Anthropic, ElevenLabs, HeyGen, Kie.ai, **Apify**).
+- `api_keys`: Encrypted API keys for external services (Anthropic, ElevenLabs, HeyGen, Kie.ai, Apify, OpenAI).
 - `rss_sources`: News RSS feed configurations.
 - `rss_items`: Parsed news articles with AI scores.
 - `instagram_sources`: Instagram accounts for Reels scraping (username, parse_status, item_count, parse_error).
@@ -116,7 +128,8 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 
 ## External Dependencies
 - **Anthropic Claude**: Used for AI content analysis, news scoring, and script analysis.
-- **Apify**: Official `apify/instagram-reel-scraper` actor for Instagram Reels content extraction (Phases 2-4 complete).
+- **Apify**: Official `apify/instagram-reel-scraper` actor for Instagram Reels content extraction (Phases 2-5 complete).
+- **OpenAI Whisper**: Speech-to-text transcription for Instagram Reels videos (Phase 5).
 - **ElevenLabs**: Integrated for high-quality voice generation.
 - **HeyGen**: Used for avatar video generation.
 - **Kie.ai**: Utilized for optional AI B-roll footage generation per scene.
