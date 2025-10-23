@@ -269,16 +269,6 @@ export default function Home() {
             <Plus className="h-5 w-5" />
             New Project
           </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setLocation("/instagram-reels")}
-            className="gap-2"
-            data-testid="button-instagram-reels"
-          >
-            <Instagram className="h-5 w-5" />
-            Instagram Reels
-          </Button>
         </div>
 
         {/* Project Filters */}
