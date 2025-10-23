@@ -18,9 +18,16 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  Clock,
+  Bell,
+  Pause,
+  Play,
+  RefreshCw,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { Separator } from "@/components/ui/separator"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { ApiKey, RssSource, InstagramSource } from "@shared/schema"
 import { StatusBadge } from "@/components/status-badge"
@@ -78,6 +85,11 @@ export default function Settings() {
   const [instagramForm, setInstagramForm] = useState({
     username: "",
     description: "",
+    autoUpdateEnabled: false,
+    checkIntervalHours: 6,
+    notifyNewReels: false,
+    notifyViralOnly: false,
+    viralThreshold: 70,
   })
 
   // Instagram Parse Settings Dialog
@@ -306,12 +318,25 @@ export default function Settings() {
       return apiRequest("POST", "/api/settings/instagram-sources", {
         username: instagramForm.username,
         description: instagramForm.description || null,
+        autoUpdateEnabled: instagramForm.autoUpdateEnabled,
+        checkIntervalHours: instagramForm.checkIntervalHours,
+        notifyNewReels: instagramForm.notifyNewReels,
+        notifyViralOnly: instagramForm.notifyViralOnly,
+        viralThreshold: instagramForm.viralThreshold,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
       setShowInstagramDialog(false)
-      setInstagramForm({ username: "", description: "" })
+      setInstagramForm({ 
+        username: "", 
+        description: "",
+        autoUpdateEnabled: false,
+        checkIntervalHours: 6,
+        notifyNewReels: false,
+        notifyViralOnly: false,
+        viralThreshold: 70,
+      })
       toast({
         title: "Instagram Source Added",
         description: "The Instagram account has been added successfully.",
@@ -406,6 +431,74 @@ export default function Settings() {
       }
       toast({
         title: "Parsing Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Toggle Instagram Auto-Update Mutation
+  const toggleInstagramAutoUpdateMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      return apiRequest("PATCH", `/api/instagram/sources/${id}/auto-update`, {
+        autoUpdateEnabled: enabled,
+      })
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      toast({
+        title: variables.enabled ? "Auto-Update Enabled" : "Auto-Update Paused",
+        description: variables.enabled 
+          ? "Instagram source will be monitored automatically."
+          : "Automatic monitoring has been paused.",
+      })
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Check Instagram Now Mutation
+  const checkInstagramNowMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/instagram/sources/${id}/check-now`, {})
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      toast({
+        title: "Manual Check Complete",
+        description: `Found ${data.newReelsCount} new Reels (${data.viralReelsCount} viral).`,
+      })
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Check Failed",
         description: error.message,
         variant: "destructive",
       })
@@ -817,6 +910,124 @@ export default function Settings() {
                         rows={3}
                       />
                     </div>
+
+                    <Separator />
+
+                    {/* Auto-Update Settings */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="auto-update-enabled" className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Автоматический мониторинг
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Проверять новые Reels каждые {instagramForm.checkIntervalHours}ч
+                          </p>
+                        </div>
+                        <Switch
+                          id="auto-update-enabled"
+                          checked={instagramForm.autoUpdateEnabled}
+                          onCheckedChange={(checked) => 
+                            setInstagramForm({ ...instagramForm, autoUpdateEnabled: checked })
+                          }
+                          data-testid="switch-auto-update"
+                        />
+                      </div>
+
+                      {instagramForm.autoUpdateEnabled && (
+                        <>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Интервал проверки</Label>
+                              <span className="text-sm text-muted-foreground">
+                                {instagramForm.checkIntervalHours} {instagramForm.checkIntervalHours === 1 ? 'час' : 'часов'}
+                              </span>
+                            </div>
+                            <Slider
+                              min={1}
+                              max={168}
+                              step={1}
+                              value={[instagramForm.checkIntervalHours]}
+                              onValueChange={(value) => 
+                                setInstagramForm({ ...instagramForm, checkIntervalHours: value[0] })
+                              }
+                              data-testid="slider-check-interval"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              От 1 часа до 168 часов (1 неделя)
+                            </p>
+                          </div>
+
+                          <Separator className="my-2" />
+
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label htmlFor="notify-new-reels" className="flex items-center gap-2">
+                                <Bell className="h-4 w-4" />
+                                Уведомления о новых Reels
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                Получать уведомления при обнаружении новых Reels
+                              </p>
+                            </div>
+                            <Switch
+                              id="notify-new-reels"
+                              checked={instagramForm.notifyNewReels}
+                              onCheckedChange={(checked) => 
+                                setInstagramForm({ ...instagramForm, notifyNewReels: checked })
+                              }
+                              data-testid="switch-notify-new-reels"
+                            />
+                          </div>
+
+                          {instagramForm.notifyNewReels && (
+                            <>
+                              <div className="flex items-center justify-between pl-6">
+                                <div className="space-y-0.5">
+                                  <Label htmlFor="notify-viral-only" className="text-sm">
+                                    Только вирусный контент
+                                  </Label>
+                                  <p className="text-xs text-muted-foreground">
+                                    Уведомлять только если AI score ≥ {instagramForm.viralThreshold}
+                                  </p>
+                                </div>
+                                <Switch
+                                  id="notify-viral-only"
+                                  checked={instagramForm.notifyViralOnly}
+                                  onCheckedChange={(checked) => 
+                                    setInstagramForm({ ...instagramForm, notifyViralOnly: checked })
+                                  }
+                                  data-testid="switch-notify-viral-only"
+                                />
+                              </div>
+
+                              {instagramForm.notifyViralOnly && (
+                                <div className="space-y-2 pl-6">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-sm">Порог вирусности</Label>
+                                    <span className="text-sm text-muted-foreground">
+                                      {instagramForm.viralThreshold}
+                                    </span>
+                                  </div>
+                                  <Slider
+                                    min={50}
+                                    max={100}
+                                    step={5}
+                                    value={[instagramForm.viralThreshold]}
+                                    onValueChange={(value) => 
+                                      setInstagramForm({ ...instagramForm, viralThreshold: value[0] })
+                                    }
+                                    data-testid="slider-viral-threshold"
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+
                     <Button
                       className="w-full"
                       onClick={() => addInstagramSourceMutation.mutate()}
@@ -869,8 +1080,42 @@ export default function Settings() {
                       </div>
                     </div>
 
+                    {/* Auto-Update Status */}
+                    {source.autoUpdateEnabled && (
+                      <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Авто-мониторинг активен</span>
+                          </div>
+                          <StatusBadge status="success" text={`Каждые ${source.checkIntervalHours || 6}ч`} />
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Проверок</p>
+                            <p className="font-semibold">{source.totalChecks || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Найдено</p>
+                            <p className="font-semibold">{source.newReelsFound || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Ошибок</p>
+                            <p className="font-semibold">{source.failedChecks || 0}</p>
+                          </div>
+                        </div>
+
+                        {source.nextCheckAt && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Следующая проверка: {formatDistanceToNow(new Date(source.nextCheckAt), { addSuffix: true })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge
                           status={
                             source.parseStatus === 'parsing' 
@@ -885,6 +1130,12 @@ export default function Settings() {
                               : source.parseStatus || 'pending'
                           }
                         />
+                        {source.autoUpdateEnabled && (
+                          <StatusBadge 
+                            status="success" 
+                            text="Auto-Update ON" 
+                          />
+                        )}
                       </div>
                       {source.parseError && (
                         <p className="text-xs text-destructive">{source.parseError}</p>
@@ -901,6 +1152,45 @@ export default function Settings() {
                         {source.profileUrl}
                       </p>
                     )}
+
+                    {/* Control Buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant={source.autoUpdateEnabled ? "secondary" : "default"}
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={() => toggleInstagramAutoUpdateMutation.mutate({ 
+                          id: source.id, 
+                          enabled: !source.autoUpdateEnabled 
+                        })}
+                        disabled={toggleInstagramAutoUpdateMutation.isPending}
+                        data-testid={`button-toggle-auto-update-${source.id}`}
+                      >
+                        {source.autoUpdateEnabled ? (
+                          <>
+                            <Pause className="h-4 w-4" />
+                            Pause
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4" />
+                            Resume
+                          </>
+                        )}
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={() => checkInstagramNowMutation.mutate(source.id)}
+                        disabled={checkInstagramNowMutation.isPending}
+                        data-testid={`button-check-now-${source.id}`}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Check Now
+                      </Button>
+                    </div>
 
                     <Button
                       variant="default"
