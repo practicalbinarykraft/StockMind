@@ -6,6 +6,18 @@ ReelRepurposer is a comprehensive AI-powered video production pipeline designed 
 ## Recent Updates
 
 ### October 23, 2025
+- **Instagram Integration - Phase 6 Complete**: AI Content Analysis for Instagram Reels
+  - Created `scoreInstagramReel()` function in ai-service.ts using Anthropic Claude for analyzing transcribed Reels
+  - Comprehensive analysis: transcription text + caption + engagement metrics → 0-100 score + Russian commentary
+  - Score breakdown: freshnessScore (timing/trends), viralityScore (hooks/emotional triggers), qualityScore (content value)
+  - Automatic AI scoring: Triggers automatically after successful transcription completion (background, non-blocking)
+  - Added storage method: `updateInstagramItemAiScore()` for persisting all AI analysis results
+  - API endpoint: POST `/api/instagram/items/:id/score` for manual AI analysis triggers
+  - UI enhancements: "Analyze with AI" button (Sparkles icon), AI comment display with italic border styling
+  - Smart button visibility: Only shows when transcription completed but AI score not yet assigned
+  - Background processing pattern: transcription → auto-score → complete (fully automated pipeline)
+  - Critical milestone: Instagram Reels now have complete parity with RSS news AI analysis capabilities
+
 - **Instagram Integration - Phase 5 Complete**: Automatic Video Transcription implemented
   - Extended schema with transcription fields (transcriptionText, transcriptionStatus, transcriptionError, language)
   - Created `server/transcription-service.ts` using OpenAI Whisper-1 model for speech-to-text
