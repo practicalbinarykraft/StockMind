@@ -172,10 +172,30 @@ export const instagramSources = pgTable("instagram_sources", {
   lastScrapedDate: timestamp("last_scraped_date"), // Date of last scraped Reel (for smart filtering)
   lastScrapedReelId: varchar("last_scraped_reel_id", { length: 255 }), // External ID of last scraped Reel
   
+  // Auto-update settings (like RSS auto-parsing)
+  autoUpdateEnabled: boolean("auto_update_enabled").default(true).notNull(),
+  checkIntervalHours: integer("check_interval_hours").default(6).notNull(), // 6, 12, 24 hours
+  
+  // Monitoring status
+  lastCheckedAt: timestamp("last_checked_at"), // Last time cron checked (regardless of success)
+  lastSuccessfulParseAt: timestamp("last_successful_parse_at"), // Last successful parse
+  nextCheckAt: timestamp("next_check_at"), // When to check next
+  
+  // Statistics
+  totalChecks: integer("total_checks").default(0).notNull(), // How many times checked
+  newReelsFound: integer("new_reels_found").default(0).notNull(), // Total new Reels found by auto-update
+  failedChecks: integer("failed_checks").default(0).notNull(), // Failed check count
+  
+  // Notification settings
+  notifyNewReels: boolean("notify_new_reels").default(true).notNull(), // Notify about new Reels
+  notifyViralOnly: boolean("notify_viral_only").default(false).notNull(), // Only notify viral
+  viralThreshold: integer("viral_threshold").default(100000).notNull(), // 100k views = viral
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   index("instagram_sources_user_id_idx").on(table.userId),
+  index("instagram_sources_next_check_idx").on(table.nextCheckAt),
 ]);
 
 export const insertInstagramSourceSchema = createInsertSchema(instagramSources).omit({
@@ -187,8 +207,21 @@ export const insertInstagramSourceSchema = createInsertSchema(instagramSources).
   itemCount: true,
   lastScrapedDate: true,
   lastScrapedReelId: true,
+  lastCheckedAt: true,
+  lastSuccessfulParseAt: true,
+  nextCheckAt: true,
+  totalChecks: true,
+  newReelsFound: true,
+  failedChecks: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Allow optional auto-update settings during creation
+  autoUpdateEnabled: z.boolean().optional(),
+  checkIntervalHours: z.number().optional(),
+  notifyNewReels: z.boolean().optional(),
+  notifyViralOnly: z.boolean().optional(),
+  viralThreshold: z.number().optional(),
 });
 
 export type InsertInstagramSource = z.infer<typeof insertInstagramSourceSchema>;

@@ -3,7 +3,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema } from "@shared/schema";
+import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema, instagramItems, instagramSources } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, sql } from "drizzle-orm";
+import { z } from "zod";
 import Parser from "rss-parser";
 import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText, scoreInstagramReel } from "./ai-service";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
@@ -488,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const item = await storage.createInstagramItem({
               sourceId: id,
               userId,
-              externalId: reel.id,
+              externalId: reel.shortCode, // Use shortCode for consistency with cron
               shortCode: reel.shortCode,
               caption: reel.caption || null,
               url: reel.url,
@@ -588,6 +591,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).catch(err => console.error('Failed to update error status:', err));
 
       res.status(500).json({ message: error.message || "Failed to parse Instagram source" });
+    }
+  });
+
+  // Toggle auto-update for Instagram source
+  app.patch("/api/instagram/sources/:id/auto-update", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Validate input with Zod
+      const autoUpdateSchema = z.object({
+        enabled: z.boolean(),
+        intervalHours: z.number().int().min(1).max(168).optional(), // 1 hour to 1 week
+      });
+      
+      const validationResult = autoUpdateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid input", 
+          errors: validationResult.error.errors 
+        });
+      }
+      
+      const { enabled, intervalHours } = validationResult.data;
+
+      // Verify ownership
+      const sources = await storage.getInstagramSources(userId);
+      const source = sources.find(s => s.id === id);
+
+      if (!source) {
+        return res.status(404).json({ message: "Instagram source not found" });
+      }
+
+      // Safe interval calculation
+      const safeInterval = intervalHours || source.checkIntervalHours || 6;
+      
+      // Update auto-update settings
+      await storage.updateInstagramSource(id, userId, {
+        autoUpdateEnabled: enabled,
+        checkIntervalHours: safeInterval,
+        nextCheckAt: enabled ? new Date(Date.now() + safeInterval * 60 * 60 * 1000) : null,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating auto-update settings:", error);
+      res.status(500).json({ message: "Failed to update auto-update settings" });
+    }
+  });
+
+  // Manually trigger check for new Reels
+  app.post("/api/instagram/sources/:id/check-now", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Verify ownership
+      const sources = await storage.getInstagramSources(userId);
+      const source = sources.find(s => s.id === id);
+
+      if (!source) {
+        return res.status(404).json({ message: "Instagram source not found" });
+      }
+
+      // Get Apify API key
+      const apifyKeyObj = await storage.getUserApiKey(userId, 'apify');
+      if (!apifyKeyObj) {
+        return res.status(400).json({ message: "Apify API key not configured" });
+      }
+
+      // Parse latest 20 Reels (light check)
+      const result = await scrapeInstagramReels(source.username, apifyKeyObj.encryptedKey, 20);
+
+      if (!result.success) {
+        return res.status(500).json({ message: result.error || 'Scraping failed' });
+      }
+
+      let newReelsCount = 0;
+      for (const reel of result.items) {
+        const existing = await db
+          .select()
+          .from(instagramItems)
+          .where(
+            and(
+              eq(instagramItems.userId, userId),
+              eq(instagramItems.externalId, reel.shortCode)
+            )
+          )
+          .limit(1);
+
+        if (existing.length === 0) {
+          await db.insert(instagramItems).values({
+            sourceId: source.id,
+            userId: userId,
+            externalId: reel.shortCode,
+            shortCode: reel.shortCode,
+            caption: reel.caption,
+            url: reel.url,
+            videoUrl: reel.videoUrl,
+            thumbnailUrl: reel.thumbnailUrl,
+            videoDuration: reel.videoDuration,
+            likesCount: reel.likesCount,
+            commentsCount: reel.commentsCount,
+            videoViewCount: reel.videoViewCount,
+            ownerUsername: reel.ownerUsername,
+            ownerFullName: reel.ownerFullName,
+            publishedAt: new Date(reel.timestamp),
+          });
+          newReelsCount++;
+        }
+      }
+
+      // Update source statistics (properly increment counters using SQL)
+      const safeInterval = source.checkIntervalHours || 6;
+      await db
+        .update(instagramSources)
+        .set({
+          lastCheckedAt: new Date(),
+          lastSuccessfulParseAt: new Date(),
+          nextCheckAt: new Date(Date.now() + safeInterval * 60 * 60 * 1000),
+          totalChecks: sql`${instagramSources.totalChecks} + 1`,
+          newReelsFound: sql`${instagramSources.newReelsFound} + ${newReelsCount}`,
+          itemCount: sql`${instagramSources.itemCount} + ${newReelsCount}`,
+          failedChecks: 0, // Reset on success
+        })
+        .where(and(
+          eq(instagramSources.id, id),
+          eq(instagramSources.userId, userId)
+        ));
+
+      res.json({ 
+        success: true,
+        newReelsCount,
+        message: `Found ${newReelsCount} new Reels`
+      });
+    } catch (error: any) {
+      console.error("Error checking for new Reels:", error);
+      res.status(500).json({ message: "Failed to check for new Reels" });
     }
   });
 
