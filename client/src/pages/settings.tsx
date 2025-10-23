@@ -768,16 +768,17 @@ export default function Settings() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="instagram-username">Username</Label>
+                      <Label htmlFor="instagram-username">Instagram Username</Label>
                       <Input
                         id="instagram-username"
-                        placeholder="techcrunch"
+                        placeholder="например: techcrunch"
                         value={instagramForm.username}
                         onChange={(e) => setInstagramForm({ ...instagramForm, username: e.target.value })}
                         data-testid="input-instagram-username"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Enter username without @ symbol
+                        Введите только имя пользователя без @ и без ссылки.<br />
+                        Пример: для профиля instagram.com/techcrunch введите: <code className="px-1 py-0.5 bg-muted rounded">techcrunch</code>
                       </p>
                     </div>
                     <div className="space-y-2">
