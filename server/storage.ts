@@ -599,15 +599,16 @@ export class DatabaseStorage implements IStorage {
       aiComment,
     };
     
-    if (freshnessScore !== undefined) {
+    // Use typeof check to ensure zero values are persisted
+    if (typeof freshnessScore === 'number') {
       updateData.freshnessScore = freshnessScore;
     }
     
-    if (viralityScore !== undefined) {
+    if (typeof viralityScore === 'number') {
       updateData.viralityScore = viralityScore;
     }
     
-    if (qualityScore !== undefined) {
+    if (typeof qualityScore === 'number') {
       updateData.qualityScore = qualityScore;
     }
     
