@@ -190,12 +190,14 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
     // CHECK CACHE FIRST! Don't call AI if we have cached data
     if (stepData?.advancedAnalysis) {
       // Load advanced analysis from cache
+      console.log('[Stage 3] Loading advanced analysis from cache')
       setAdvancedAnalysis(stepData.advancedAnalysis)
       setAnalysisMode('advanced')
       setAnalysisTime(stepData.analysisTime)
       setSelectedFormat(stepData.selectedFormat || 'news')
     } else if (stepData?.scenes && stepData?.overallScore !== undefined) {
       // Load simple analysis from cache (legacy)
+      console.log('[Stage 3] Loading simple analysis from cache')
       setAnalysis({
         format: stepData.selectedFormat || 'news',
         overallScore: stepData.overallScore,
@@ -207,11 +209,11 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
       setSelectedVariants(stepData.selectedVariants || {})
       setEditedScenes(stepData.editedScenes || {})
       setVariantScores(stepData.variantScores || {})
-    } else if (content && !advancedAnalysis && !analysis && !advancedAnalyzeMutation.isPending) {
-      // Only call AI if NO cache exists - default to advanced mode
-      advancedAnalyzeMutation.mutate()
     }
-  }, [content])
+    // ❌ REMOVED AUTOMATIC ANALYSIS TRIGGER!
+    // User must click "Start Analysis" button if no cache exists
+    // This prevents unnecessary API calls every time project is opened
+  }, [stepData])
 
   const handleAnalyze = () => {
     // If analysis already exists (from cache), show cost warning
