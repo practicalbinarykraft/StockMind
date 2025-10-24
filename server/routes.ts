@@ -2318,6 +2318,457 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // ============================================================================
+  // SCRIPT VERSIONING & SCENE EDITING ENDPOINTS
+  // ============================================================================
+
+  // Helper: Create new script version
+  async function createNewScriptVersion(data: {
+    projectId: string;
+    scenes: any[];
+    createdBy: 'user' | 'ai' | 'system';
+    changes: any;
+    parentVersionId?: string;
+    analysisResult?: any;
+    analysisScore?: number;
+  }) {
+    const { projectId, scenes, createdBy, changes, parentVersionId, analysisResult, analysisScore } = data;
+    
+    // Get next version number
+    const versions = await storage.getScriptVersions(projectId);
+    const nextVersion = versions.length > 0 ? Math.max(...versions.map(v => v.versionNumber)) + 1 : 1;
+    
+    // Build full script text
+    const fullScript = scenes
+      .map((s: any) => `[${s.start}-${s.end}s] ${s.text}`)
+      .join('\n');
+    
+    // Unmark old current version
+    const currentVersion = await storage.getCurrentScriptVersion(projectId);
+    if (currentVersion) {
+      await storage.updateScriptVersionCurrent(projectId, ''); // This will unmark all
+    }
+    
+    // Create new version
+    const newVersion = await storage.createScriptVersion({
+      projectId,
+      versionNumber: nextVersion,
+      fullScript,
+      scenes,
+      changes,
+      createdBy,
+      isCurrent: true,
+      parentVersionId,
+      analysisResult,
+      analysisScore,
+    });
+    
+    return newVersion;
+  }
+
+  // Helper: Extract scene recommendations from advanced analysis
+  function extractRecommendationsFromAnalysis(analysis: any, scenes: any[]): any[] {
+    const recommendations: any[] = [];
+    
+    if (!analysis || !analysis.recommendations) return recommendations;
+    
+    // Map recommendations to scenes
+    for (const rec of analysis.recommendations) {
+      // Try to find which scene this recommendation applies to
+      const sceneId = findSceneForRecommendation(rec, scenes);
+      
+      if (sceneId !== undefined) {
+        recommendations.push({
+          sceneId,
+          priority: rec.priority || 'medium',
+          area: rec.area || 'general',
+          currentText: rec.current || '',
+          suggestedText: rec.suggested || '',
+          reasoning: rec.reasoning || '',
+          expectedImpact: rec.expectedImpact || '',
+        });
+      }
+    }
+    
+    return recommendations;
+  }
+
+  // Helper: Find which scene a recommendation applies to
+  function findSceneForRecommendation(rec: any, scenes: any[]): number | undefined {
+    const area = rec.area?.toLowerCase() || '';
+    
+    // Map recommendation areas to scene indices
+    if (area.includes('hook') || area.includes('opening') || area.includes('attention')) {
+      return 1; // First scene
+    } else if (area.includes('cta') || area.includes('call-to-action') || area.includes('ending')) {
+      return scenes.length; // Last scene
+    } else if (area.includes('structure') || area.includes('pacing')) {
+      return 2; // Middle scenes
+    }
+    
+    // If current text matches a scene, use that
+    const currentText = rec.current?.toLowerCase() || '';
+    for (let i = 0; i < scenes.length; i++) {
+      const sceneText = scenes[i].text?.toLowerCase() || '';
+      if (currentText && sceneText.includes(currentText)) {
+        return i + 1;
+      }
+    }
+    
+    return undefined; // Can't determine scene
+  }
+
+  // GET /api/projects/:id/script-history - Get all versions and recommendations
+  app.get("/api/projects/:id/script-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      // Get all versions
+      const versions = await storage.getScriptVersions(id);
+      
+      // Get current version
+      const currentVersion = versions.find(v => v.isCurrent) || versions[0];
+      
+      if (!currentVersion) {
+        return res.json({
+          currentVersion: null,
+          versions: [],
+          recommendations: [],
+          hasUnappliedRecommendations: false,
+        });
+      }
+      
+      // Get recommendations for current version
+      const recommendations = await storage.getSceneRecommendations(currentVersion.id);
+      
+      return res.json({
+        currentVersion,
+        versions,
+        recommendations,
+        hasUnappliedRecommendations: recommendations.some(r => !r.applied),
+      });
+    } catch (error: any) {
+      console.error('[Script History] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/projects/:id/apply-scene-recommendation - Apply recommendation to single scene
+  app.post("/api/projects/:id/apply-scene-recommendation", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { sceneId, recommendationId } = req.body;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      // Get current version
+      const currentVersion = await storage.getCurrentScriptVersion(id);
+      if (!currentVersion) {
+        return res.status(404).json({ message: 'No script version found' });
+      }
+      
+      // Get recommendation
+      const recommendations = await storage.getSceneRecommendations(currentVersion.id);
+      const recommendation = recommendations.find(r => r.id === recommendationId);
+      
+      if (!recommendation) {
+        return res.status(404).json({ message: 'Recommendation not found' });
+      }
+      
+      // Clone current scenes and apply recommendation
+      const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+      const targetScene = scenes.find((s: any) => s.id === sceneId);
+      
+      if (!targetScene) {
+        return res.status(404).json({ message: 'Scene not found' });
+      }
+      
+      const oldText = targetScene.text;
+      targetScene.text = recommendation.suggestedText;
+      targetScene.recommendationApplied = true;
+      targetScene.lastModified = new Date().toISOString();
+      
+      // Create new version
+      const newVersion = await createNewScriptVersion({
+        projectId: id,
+        scenes,
+        createdBy: 'ai',
+        changes: {
+          type: 'scene_recommendation',
+          affectedScenes: [sceneId],
+          sceneId,
+          before: oldText,
+          after: recommendation.suggestedText,
+          reason: recommendation.reasoning,
+        },
+        parentVersionId: currentVersion.id,
+        analysisResult: currentVersion.analysisResult,
+        analysisScore: currentVersion.analysisScore ?? undefined,
+      });
+      
+      // Mark recommendation as applied
+      await storage.markRecommendationApplied(recommendationId);
+      
+      return res.json({
+        success: true,
+        newVersion,
+        affectedScene: targetScene,
+      });
+    } catch (error: any) {
+      console.error('[Apply Scene Recommendation] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/projects/:id/apply-all-recommendations - Apply all recommendations
+  app.post("/api/projects/:id/apply-all-recommendations", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const currentVersion = await storage.getCurrentScriptVersion(id);
+      if (!currentVersion) {
+        return res.status(404).json({ message: 'No script version found' });
+      }
+      
+      // Get unapplied recommendations
+      const allRecommendations = await storage.getSceneRecommendations(currentVersion.id);
+      const unappliedRecommendations = allRecommendations.filter(r => !r.applied);
+      
+      if (unappliedRecommendations.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No recommendations to apply',
+          newVersion: currentVersion,
+        });
+      }
+      
+      // Clone scenes and apply all recommendations
+      const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+      const affectedSceneIds: number[] = [];
+      
+      for (const rec of unappliedRecommendations) {
+        const scene = scenes.find((s: any) => s.id === rec.sceneId);
+        if (scene) {
+          scene.text = rec.suggestedText;
+          scene.recommendationApplied = true;
+          scene.lastModified = new Date().toISOString();
+          affectedSceneIds.push(rec.sceneId);
+        }
+      }
+      
+      // Create new version
+      const newVersion = await createNewScriptVersion({
+        projectId: id,
+        scenes,
+        createdBy: 'ai',
+        changes: {
+          type: 'bulk_apply',
+          affectedScenes: affectedSceneIds,
+          count: unappliedRecommendations.length,
+          description: `Applied ${unappliedRecommendations.length} AI recommendations`,
+        },
+        parentVersionId: currentVersion.id,
+        analysisResult: currentVersion.analysisResult,
+        analysisScore: currentVersion.analysisScore ?? undefined,
+      });
+      
+      // Mark all as applied
+      for (const rec of unappliedRecommendations) {
+        await storage.markRecommendationApplied(rec.id);
+      }
+      
+      return res.json({
+        success: true,
+        newVersion,
+        appliedCount: unappliedRecommendations.length,
+        affectedScenes: affectedSceneIds,
+      });
+    } catch (error: any) {
+      console.error('[Apply All Recommendations] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/projects/:id/edit-scene - Manual edit scene
+  app.post("/api/projects/:id/edit-scene", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { sceneId, newText } = req.body;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const currentVersion = await storage.getCurrentScriptVersion(id);
+      if (!currentVersion) {
+        return res.status(404).json({ message: 'No script version found' });
+      }
+      
+      // Clone and update
+      const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+      const scene = scenes.find((s: any) => s.id === sceneId);
+      
+      if (!scene) {
+        return res.status(404).json({ message: 'Scene not found' });
+      }
+      
+      const oldText = scene.text;
+      scene.text = newText;
+      scene.manuallyEdited = true;
+      scene.lastModified = new Date().toISOString();
+      
+      // Create new version
+      const newVersion = await createNewScriptVersion({
+        projectId: id,
+        scenes,
+        createdBy: 'user',
+        changes: {
+          type: 'manual_edit',
+          affectedScenes: [sceneId],
+          sceneId,
+          before: oldText,
+          after: newText,
+        },
+        parentVersionId: currentVersion.id,
+        analysisResult: currentVersion.analysisResult,
+        analysisScore: currentVersion.analysisScore ?? undefined,
+      });
+      
+      return res.json({
+        success: true,
+        newVersion,
+        needsReanalysis: true,
+      });
+    } catch (error: any) {
+      console.error('[Edit Scene] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/projects/:id/revert-to-version - Revert to previous version
+  app.post("/api/projects/:id/revert-to-version", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { versionId } = req.body;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      // Get all versions to find target
+      const versions = await storage.getScriptVersions(id);
+      const targetVersion = versions.find(v => v.id === versionId);
+      
+      if (!targetVersion) {
+        return res.status(404).json({ message: 'Version not found' });
+      }
+      
+      const currentVersion = await storage.getCurrentScriptVersion(id);
+      
+      // Create new version from old one (non-destructive!)
+      const newVersion = await createNewScriptVersion({
+        projectId: id,
+        scenes: targetVersion.scenes as any[],
+        createdBy: 'user',
+        changes: {
+          type: 'revert',
+          revertedFrom: currentVersion?.id,
+          revertedToVersion: targetVersion.versionNumber,
+        },
+        parentVersionId: currentVersion?.id,
+        analysisResult: targetVersion.analysisResult as any,
+        analysisScore: targetVersion.analysisScore ?? undefined,
+      });
+      
+      return res.json({
+        success: true,
+        newVersion,
+        message: `Reverted to version ${targetVersion.versionNumber}`,
+      });
+    } catch (error: any) {
+      console.error('[Revert Version] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/projects/:id/create-initial-version - Create initial script version from analysis
+  app.post("/api/projects/:id/create-initial-version", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { scenes, analysisResult, analysisScore } = req.body;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      // Check if version already exists
+      const existingVersion = await storage.getCurrentScriptVersion(id);
+      if (existingVersion) {
+        return res.json({
+          success: true,
+          version: existingVersion,
+          message: 'Version already exists',
+        });
+      }
+      
+      // Create initial version
+      const newVersion = await createNewScriptVersion({
+        projectId: id,
+        scenes,
+        createdBy: 'system',
+        changes: {
+          type: 'initial',
+          description: 'Initial version from AI analysis',
+        },
+        analysisResult,
+        analysisScore,
+      });
+      
+      // Extract and create recommendations
+      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, scenes);
+      
+      if (recommendationsData.length > 0) {
+        const recommendations = recommendationsData.map(rec => ({
+          ...rec,
+          scriptVersionId: newVersion.id,
+        }));
+        
+        await storage.createSceneRecommendations(recommendations);
+      }
+      
+      return res.json({
+        success: true,
+        version: newVersion,
+        recommendationsCount: recommendationsData.length,
+      });
+    } catch (error: any) {
+      console.error('[Create Initial Version] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
