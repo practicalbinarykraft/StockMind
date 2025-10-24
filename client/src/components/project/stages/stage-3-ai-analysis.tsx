@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScoreBadge } from "@/components/score-badge"
 import { AdvancedAnalysisDisplay } from "@/components/project/advanced-analysis-display"
+import { SceneEditor } from "@/components/project/scene-editor"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -145,6 +146,20 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       }).catch(err => {
         console.error("Failed to cache advanced analysis:", err)
       })
+
+      // Create initial script version if scenes exist
+      if (data.scenes && data.scenes.length > 0) {
+        apiRequest("POST", `/api/projects/${project.id}/create-initial-version`, {
+          scenes: data.scenes,
+          analysisResult: data,
+          analysisScore: data.overallScore
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
+        }).catch(err => {
+          console.error("Failed to create initial version:", err)
+        })
+      }
     },
   })
 
@@ -537,6 +552,15 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               analysis={advancedAnalysis} 
               analysisTime={analysisTime}
             />
+
+            {/* Interactive Scene Editor with Recommendations */}
+            {advancedAnalysis.scenes && advancedAnalysis.scenes.length > 0 && (
+              <SceneEditor
+                projectId={project.id}
+                scenes={advancedAnalysis.scenes}
+                onReanalyze={() => setReanalyzeDialogOpen(true)}
+              />
+            )}
 
             {/* Action Buttons for Advanced Analysis */}
             <div className="flex justify-end gap-3">
