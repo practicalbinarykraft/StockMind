@@ -2,13 +2,15 @@ import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { type Project } from "@shared/schema"
+import { type AdvancedScoreResult } from "@shared/advanced-analysis-types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScoreBadge } from "@/components/score-badge"
-import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign } from "lucide-react"
+import { AdvancedAnalysisDisplay } from "@/components/project/advanced-analysis-display"
+import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -60,6 +62,8 @@ interface AIAnalysis {
 
 export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null)
+  const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedScoreResult | null>(null)
+  const [analysisMode, setAnalysisMode] = useState<'simple' | 'advanced'>('advanced') // Default to advanced
   const [selectedFormat, setSelectedFormat] = useState<string>("news")
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({})
   const [editedScenes, setEditedScenes] = useState<Record<number, string>>({})
@@ -67,14 +71,83 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   const [reanalyzeDialogOpen, setReanalyzeDialogOpen] = useState(false)
   const [variantScores, setVariantScores] = useState<Record<string, number>>({}) // sceneId-variantIdx -> score
   const [scoringVariant, setScoringVariant] = useState<string | null>(null) // "sceneId-variantIdx" during scoring
+  const [analysisTime, setAnalysisTime] = useState<number | undefined>(undefined)
   const { toast } = useToast()
 
   // Get content from step data
   // - Custom scripts: stepData.text
   // - News: stepData.content
-  // - Instagram: stepData.transcription (Phase 7)
+  // - Instagram: stepData.transcription
   const content = stepData?.content || stepData?.text || stepData?.transcription || ""
 
+  // Determine which advanced endpoint to use based on sourceType
+  const getAdvancedEndpoint = () => {
+    switch (project.sourceType) {
+      case 'news':
+        return '/api/analyze/advanced/news'
+      case 'instagram':
+        return '/api/analyze/advanced/reel'
+      case 'custom':
+      default:
+        return '/api/analyze/advanced/script'
+    }
+  }
+
+  // Prepare request body for advanced analysis
+  const getAdvancedRequestBody = () => {
+    switch (project.sourceType) {
+      case 'news':
+        return {
+          title: stepData?.title || project.title || 'Untitled',
+          content: stepData?.content || content
+        }
+      case 'instagram':
+        return {
+          transcription: stepData?.transcription || content,
+          caption: stepData?.caption || null
+        }
+      case 'custom':
+      default:
+        return {
+          text: stepData?.text || content,
+          format: selectedFormat || 'short-form',
+          scenes: stepData?.scenes || null
+        }
+    }
+  }
+
+  // Advanced analysis mutation
+  const advancedAnalyzeMutation = useMutation({
+    mutationFn: async () => {
+      const endpoint = getAdvancedEndpoint()
+      const body = getAdvancedRequestBody()
+      
+      console.log('[Stage 3] Calling advanced analysis:', endpoint, body)
+      const res = await apiRequest("POST", endpoint, body)
+      return await res.json()
+    },
+    onSuccess: (data) => {
+      setAdvancedAnalysis(data)
+      setAnalysisTime(data.metadata?.analysisTime)
+      
+      // Save to cache
+      apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 3,
+        data: {
+          analysisMode: 'advanced',
+          advancedAnalysis: data,
+          analysisTime: data.metadata?.analysisTime,
+          selectedFormat
+        }
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      }).catch(err => {
+        console.error("Failed to cache advanced analysis:", err)
+      })
+    },
+  })
+
+  // Simple/legacy analysis mutation (kept for backward compatibility)
   const analyzeMutation = useMutation({
     mutationFn: async (format: string) => {
       const res = await apiRequest("POST", "/api/ai/analyze-script", { format, content })
@@ -88,6 +161,7 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
       apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 3,
         data: {
+          analysisMode: 'simple',
           selectedFormat: data.format,
           selectedVariants: {},
           editedScenes: {},
@@ -114,52 +188,80 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   // Load cached analysis from stepData on mount
   useEffect(() => {
     // CHECK CACHE FIRST! Don't call AI if we have cached data
-    if (stepData?.scenes && stepData?.overallScore !== undefined) {
-      // Load from cache
+    if (stepData?.advancedAnalysis) {
+      // Load advanced analysis from cache
+      setAdvancedAnalysis(stepData.advancedAnalysis)
+      setAnalysisMode('advanced')
+      setAnalysisTime(stepData.analysisTime)
+      setSelectedFormat(stepData.selectedFormat || 'news')
+    } else if (stepData?.scenes && stepData?.overallScore !== undefined) {
+      // Load simple analysis from cache (legacy)
       setAnalysis({
         format: stepData.selectedFormat || 'news',
         overallScore: stepData.overallScore,
         overallComment: stepData.overallComment || '',
         scenes: stepData.scenes
       })
+      setAnalysisMode('simple')
       setSelectedFormat(stepData.selectedFormat || 'news')
       setSelectedVariants(stepData.selectedVariants || {})
       setEditedScenes(stepData.editedScenes || {})
-      setVariantScores(stepData.variantScores || {}) // Restore variant scores!
-    } else if (content && !analysis && !analyzeMutation.isPending) {
-      // Only call AI if NO cache exists
-      analyzeMutation.mutate(selectedFormat)
+      setVariantScores(stepData.variantScores || {})
+    } else if (content && !advancedAnalysis && !analysis && !advancedAnalyzeMutation.isPending) {
+      // Only call AI if NO cache exists - default to advanced mode
+      advancedAnalyzeMutation.mutate()
     }
   }, [content])
 
   const handleAnalyze = () => {
     // If analysis already exists (from cache), show cost warning
-    if (analysis) {
+    if (advancedAnalysis || analysis) {
       setReanalyzeDialogOpen(true)
     } else {
-      analyzeMutation.mutate(selectedFormat)
+      // Use advanced mode by default
+      if (analysisMode === 'advanced') {
+        advancedAnalyzeMutation.mutate()
+      } else {
+        analyzeMutation.mutate(selectedFormat)
+      }
     }
   }
 
   const confirmReanalyze = () => {
     setReanalyzeDialogOpen(false)
-    analyzeMutation.mutate(selectedFormat)
+    // Use current analysis mode
+    if (analysisMode === 'advanced') {
+      advancedAnalyzeMutation.mutate()
+    } else {
+      analyzeMutation.mutate(selectedFormat)
+    }
   }
 
   // Save step data mutation
   const saveStepMutation = useMutation({
     mutationFn: async () => {
+      // Save data based on current analysis mode
+      const dataToSave = analysisMode === 'advanced' 
+        ? {
+            analysisMode: 'advanced',
+            advancedAnalysis,
+            analysisTime,
+            selectedFormat
+          }
+        : {
+            analysisMode: 'simple',
+            selectedFormat,
+            selectedVariants,
+            editedScenes,
+            variantScores,
+            overallScore: analysis?.overallScore,
+            overallComment: analysis?.overallComment,
+            scenes: analysis?.scenes
+          }
+      
       return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 3,
-        data: {
-          selectedFormat,
-          selectedVariants,
-          editedScenes,
-          variantScores, // Save variant scores!
-          overallScore: analysis?.overallScore,
-          overallComment: analysis?.overallComment,
-          scenes: analysis?.scenes
-        }
+        data: dataToSave
       })
     }
   })
@@ -185,7 +287,8 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
   })
 
   const handleProceed = async () => {
-    if (!selectedFormat || !analysis) {
+    // Check if analysis exists (either simple or advanced)
+    if (!advancedAnalysis && !analysis) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -348,31 +451,31 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
               <Button
                 size="lg"
                 onClick={handleAnalyze}
-                disabled={analyzeMutation.isPending || !content}
+                disabled={advancedAnalyzeMutation.isPending || analyzeMutation.isPending || !content}
                 data-testid="button-analyze"
-                variant={analysis ? "outline" : "default"}
+                variant={(advancedAnalysis || analysis) ? "outline" : "default"}
               >
-                {analyzeMutation.isPending ? (
+                {(advancedAnalyzeMutation.isPending || analyzeMutation.isPending) ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing...
+                    Analyzing with AI...
                   </>
-                ) : analysis ? (
+                ) : (advancedAnalysis || analysis) ? (
                   <>
-                    <Sparkles className="h-4 w-4 mr-2" />
+                    <Zap className="h-4 w-4 mr-2" />
                     Re-analyze with Selected Format
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Analyze Content
+                    <Zap className="h-4 w-4 mr-2" />
+                    Analyze Content (Advanced)
                   </>
                 )}
               </Button>
-              {analysis && (
+              {(advancedAnalysis || analysis) && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <DollarSign className="h-3 w-3" />
-                  Re-analyzing will use AI credits (~$0.05)
+                  Re-analyzing will use AI credits (~$0.08-0.12 for deep analysis)
                 </p>
               )}
             </div>
@@ -380,30 +483,80 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
         </Card>
 
         {/* Error Display */}
-        {analyzeMutation.isError && (
+        {(analyzeMutation.isError || advancedAnalyzeMutation.isError) && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription data-testid="error-analysis">
-              {(analyzeMutation.error as any)?.message || "Failed to analyze content. Please check your Anthropic API key in Settings."}
+              {(advancedAnalyzeMutation.error as any)?.message || 
+               (analyzeMutation.error as any)?.message || 
+               "Failed to analyze content. Please check your Anthropic API key in Settings."}
             </AlertDescription>
           </Alert>
         )}
 
         {/* Loading State */}
+        {advancedAnalyzeMutation.isPending && (
+          <Card>
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-lg font-medium">Multi-Agent AI Analysis in Progress...</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Zap className="h-4 w-4" />
+                  <span>Hook → Structure → Emotional → CTA → Synthesis</span>
+                </div>
+                <p className="text-sm text-muted-foreground">This may take 8-15 seconds</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Legacy Loading State */}
         {analyzeMutation.isPending && (
           <Card>
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <p className="text-lg font-medium">AI is analyzing your content...</p>
-                <p className="text-sm text-muted-foreground">This may take 10-30 seconds</p>
+                <p className="text-sm text-muted-foreground">This may take 5-10 seconds</p>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Analysis Results */}
-        {analysis && !analyzeMutation.isPending && (
+        {/* Advanced Analysis Results */}
+        {advancedAnalysis && !advancedAnalyzeMutation.isPending && (
+          <>
+            <AdvancedAnalysisDisplay 
+              analysis={advancedAnalysis} 
+              analysisTime={analysisTime}
+            />
+
+            {/* Action Buttons for Advanced Analysis */}
+            <div className="flex justify-end gap-3">
+              <Button
+                size="lg"
+                onClick={handleProceed}
+                disabled={updateProjectMutation.isPending}
+                data-testid="button-proceed"
+              >
+                {updateProjectMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Continue to Voice Generation
+                  </>
+                )}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* Legacy Simple Analysis Results */}
+        {analysis && !analyzeMutation.isPending && !advancedAnalysis && (
           <>
             {/* Overall Score */}
             <Card>
