@@ -664,17 +664,15 @@ export default function Settings() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {key.provider === 'anthropic' && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => testApiKeyMutation.mutate(key.id)}
-                          disabled={testApiKeyMutation.isPending}
-                          data-testid={`button-test-key-${key.id}`}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => testApiKeyMutation.mutate(key.id)}
+                        disabled={testApiKeyMutation.isPending}
+                        data-testid={`button-test-key-${key.id}`}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
