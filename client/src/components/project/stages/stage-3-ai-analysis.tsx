@@ -94,18 +94,21 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     queryKey: ['/api/projects', project.id, 'script-versions'],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${project.id}/script-versions`)
-      if (!res.ok) return []
+      if (!res.ok) return { currentVersion: null, versions: [], recommendations: [] }
       return await res.json()
     },
-    enabled: STAGE3_MAGIC_UI,
+    enabled: Boolean(project.id), // Always enabled if we have project ID
     staleTime: 5000
   })
   
-  // Detect if script exists
-  const hasScript = (scriptVersionsQuery.data && scriptVersionsQuery.data.length > 0) || false
+  // Detect if script exists - check both currentVersion and versions array
+  const hasScript = Boolean(
+    scriptVersionsQuery.data?.currentVersion || 
+    (scriptVersionsQuery.data?.versions && scriptVersionsQuery.data.versions.length > 0)
+  )
   
   // Debug logging
-  console.log('[Stage 3] hasScript:', hasScript, 'versions count:', scriptVersionsQuery.data?.length)
+  console.log('[Stage 3] hasScript:', hasScript, 'data:', scriptVersionsQuery.data)
 
   // Get content from step data
   // - Custom scripts: stepData.text
@@ -123,7 +126,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       const res = await apiRequest('POST', `/api/projects/${project.id}/analyze-source`, {})
       return await res.json()
     },
-    enabled: STAGE3_MAGIC_UI && !hasScript && shouldAnalyze,
+    enabled: !hasScript && shouldAnalyze && Boolean(project.id),
     staleTime: Infinity
   })
 
