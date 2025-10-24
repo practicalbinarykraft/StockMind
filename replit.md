@@ -40,6 +40,44 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 
 ## Recent Changes (October 24, 2025)
 
+### Stage 3 Critical Bug Fixes & UX Enhancements
+
+**Problems Solved:**
+1. **Infinite Loop Bug**: Clicking "Apply Recommended" caused endless loop - generateMutation called analyze/advanced endpoint which triggered analysis query, which triggered component re-render, which re-triggered mutation
+2. **Auto-Analysis Issue**: Analysis ran automatically on page load, preventing users from reviewing source content before AI processing
+3. **Hard-coded Language**: System showed "RU" for all content regardless of actual language (English articles displayed as Russian)
+4. **Limited Analysis Insights**: Users couldn't see AI Score, content strengths, or detailed format reasoning
+
+**Solutions Implemented:**
+
+**Backend (`server/routes.ts`):**
+- ✅ **New unified endpoint**: POST `/api/projects/:id/generate-script` - atomically performs analysis → script generation → version creation in one call, eliminating loop
+- ✅ **Language detection**: Cyrillic heuristic detects actual content language (>30% Cyrillic = "ru", else "en")
+- ✅ **Enhanced analysis response**: Returns `score`, `strengths` array (extracted from breakdown), `whyBetter` field with detailed format reasoning
+- ✅ **Smart strengths extraction**: 
+  - Score 70+ → "Высокий потенциал виральности"
+  - Strong hook → "Сильный захватывающий хук"
+  - High engagement → "Высокая эмоциональная вовлеченность"
+  - Excellent clarity → "Четкая структура повествования"
+  - Effective CTA → "Эффективный призыв к действию"
+
+**Frontend (`stage-3-ai-analysis.tsx`):**
+- ✅ **Manual analysis trigger**: Added `shouldAnalyze` state + "Start Analysis" button - query only runs when user clicks
+- ✅ **Fixed mutation endpoint**: `generateMutation` now calls `/generate-script` instead of `/analyze/advanced/*`, breaking the loop
+- ✅ **Real language display**: SourceSummaryBar shows detected language from backend (not hardcoded)
+- ✅ **Fixed LSP error**: Moved `sourceData` declaration after `sourceAnalysisQuery` to avoid "used before declaration"
+
+**UI Components:**
+- ✅ **SourceAnalysisCard**: Now displays Score badge + strengths list with icons (TrendingUp, AlertTriangle)
+- ✅ **RecommendedFormatBox**: Added highlighted "whyBetter" section with Lightbulb icon (no emoji per design guidelines)
+- ✅ **Design compliance**: All visual elements use lucide-react icons instead of emoji
+
+**User Flow - Before vs After:**
+- **Before**: Select article → Auto-analysis → Click apply → White screen → Infinite loop
+- **After**: Select article → View summary → Click "Start Analysis" → See detailed analysis (Score, strengths, recommendations) → Click apply → Script created successfully
+
+**Impact**: Stage 3 now works reliably without loops, respects user control over AI analysis timing, shows correct language for multilingual content, and provides richer insights (Score, strengths, detailed reasoning) to help users make informed format decisions.
+
 ### Enhanced Recommendation System - AI Agent Tracking & Smart Sorting
 
 **Database Enhancements (`shared/schema.ts`):**
