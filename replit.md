@@ -41,6 +41,22 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 ### Database Schema
 - `users`, `sessions`, `api_keys`, `rss_sources`, `rss_items`, `instagram_sources`, `instagram_items`, `projects`, `project_steps`.
 
+## Recent Changes (October 2025)
+
+### Apify Service Refactoring - Production Fixes
+**Critical bug fixes in `server/apify-service.ts`:**
+- ✅ **Actor ID corrected**: Fixed from 'instagram-reel-scraper' to 'apify/instagram-reels-scraper' (added const APIFY_ACTOR_ID)
+- ✅ **Input field corrected**: Changed from `username` (singular) to `usernames` (plural array) per Apify API spec
+- ✅ **Run status validation**: Added comprehensive checks for SUCCEEDED, FAILED, TIMED-OUT, ABORTED with detailed error messages
+- ✅ **Dataset limits enforced**: Added `limit` parameter to prevent excessive data fetching
+- ✅ **Enhanced field mapping**: Implemented fallback chains for videoUrl/video_url, thumbnailUrl/displayUrl, duration variants
+- ✅ **Safe number conversion**: Added safeNumber() helper to convert float→integer for PostgreSQL compatibility
+- ✅ **Empty video filtering**: Filter out reels without valid videoUrl before DB insertion
+- ✅ **Mutual recovery**: Extract shortCode from URL (and vice versa) for data completeness
+- ✅ **All functions updated**: scrapeInstagramReels, fetchSingleReelData, testApifyApiKey
+
+**Impact**: Fixes Instagram Reels scraping failures, prevents database type errors, improves error diagnostics.
+
 ## External Dependencies
 - **Anthropic Claude**: AI content analysis, news/Reel scoring, script analysis.
 - **Apify**: `apify/instagram-reel-scraper` for Instagram Reels content extraction.
