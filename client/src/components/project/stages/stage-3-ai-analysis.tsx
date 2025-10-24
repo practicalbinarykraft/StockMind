@@ -545,7 +545,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         </div>
 
         <div className="space-y-4">
-          <SourceSummaryBar source={sourceData} />
+          <SourceSummaryBar source={sourceData} projectId={project.id} />
           
           {/* Manual trigger button - show if analysis not started */}
           {!shouldAnalyze && !sourceAnalysisQuery.data && !sourceAnalysisQuery.isLoading && (

@@ -2605,6 +2605,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Translate content to target language
+  app.post("/api/projects/:id/translate-content", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { id } = req.params;
+      const { content, targetLanguage = 'ru' } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+
+      // Get project to verify ownership
+      const project = await storage.getProject(id, userId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Anthropic API key not configured. Please add it in Settings." 
+        });
+      }
+
+      console.log(`[Translation] Translating ${content.length} characters to ${targetLanguage}...`);
+      const startTime = Date.now();
+
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+      const anthropic = new Anthropic({ apiKey: apiKey.encryptedKey });
+
+      const prompt = `Translate the following text to ${targetLanguage === 'ru' ? 'Russian' : targetLanguage}. 
+Keep the original formatting and structure. Only output the translated text, nothing else.
+
+Text to translate:
+${content}`;
+
+      const message = await anthropic.messages.create({
+        model: "claude-sonnet-4-5",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const textContent = message.content.find((c: any) => c.type === "text");
+      if (!textContent || textContent.type !== "text") {
+        throw new Error("No text response from AI");
+      }
+
+      const translatedContent = textContent.text.trim();
+
+      const duration = Date.now() - startTime;
+      console.log(`[Translation] Completed in ${duration}ms`);
+
+      res.json({
+        translatedContent,
+        targetLanguage,
+        originalLength: content.length,
+        translatedLength: translatedContent.length,
+        metadata: {
+          translationTime: duration,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error("Error translating content:", error);
+      res.status(500).json({ 
+        message: error.message || "Failed to translate content",
+        error: error.toString()
+      });
+    }
+  });
+
   // Helper to recommend format based on source analysis
   function getRecommendedFormat(
     sourceType: string,

@@ -17,6 +17,7 @@ interface SourceData {
 interface SourceSummaryBarProps {
   source: SourceData;
   collapsed?: boolean;
+  projectId: string;
 }
 
 const SOURCE_TYPE_CONFIG = {
@@ -25,7 +26,7 @@ const SOURCE_TYPE_CONFIG = {
   custom: { label: 'Свой текст', icon: FileCode },
 };
 
-export function SourceSummaryBar({ source, collapsed = false }: SourceSummaryBarProps) {
+export function SourceSummaryBar({ source, collapsed = false, projectId }: SourceSummaryBarProps) {
   const [showModal, setShowModal] = useState(false);
   const { label, icon: Icon } = SOURCE_TYPE_CONFIG[source.type];
 
@@ -81,6 +82,7 @@ export function SourceSummaryBar({ source, collapsed = false }: SourceSummaryBar
         onClose={() => setShowModal(false)}
         title={source.title}
         content={source.content}
+        projectId={projectId}
       />
     </>
   );
