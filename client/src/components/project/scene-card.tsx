@@ -3,7 +3,7 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Sparkles, TrendingUp, Lightbulb } from 'lucide-react';
+import { CheckCircle2, Sparkles, TrendingUp, Lightbulb, Layers, Heart, Target, Bot } from 'lucide-react';
 
 interface SceneRecommendation {
   id: number;
@@ -131,12 +131,37 @@ export function SceneCard({
                       {priorityStyle.label}
                     </Badge>
                     {rec.sourceAgent && (
-                      <Badge variant="secondary" className="text-xs">
-                        {rec.sourceAgent === 'hook' && '🎯 Hook Expert'}
-                        {rec.sourceAgent === 'structure' && '📊 Structure Analyst'}
-                        {rec.sourceAgent === 'emotional' && '💭 Emotional Analyst'}
-                        {rec.sourceAgent === 'cta' && '🎬 CTA Analyst'}
-                        {rec.sourceAgent === 'general' && '🤖 AI'}
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        {rec.sourceAgent === 'hook' && (
+                          <>
+                            <Sparkles className="h-3 w-3" />
+                            Hook Expert
+                          </>
+                        )}
+                        {rec.sourceAgent === 'structure' && (
+                          <>
+                            <Layers className="h-3 w-3" />
+                            Structure Analyst
+                          </>
+                        )}
+                        {rec.sourceAgent === 'emotional' && (
+                          <>
+                            <Heart className="h-3 w-3" />
+                            Emotional Analyst
+                          </>
+                        )}
+                        {rec.sourceAgent === 'cta' && (
+                          <>
+                            <Target className="h-3 w-3" />
+                            CTA Analyst
+                          </>
+                        )}
+                        {rec.sourceAgent === 'general' && (
+                          <>
+                            <Bot className="h-3 w-3" />
+                            AI
+                          </>
+                        )}
                       </Badge>
                     )}
                     {rec.scoreDelta !== undefined && rec.scoreDelta > 0 && (
