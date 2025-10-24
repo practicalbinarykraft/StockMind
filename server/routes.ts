@@ -305,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const safeKeys = keys.map(key => ({
         id: key.id,
         provider: key.provider,
-        last4: key.last4 || '****', // Fallback for legacy keys without last4
+        last4: key.last4 || null, // null for legacy keys without last4
         description: key.description,
         isActive: key.isActive,
         createdAt: key.createdAt,
@@ -330,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const safeApiKey = {
         id: apiKey.id,
         provider: apiKey.provider,
-        last4: apiKey.last4 || '****',
+        last4: apiKey.last4 || null, // null for legacy keys without last4
         description: apiKey.description,
         isActive: apiKey.isActive,
         createdAt: apiKey.createdAt,

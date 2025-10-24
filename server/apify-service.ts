@@ -319,20 +319,33 @@ export async function fetchSingleReelData(
 }
 
 /**
- * Test Apify API key by checking actor availability
+ * Test Apify API key by checking actor availability and quota
  * @param apiKey - Apify API key to test
- * @returns True if key is valid
+ * @returns Object with success status, usage info, and error message if failed
  */
-export async function testApifyApiKey(apiKey: string): Promise<boolean> {
+export async function testApifyApiKey(apiKey: string): Promise<{
+  success: boolean;
+  usage?: { availableCredits: number };
+  error?: string;
+}> {
   try {
     const client = new ApifyClient({ token: apiKey });
     
-    // Try to get actor info to validate the key
-    await client.actor(APIFY_ACTOR_ID).get();
+    // Try to get user info to validate the key and get quota
+    const user = await client.user().get() as any;
     
-    return true;
+    return {
+      success: true,
+      usage: {
+        availableCredits: user?.usageCycle?.credits || 0,
+      },
+    };
   } catch (error) {
     console.error('Apify API key test failed:', error);
-    return false;
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return {
+      success: false,
+      error: message,
+    };
   }
 }
