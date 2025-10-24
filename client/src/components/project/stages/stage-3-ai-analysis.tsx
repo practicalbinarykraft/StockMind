@@ -14,7 +14,7 @@ import { SceneEditor } from "@/components/project/scene-editor"
 import { SourceSummaryBar } from "../source-summary-bar"
 import { SourceAnalysisCard } from "../source-analysis-card"
 import { RecommendedFormatBox } from "../recommended-format-box"
-import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap } from "lucide-react"
+import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -84,16 +84,17 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [scoringVariant, setScoringVariant] = useState<string | null>(null) // "sceneId-variantIdx" during scoring
   const [analysisTime, setAnalysisTime] = useState<number | undefined>(undefined)
   const [showFormatModal, setShowFormatModal] = useState(false)
-  const { toast } = useToast()
+  const [targetLanguage, setTargetLanguage] = useState<'ru' | 'en'>('ru') // Default to Russian
+  const { toast} = useToast()
 
   // Feature flag check
   const STAGE3_MAGIC_UI = import.meta.env.VITE_STAGE3_MAGIC_UI === 'true'
   
-  // Query to check if script exists
+  // Query to check if script exists (using /script-history as single source of truth)
   const scriptVersionsQuery = useQuery({
-    queryKey: ['/api/projects', project.id, 'script-versions'],
+    queryKey: ['/api/projects', project.id, 'script-history'],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${project.id}/script-versions`)
+      const res = await fetch(`/api/projects/${project.id}/script-history`)
       if (!res.ok) return { currentVersion: null, versions: [], recommendations: [] }
       return await res.json()
     },
@@ -153,21 +154,31 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       
       const res = await apiRequest("POST", `/api/projects/${project.id}/generate-script`, {
         formatId,
-        targetLocale: 'ru',
+        targetLocale: targetLanguage, // Use selected language
         idempotencyKey
       })
       return await res.json()
     },
     onSuccess: async (data) => {
-      // The backend already created the script version, just invalidate queries
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-versions"] })
+      // Invalidate and immediately refetch to trigger UI switch
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      
+      // Force immediate refetch to update hasScript state
+      await scriptVersionsQuery.refetch()
+
+      // Auto-scroll to scene editor after short delay
+      setTimeout(() => {
+        const sceneEditor = document.querySelector('[data-testid="scene-editor"]')
+        if (sceneEditor) {
+          sceneEditor.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 300)
 
       toast({
-        title: "Скрипт создан",
-        description: `AI создал скрипт из ${data.version.scenes.length} сцен`,
+        title: "Сценарий создан",
+        description: `Создано ${data.version.scenes.length} сцен • Формат: ${data.formatName || 'Hook & Story'}. Редактор сцен загружается...`,
       })
     },
     onError: (error: any) => {
@@ -607,6 +618,40 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           {sourceAnalysisQuery.data && (
             <>
               <SourceAnalysisCard analysis={sourceAnalysisQuery.data.analysis} />
+              
+              {/* Language Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Languages className="h-5 w-5" />
+                    Язык сценария
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-3">
+                    <Button
+                      variant={targetLanguage === 'ru' ? 'default' : 'outline'}
+                      onClick={() => setTargetLanguage('ru')}
+                      className="flex-1"
+                      data-testid="button-lang-ru"
+                    >
+                      Русский (RU)
+                    </Button>
+                    <Button
+                      variant={targetLanguage === 'en' ? 'default' : 'outline'}
+                      onClick={() => setTargetLanguage('en')}
+                      className="flex-1"
+                      data-testid="button-lang-en"
+                    >
+                      English (EN)
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    Выбранный язык: <strong>{targetLanguage === 'ru' ? 'Русский' : 'English'}</strong>
+                  </p>
+                </CardContent>
+              </Card>
+              
               <RecommendedFormatBox 
                 recommendation={sourceAnalysisQuery.data.recommendedFormat}
                 onApply={handleGenerateScript}
@@ -661,6 +706,12 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   if (STAGE3_MAGIC_UI && hasScript) {
     const currentVersion = scriptVersionsQuery.data?.currentVersion
     
+    // Extend sourceData with script language for Scene Editor mode
+    const editorSourceData = {
+      ...sourceData,
+      scriptLanguage: currentVersion?.scriptLanguage || targetLanguage || 'ru'
+    }
+    
     if (scriptVersionsQuery.isLoading) {
       return (
         <div className="p-8 max-w-6xl mx-auto">
@@ -702,19 +753,21 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         </div>
 
         <div className="space-y-4">
-          <SourceSummaryBar source={sourceData} projectId={project.id} />
+          <SourceSummaryBar source={editorSourceData} projectId={project.id} />
           
-          <SceneEditor
-            projectId={project.id}
-            scenes={currentVersion.scenes}
-            onReanalyze={() => {
-              // TODO: implement reanalyze
-              toast({
-                title: "Функция в разработке",
-                description: "Повторный анализ скоро будет доступен"
-              })
-            }}
-          />
+          <div data-testid="scene-editor">
+            <SceneEditor
+              projectId={project.id}
+              scenes={currentVersion.scenes}
+              onReanalyze={() => {
+                // TODO: implement reanalyze
+                toast({
+                  title: "Функция в разработке",
+                  description: "Повторный анализ скоро будет доступен"
+                })
+              }}
+            />
+          </div>
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-3">

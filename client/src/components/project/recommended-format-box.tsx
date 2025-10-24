@@ -1,17 +1,23 @@
+import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Sparkles, Layout } from "lucide-react";
+import { Lightbulb, Sparkles, Layout, ChevronDown, ChevronUp, TrendingUp, Target, Zap } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface FormatRecommendation {
   formatId: string;
   name: string;
   reason: string;
+  why?: string[]; // 3-4 reasons why this format is recommended
   whyBetter?: string;
   expectedImpact?: {
     retention?: string;
     saves?: string;
+    engagement?: string;
   };
+  firstFrameIdeas?: string[]; // 3 ideas for first frame
+  hookOptions?: string[]; // 3 hook variants
 }
 
 interface RecommendedFormatBoxProps {
@@ -27,6 +33,8 @@ export function RecommendedFormatBox({
   onChooseOther,
   isLoading = false,
 }: RecommendedFormatBoxProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
   if (!recommendation) {
     return (
       <Card className="mb-4">
@@ -70,8 +78,7 @@ export function RecommendedFormatBox({
             </div>
           )}
 
-          {recommendation.expectedImpact && 
-           (recommendation.expectedImpact.retention || recommendation.expectedImpact.saves) && (
+          {recommendation.expectedImpact && (
             <div className="flex gap-2 text-xs flex-wrap">
               {recommendation.expectedImpact.retention && (
                 <Badge variant="secondary" data-testid="badge-retention-impact">
@@ -83,9 +90,73 @@ export function RecommendedFormatBox({
                   Saves {recommendation.expectedImpact.saves}
                 </Badge>
               )}
+              {recommendation.expectedImpact.engagement && (
+                <Badge variant="secondary" data-testid="badge-engagement-impact">
+                  Engagement {recommendation.expectedImpact.engagement}
+                </Badge>
+              )}
             </div>
           )}
         </div>
+
+        {/* Collapsible Details Section */}
+        {(recommendation.why || recommendation.firstFrameIdeas || recommendation.hookOptions) && (
+          <Collapsible open={showDetails} onOpenChange={setShowDetails}>
+            <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full" data-testid="button-toggle-details">
+              {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showDetails ? 'Скрыть детали' : 'Показать детали'}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-3 text-sm">
+              {recommendation.why && recommendation.why.length > 0 && (
+                <div className="space-y-2">
+                  <div className="font-medium flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Почему этот формат?
+                  </div>
+                  <ul className="space-y-1.5 ml-6">
+                    {recommendation.why.map((reason, index) => (
+                      <li key={index} className="text-muted-foreground list-disc">
+                        {reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommendation.firstFrameIdeas && recommendation.firstFrameIdeas.length > 0 && (
+                <div className="space-y-2">
+                  <div className="font-medium flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Идеи для первого кадра
+                  </div>
+                  <ul className="space-y-1.5 ml-6">
+                    {recommendation.firstFrameIdeas.map((idea, index) => (
+                      <li key={index} className="text-muted-foreground list-disc">
+                        {idea}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommendation.hookOptions && recommendation.hookOptions.length > 0 && (
+                <div className="space-y-2">
+                  <div className="font-medium flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    Варианты хука
+                  </div>
+                  <ul className="space-y-1.5 ml-6">
+                    {recommendation.hookOptions.map((hook, index) => (
+                      <li key={index} className="text-muted-foreground list-disc">
+                        {hook}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
         <div className="flex gap-2">
           <Button

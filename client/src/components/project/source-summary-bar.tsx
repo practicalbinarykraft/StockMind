@@ -9,6 +9,7 @@ interface SourceData {
   type: 'news' | 'instagram' | 'custom';
   score?: number;
   language: string;
+  scriptLanguage?: string; // Language of the generated script (may differ from source)
   wordCount?: number;
   title: string;
   content: string;
@@ -55,8 +56,14 @@ export function SourceSummaryBar({ source, collapsed = false, projectId }: Sourc
           )}
 
           <Badge variant="outline">
-            Язык: {source.language.toUpperCase()}
+            Язык исходника: {source.language.toUpperCase()}
           </Badge>
+
+          {source.scriptLanguage && (
+            <Badge variant="default" data-testid="badge-script-language">
+              Язык сценария: {source.scriptLanguage.toUpperCase()}
+            </Badge>
+          )}
 
           {source.wordCount && (
             <Badge variant="outline" data-testid="badge-word-count">

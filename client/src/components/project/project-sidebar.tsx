@@ -1,5 +1,6 @@
 import { type Project } from "@shared/schema"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { 
   ArrowLeft,
@@ -15,6 +16,8 @@ import {
   Lock,
   X,
   Radio,
+  Instagram,
+  FileCode,
 } from "lucide-react"
 import { useLocation } from "wouter"
 
@@ -134,6 +137,40 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                   </div>
                   {stage.optional && (
                     <span className="text-xs text-sidebar-foreground/50">Optional</span>
+                  )}
+                  
+                  {/* Show source metadata for Stage 1 */}
+                  {stage.number === 1 && project.sourceType && project.sourceData && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {project.sourceType === 'news' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                          <Radio className="h-2.5 w-2.5 mr-1" />
+                          News
+                        </Badge>
+                      )}
+                      {project.sourceType === 'instagram' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                          <Instagram className="h-2.5 w-2.5 mr-1" />
+                          Reel
+                        </Badge>
+                      )}
+                      {project.sourceType === 'custom' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                          <FileCode className="h-2.5 w-2.5 mr-1" />
+                          Custom
+                        </Badge>
+                      )}
+                      {project.sourceData.language && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">
+                          {project.sourceData.language}
+                        </Badge>
+                      )}
+                      {typeof project.sourceData.aiScore === 'number' && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                          {project.sourceData.aiScore}/100
+                        </Badge>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
