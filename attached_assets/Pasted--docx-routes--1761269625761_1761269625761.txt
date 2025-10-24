@@ -1,0 +1,183 @@
+вижу оба docx. коротко: в «новом» routes не хватает нескольких важных штук, которые у нас были в «старом»: проверка владения ресурсами перед действиями, единый способ получать userId, идемпотентность и защита от дублей при генерации видео, корректное пробросы статусов/ошибок провайдеров (особенно Kie), плюс пара мелочей по валидации.
+
+ниже — точечные правки-патчи к «новому» файлу (прямо вставляй/заменяй). я опирался на рабочие фрагменты из «старого» файла (ссылки в квадратах).
+
+⸻
+
+1) Унифицируем userId
+
+в начале файла добавь утилиту и используй её везде вместо req.user?.id/req.user.claims.sub:
+
+function getUserId(req: any): string | null {
+  // поддержка обоих вариантов авторизации
+  return req.user?.id || req.user?.claims?.sub || null;
+}
+
+почему: в «новом» коде местами req.user.claims.sub, местами req.user?.id; это источник расхождений. в «старом» везде шли через req.user?.id и далее проверяли владение ресурсом перед действиями (см. пример в старом: проверка проекта до выдачи видео)  ￼.
+
+⸻
+
+2) Во все маршруты вида /api/projects/:id/... добавляем проверку владения проектом
+
+перед любым действием по :id:
+
+const userId = getUserId(req);
+if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+const { id } = req.params;
+const project = await storage.getProjectById(id);
+if (!project) return res.status(404).json({ message: 'Project not found' });
+if (project.userId !== userId) return res.status(403).json({ message: 'Access denied' });
+
+это мы делали стабильно в «старом» и это критично для безопасности и корректности данных (см. паттерн)  ￼.
+
+⸻
+
+3) B-roll: generate-prompt — оставить, но унифицировать userId
+
+замени получение userId на:
+
+const userId = getUserId(req);
+if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+и оставь остальное как есть. (в «новом» сейчас req.user.claims.sub)  ￼.
+
+⸻
+
+4) B-roll: generate — добавляем идемпотентность, анти-дубликаты и нормальную обработку ошибок Kie
+
+замени тело хэндлера /api/projects/:id/broll/generate на:
+
+app.post("/api/projects/:id/broll/generate", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { id } = req.params;
+    const { sceneId, aiPrompt, model, aspectRatio } = req.body;
+
+    // владение проектом
+    const project = await storage.getProjectById(id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (project.userId !== userId) return res.status(403).json({ message: "Access denied" });
+
+    if (!aiPrompt) return res.status(400).json({ message: "AI prompt required" });
+
+    // идемпотентность (как в старом generate-all)
+    const finalModel = model || 'veo3_fast';
+    const finalAspect = aspectRatio || '9:16';
+    const { generateIdempotencyKey } = await import('./idempotency-utils');
+    const idempotencyKey = generateIdempotencyKey({
+      projectId: id,
+      sceneId,
+      prompt: aiPrompt,
+      model: finalModel,
+      aspectRatio: finalAspect,
+    });
+
+    // если активная job уже есть — не создаём дубль
+    const existingJob = await storage.findActiveVideoJob(
+      project.id,
+      sceneId || null,
+      'kie'
+    );
+    if (existingJob) {
+      return res.json({
+        reused: true,
+        provider: 'kie',
+        taskId: existingJob.providerTaskId,
+        jobId: existingJob.id,
+      });
+    }
+
+    // BYOK ключ Kie.ai
+    const apiKey = await storage.getUserApiKey(userId, 'kieai');
+    if (!apiKey) {
+      return res.status(404).json({
+        message: "Kie.ai API key not configured. Please add it in Settings."
+      });
+    }
+
+    console.log(`[B-Roll] Generating video for scene ${sceneId}...`);
+    const taskId = await generateKieVideo(apiKey.encryptedKey, {
+      prompt: aiPrompt,
+      model: finalModel,
+      aspectRatio: finalAspect,
+      requestId: idempotencyKey,
+    });
+
+    // создаём запись job для трекинга (новая таблица или ваша абстракция)
+    await storage.createVideoJob({
+      userId,
+      projectId: project.id,
+      sceneId: sceneId || null,
+      provider: 'kie',
+      providerTaskId: taskId,
+      status: 'running',
+      aiRequestId: null,
+    });
+
+    return res.json({ taskId, reused: false });
+  } catch (error: any) {
+    // корректное отображение ошибок провайдера (как делали в старом)
+    const kieError = error as any;
+    const status = kieError.statusCode || kieError.response?.status || 500;
+    return res.status(status > 0 ? status : 500).json({
+      message: error instanceof Error ? error.message : "Ошибка генерации видео",
+      error: kieError.apiMessage || (error instanceof Error ? error.message : "Unknown error")
+    });
+  }
+});
+
+почему: в «старом» мы уже так делали — идемпотентность через key, проверка активной job и маппинг статусов/сообщений провайдера (см. куски с идемпотентностью и проверкой active job; и маппинг ошибок Kie)  ￼  ￼  ￼.
+
+⸻
+
+5) B-roll: status — оставить, но унифицировать userId
+
+в GET /api/projects/:id/broll/status/:taskId в «новом» всё ок, просто поменяй userId как в п.1 (сейчас там req.user.claims.sub) и не забудь проверку владения проектом перед запросом статуса (паттерн как в п.2). В «новом» уже есть заготовка для статуса HeyGen, делаем то же для Kie (по аналогии с этим же стилем)  ￼.
+
+⸻
+
+6) HeyGen текст/аудио — всегда передавать корректный режим и voice_id-fallback
+
+в «новом» маршруте HeyGen (фрагмент показывал voice_id: voiceId) убедись, что:
+	•	если есть audioUrl → отправляем audio-mode без voice_id;
+	•	если нет audioUrl → отправляем text-mode с voice_id (обязательно), иначе 400 от API.
+
+минимальная проверка в контроллере перед вызовом сервиса:
+
+if (!audioUrl && !voiceId) {
+  return res.status(400).json({
+    message: "Either audioUrl or voiceId is required for HeyGen generation"
+  });
+}
+
+в «новом» уже есть статус-роут к HeyGen; самое главное — правильная форма запроса create (ошибка ‘voice_id is required’ как ты ловил) — это потому что text-режим без voice_id. (см. фрагмент нового файла с voice_id)  ￼.
+
+⸻
+
+7) Логи и ответы: не прерываем UI фейлом провайдера
+
+где это уместно (генерация описаний/подсказок), мы в «старом» отдавали 200 с { ok:false, error, recoverable:true }, чтобы фронт не падал при «грязных» ответах провайдера и мог предложить повтор/skip (пример — генерация визуальных инструкций)  ￼. примени тот же паттерн там, где UI не должен ломаться от единичной ошибки.
+
+⸻
+
+8) (опционально) Лимитер на “управляющие” операции
+
+в «старом» был rate-limit на rename/delete/restore проектов (10/мин на юзера) — имеет смысл перенести как готовый блок, чтобы защититься от случайных спам-кликов/скриптов  ￼.
+
+⸻
+
+что именно я поправил против «нового»
+	•	единый getUserId() и его использование (искореняем claims.sub/id хаос)
+	•	обязательная проверка владения проектом перед b-roll generate/status
+	•	идемпотентность + анти-дубликаты для Kie (через idempotencyKey и findActiveVideoJob)
+	•	корректная мапа ошибок Kie (проброс statusCode/apiMessage) вместо «всегда 500»
+	•	HeyGen: жёсткая валидация audioUrl/voiceId и явный выбор режима
+	•	мягкие ответы { ok:false } там, где UI не должен падать
+	•	(опция) rate-limit на чувствительные операции
+
+эти подходы дословно использовались и проверены в «старом» коде (ссылки выше), поэтому переносим их в «новый».
+
+если хочешь — могу собрать единый diff-патч к твоему «новому» файлу (прямо комплектом), скажи только путь к файлу в репо.
