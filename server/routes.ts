@@ -25,6 +25,10 @@ const rssParser = new Parser();
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { fetch as undiciFetch } from 'undici';
+import { lookup } from 'node:dns';
+import { promisify } from 'node:util';
+
+const dnsLookup = promisify(lookup);
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -161,12 +165,11 @@ function isPrivateOrLocalIP(ip: string): boolean {
 }
 
 /**
- * Validate URL for SSRF protection
+ * Validate URL for SSRF protection (synchronous hostname checks)
  * Blocks localhost, private IP ranges, and suspicious hostnames
- * Note: This is basic protection. Full protection would require DNS resolution
- * which is not feasible in this environment
+ * NOTE: This is used as a first pass before DNS resolution
  */
-function isUrlSafe(urlString: string): boolean {
+function isUrlSafeHostname(urlString: string): boolean {
   try {
     const url = new URL(urlString);
     
@@ -215,14 +218,53 @@ function isUrlSafe(urlString: string): boolean {
       return false;
     }
     
-    // WARNING: This doesn't resolve DNS, so domains that resolve to private IPs
-    // can still pass. Full protection would require DNS resolution + IP check,
-    // but that adds complexity and latency. Consider using a dedicated SSRF
-    // protection library for production use.
-    
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Validate URL with DNS resolution for comprehensive SSRF protection
+ * Performs DNS lookup to check if the domain resolves to private/local IPs
+ */
+async function validateUrlWithDNS(urlString: string): Promise<{
+  safe: boolean;
+  error?: string;
+}> {
+  // First pass: check hostname patterns
+  if (!isUrlSafeHostname(urlString)) {
+    return { safe: false, error: 'Blocked hostname pattern' };
+  }
+  
+  // Extract hostname for DNS resolution
+  const url = new URL(urlString);
+  const hostname = url.hostname;
+  
+  // Skip DNS lookup for direct IP addresses (already checked)
+  if (isPrivateOrLocalIP(hostname)) {
+    return { safe: false, error: 'Private IP address' };
+  }
+  
+  // Perform DNS lookup (check ALL records, not just the first one)
+  try {
+    const records = await dnsLookup(hostname, { all: true });
+    
+    // Check if ANY resolved IP is private/local
+    for (const { address, family } of records) {
+      if (isPrivateOrLocalIP(address)) {
+        console.warn(`[SSRF Protection] ${hostname} resolves to private IP ${address} (IPv${family})`);
+        return { safe: false, error: `DNS resolves to private IP: ${address}` };
+      }
+    }
+    
+    const addresses = records.map(r => r.address).join(', ');
+    console.log(`[SSRF Protection] ${hostname} → [${addresses}] - OK`);
+    return { safe: true };
+  } catch (error: any) {
+    // DNS lookup failed (domain doesn't exist, network error, etc.)
+    console.warn(`[SSRF Protection] DNS lookup failed for ${hostname}:`, error.message);
+    return { safe: false, error: `DNS lookup failed: ${error.message}` };
   }
 }
 
@@ -245,30 +287,99 @@ async function fetchAndExtract(url: string): Promise<{
   try {
     console.log(`[Article Extractor] Fetching URL: ${url}`);
     
-    // SSRF protection: validate URL
-    if (!isUrlSafe(url)) {
+    // SSRF protection: validate URL with DNS resolution
+    const validation = await validateUrlWithDNS(url);
+    if (!validation.safe) {
       logExtractionMetrics({
         outcome: 'ssrf_blocked',
         url,
         duration: Date.now() - startTime,
-        errorDetails: 'Invalid or restricted URL'
+        errorDetails: validation.error || 'Invalid or restricted URL'
       });
       return {
         success: false,
-        error: 'Invalid or restricted URL',
+        error: validation.error || 'Invalid or restricted URL',
       };
     }
     
-    // Fetch HTML with timeout
+    // Fetch HTML with timeout and MANUAL redirect handling
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     
-    const response = await undiciFetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; ReelRepurposer/1.0)',
-      },
-    });
+    let currentUrl = url;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 5;
+    let response: Awaited<ReturnType<typeof undiciFetch>>;
+    
+    // Manual redirect loop with SSRF check on each hop
+    while (redirectCount <= MAX_REDIRECTS) {
+      response = await undiciFetch(currentUrl, {
+        signal: controller.signal,
+        redirect: 'manual', // CRITICAL: disable auto-follow redirects
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; ReelRepurposer/1.0)',
+        },
+      });
+      
+      // Check if this is a redirect response
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) {
+          clearTimeout(timeoutId);
+          logExtractionMetrics({
+            outcome: 'http_error',
+            url,
+            duration: Date.now() - startTime,
+            errorDetails: `Redirect without Location header (${response.status})`
+          });
+          return {
+            success: false,
+            error: 'Invalid redirect',
+          };
+        }
+        
+        // Resolve relative redirects
+        const redirectUrl = new URL(location, currentUrl).toString();
+        
+        // CRITICAL: Validate redirect target before following
+        console.log(`[Article Extractor] Redirect #${redirectCount + 1}: ${currentUrl} → ${redirectUrl}`);
+        const redirectValidation = await validateUrlWithDNS(redirectUrl);
+        if (!redirectValidation.safe) {
+          clearTimeout(timeoutId);
+          logExtractionMetrics({
+            outcome: 'ssrf_blocked',
+            url,
+            duration: Date.now() - startTime,
+            errorDetails: `Redirect to blocked URL: ${redirectValidation.error}`
+          });
+          return {
+            success: false,
+            error: `Redirect blocked: ${redirectValidation.error}`,
+          };
+        }
+        
+        currentUrl = redirectUrl;
+        redirectCount++;
+        continue;
+      }
+      
+      // Not a redirect, we got the final response
+      break;
+    }
+    
+    if (redirectCount > MAX_REDIRECTS) {
+      clearTimeout(timeoutId);
+      logExtractionMetrics({
+        outcome: 'http_error',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: 'Too many redirects'
+      });
+      return {
+        success: false,
+        error: 'Too many redirects',
+      };
+    }
     
     clearTimeout(timeoutId);
     
