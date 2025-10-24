@@ -1,5 +1,8 @@
 import { ApifyClient } from 'apify-client';
 
+// Correct Apify actor ID (with "s" - reels, not reel)
+const APIFY_ACTOR_ID = 'apify/instagram-reels-scraper';
+
 // Helper function to add timeout to promises
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
   return Promise.race([
@@ -130,26 +133,35 @@ export async function scrapeInstagramReels(
   try {
     const client = new ApifyClient({ token: apiKey });
 
-    // Prepare input for the Instagram Reel Scraper actor
+    // Prepare input for the Instagram Reels Scraper actor
     const input = {
-      username: [username],  // Apify requires 'username' as array
+      usernames: [username],  // Correct field name: "usernames" (plural)
       resultsLimit,
+      maxItems: resultsLimit, // Some actor versions use this
     };
 
     console.log(`[Apify] Starting scraping for Instagram user: @${username} (limit: ${resultsLimit})...`);
 
     // Run the actor and wait for it to finish (with 3 minute timeout)
     const run = await withTimeout(
-      client.actor('apify/instagram-reel-scraper').call(input),
+      client.actor(APIFY_ACTOR_ID).call(input),
       180000, // 3 minutes timeout
       `Apify scraping timeout (3 minutes) for user: ${username}`
     );
 
-    console.log(`Apify run finished: ${run.id}, status: ${run.status}`);
+    console.log(`[Apify] Run finished: id=${run.id}, status=${run.status}, dataset=${run.defaultDatasetId}`);
 
-    // Fetch results from the dataset (with 30 second timeout)
+    // Check run status and dataset ID
+    if (run.status !== 'SUCCEEDED') {
+      throw new Error(`Apify run failed with status: ${run.status}`);
+    }
+    if (!run.defaultDatasetId) {
+      throw new Error('Apify run missing defaultDatasetId');
+    }
+
+    // Fetch results from the dataset (with 30 second timeout + limit)
     const { items } = await withTimeout(
-      client.dataset(run.defaultDatasetId).listItems(),
+      client.dataset(run.defaultDatasetId).listItems({ limit: resultsLimit }),
       30000, // 30 seconds timeout
       `Apify dataset fetch timeout for user: ${username}`
     );

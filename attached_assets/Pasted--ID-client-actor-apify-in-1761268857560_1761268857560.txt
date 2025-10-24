@@ -1,0 +1,247 @@
+Что не так (по делу)
+Критично (ломает прямо сейчас)
+
+ID актора
+Вы вызываете:
+
+client.actor('apify/instagram-reel-scraper') // <- без "s"
+
+
+А у Apify публичный актор называется apify/instagram-reels-scraper (во множественном числе). Из-за этого прилетает 404 (актора с таким id не существует).
+
+Имя входного поля
+Вход у актора — usernames: string[], а не username. Сейчас вы передаёте:
+
+const input = { username: [username], resultsLimit }
+
+
+Должно быть:
+
+const input = { usernames: [username], resultsLimit }
+
+Вероятные проблемы/осторожности
+
+Проверка статуса запуска
+actor().call(input) обычно дожидается завершения, но всё равно безопасно проверить run.status === 'SUCCEEDED' и наличие run.defaultDatasetId — иначе чтение датасета может упасть.
+
+Пагинация датасета
+listItems() по умолчанию вернёт до 100 элементов. Лучше передать { limit: resultsLimit }.
+
+Разные ключи в item
+В разных версиях/форках актора поля могут называться по-разному (videoUrl vs video_url, displayUrl vs thumbnailUrl). Сделайте безопасный маппинг с несколькими вариантами.
+
+Instagram proxy / приватность
+У некоторых конфигураций без прокси актор отдаёт пустые результаты. Это не баг кода, но стоит держать в уме — возможно, придётся передать proxy в input (если ваш актор этого требует).
+
+Таймауты
+Вы обернули вызовы в withTimeout — норм. Только в логах различайте «таймаут актора» и «таймаут датасета», чтобы проще было дебажить.
+
+Исправленная версия (скопируйте как есть)
+import { ApifyClient } from 'apify-client';
+
+// Helper: timeout wrapper
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), timeoutMs)),
+  ]);
+}
+
+export interface InstagramReelData {
+  id: string;
+  shortCode: string;
+  url: string;
+  caption: string;
+  hashtags: string[];
+  mentions: string[];
+  videoUrl: string;
+  thumbnailUrl?: string;
+  videoDuration?: number;
+  likesCount: number;
+  commentsCount: number;
+  videoViewCount?: number;
+  videoPlayCount?: number;
+  sharesCount?: number;
+  timestamp: string;
+  ownerUsername: string;
+  ownerFullName?: string;
+  ownerId?: string;
+  musicInfo?: {
+    artist?: string;
+    songName?: string;
+    originalAudio?: boolean;
+  };
+}
+
+export interface ApifyScrapingResult {
+  success: boolean;
+  items: InstagramReelData[];
+  error?: string;
+  itemCount: number;
+}
+
+// НУЖНЫЕ константы
+const ACTOR_ID = 'apify/instagram-reels-scraper'; // <- фикс: правильный id
+
+/**
+ * Scrape Instagram Reels from a username using Apify
+ */
+export async function scrapeInstagramReels(
+  username: string,
+  apiKey: string,
+  resultsLimit: number = 50
+): Promise<ApifyScrapingResult> {
+  try {
+    const client = new ApifyClient({ token: apiKey });
+
+    // FIX: правильное поле входа — usernames, не username
+    const input: Record<string, any> = {
+      usernames: [username],
+      resultsLimit,
+      // На некоторых конфигах помогает явно указать maxItems
+      maxItems: resultsLimit,
+      // Если у вас платный proxy настроен для актора — раскомментируйте:
+      // proxy: { useApifyProxy: true, groups: ['RESIDENTIAL'] },
+      // includeReels: true // зависит от конкретной версии актора
+    };
+
+    console.log(`[Apify] starting run for @${username} with ${resultsLimit} limit`);
+
+    // Запуск актора, ждём завершения (таймаут 3 мин)
+    const run = await withTimeout(
+      client.actor(ACTOR_ID).call(input),
+      180_000,
+      `Apify scraping timeout (3 minutes) for user: ${username}`
+    );
+
+    console.log(`[Apify] run finished: id=${run.id}, status=${run.status}, dataset=${run.defaultDatasetId}`);
+
+    // Безопасные проверки статуса и наличия datasetId
+    if (run.status !== 'SUCCEEDED') {
+      throw new Error(`Apify run failed with status: ${run.status}`);
+    }
+    if (!run.defaultDatasetId) {
+      throw new Error('Apify run missing defaultDatasetId');
+    }
+
+    // Читаем результаты (таймаут 30 сек) + ограничиваем лимитом
+    const { items } = await withTimeout(
+      client.dataset(run.defaultDatasetId).listItems({ limit: resultsLimit }),
+      30_000,
+      `Apify dataset fetch timeout for user: ${username}`
+    );
+
+    console.log(`[Apify] fetched ${items.length} item(s) for @${username}`);
+
+    // Нормализуем поля под разные варианты схемы
+    const norm = (v: any, ...alts: string[]) =>
+      alts.reduce((acc, k) => (acc !== undefined && acc !== null ? acc : v?.[k]), undefined);
+
+    const toArray = (v: any): string[] => {
+      if (Array.isArray(v)) return v.filter(Boolean);
+      if (typeof v === 'string') return v.split(/\s+/).filter(Boolean);
+      return [];
+    };
+
+    const transformedItems: InstagramReelData[] = (items as any[]).map((item) => {
+      const shortCode: string =
+        item.shortCode ||
+        item.shortcode ||
+        (typeof item.url === 'string' ? (item.url.match(/\/reel\/([A-Za-z0-9_-]+)/)?.[1] ?? '') : '');
+
+      const url: string =
+        item.url ||
+        (shortCode ? `https://www.instagram.com/reel/${shortCode}/` : '');
+
+      const videoUrl: string =
+        norm(item, 'videoUrl', 'video_url', 'video', 'mediaUrl') || '';
+
+      const thumbnailUrl: string | undefined =
+        norm(item, 'thumbnailUrl', 'thumbnail_url', 'displayUrl', 'display_url', 'imageUrl', 'image_url', 'coverUrl', 'cover_url');
+
+      const caption: string = item.caption ?? item.title ?? '';
+
+      // Хэштеги/упоминания: иногда актор даёт массивы, иногда их нет — достанем из caption как fallback
+      const hashtagsFromCaption = (caption.match(/#\w+/g) || []).map((s) => s.replace('#', ''));
+      const mentionsFromCaption = (caption.match(/@\w+/g) || []).map((s) => s.replace('@', ''));
+
+      const hashtags = toArray(item.hashtags)?.length ? toArray(item.hashtags) : hashtagsFromCaption;
+      const mentions = toArray(item.mentions)?.length ? toArray(item.mentions) : mentionsFromCaption;
+
+      return {
+        id: item.id || shortCode || cryptoSafeId(url),
+        shortCode,
+        url,
+        caption,
+        hashtags,
+        mentions,
+        videoUrl,
+        thumbnailUrl,
+        videoDuration: item.videoDuration ?? item.duration ?? item.lengthSeconds,
+        likesCount: item.likesCount ?? item.likes ?? 0,
+        commentsCount: item.commentsCount ?? item.comments ?? 0,
+        videoViewCount: item.videoViewCount ?? item.views,
+        videoPlayCount: item.videoPlayCount ?? item.plays,
+        sharesCount: item.sharesCount ?? item.shares,
+        timestamp: item.timestamp ?? item.takenAt ?? item.publishedAt ?? new Date().toISOString(),
+        ownerUsername: item.ownerUsername ?? item.username ?? '',
+        ownerFullName: item.ownerFullName ?? item.ownerFullname ?? item.fullName,
+        ownerId: item.ownerId ?? item.owner?.id,
+        musicInfo: item.musicInfo
+          ? {
+              artist: item.musicInfo.artist,
+              songName: item.musicInfo.songName,
+              originalAudio: item.musicInfo.originalAudio,
+            }
+          : undefined,
+      };
+    }).filter((x) => !!x.videoUrl); // фильтруем пустые видео
+
+    return {
+      success: true,
+      items: transformedItems,
+      itemCount: transformedItems.length,
+    };
+  } catch (error) {
+    console.error('[Apify] scraping error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, items: [], error: message, itemCount: 0 };
+  }
+}
+
+// запасной генератор id, если нет item.id/shortCode
+function cryptoSafeId(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return `ig_${Math.abs(h)}`;
+}
+
+/**
+ * Validate Apify API key by checking actor existence
+ */
+export async function testApifyApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const client = new ApifyClient({ token: apiKey });
+    await client.actor(ACTOR_ID).get(); // <- фикс: правильный id
+    return true;
+  } catch (error) {
+    console.error('[Apify] API key test failed:', error);
+    return false;
+  }
+}
+
+Коротко: что поменял
+
+apify/instagram-reels-scraper (✅ правильный id).
+
+usernames: [username] (✅ правильный input).
+
+Проверяю run.status и run.defaultDatasetId.
+
+listItems({ limit: resultsLimit }).
+
+Надёжный маппинг полей (videoUrl/video_url, displayUrl/thumbnail_url и т.д.).
+
+Фильтрую пустые видео.
+
+Чуть аккуратнее логи и сообщения об ошибках.
