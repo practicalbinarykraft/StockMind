@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Radio, Instagram, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SourcePreviewModal } from "./source-preview-modal";
+import { SourcePreviewModal } from "./source-preview-modal.tsx";
 
 interface SourceData {
   type: 'news' | 'instagram' | 'custom';

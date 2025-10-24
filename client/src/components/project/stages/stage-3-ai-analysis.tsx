@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import { type Project } from "@shared/schema"
 import { type AdvancedScoreResult } from "@shared/advanced-analysis-types"
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { ScoreBadge } from "@/components/score-badge"
 import { AdvancedAnalysisDisplay } from "@/components/project/advanced-analysis-display"
 import { SceneEditor } from "@/components/project/scene-editor"
+import { SourceSummaryBar } from "../source-summary-bar"
+import { SourceAnalysisCard } from "../source-analysis-card"
+import { RecommendedFormatBox } from "../recommended-format-box"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -24,6 +27,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface Stage3Props {
   project: Project
@@ -74,13 +83,111 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [variantScores, setVariantScores] = useState<Record<string, number>>({}) // sceneId-variantIdx -> score
   const [scoringVariant, setScoringVariant] = useState<string | null>(null) // "sceneId-variantIdx" during scoring
   const [analysisTime, setAnalysisTime] = useState<number | undefined>(undefined)
+  const [showFormatModal, setShowFormatModal] = useState(false)
   const { toast } = useToast()
+
+  // Feature flag check
+  const STAGE3_MAGIC_UI = import.meta.env.VITE_STAGE3_MAGIC_UI === 'true'
+  
+  // Query to check if script exists
+  const scriptVersionsQuery = useQuery({
+    queryKey: ['/api/projects', project.id, 'script-versions'],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/script-versions`)
+      if (!res.ok) return []
+      return await res.json()
+    },
+    enabled: STAGE3_MAGIC_UI,
+    staleTime: 5000
+  })
+  
+  // Detect if script exists
+  const hasScript = (scriptVersionsQuery.data && scriptVersionsQuery.data.length > 0) || false
 
   // Get content from step data
   // - Custom scripts: stepData.text
   // - News: stepData.content
   // - Instagram: stepData.transcription
   const content = stepData?.content || stepData?.text || stepData?.transcription || ""
+
+  // Source data extraction for source review mode
+  const sourceData = {
+    type: project.sourceType as 'news' | 'instagram' | 'custom',
+    score: stepData?.aiScore,
+    language: 'ru',
+    wordCount: content.split(/\s+/).filter(Boolean).length,
+    title: stepData?.title || project.title || 'Untitled',
+    content: content
+  }
+
+  // Query for source analysis (only in source review mode)
+  const sourceAnalysisQuery = useQuery({
+    queryKey: ['/api/projects', project.id, 'analyze-source'],
+    queryFn: async () => {
+      const res = await apiRequest('POST', `/api/projects/${project.id}/analyze-source`, {})
+      return await res.json()
+    },
+    enabled: STAGE3_MAGIC_UI && !hasScript,
+    staleTime: Infinity
+  })
+
+  // Generate script mutation (for source review mode)
+  const generateMutation = useMutation({
+    mutationFn: async (formatId: string) => {
+      const endpoint = getAdvancedEndpoint()
+      const body = {
+        ...getAdvancedRequestBody(),
+        format: formatId
+      }
+      
+      const res = await apiRequest("POST", endpoint, body)
+      return await res.json()
+    },
+    onSuccess: (data) => {
+      setAdvancedAnalysis(data)
+      setAnalysisTime(data.metadata?.analysisTime)
+      
+      // Save to cache
+      apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 3,
+        data: {
+          analysisMode: 'advanced',
+          advancedAnalysis: data,
+          analysisTime: data.metadata?.analysisTime,
+          selectedFormat
+        }
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      }).catch(err => {
+        console.error("Failed to cache advanced analysis:", err)
+      })
+
+      // Create initial script version if scenes exist
+      if (data.scenes && data.scenes.length > 0) {
+        apiRequest("POST", `/api/projects/${project.id}/create-initial-version`, {
+          scenes: data.scenes,
+          analysisResult: data,
+          analysisScore: data.overallScore
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+        }).catch(err => {
+          console.error("Failed to create initial version:", err)
+        })
+      }
+
+      toast({
+        title: "Script Generated",
+        description: "AI has created your script based on the recommended format",
+      })
+    },
+  })
+
+  // Handle generate script (for source review mode)
+  const handleGenerateScript = (formatId: string) => {
+    generateMutation.mutate(formatId)
+  }
 
   // Determine which advanced endpoint to use based on sourceType
   const getAdvancedEndpoint = () => {
@@ -425,6 +532,98 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     }
   }
 
+  // Early return for source review mode
+  if (STAGE3_MAGIC_UI && !hasScript) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Sparkles className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">Анализ исходника</h1>
+          </div>
+          <p className="text-lg text-muted-foreground">
+            Просмотрите анализ и выберите формат для создания сценария
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <SourceSummaryBar source={sourceData} />
+          
+          {sourceAnalysisQuery.isLoading && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <p className="text-lg font-medium">Анализируем исходник...</p>
+                  <p className="text-sm text-muted-foreground">Это займет несколько секунд</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {sourceAnalysisQuery.isError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {(sourceAnalysisQuery.error as any)?.message || "Не удалось проанализировать исходник"}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {sourceAnalysisQuery.data && (
+            <>
+              <SourceAnalysisCard analysis={sourceAnalysisQuery.data.analysis} />
+              <RecommendedFormatBox 
+                recommendation={sourceAnalysisQuery.data.recommendedFormat}
+                onApply={handleGenerateScript}
+                onChooseOther={() => setShowFormatModal(true)}
+                isLoading={generateMutation.isPending}
+              />
+            </>
+          )}
+
+          {generateMutation.isPending && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <p className="text-lg font-medium">Генерируем сценарий...</p>
+                  <p className="text-sm text-muted-foreground">Многоагентный AI анализ в процессе</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Format Selection Modal */}
+        <Dialog open={showFormatModal} onOpenChange={setShowFormatModal}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Выберите формат</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-4">
+              {FORMAT_TEMPLATES.map(template => (
+                <div
+                  key={template.id}
+                  className="p-4 rounded-lg border-2 cursor-pointer transition-all hover-elevate border-border"
+                  onClick={() => {
+                    handleGenerateScript(template.id)
+                    setShowFormatModal(false)
+                  }}
+                  data-testid={`template-${template.id}`}
+                >
+                  <h3 className="font-semibold mb-1">{template.name}</h3>
+                  <p className="text-sm text-muted-foreground">{template.description}</p>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  // Existing UI (when feature flag is off OR script exists)
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
@@ -601,7 +800,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                       <Sparkles className="h-4 w-4 text-primary" />
                       AI Comment
                     </h3>
-                    <p className="text-sm text-muted-foreground italic border-l-4 border-primary pl-4" data-testid="text-overall-comment">
+                    <p className="text-sm text-muted-foreground italic leading-relaxed" data-testid="text-overall-comment">
                       {analysis.overallComment}
                     </p>
                   </div>
@@ -609,159 +808,202 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               </CardContent>
             </Card>
 
-            {/* Scene Breakdown */}
+            {/* Scene Tabs */}
             <Card>
               <CardHeader>
-                <CardTitle>Scene-by-Scene Breakdown</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Script Scenes ({analysis.scenes.length})
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {analysis.scenes.map(scene => (
-                  <div key={scene.id} className="space-y-3" data-testid={`scene-${scene.id}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline">Scene {scene.id}</Badge>
-                        {scoringVariant === `${scene.id}-${selectedVariants[scene.id]}` ? (
-                          <div className="flex items-center gap-2 px-3 py-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span className="text-xs text-muted-foreground">Scoring...</span>
+              <CardContent>
+                <Tabs defaultValue="scene-0" className="w-full">
+                  <TabsList className="w-full justify-start flex-wrap h-auto">
+                    {analysis.scenes.map((scene, idx) => (
+                      <TabsTrigger
+                        key={scene.id}
+                        value={`scene-${idx}`}
+                        className="gap-2"
+                        data-testid={`tab-scene-${idx}`}
+                      >
+                        Scene {idx + 1}
+                        <ScoreBadge score={getSceneScore(scene)} size="sm" />
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {analysis.scenes.map((scene, idx) => (
+                    <TabsContent key={scene.id} value={`scene-${idx}`} className="mt-4 space-y-4">
+                      {/* Original/Edited Text */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            Scene {idx + 1} Text
+                            <ScoreBadge score={getSceneScore(scene)} size="sm" data-testid={`score-scene-${idx}`} />
+                          </label>
+                          {!editedScenes[scene.id] && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setIsEditing(scene.id)}
+                              data-testid={`button-edit-scene-${idx}`}
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {isEditing === scene.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editedScenes[scene.id] || getSceneText(scene)}
+                              onChange={(e) => setEditedScenes({ ...editedScenes, [scene.id]: e.target.value })}
+                              rows={4}
+                              className="resize-none"
+                              data-testid={`textarea-scene-${idx}`}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={async () => {
+                                  setIsEditing(null)
+                                  await autoSaveCache(selectedVariants, variantScores)
+                                }}
+                                data-testid={`button-save-scene-${idx}`}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newEdited = { ...editedScenes }
+                                  delete newEdited[scene.id]
+                                  setEditedScenes(newEdited)
+                                  setIsEditing(null)
+                                }}
+                                data-testid={`button-cancel-edit-scene-${idx}`}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
                           </div>
                         ) : (
-                          <ScoreBadge score={getSceneScore(scene)} size="sm" data-testid={`score-scene-${scene.id}`} />
+                          <div className="p-4 bg-muted rounded-lg">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid={`text-scene-${idx}`}>
+                              {getSceneText(scene)}
+                            </p>
+                          </div>
                         )}
                       </div>
-                      {isEditing === scene.id ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setIsEditing(null)}
-                          data-testid={`button-done-edit-${scene.id}`}
-                        >
-                          Done
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="gap-2"
-                          onClick={() => setIsEditing(scene.id)}
-                          data-testid={`button-edit-${scene.id}`}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          Edit
-                        </Button>
-                      )}
-                    </div>
 
-                    {isEditing === scene.id ? (
-                      <Textarea
-                        value={editedScenes[scene.id] || getSceneText(scene)}
-                        onChange={(e) => setEditedScenes({ ...editedScenes, [scene.id]: e.target.value })}
-                        rows={3}
-                        data-testid={`textarea-scene-${scene.id}`}
-                      />
-                    ) : (
-                      <Tabs
-                        value={selectedVariants[scene.id]?.toString() || "original"}
-                        onValueChange={(value) => handleVariantChange(scene.id, value, scene)}
-                      >
-                        <TabsList className="mb-3">
-                          <TabsTrigger value="original" data-testid={`tab-original-${scene.id}`}>
-                            Original
-                          </TabsTrigger>
-                          {scene.variants.map((_, idx) => (
-                            <TabsTrigger key={idx} value={idx.toString()} data-testid={`tab-variant-${scene.id}-${idx}`}>
-                              Variant {idx + 1}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        <TabsContent value="original">
-                          <p className="text-sm p-4 bg-muted rounded-lg" data-testid={`text-scene-${scene.id}-original`}>{scene.text}</p>
-                        </TabsContent>
-                        {scene.variants.map((variant, idx) => (
-                          <TabsContent key={idx} value={idx.toString()}>
-                            <p className="text-sm p-4 bg-muted rounded-lg" data-testid={`text-scene-${scene.id}-variant-${idx}`}>{variant}</p>
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                    )}
-                  </div>
-                ))}
+                      {/* Variant Selector */}
+                      {scene.variants.length > 0 && !editedScenes[scene.id] && (
+                        <div>
+                          <label className="text-sm font-medium block mb-2">
+                            Alternative Versions
+                          </label>
+                          <div className="space-y-2">
+                            {/* Original */}
+                            <div
+                              className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover-elevate ${
+                                selectedVariants[scene.id] === undefined
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border"
+                              }`}
+                              onClick={() => handleVariantChange(scene.id, "original", scene)}
+                              data-testid={`variant-original-scene-${idx}`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium">Original</span>
+                                <ScoreBadge score={scene.score} size="sm" />
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {scene.text}
+                              </p>
+                            </div>
+
+                            {/* Variants */}
+                            {scene.variants.map((variant, vIdx) => {
+                              const scoreKey = `${scene.id}-${vIdx}`
+                              const variantScore = variantScores[scoreKey]
+                              const isScoring = scoringVariant === scoreKey
+
+                              return (
+                                <div
+                                  key={vIdx}
+                                  className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover-elevate ${
+                                    selectedVariants[scene.id] === vIdx
+                                      ? "border-primary bg-primary/5"
+                                      : "border-border"
+                                  }`}
+                                  onClick={() => handleVariantChange(scene.id, vIdx.toString(), scene)}
+                                  data-testid={`variant-${vIdx}-scene-${idx}`}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm font-medium">Version {vIdx + 1}</span>
+                                    {isScoring ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : variantScore !== undefined ? (
+                                      <ScoreBadge score={variantScore} size="sm" />
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">Click to score</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground line-clamp-2">
+                                    {variant}
+                                  </p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+                  ))}
+                </Tabs>
               </CardContent>
             </Card>
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3">
-              <Button variant="outline" size="lg" data-testid="button-export-script">
-                <FileText className="h-4 w-4 mr-2" />
-                Export Script
-              </Button>
-              <Button 
-                size="lg" 
-                onClick={handleProceed} 
-                disabled={saveStepMutation.isPending || updateProjectMutation.isPending}
-                data-testid="button-proceed-stage4"
+              <Button
+                size="lg"
+                onClick={handleProceed}
+                disabled={updateProjectMutation.isPending}
+                data-testid="button-proceed"
               >
-                {(saveStepMutation.isPending || updateProjectMutation.isPending) ? (
+                {updateProjectMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
-                  "Continue to Voice Generation"
+                  <>
+                    Continue to Voice Generation
+                  </>
                 )}
               </Button>
             </div>
           </>
         )}
-
-        {/* Empty State */}
-        {!analysis && !analyzeMutation.isPending && !analyzeMutation.isError && (
-          <Card>
-            <CardContent className="py-12">
-              <div className="flex flex-col items-center gap-4 text-center">
-                <Sparkles className="h-16 w-16 text-muted-foreground" />
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Ready to Analyze</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Select a format template above and click "Analyze Content" to begin
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
-      {/* Re-analyze Confirmation Dialog */}
+      {/* Re-analyze Cost Warning Dialog */}
       <AlertDialog open={reanalyzeDialogOpen} onOpenChange={setReanalyzeDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-amber-500" />
-              Re-analyze Content?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                This will call the AI API again and use credits (~$0.05 per analysis).
-              </p>
-              <p className="text-sm">
-                Your current analysis is already saved. Only re-analyze if:
-              </p>
-              <ul className="text-sm list-disc list-inside space-y-1 ml-2">
-                <li>You changed the format template</li>
-                <li>You want different AI-generated variants</li>
-                <li>The current analysis has issues</li>
-              </ul>
+            <AlertDialogTitle>Re-analyze Content?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Re-running the analysis will consume AI credits (~$0.08-0.12 for deep analysis with 5 agents).
+              Your previous analysis results will be overwritten.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-reanalyze">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmReanalyze}
-              className="bg-amber-600 hover:bg-amber-700"
-              data-testid="button-confirm-reanalyze"
-            >
-              Re-analyze (~$0.05)
+            <AlertDialogAction onClick={confirmReanalyze} data-testid="button-confirm-reanalyze">
+              Proceed and Re-analyze
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

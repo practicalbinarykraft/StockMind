@@ -2254,7 +2254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = Date.now();
 
       let analysisResult: any;
-      let sourceData = project.sourceData || {};
+      let sourceData: any = project.sourceData || {};
 
       // Run appropriate analysis based on source type
       if (project.sourceType === 'news') {
