@@ -659,7 +659,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
   if (STAGE3_MAGIC_UI && hasScript) {
-    const currentVersion = scriptVersionsQuery.data?.[0]
+    const currentVersion = scriptVersionsQuery.data?.currentVersion
     
     if (scriptVersionsQuery.isLoading) {
       return (
