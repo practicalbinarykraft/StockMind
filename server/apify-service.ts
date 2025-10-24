@@ -176,10 +176,17 @@ export async function scrapeInstagramReels(
 
     console.log(`[Apify] Run finished: id=${run.id}, status=${run.status}, dataset=${run.defaultDatasetId}`);
 
-    // Check run status and dataset ID
-    if (run.status !== 'SUCCEEDED') {
-      throw new Error(`Apify run failed with status: ${run.status}`);
+    // Check run status with detailed error messages
+    if (run.status === 'FAILED') {
+      throw new Error(`Apify actor failed - user @${username} may not exist, be private, or have no reels`);
+    } else if (run.status === 'TIMED-OUT') {
+      throw new Error(`Apify actor timed out scraping @${username} - try reducing resultsLimit`);
+    } else if (run.status === 'ABORTED') {
+      throw new Error(`Apify actor was aborted while scraping @${username}`);
+    } else if (run.status !== 'SUCCEEDED') {
+      throw new Error(`Apify run unexpected status "${run.status}" for user: @${username}`);
     }
+    
     if (!run.defaultDatasetId) {
       throw new Error('Apify run missing defaultDatasetId');
     }
@@ -256,7 +263,7 @@ export async function fetchSingleReelData(
 
     // Use directUrls for single reel fetch (with 60 second timeout)
     const run = await withTimeout(
-      client.actor('apify/instagram-reel-scraper').call({
+      client.actor(APIFY_ACTOR_ID).call({
         directUrls: [`https://www.instagram.com/reel/${shortCode}/`],
         resultsLimit: 1,
       }),
@@ -264,12 +271,25 @@ export async function fetchSingleReelData(
       `Timeout fetching reel: ${shortCode}`
     );
 
-    if (!run || !run.defaultDatasetId) {
-      throw new Error('Apify actor run failed or returned no dataset');
+    console.log(`[Apify] Single reel run finished: id=${run.id}, status=${run.status}`);
+
+    // Check run status with detailed error messages
+    if (run.status === 'FAILED') {
+      throw new Error(`Apify actor failed - reel may be private, deleted, or unavailable: ${shortCode}`);
+    } else if (run.status === 'TIMED-OUT') {
+      throw new Error(`Apify actor timed out fetching reel: ${shortCode}`);
+    } else if (run.status === 'ABORTED') {
+      throw new Error(`Apify actor was aborted: ${shortCode}`);
+    } else if (run.status !== 'SUCCEEDED') {
+      throw new Error(`Apify run unexpected status "${run.status}" for reel: ${shortCode}`);
+    }
+    
+    if (!run.defaultDatasetId) {
+      throw new Error('Apify run missing defaultDatasetId');
     }
 
     const { items } = await withTimeout(
-      client.dataset(run.defaultDatasetId).listItems(),
+      client.dataset(run.defaultDatasetId).listItems({ limit: 1 }),
       30000, // 30 seconds timeout
       `Dataset timeout for reel: ${shortCode}`
     );
@@ -279,10 +299,18 @@ export async function fetchSingleReelData(
       return null;
     }
 
-    console.log(`[Apify] Successfully fetched fresh data for ${shortCode}`);
+    console.log(`[Apify] ✅ Successfully fetched fresh data for ${shortCode}`);
     
     // Use mapApifyReel for safe normalization
-    return mapApifyReel(items[0], shortCode);
+    const reel = mapApifyReel(items[0], shortCode);
+    
+    // Return null if no video URL (shouldn't happen for single reel but be safe)
+    if (!reel.videoUrl) {
+      console.log(`[Apify] ⚠️ Reel ${shortCode} has no videoUrl`);
+      return null;
+    }
+    
+    return reel;
   } catch (error) {
     console.error('[Apify] Error fetching single reel:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -300,7 +328,7 @@ export async function testApifyApiKey(apiKey: string): Promise<boolean> {
     const client = new ApifyClient({ token: apiKey });
     
     // Try to get actor info to validate the key
-    await client.actor('apify/instagram-reel-scraper').get();
+    await client.actor(APIFY_ACTOR_ID).get();
     
     return true;
   } catch (error) {
