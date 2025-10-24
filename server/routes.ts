@@ -22,6 +22,10 @@ import fs from "fs";
 
 const rssParser = new Parser();
 
+import { Readability } from '@mozilla/readability';
+import { JSDOM } from 'jsdom';
+import { fetch as undiciFetch } from 'undici';
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -74,6 +78,123 @@ function normalizeInstagramUsername(input: string): string {
   }
   
   return username.toLowerCase();
+}
+
+/**
+ * Fetch and extract full article content from URL using Readability
+ * @param url - Article URL to fetch and parse
+ * @returns Extracted article content or error message
+ */
+async function fetchAndExtract(url: string): Promise<{
+  success: boolean;
+  content?: string;
+  title?: string;
+  error?: string;
+}> {
+  const FETCH_TIMEOUT = 15000; // 15 seconds
+  const MIN_CONTENT_LENGTH = 500; // Minimum characters for valid article
+  
+  try {
+    console.log(`[Article Extractor] Fetching URL: ${url}`);
+    
+    // Fetch HTML with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    
+    const response = await undiciFetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ReelRepurposer/1.0)',
+      },
+    });
+    
+    clearTimeout(timeoutId);
+    
+    // Check response status
+    if (!response.ok) {
+      console.warn(`[Article Extractor] HTTP ${response.status} for ${url}`);
+      
+      // Detect paywalls and access restrictions
+      if (response.status === 403 || response.status === 401) {
+        return {
+          success: false,
+          error: 'Paywall or access restricted',
+        };
+      }
+      
+      return {
+        success: false,
+        error: `HTTP ${response.status}`,
+      };
+    }
+    
+    // Check content type
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+      console.warn(`[Article Extractor] Non-HTML content type: ${contentType}`);
+      return {
+        success: false,
+        error: 'Not an HTML page',
+      };
+    }
+    
+    // Get HTML text
+    const html = await response.text();
+    
+    // Parse with jsdom
+    const dom = new JSDOM(html, { url });
+    const document = dom.window.document;
+    
+    // Use Readability to extract article
+    const reader = new Readability(document);
+    const article = reader.parse();
+    
+    if (!article || !article.textContent) {
+      console.warn(`[Article Extractor] Readability failed to parse ${url}`);
+      return {
+        success: false,
+        error: 'Failed to extract article content',
+      };
+    }
+    
+    // Clean up content: normalize whitespace, remove extra newlines
+    const cleanContent = article.textContent
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
+    
+    // Check minimum content length (detect paywalls that show partial content)
+    if (cleanContent.length < MIN_CONTENT_LENGTH) {
+      console.warn(`[Article Extractor] Content too short (${cleanContent.length} chars) - possible paywall`);
+      return {
+        success: false,
+        error: 'Content too short (possible paywall)',
+      };
+    }
+    
+    console.log(`[Article Extractor] Success! Extracted ${cleanContent.length} characters from ${url}`);
+    
+    return {
+      success: true,
+      content: cleanContent,
+      title: article.title,
+    };
+  } catch (error: any) {
+    // Handle different error types
+    if (error.name === 'AbortError') {
+      console.error(`[Article Extractor] Timeout fetching ${url}`);
+      return {
+        success: false,
+        error: 'Request timeout',
+      };
+    }
+    
+    console.error(`[Article Extractor] Error fetching ${url}:`, error);
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+    };
+  }
 }
 
 // Configure multer for audio file uploads
@@ -1252,6 +1373,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error refreshing news:", error);
       res.status(500).json({ message: "Failed to refresh news" });
+    }
+  });
+
+  // Fetch full article content from URL (web scraping)
+  app.post("/api/news/:id/fetch-full-content", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const { id } = req.params;
+      
+      // Get RSS item
+      const items = await storage.getRssItems(userId);
+      const item = items.find(i => i.id === id);
+      
+      if (!item) {
+        return res.status(404).json({ message: "News item not found" });
+      }
+      
+      // Check if full content was recently fetched (within 6 hours)
+      const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+      if (item.fullContent && item.lastFetchedAt) {
+        const age = Date.now() - new Date(item.lastFetchedAt).getTime();
+        if (age < SIX_HOURS_MS && item.fullContent.length >= 500) {
+          console.log(`[Article Extractor] Using cached content for ${item.url} (${age / 1000}s old)`);
+          return res.json({
+            success: true,
+            content: item.fullContent,
+            cached: true,
+          });
+        }
+      }
+      
+      // Extract full content
+      const result = await fetchAndExtract(item.url);
+      
+      if (!result.success) {
+        console.warn(`[Article Extractor] Failed to extract ${item.url}: ${result.error}`);
+        return res.json({
+          success: false,
+          error: result.error,
+          fallback: item.content, // Return RSS snippet as fallback
+        });
+      }
+      
+      // Save full content to database
+      await storage.updateRssItem(id, {
+        fullContent: result.content,
+        lastFetchedAt: new Date(),
+      });
+      
+      console.log(`[Article Extractor] Successfully extracted and cached content for ${item.url}`);
+      
+      res.json({
+        success: true,
+        content: result.content,
+        cached: false,
+      });
+    } catch (error: any) {
+      console.error("Error fetching full article content:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch article content",
+        error: error.message,
+      });
     }
   });
 

@@ -121,7 +121,9 @@ export const rssItems = pgTable("rss_items", {
   userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Added for user-specific actions
   title: text("title").notNull(),
   url: text("url").notNull(),
-  content: text("content"), // Article content/description
+  content: text("content"), // Article content/description from RSS (short)
+  fullContent: text("full_content"), // Full article text extracted from URL via web scraping
+  lastFetchedAt: timestamp("last_fetched_at"), // When full content was last extracted
   imageUrl: text("image_url"),
   aiScore: integer("ai_score"), // 0-100 virality score from AI (Stage 1 selection score)
   aiComment: text("ai_comment"), // AI's comment on why this score
