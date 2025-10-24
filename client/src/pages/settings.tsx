@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useLocation } from "wouter"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,6 @@ import {
   Key,
   Rss,
   Instagram,
-  Eye,
-  EyeOff,
   CheckCircle2,
   Clock,
   Bell,
@@ -30,12 +28,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import type { ApiKey, RssSource, InstagramSource } from "@shared/schema"
+import type { RssSource, InstagramSource } from "@shared/schema"
 import { StatusBadge } from "@/components/status-badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDistanceToNow } from "date-fns"
 import { isUnauthorizedError } from "@/lib/authUtils"
 import { useAuth } from "@/hooks/useAuth"
+
+// Safe API Key type (without encryptedKey) - matches backend DTO
+type SafeApiKey = {
+  id: string
+  provider: string
+  last4: string
+  description: string | null
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
 
 const API_PROVIDERS = [
   { value: "openai", label: "OpenAI", description: "For Whisper transcription" },
@@ -54,18 +63,19 @@ export default function Settings() {
   const [showRssDialog, setShowRssDialog] = useState(false)
   const [showInstagramDialog, setShowInstagramDialog] = useState(false)
 
-  // Redirect to login if not authenticated
-  if (!authLoading && !isAuthenticated) {
-    toast({
-      title: "Unauthorized",
-      description: "Redirecting to login...",
-      variant: "destructive",
-    })
-    setTimeout(() => {
-      window.location.href = "/api/login"
-    }, 500)
-    return null
-  }
+  // Redirect to login if not authenticated (via useEffect to avoid render-time side effects)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "Redirecting to login...",
+        variant: "destructive",
+      })
+      setTimeout(() => {
+        window.location.href = "/api/login"
+      }, 500)
+    }
+  }, [authLoading, isAuthenticated, toast])
 
   // API Keys State
   const [apiKeyForm, setApiKeyForm] = useState({
@@ -73,7 +83,6 @@ export default function Settings() {
     key: "",
     description: "",
   })
-  const [showKey, setShowKey] = useState<Record<string, boolean>>({})
 
   // RSS Source State
   const [rssForm, setRssForm] = useState({
@@ -99,7 +108,7 @@ export default function Settings() {
   const [parseMode, setParseMode] = useState<'latest-20' | 'latest-50' | 'latest-100' | 'new-only'>('latest-50')
 
   // Fetch API Keys
-  const { data: apiKeys, isLoading: keysLoading } = useQuery<ApiKey[]>({
+  const { data: apiKeys, isLoading: keysLoading } = useQuery<SafeApiKey[]>({
     queryKey: ["/api/settings/api-keys"],
   })
 
@@ -512,13 +521,6 @@ export default function Settings() {
     setParseMode('latest-50') // Reset to default
   }
 
-  const maskApiKey = (key: string) => {
-    if (!key) return ""
-    const length = key.length
-    if (length <= 8) return "*".repeat(length)
-    return `${key.substring(0, 4)}...${key.substring(length - 4)}`
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -648,24 +650,9 @@ export default function Settings() {
                       {key.description && (
                         <p className="text-sm text-muted-foreground mb-2">{key.description}</p>
                       )}
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm font-mono px-2 py-1 bg-muted rounded">
-                          {showKey[key.id] ? key.encryptedKey : maskApiKey(key.encryptedKey)}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => setShowKey({ ...showKey, [key.id]: !showKey[key.id] })}
-                          data-testid={`button-toggle-key-${key.id}`}
-                        >
-                          {showKey[key.id] ? (
-                            <EyeOff className="h-3 w-3" />
-                          ) : (
-                            <Eye className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
+                      <code className="text-sm font-mono px-2 py-1 bg-muted rounded">
+                        ••••{key.last4}
+                      </code>
                       <p className="text-xs text-muted-foreground mt-2">
                         Updated {formatDistanceToNow(new Date(key.updatedAt), { addSuffix: true })}
                       </p>
