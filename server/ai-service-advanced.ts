@@ -512,7 +512,7 @@ Respond ONLY in valid JSON format:
 }`;
 
   const result = await callClaude(apiKey, prompt, {
-    model: "claude-opus-4",  // Use most powerful model for synthesis
+    model: "claude-sonnet-4-5",  // Use Sonnet 4.5 for synthesis
     maxTokens: 3072
   });
   
