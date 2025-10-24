@@ -2680,19 +2680,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Generate Script] Generating script for ${project.sourceType} with format ${formatId}...`);
       const startTime = Date.now();
 
-      let analysisResult: any;
       const sourceData: any = project.sourceData || {};
-
-      // Run appropriate advanced analysis based on source type
+      
+      // Prepare content for script generation
+      let content = '';
       if (project.sourceType === 'news') {
         const title = sourceData.title || '';
-        const content = sourceData.content || '';
+        const newsContent = sourceData.content || '';
         
-        if (!title || !content) {
+        if (!title || !newsContent) {
           return res.status(400).json({ message: "News source missing title or content" });
         }
-
-        analysisResult = await scoreNewsAdvanced(apiKey.encryptedKey, title, content);
+        
+        content = `${title}\n\n${newsContent}`;
       } else if (project.sourceType === 'instagram') {
         const transcription = sourceData.transcription || '';
         const caption = sourceData.caption || null;
@@ -2700,19 +2700,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!transcription) {
           return res.status(400).json({ message: "Instagram source missing transcription" });
         }
-
-        analysisResult = await scoreReelAdvanced(apiKey.encryptedKey, transcription, caption);
-      } else if (project.sourceType === 'custom') {
-        const text = sourceData.text || '';
         
-        if (!text) {
+        content = caption ? `${transcription}\n\nCaption: ${caption}` : transcription;
+      } else if (project.sourceType === 'custom') {
+        content = sourceData.text || '';
+        
+        if (!content) {
           return res.status(400).json({ message: "Custom source missing text" });
         }
-
-        analysisResult = await scoreCustomScriptAdvanced(apiKey.encryptedKey, text, formatId);
       } else {
         return res.status(400).json({ message: "Unsupported source type" });
       }
+
+      // Generate script with scenes using analyzeScript
+      const analysisResult = await analyzeScript(apiKey.encryptedKey, formatId, content);
 
       if (!analysisResult.scenes || analysisResult.scenes.length === 0) {
         return res.status(500).json({ 
@@ -2770,9 +2771,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error generating script:", error);
+      console.error("Stack trace:", error.stack);
       res.status(500).json({ 
         message: error.message || "Failed to generate script",
-        error: error.toString()
+        error: error.toString(),
+        stack: error.stack
       });
     }
   });
