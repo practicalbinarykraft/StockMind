@@ -118,6 +118,7 @@ export interface IStorage {
   // Projects
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string, userId: string): Promise<Project | undefined>;
+  getProjectById(id: string): Promise<Project | undefined>; // Without userId check - for ownership validation
   createProject(userId: string, data: Omit<InsertProject, 'userId'>): Promise<Project>;
   updateProject(id: string, userId: string, data: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: string, userId: string): Promise<void>;
@@ -634,6 +635,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(projects)
       .where(and(eq(projects.id, id), eq(projects.userId, userId)));
+    return project;
+  }
+
+  async getProjectById(id: string): Promise<Project | undefined> {
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, id));
     return project;
   }
 

@@ -21,6 +21,18 @@ import fs from "fs";
 
 const rssParser = new Parser();
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Unified userId extraction from request
+ * Supports both req.user.id and req.user.claims.sub authentication patterns
+ */
+function getUserId(req: any): string | null {
+  return req.user?.id || req.user?.claims?.sub || null;
+}
+
 // Configure multer for audio file uploads
 const uploadDir = path.join(process.cwd(), 'uploads', 'audio');
 if (!fs.existsSync(uploadDir)) {
@@ -227,7 +239,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -242,7 +255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const keys = await storage.getApiKeys(userId);
       res.json(keys);
     } catch (error) {
@@ -253,7 +267,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertApiKeySchema.parse(req.body);
       const apiKey = await storage.createApiKey(userId, validated);
       res.json(apiKey);
@@ -265,7 +280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/settings/api-keys/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       await storage.deleteApiKey(id, userId);
       res.json({ success: true });
@@ -277,7 +293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/settings/api-keys/:id/test", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       
       // Get the API key from database (with decrypted value)
@@ -334,7 +351,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/settings/rss-sources", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const sources = await storage.getRssSources(userId);
       res.json(sources);
     } catch (error) {
@@ -345,7 +363,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/settings/rss-sources", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertRssSourceSchema.parse(req.body);
       const source = await storage.createRssSource(userId, validated);
 
@@ -363,7 +382,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/settings/rss-sources/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       const source = await storage.updateRssSource(id, userId, req.body);
       if (!source) {
@@ -378,7 +398,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/settings/rss-sources/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       await storage.deleteRssSource(id, userId);
       res.json({ success: true });
@@ -394,7 +415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/settings/instagram-sources", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const sources = await storage.getInstagramSources(userId);
       res.json(sources);
     } catch (error) {
@@ -405,7 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/settings/instagram-sources", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertInstagramSourceSchema.parse(req.body);
       const source = await storage.createInstagramSource(userId, validated);
       
@@ -420,7 +443,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/settings/instagram-sources/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       await storage.deleteInstagramSource(id, userId);
       res.json({ success: true });
@@ -432,7 +456,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/instagram/sources/:id/parse", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       const { resultsLimit = 50 } = req.body;
 
@@ -583,7 +608,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error parsing Instagram source:", error);
       
       // Update source with error status
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       await storage.updateInstagramSource(id, userId, {
         parseStatus: 'error',
@@ -597,7 +623,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Toggle auto-update for Instagram source
   app.patch("/api/instagram/sources/:id/auto-update", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       
       // Validate input with Zod
@@ -644,7 +671,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manually trigger check for new Reels
   app.post("/api/instagram/sources/:id/check-now", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
 
       // Verify ownership
@@ -731,7 +759,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update failed checks counter
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       
       try {
         await db
@@ -766,7 +795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/instagram/items", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { sourceId } = req.query;
 
       const items = await storage.getInstagramItems(userId, sourceId);
@@ -780,7 +810,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/instagram/items/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
 
       const items = await storage.getInstagramItems(userId);
@@ -799,7 +830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/instagram/items/:id/action", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       const { action, projectId } = req.body;
 
@@ -822,7 +854,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/instagram/items/:id/transcribe", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
 
       // Get the item and verify ownership
@@ -859,7 +892,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Score Instagram Reel with AI (Phase 6)
   app.post("/api/instagram/items/:id/score", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
 
       // Get the item and verify ownership
@@ -929,7 +963,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/news", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const items = await storage.getRssItems(userId);
       
       // Add freshness label based on publishedAt
@@ -967,7 +1002,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update news item action (dismiss, select, seen)
   app.patch("/api/news/:id/action", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       const { action, projectId } = req.body; // action: 'dismissed' | 'selected' | 'seen'
       
@@ -986,7 +1022,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual refresh news from RSS sources
   app.post("/api/news/refresh", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const sources = await storage.getRssSources(userId);
       
       let totalNew = 0;
@@ -1035,7 +1072,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // NOTE: RSS feeds typically only return latest N items (10-50), so date range is used for filtering, not fetching
   app.post("/api/news/refresh-extended", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { startDate, endDate } = req.body;
       const sources = await storage.getRssSources(userId);
       
@@ -1096,7 +1134,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const projects = await storage.getProjects(userId);
       
       // Enrich projects with auto-title and stats from steps
@@ -1145,7 +1184,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       const project = await storage.getProject(id, userId);
       if (!project) {
@@ -1160,7 +1200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertProjectSchema.parse(req.body);
       const project = await storage.createProject(userId, validated);
       res.json(project);
@@ -1173,7 +1214,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create project from Instagram Reel (Phase 7)
   app.post("/api/projects/from-instagram/:itemId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { itemId } = req.params;
 
       // Get the Instagram item
@@ -1267,7 +1309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       const project = await storage.updateProject(id, userId, req.body);
       if (!project) {
@@ -1282,7 +1325,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       await storage.deleteProject(id, userId);
       res.json({ success: true });
@@ -1295,7 +1339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Permanent delete (actually remove from database)
   app.delete("/api/projects/:id/permanent", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
       await storage.permanentlyDeleteProject(id, userId);
       res.json({ success: true });
@@ -1311,7 +1356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/ai/analyze-script", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { format, content } = req.body;
 
       if (!format || !content) {
@@ -1346,7 +1392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/ai/score-text", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { text } = req.body;
 
       if (!text) {
@@ -1401,7 +1448,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/elevenlabs/voices", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       
       // Get user's ElevenLabs API key
       const apiKey = await storage.getUserApiKey(userId, 'elevenlabs');
@@ -1423,7 +1471,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/elevenlabs/generate", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { voiceId, text, voiceSettings } = req.body;
 
       if (!voiceId || !text) {
@@ -1462,7 +1511,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/heygen/avatars", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       
       // Get user's HeyGen API key
       const apiKey = await storage.getUserApiKey(userId, 'heygen');
@@ -1484,11 +1534,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/heygen/generate", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { avatarId, script, audioUrl, voiceId, dimension } = req.body;
 
       if (!avatarId || !script) {
         return res.status(400).json({ message: "Avatar ID and script are required" });
+      }
+
+      // Critical validation: HeyGen requires either audioUrl (audio mode) or voiceId (text mode)
+      // Without this check, HeyGen API returns 400: "voice_id is required"
+      if (!audioUrl && !voiceId) {
+        return res.status(400).json({
+          message: "Either audioUrl or voiceId is required for HeyGen generation"
+        });
       }
 
       // Get user's HeyGen API key
@@ -1499,7 +1558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[HeyGen] Generating video for user ${userId}, avatar ${avatarId}`);
+      console.log(`[HeyGen] Generating video for user ${userId}, avatar ${avatarId}, mode: ${audioUrl ? 'audio' : 'text'}`);
       const videoId = await generateHeyGenVideo(apiKey.encryptedKey, {
         avatar_id: avatarId,
         script,
@@ -1511,13 +1570,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ videoId });
     } catch (error: any) {
       console.error("Error generating HeyGen video:", error);
-      res.status(500).json({ message: error.message || "Failed to generate video" });
+      
+      // Proper error handling: pass through provider status codes
+      const heygenError = error as any;
+      const status = heygenError.statusCode || heygenError.response?.status || 500;
+      return res.status(status > 0 ? status : 500).json({
+        message: error instanceof Error ? error.message : "Failed to generate HeyGen video",
+        error: heygenError.apiMessage || (error instanceof Error ? error.message : "Unknown error")
+      });
     }
   });
 
   app.get("/api/heygen/status/:videoId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { videoId } = req.params;
 
       if (!videoId) {
@@ -1548,7 +1615,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id/steps", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
       const { id } = req.params;
+
+      // Verify project ownership
+      const project = await storage.getProjectById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
       const steps = await storage.getProjectSteps(id);
       res.json(steps);
     } catch (error) {
@@ -1559,7 +1639,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:id/steps", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
       const { id } = req.params;
+
+      // Verify project ownership
+      const project = await storage.getProjectById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
       const validated = insertProjectStepSchema.parse({
         ...req.body,
         projectId: id,
@@ -1578,8 +1671,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:id/broll/generate-prompt", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { id } = req.params;
       const { shotInstructions, sceneText } = req.body;
+
+      // Verify project ownership
+      const project = await storage.getProjectById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
       if (!shotInstructions) {
         return res.status(400).json({ message: "Shot instructions required" });
@@ -1592,7 +1697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[B-Roll] Generating AI prompt for scene...`);
+      console.log(`[B-Roll] Generating AI prompt for project ${id}...`);
       const aiPrompt = await generateAiPrompt(apiKey.encryptedKey, shotInstructions, sceneText);
       
       res.json({ aiPrompt });
@@ -1604,14 +1709,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:id/broll/generate", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
       const { id } = req.params;
-      const { sceneId, aiPrompt } = req.body;
+      const { sceneId, aiPrompt, model, aspectRatio } = req.body;
+
+      // Verify project ownership
+      const project = await storage.getProjectById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
       if (!aiPrompt) {
         return res.status(400).json({ message: "AI prompt required" });
       }
 
+      // Get Kie.ai API key
       const apiKey = await storage.getUserApiKey(userId, 'kieai');
       if (!apiKey) {
         return res.status(404).json({ 
@@ -1619,25 +1736,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[B-Roll] Generating video for scene ${sceneId}...`);
+      // Idempotency: generate stable request ID based on parameters
+      const finalModel = model || 'veo3_fast';
+      const finalAspectRatio = aspectRatio || '9:16';
+      const { generateIdempotencyKey } = await import('./idempotency-utils');
+      const idempotencyKey = generateIdempotencyKey({
+        projectId: id,
+        sceneId,
+        prompt: aiPrompt,
+        model: finalModel,
+        aspectRatio: finalAspectRatio,
+      });
+
+      console.log(`[B-Roll] Generating video for project ${id}, scene ${sceneId} (requestId: ${idempotencyKey})...`);
       const taskId = await generateKieVideo(apiKey.encryptedKey, {
         prompt: aiPrompt,
-        model: 'veo3_fast',
-        aspectRatio: '9:16',
-        requestId: `${id}-${sceneId}`
+        model: finalModel,
+        aspectRatio: finalAspectRatio,
+        requestId: idempotencyKey,
       });
       
-      res.json({ taskId });
+      res.json({ taskId, reused: false });
     } catch (error: any) {
       console.error("Error generating B-Roll:", error);
-      res.status(500).json({ message: error.message || "Failed to generate B-Roll" });
+      
+      // Proper error handling: pass through provider status codes and messages
+      const kieError = error as any;
+      const status = kieError.statusCode || kieError.response?.status || 500;
+      return res.status(status > 0 ? status : 500).json({
+        message: error instanceof Error ? error.message : "Failed to generate B-Roll video",
+        error: kieError.apiMessage || (error instanceof Error ? error.message : "Unknown error")
+      });
     }
   });
 
   app.get("/api/projects/:id/broll/status/:taskId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const { taskId } = req.params;
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { id, taskId } = req.params;
+
+      // Verify project ownership
+      const project = await storage.getProjectById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
       const apiKey = await storage.getUserApiKey(userId, 'kieai');
       if (!apiKey) {
@@ -1646,13 +1793,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[B-Roll] Checking status for task ${taskId}`);
+      console.log(`[B-Roll] Checking status for task ${taskId} (project ${id})`);
       const status = await getKieVideoStatus(apiKey.encryptedKey, taskId);
       
       res.json(status);
     } catch (error: any) {
       console.error("Error checking B-Roll status:", error);
-      res.status(500).json({ message: error.message || "Failed to check video status" });
+      
+      // Proper error handling: pass through provider status codes
+      const kieError = error as any;
+      const status = kieError.statusCode || kieError.response?.status || 500;
+      return res.status(status > 0 ? status : 500).json({
+        message: error instanceof Error ? error.message : "Failed to check video status",
+        error: kieError.apiMessage || (error instanceof Error ? error.message : "Unknown error")
+      });
     }
   });
 
