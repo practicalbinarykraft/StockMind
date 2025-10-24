@@ -554,10 +554,10 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             />
 
             {/* Interactive Scene Editor with Recommendations */}
-            {advancedAnalysis.scenes && advancedAnalysis.scenes.length > 0 && (
+            {stepData?.scenes && stepData.scenes.length > 0 && (
               <SceneEditor
                 projectId={project.id}
-                scenes={advancedAnalysis.scenes}
+                scenes={stepData.scenes}
                 onReanalyze={() => setReanalyzeDialogOpen(true)}
               />
             )}
