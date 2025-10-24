@@ -26,7 +26,8 @@ import {
 
 interface Stage3Props {
   project: Project
-  stepData: any
+  stepData: any  // Stage 2 content data
+  step3Data?: any  // Stage 3 cached analysis results
 }
 
 // Format templates (15 total)
@@ -60,7 +61,7 @@ interface AIAnalysis {
   }>
 }
 
-export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
+export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null)
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedScoreResult | null>(null)
   const [analysisMode, setAnalysisMode] = useState<'simple' | 'advanced'>('advanced') // Default to advanced
@@ -185,35 +186,38 @@ export function Stage3AIAnalysis({ project, stepData }: Stage3Props) {
     },
   })
 
-  // Load cached analysis from stepData on mount
+  // Load cached analysis from step3Data on mount
   useEffect(() => {
     // CHECK CACHE FIRST! Don't call AI if we have cached data
-    if (stepData?.advancedAnalysis) {
+    // step3Data contains cached analysis results from previous runs
+    if (step3Data?.advancedAnalysis) {
       // Load advanced analysis from cache
-      console.log('[Stage 3] Loading advanced analysis from cache')
-      setAdvancedAnalysis(stepData.advancedAnalysis)
+      console.log('[Stage 3] ✅ Loading advanced analysis from cache (step3Data)')
+      setAdvancedAnalysis(step3Data.advancedAnalysis)
       setAnalysisMode('advanced')
-      setAnalysisTime(stepData.analysisTime)
-      setSelectedFormat(stepData.selectedFormat || 'news')
-    } else if (stepData?.scenes && stepData?.overallScore !== undefined) {
+      setAnalysisTime(step3Data.analysisTime)
+      setSelectedFormat(step3Data.selectedFormat || 'news')
+    } else if (step3Data?.scenes && step3Data?.overallScore !== undefined) {
       // Load simple analysis from cache (legacy)
-      console.log('[Stage 3] Loading simple analysis from cache')
+      console.log('[Stage 3] ✅ Loading simple analysis from cache (step3Data)')
       setAnalysis({
-        format: stepData.selectedFormat || 'news',
-        overallScore: stepData.overallScore,
-        overallComment: stepData.overallComment || '',
-        scenes: stepData.scenes
+        format: step3Data.selectedFormat || 'news',
+        overallScore: step3Data.overallScore,
+        overallComment: step3Data.overallComment || '',
+        scenes: step3Data.scenes
       })
       setAnalysisMode('simple')
-      setSelectedFormat(stepData.selectedFormat || 'news')
-      setSelectedVariants(stepData.selectedVariants || {})
-      setEditedScenes(stepData.editedScenes || {})
-      setVariantScores(stepData.variantScores || {})
+      setSelectedFormat(step3Data.selectedFormat || 'news')
+      setSelectedVariants(step3Data.selectedVariants || {})
+      setEditedScenes(step3Data.editedScenes || {})
+      setVariantScores(step3Data.variantScores || {})
+    } else {
+      console.log('[Stage 3] ℹ️ No cached analysis found - user must click "Analyze Content"')
     }
     // ❌ REMOVED AUTOMATIC ANALYSIS TRIGGER!
     // User must click "Start Analysis" button if no cache exists
     // This prevents unnecessary API calls every time project is opened
-  }, [stepData])
+  }, [step3Data])
 
   const handleAnalyze = () => {
     // If analysis already exists (from cache), show cost warning

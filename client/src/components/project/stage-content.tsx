@@ -31,7 +31,7 @@ export function StageContent({ project, steps }: StageContentProps) {
       case 2:
         return <Stage2ContentInput project={project} stepData={getStepData(2)} />
       case 3:
-        return <Stage3AIAnalysis project={project} stepData={getStepData(2)} />
+        return <Stage3AIAnalysis project={project} stepData={getStepData(2)} step3Data={getStepData(3)} />
       case 4:
         return <Stage4VoiceGeneration project={project} stepData={getStepData(3)} />
       case 5:
