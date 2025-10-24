@@ -10,6 +10,7 @@ import {
   text,
   integer,
   boolean,
+  real,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -425,6 +426,11 @@ export const sceneRecommendations = pgTable("scene_recommendations", {
   
   reasoning: text("reasoning").notNull(),
   expectedImpact: varchar("expected_impact", { length: 100 }).notNull(), // "+18 points" | "+35% saves"
+  
+  // Enhanced recommendation tracking
+  sourceAgent: varchar("source_agent", { length: 20 }), // 'hook' | 'structure' | 'emotional' | 'cta' | 'general'
+  scoreDelta: integer("score_delta"), // Expected score boost (0-100)
+  confidence: real("confidence"), // AI confidence in recommendation (0-1)
   
   applied: boolean("applied").default(false).notNull(),
   appliedAt: timestamp("applied_at"),
