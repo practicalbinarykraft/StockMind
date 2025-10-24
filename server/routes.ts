@@ -2536,7 +2536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duration = Date.now() - startTime;
       console.log(`[Source Analysis] Completed in ${duration}ms - Score: ${analysisResult.overallScore}`);
 
-      res.json({
+      const responseData = {
         analysis: {
           score: analysisResult.overallScore,
           topics: topics.length > 0 ? topics : ['Общая тема'],
@@ -2558,7 +2558,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           analysisTime: duration,
           timestamp: new Date().toISOString(),
         },
-      });
+      };
+
+      // Cache analysis result in project_steps for future visits
+      try {
+        // Check if step 3 already exists
+        const existingSteps = await storage.getProjectSteps(id);
+        const existingStep3 = existingSteps.find(s => s.stepNumber === 3);
+        
+        const stepData = {
+          sourceAnalysis: responseData.analysis,
+          recommendedFormat: responseData.recommendedFormat,
+          sourceMetadata: responseData.sourceMetadata,
+          cachedAt: new Date().toISOString(),
+        };
+        
+        if (existingStep3) {
+          // Update existing step
+          await storage.updateProjectStep(existingStep3.id, {
+            data: stepData,
+            completedAt: null, // Not completed until script is generated
+          });
+          console.log('[Source Analysis] Updated cached result in project_steps');
+        } else {
+          // Create new step
+          await storage.createProjectStep({
+            projectId: id,
+            stepNumber: 3,
+            data: stepData,
+            completedAt: null, // Not completed until script is generated
+          });
+          console.log('[Source Analysis] Created cached result in project_steps');
+        }
+      } catch (cacheError) {
+        console.error('[Source Analysis] Failed to cache result:', cacheError);
+        // Continue anyway - caching failure shouldn't break the response
+      }
+
+      res.json(responseData);
     } catch (error: any) {
       console.error("Error in source analysis:", error);
       res.status(500).json({ 

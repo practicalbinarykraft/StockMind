@@ -297,7 +297,20 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   useEffect(() => {
     // CHECK CACHE FIRST! Don't call AI if we have cached data
     // step3Data contains cached analysis results from previous runs
-    if (step3Data?.advancedAnalysis) {
+    if (step3Data?.sourceAnalysis && step3Data?.recommendedFormat) {
+      // Load source analysis from cache (new format - from analyze-source endpoint)
+      console.log('[Stage 3] ✅ Loading source analysis from cache (step3Data.sourceAnalysis)')
+      
+      // Populate TanStack Query cache to prevent re-fetching
+      queryClient.setQueryData(['/api/projects', project.id, 'analyze-source'], {
+        analysis: step3Data.sourceAnalysis,
+        recommendedFormat: step3Data.recommendedFormat,
+        sourceMetadata: step3Data.sourceMetadata,
+        metadata: step3Data.metadata || {}
+      })
+      
+      setShouldAnalyze(true) // Mark as analyzed
+    } else if (step3Data?.advancedAnalysis) {
       // Load advanced analysis from cache
       console.log('[Stage 3] ✅ Loading advanced analysis from cache (step3Data)')
       setAdvancedAnalysis(step3Data.advancedAnalysis)
