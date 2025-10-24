@@ -258,7 +258,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const keys = await storage.getApiKeys(userId);
-      res.json(keys);
+      
+      // Return only safe fields (never send encryptedKey to client)
+      const safeKeys = keys.map(key => ({
+        id: key.id,
+        provider: key.provider,
+        last4: key.last4 || '****', // Fallback for legacy keys without last4
+        description: key.description,
+        isActive: key.isActive,
+        createdAt: key.createdAt,
+        updatedAt: key.updatedAt,
+      }));
+      
+      res.json(safeKeys);
     } catch (error) {
       console.error("Error fetching API keys:", error);
       res.status(500).json({ message: "Failed to fetch API keys" });
@@ -271,7 +283,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertApiKeySchema.parse(req.body);
       const apiKey = await storage.createApiKey(userId, validated);
-      res.json(apiKey);
+      
+      // Return safe fields only (never send encryptedKey to client)
+      const safeApiKey = {
+        id: apiKey.id,
+        provider: apiKey.provider,
+        last4: apiKey.last4 || '****',
+        description: apiKey.description,
+        isActive: apiKey.isActive,
+        createdAt: apiKey.createdAt,
+        updatedAt: apiKey.updatedAt,
+      };
+      
+      res.json(safeApiKey);
     } catch (error: any) {
       console.error("Error creating API key:", error);
       res.status(400).json({ message: error.message || "Failed to create API key" });

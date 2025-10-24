@@ -168,7 +168,10 @@ export class DatabaseStorage implements IStorage {
     const { key, ...rest } = data;
     const trimmedKey = key.trim(); // Remove whitespace
     
-    console.log(`[Storage] Creating API key for userId: ${userId}, provider: ${rest.provider}, isActive: ${rest.isActive ?? true}`);
+    // Extract last 4 characters for display (before encryption)
+    const last4 = trimmedKey.length >= 4 ? trimmedKey.slice(-4) : trimmedKey;
+    
+    console.log(`[Storage] Creating API key for userId: ${userId}, provider: ${rest.provider}, isActive: ${rest.isActive ?? true}, last4: ...${last4}`);
     
     const [apiKey] = await db
       .insert(apiKeys)
@@ -176,6 +179,7 @@ export class DatabaseStorage implements IStorage {
         ...rest,
         userId,
         encryptedKey: encryptApiKey(trimmedKey),
+        last4,
       })
       .returning();
     
