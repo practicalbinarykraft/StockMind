@@ -2587,6 +2587,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Sort recommendations by priority, score delta, and confidence
+      unappliedRecommendations.sort((a, b) => {
+        // Priority order: critical > high > medium > low
+        const priorityOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+        const aPriority = priorityOrder[a.priority] || 2;
+        const bPriority = priorityOrder[b.priority] || 2;
+        
+        if (aPriority !== bPriority) return bPriority - aPriority;
+        
+        // Then by score delta (higher first)
+        const aScore = a.scoreDelta || 0;
+        const bScore = b.scoreDelta || 0;
+        if (aScore !== bScore) return bScore - aScore;
+        
+        // Finally by confidence (higher first)
+        const aConf = a.confidence || 0.5;
+        const bConf = b.confidence || 0.5;
+        return bConf - aConf;
+      });
+      
       // Clone scenes and apply all recommendations
       const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
       const affectedSceneIds: number[] = [];
