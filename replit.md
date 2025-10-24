@@ -98,6 +98,47 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 
 **Impact**: Users get complete audit trail of all script changes, can visualize exactly what changed between versions, understand who/what made each modification, and confidently use Apply/Apply All operations without risk of race conditions. Production-ready version control system with non-destructive infinite undo and full change transparency.
 
+### Two-Mode Stage 3: Source Analysis Before Script Generation
+
+**Problem Solved**: Previously users selected a source (news article) but couldn't see it or its AI analysis before choosing a format. This led to blind format selection without understanding the content.
+
+**Solution Architecture** (`stage-3-ai-analysis.tsx`, new components, backend endpoint):
+
+**Frontend Components** (4 new files):
+- ✅ **SourceSummaryBar**: Displays source type, Score, language, word count, "Show article" button
+- ✅ **SourcePreviewModal**: Full article text display in scrollable dialog
+- ✅ **SourceAnalysisCard**: Shows AI-extracted topics, sentiment, keywords, risks
+- ✅ **RecommendedFormatBox**: Format recommendation with reasoning, expected impact (Retention/Saves %), apply/choose other buttons
+
+**Backend Intelligence** (`server/routes.ts`):
+- ✅ **POST /api/projects/:id/analyze-source**: Analyzes source via existing multi-agent AI system (scoreNewsAdvanced/scoreReelAdvanced/scoreCustomScriptAdvanced)
+- ✅ **Smart format recommendation logic**:
+  - News Score 80+ → News Update (retention +12%, saves +18%)
+  - News Score 60-80 → Explainer (retention +8%, saves +12%)
+  - News Score <60 → Hook & Story (retention +15%)
+  - Instagram strong hook → Reaction Video (retention +20%, saves +15%)
+  - Instagram weak hook → Tutorial (retention +10%, saves +20%)
+  - Custom content → Story Time (retention +10%)
+
+**Two-Mode UI Flow** (feature-flagged):
+1. **Mode 1 - Source Review** (when no script exists):
+   - Shows source summary with "Show article" button
+   - Analyzes source and displays AI insights
+   - Recommends format with evidence-based reasoning
+   - "Apply recommended" button generates script
+   - "Choose other" opens format selector modal
+2. **Mode 2 - Script Editor** (after script generation):
+   - Shows existing scene editor with recommendations
+   - Full version control and provenance tracking
+
+**Navigation Enhancement** (`project-sidebar.tsx`):
+- ✅ **Added Step 1 "Source Selection"**: Retroactively shown as completed when source chosen
+- ✅ **Updated progress**: Now "Stage X of 7" (was 6)
+
+**Feature Flag**: `VITE_STAGE3_MAGIC_UI=true` enables new flow (backward compatible, defaults to old behavior if disabled)
+
+**Impact**: Users now see source content and AI analysis BEFORE format selection, make informed decisions based on recommendations, and understand why a specific format suits their content. Fixes the broken UX flow where format selection happened blindly.
+
 ## External Dependencies
 - **Anthropic Claude**: AI content analysis, virality scoring, script analysis, multi-agent system.
 - **Apify**: `apify/instagram-reels-scraper` for Instagram Reels content extraction.
