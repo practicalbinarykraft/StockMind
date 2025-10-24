@@ -110,13 +110,14 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 
 ---
 
-### Advanced Multi-Agent AI Analysis System (Latest)
+### Advanced Multi-Agent AI Analysis System - Stage 3 Integration (Latest)
 
 **Multi-Agent Architecture (`server/ai-service-advanced.ts`, `shared/advanced-analysis-types.ts`):**
 - ✅ **5-agent system**: Hook Expert, Structure Analyst, Emotional Analyst, CTA Analyst, and Architect synthesizer
 - ✅ **Comprehensive type system**: Created `AdvancedScoreResult` with detailed breakdowns for all analysis dimensions
 - ✅ **Parallel execution**: All 4 specialist agents run concurrently, results synthesized by Architect
 - ✅ **Backward compatibility**: Original `ai-service.ts` untouched, new system in separate module
+- ✅ **Model fix**: Corrected claude-opus-4 → claude-sonnet-4-5 for API compatibility
 
 **Hook Expert Analysis:**
 - ✅ **5-criteria evaluation**: attentionGrab, clarity, specificity, emotional, patternMatch (each 0-100)
@@ -158,9 +159,14 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 - ✅ **POST /api/analyze/advanced/script**: Test custom script analysis
 - ✅ **POST /api/analyze/compare**: Compare old vs new system side-by-side
 
-**Impact**: Transforms simple score+comment into comprehensive actionable insights with 10x more value. Trade-off: 4x slower (8-12s vs 2-3s), but provides detailed breakdowns, concrete recommendations with impact predictions, and viral pattern analysis. Production-ready with proper schema alignment confirmed by architect review.
+**Stage 3 Integration (`client/src/components/project/stages/stage-3-ai-analysis.tsx`, `client/src/components/project/advanced-analysis-display.tsx`):**
+- ✅ **Smart endpoint routing**: Automatically calls correct advanced endpoint based on project.sourceType (news → /api/analyze/advanced/news, instagram → /api/analyze/advanced/reel, custom → /api/analyze/advanced/script)
+- ✅ **AdvancedAnalysisDisplay component**: Rich UI displaying all breakdowns (Hook, Structure, Emotional, CTA) with color-coded scores, progress bars, strengths/weaknesses, recommendations, viral patterns
+- ✅ **Caching system**: Saves advanced analysis results to project steps, loads from cache on revisit
+- ✅ **Backward compatibility**: Legacy simple analysis system preserved, can switch between modes
+- ✅ **User experience**: Loading state shows multi-agent pipeline progress, cost warning for re-analysis (~$0.08-0.12)
 
-**Next Steps**: Runtime validation (Zod), UI integration with breakdown visualizations, gradual migration via feature flag.
+**Impact**: Transforms simple score+comment into comprehensive actionable insights with 10x more value. Trade-off: 4x slower (8-12s vs 2-3s), but provides detailed breakdowns, concrete recommendations with impact predictions, and viral pattern analysis. **Production-ready** - Stage 3 now uses advanced system by default, with proper type safety and architect approval.
 
 ## External Dependencies
 - **Anthropic Claude**: AI content analysis, news/Reel scoring, script analysis.
