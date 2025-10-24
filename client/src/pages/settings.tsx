@@ -491,9 +491,14 @@ export default function Settings() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      const newReelsCount = data.newReelsCount ?? 0;
+      const viralReelsCount = data.viralReelsCount ?? 0;
+      const message = viralReelsCount > 0 
+        ? `Found ${newReelsCount} new Reels (${viralReelsCount} viral).`
+        : `Found ${newReelsCount} new Reels.`;
       toast({
         title: "Manual Check Complete",
-        description: `Found ${data.newReelsCount} new Reels (${data.viralReelsCount} viral).`,
+        description: message,
       })
     },
     onError: (error: Error) => {
