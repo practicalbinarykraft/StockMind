@@ -373,6 +373,79 @@ export type InsertProjectStep = z.infer<typeof insertProjectStepSchema>;
 export type ProjectStep = typeof projectSteps.$inferSelect;
 
 // ============================================================================
+// SCRIPT VERSIONS TABLE (Version history for scene editing)
+// ============================================================================
+
+export const scriptVersions = pgTable("script_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  
+  versionNumber: integer("version_number").notNull(),
+  createdBy: varchar("created_by", { length: 20 }).notNull(), // 'user' | 'ai' | 'system'
+  
+  fullScript: text("full_script").notNull(),
+  scenes: jsonb("scenes").notNull(), // Array of scene objects with id, start, end, text, label, etc.
+  
+  changes: jsonb("changes"), // Change metadata: { type, affectedScenes, description }
+  
+  analysisResult: jsonb("analysis_result"), // Cached AI analysis for this version
+  analysisScore: integer("analysis_score"), // Overall score 0-100
+  
+  isCurrent: boolean("is_current").default(false).notNull(),
+  parentVersionId: varchar("parent_version_id").references((): any => scriptVersions.id),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("script_versions_project_idx").on(table.projectId, table.versionNumber),
+  index("script_versions_current_idx").on(table.projectId, table.isCurrent),
+]);
+
+export const insertScriptVersionSchema = createInsertSchema(scriptVersions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertScriptVersion = z.infer<typeof insertScriptVersionSchema>;
+export type ScriptVersion = typeof scriptVersions.$inferSelect;
+
+// ============================================================================
+// SCENE RECOMMENDATIONS TABLE (AI-generated recommendations per scene)
+// ============================================================================
+
+export const sceneRecommendations = pgTable("scene_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scriptVersionId: varchar("script_version_id").notNull().references(() => scriptVersions.id, { onDelete: 'cascade' }),
+  sceneId: integer("scene_id").notNull(), // Scene number (1, 2, 3, 4)
+  
+  priority: varchar("priority", { length: 10 }).notNull(), // 'high' | 'medium' | 'low'
+  area: varchar("area", { length: 50 }).notNull(), // 'hook' | 'cta' | 'pacing' | 'emotional' | etc
+  
+  currentText: text("current_text").notNull(),
+  suggestedText: text("suggested_text").notNull(),
+  
+  reasoning: text("reasoning").notNull(),
+  expectedImpact: varchar("expected_impact", { length: 100 }).notNull(), // "+18 points" | "+35% saves"
+  
+  applied: boolean("applied").default(false).notNull(),
+  appliedAt: timestamp("applied_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("scene_recommendations_version_idx").on(table.scriptVersionId),
+  index("scene_recommendations_scene_idx").on(table.sceneId),
+]);
+
+export const insertSceneRecommendationSchema = createInsertSchema(sceneRecommendations).omit({
+  id: true,
+  applied: true,
+  appliedAt: true,
+  createdAt: true,
+});
+
+export type InsertSceneRecommendation = z.infer<typeof insertSceneRecommendationSchema>;
+export type SceneRecommendation = typeof sceneRecommendations.$inferSelect;
+
+// ============================================================================
 // RELATIONS
 // ============================================================================
 
@@ -418,11 +491,31 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [users.id],
   }),
   steps: many(projectSteps),
+  scriptVersions: many(scriptVersions),
 }));
 
 export const projectStepsRelations = relations(projectSteps, ({ one }) => ({
   project: one(projects, {
     fields: [projectSteps.projectId],
     references: [projects.id],
+  }),
+}));
+
+export const scriptVersionsRelations = relations(scriptVersions, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [scriptVersions.projectId],
+    references: [projects.id],
+  }),
+  recommendations: many(sceneRecommendations),
+  parent: one(scriptVersions, {
+    fields: [scriptVersions.parentVersionId],
+    references: [scriptVersions.id],
+  }),
+}));
+
+export const sceneRecommendationsRelations = relations(sceneRecommendations, ({ one }) => ({
+  scriptVersion: one(scriptVersions, {
+    fields: [sceneRecommendations.scriptVersionId],
+    references: [scriptVersions.id],
   }),
 }));

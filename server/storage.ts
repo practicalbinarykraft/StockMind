@@ -8,6 +8,8 @@ import {
   instagramItems,
   projects,
   projectSteps,
+  scriptVersions,
+  sceneRecommendations,
   type User,
   type UpsertUser,
   type ApiKey,
@@ -24,6 +26,10 @@ import {
   type InsertProject,
   type ProjectStep,
   type InsertProjectStep,
+  type ScriptVersion,
+  type InsertScriptVersion,
+  type SceneRecommendation,
+  type InsertSceneRecommendation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -128,6 +134,18 @@ export interface IStorage {
   getProjectSteps(projectId: string): Promise<ProjectStep[]>;
   createProjectStep(data: InsertProjectStep): Promise<ProjectStep>;
   updateProjectStep(id: string, data: Partial<ProjectStep>): Promise<ProjectStep | undefined>;
+
+  // Script Versions
+  getScriptVersions(projectId: string): Promise<ScriptVersion[]>;
+  getCurrentScriptVersion(projectId: string): Promise<ScriptVersion | undefined>;
+  createScriptVersion(data: InsertScriptVersion): Promise<ScriptVersion>;
+  updateScriptVersionCurrent(projectId: string, versionId: string): Promise<void>;
+
+  // Scene Recommendations
+  getSceneRecommendations(scriptVersionId: string): Promise<SceneRecommendation[]>;
+  createSceneRecommendations(data: InsertSceneRecommendation[]): Promise<SceneRecommendation[]>;
+  updateSceneRecommendation(id: string, data: Partial<SceneRecommendation>): Promise<SceneRecommendation | undefined>;
+  markRecommendationApplied(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -731,6 +749,86 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projectSteps.id, id))
       .returning();
     return step;
+  }
+
+  // Script Versions
+  async getScriptVersions(projectId: string): Promise<ScriptVersion[]> {
+    return await db
+      .select()
+      .from(scriptVersions)
+      .where(eq(scriptVersions.projectId, projectId))
+      .orderBy(desc(scriptVersions.versionNumber));
+  }
+
+  async getCurrentScriptVersion(projectId: string): Promise<ScriptVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(scriptVersions)
+      .where(and(
+        eq(scriptVersions.projectId, projectId),
+        eq(scriptVersions.isCurrent, true)
+      ))
+      .limit(1);
+    return version;
+  }
+
+  async createScriptVersion(data: InsertScriptVersion): Promise<ScriptVersion> {
+    const [version] = await db
+      .insert(scriptVersions)
+      .values(data)
+      .returning();
+    return version;
+  }
+
+  async updateScriptVersionCurrent(projectId: string, versionId: string): Promise<void> {
+    // First, unmark all versions as current
+    await db
+      .update(scriptVersions)
+      .set({ isCurrent: false })
+      .where(eq(scriptVersions.projectId, projectId));
+    
+    // Then mark the specified version as current
+    await db
+      .update(scriptVersions)
+      .set({ isCurrent: true })
+      .where(eq(scriptVersions.id, versionId));
+  }
+
+  // Scene Recommendations
+  async getSceneRecommendations(scriptVersionId: string): Promise<SceneRecommendation[]> {
+    return await db
+      .select()
+      .from(sceneRecommendations)
+      .where(eq(sceneRecommendations.scriptVersionId, scriptVersionId))
+      .orderBy(sceneRecommendations.sceneId);
+  }
+
+  async createSceneRecommendations(data: InsertSceneRecommendation[]): Promise<SceneRecommendation[]> {
+    if (data.length === 0) return [];
+    
+    return await db
+      .insert(sceneRecommendations)
+      .values(data)
+      .returning();
+  }
+
+  async updateSceneRecommendation(
+    id: string,
+    data: Partial<SceneRecommendation>
+  ): Promise<SceneRecommendation | undefined> {
+    const [recommendation] = await db
+      .update(sceneRecommendations)
+      .set(data)
+      .where(eq(sceneRecommendations.id, id))
+      .returning();
+    return recommendation;
+  }
+
+  async markRecommendationApplied(id: string): Promise<void> {
+    await db
+      .update(sceneRecommendations)
+      .set({ applied: true, appliedAt: new Date() })
+      .where(eq(sceneRecommendations.id, id));
   }
 }
 
