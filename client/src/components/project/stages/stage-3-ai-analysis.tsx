@@ -110,78 +110,63 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   // - Instagram: stepData.transcription
   const content = stepData?.content || stepData?.text || stepData?.transcription || ""
 
-  // Source data extraction for source review mode
-  const sourceData = {
-    type: project.sourceType as 'news' | 'instagram' | 'custom',
-    score: stepData?.aiScore,
-    language: 'ru',
-    wordCount: content.split(/\s+/).filter(Boolean).length,
-    title: stepData?.title || project.title || 'Untitled',
-    content: content
-  }
+  // State for manual analysis trigger
+  const [shouldAnalyze, setShouldAnalyze] = useState(false)
 
-  // Query for source analysis (only in source review mode)
+  // Query for source analysis (only in source review mode - MANUAL TRIGGER)
   const sourceAnalysisQuery = useQuery({
     queryKey: ['/api/projects', project.id, 'analyze-source'],
     queryFn: async () => {
       const res = await apiRequest('POST', `/api/projects/${project.id}/analyze-source`, {})
       return await res.json()
     },
-    enabled: STAGE3_MAGIC_UI && !hasScript,
+    enabled: STAGE3_MAGIC_UI && !hasScript && shouldAnalyze,
     staleTime: Infinity
   })
 
-  // Generate script mutation (for source review mode)
+  // Manual trigger for source analysis
+  const handleStartAnalysis = () => {
+    setShouldAnalyze(true)
+  }
+
+  // Source data extraction for source review mode
+  const sourceData = {
+    type: project.sourceType as 'news' | 'instagram' | 'custom',
+    score: stepData?.aiScore,
+    language: sourceAnalysisQuery.data?.sourceMetadata?.language || 'unknown',
+    wordCount: content.split(/\s+/).filter(Boolean).length,
+    title: stepData?.title || project.title || 'Untitled',
+    content: content
+  }
+
+  // Generate script mutation (for source review mode) - calls new unified endpoint
   const generateMutation = useMutation({
     mutationFn: async (formatId: string) => {
-      const endpoint = getAdvancedEndpoint()
-      const body = {
-        ...getAdvancedRequestBody(),
-        format: formatId
-      }
-      
-      const res = await apiRequest("POST", endpoint, body)
+      const res = await apiRequest("POST", `/api/projects/${project.id}/generate-script`, {
+        formatId,
+        targetLocale: 'ru'
+      })
       return await res.json()
     },
-    onSuccess: (data) => {
-      setAdvancedAnalysis(data)
-      setAnalysisTime(data.metadata?.analysisTime)
-      
-      // Save to cache
-      apiRequest("POST", `/api/projects/${project.id}/steps`, {
-        stepNumber: 3,
-        data: {
-          analysisMode: 'advanced',
-          advancedAnalysis: data,
-          analysisTime: data.metadata?.analysisTime,
-          selectedFormat
-        }
-      }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
-      }).catch(err => {
-        console.error("Failed to cache advanced analysis:", err)
-      })
-
-      // Create initial script version if scenes exist
-      if (data.scenes && data.scenes.length > 0) {
-        apiRequest("POST", `/api/projects/${project.id}/create-initial-version`, {
-          scenes: data.scenes,
-          analysisResult: data,
-          analysisScore: data.overallScore
-        }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
-          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
-          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
-        }).catch(err => {
-          console.error("Failed to create initial version:", err)
-        })
-      }
+    onSuccess: async (data) => {
+      // The backend already created the script version, just invalidate queries
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-versions"] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
 
       toast({
-        title: "Script Generated",
-        description: "AI has created your script based on the recommended format",
+        title: "Скрипт создан",
+        description: `AI создал скрипт из ${data.version.scenes.length} сцен`,
       })
     },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка генерации",
+        description: error.message || "Не удалось создать скрипт",
+        variant: "destructive"
+      })
+    }
   })
 
   // Handle generate script (for source review mode)
@@ -548,6 +533,32 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
 
         <div className="space-y-4">
           <SourceSummaryBar source={sourceData} />
+          
+          {/* Manual trigger button - show if analysis not started */}
+          {!shouldAnalyze && !sourceAnalysisQuery.data && !sourceAnalysisQuery.isLoading && (
+            <Card>
+              <CardContent className="py-8">
+                <div className="flex flex-col items-center gap-4">
+                  <Sparkles className="h-12 w-12 text-primary" />
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold">Готовы к анализу?</h3>
+                    <p className="text-sm text-muted-foreground max-w-md">
+                      AI проанализирует исходник и порекомендует оптимальный формат для создания вирусного видео
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={handleStartAnalysis}
+                    size="lg"
+                    className="gap-2"
+                    data-testid="button-start-analysis"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Начать анализ
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {sourceAnalysisQuery.isLoading && (
             <Card>

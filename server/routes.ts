@@ -2292,6 +2292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const topics: string[] = [];
       const keywords: string[] = [];
       const risks: string[] = [];
+      const strengths: string[] = [];
 
       // Extract topics from different breakdowns
       if (breakdown.structure?.points) {
@@ -2306,12 +2307,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const words = content.split(/\s+/).filter((w: string) => w.length > 4);
       keywords.push(...words.slice(0, 5));
 
+      // Detect content language (simple heuristic)
+      const cyrillicRatio = (content.match(/[а-яА-ЯёЁ]/g) || []).length / content.length;
+      const detectedLanguage = cyrillicRatio > 0.3 ? 'ru' : 'en';
+
+      // Extract strengths
+      if (analysisResult.overallScore >= 70) {
+        strengths.push('Высокий потенциал виральности');
+      }
+      if (breakdown.hook?.strength === 'strong') {
+        strengths.push('Сильный захватывающий хук');
+      }
+      if (breakdown.emotional?.engagement === 'high') {
+        strengths.push('Высокая эмоциональная вовлеченность');
+      }
+      if (breakdown.structure?.clarity === 'excellent') {
+        strengths.push('Четкая структура повествования');
+      }
+      if (breakdown.cta?.effectiveness === 'high') {
+        strengths.push('Эффективный призыв к действию');
+      }
+      if (strengths.length === 0 && analysisResult.overallScore >= 50) {
+        strengths.push('Приемлемое качество для работы');
+      }
+
       // Extract risks
       if (breakdown.structure?.weakPoints) {
         risks.push(...breakdown.structure.weakPoints);
       }
       if (analysisResult.overallScore < 50) {
-        risks.push('Низкий общий балл - может не зайти аудитории');
+        risks.push('Низкий общий балл - требуется доработка');
+      }
+      if (breakdown.hook?.strength === 'weak') {
+        risks.push('Слабый хук - может не привлечь внимание');
       }
 
       // Recommend format based on source type and score
@@ -2322,20 +2350,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const duration = Date.now() - startTime;
-      console.log(`[Source Analysis] Completed in ${duration}ms`);
+      console.log(`[Source Analysis] Completed in ${duration}ms - Score: ${analysisResult.overallScore}`);
 
       res.json({
         analysis: {
+          score: analysisResult.overallScore,
           topics: topics.length > 0 ? topics : ['Общая тема'],
           sentiment: breakdown.emotional?.tone || 'Neutral',
           keywords: keywords.length > 0 ? keywords : undefined,
           risks: risks.length > 0 ? risks : undefined,
+          strengths: strengths.length > 0 ? strengths : undefined,
         },
         recommendedFormat,
         sourceMetadata: {
           type: project.sourceType,
           score: analysisResult.overallScore,
-          language: 'ru',
+          language: detectedLanguage,
           wordCount: content.split(/\s+/).length,
           title: sourceData.title || sourceData.caption || 'Untitled',
           content: content,
@@ -2359,28 +2389,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     sourceType: string,
     score: number,
     breakdown: any
-  ): { formatId: string; name: string; reason: string; expectedImpact: { retention?: string; saves?: string } } {
+  ): { 
+    formatId: string; 
+    name: string; 
+    reason: string; 
+    whyBetter?: string;
+    expectedImpact: { retention?: string; saves?: string } 
+  } {
     // For news sources
     if (sourceType === 'news') {
       if (score >= 80) {
         return {
           formatId: 'news_update',
           name: 'News Update',
-          reason: 'Высокая новостная ценность и актуальность материала',
+          reason: 'Высокая новостная ценность и актуальность материала делают его идеальным для оперативного новостного формата',
+          whyBetter: 'Новостной формат на 18% эффективнее для актуальных тем и позволяет максимально использовать временной фактор',
           expectedImpact: { retention: '+12%', saves: '+18%' }
         };
       } else if (score >= 60) {
         return {
           formatId: 'explainer',
           name: 'Explainer',
-          reason: 'Хорошее качество контента, подходит для образовательного формата',
+          reason: 'Хорошее качество контента, подходит для образовательного формата с детальным разбором',
+          whyBetter: 'Explainer формат помогает раскрыть сложные темы и удерживает внимание на 8-12% дольше',
           expectedImpact: { retention: '+8%', saves: '+12%' }
         };
       } else {
         return {
           formatId: 'hook_and_story',
           name: 'Hook & Story',
-          reason: 'Контент требует сильного хука для привлечения внимания',
+          reason: 'Контент требует сильного хука для привлечения внимания, история поможет удержать зрителя',
+          whyBetter: 'Формат Hook & Story компенсирует средний score сильным началом и повышает retention на 15%',
           expectedImpact: { retention: '+15%' }
         };
       }
@@ -2392,14 +2431,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return {
           formatId: 'reaction_video',
           name: 'Reaction Video',
-          reason: 'Сильный хук подходит для реакционного формата',
+          reason: 'Сильный хук и визуальный контент идеально подходят для реакционного формата',
+          whyBetter: 'Reaction формат использует существующую вирусность и добавляет личную интерпретацию, увеличивая engagement на 20%',
           expectedImpact: { retention: '+20%', saves: '+15%' }
         };
       } else {
         return {
           formatId: 'tutorial',
           name: 'Tutorial',
-          reason: 'Инструкционный формат усилит восприятие контента',
+          reason: 'Инструкционный формат добавит структуру и практическую ценность контенту',
+          whyBetter: 'Tutorial формат превращает развлечение в полезный контент, повышая saves на 20% и долгосрочную ценность',
           expectedImpact: { retention: '+10%', saves: '+20%' }
         };
       }
@@ -2409,10 +2450,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return {
       formatId: 'story_time',
       name: 'Story Time',
-      reason: 'Нарративный формат подходит для пользовательского контента',
+      reason: 'Нарративный формат подходит для пользовательского контента и создает эмоциональную связь',
+      whyBetter: 'Story Time формат универсален и позволяет адаптировать любой контент под личную историю',
       expectedImpact: { retention: '+10%' }
     };
   }
+
+  // Generate script from source with specified format
+  app.post("/api/projects/:id/generate-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { id } = req.params;
+      const { formatId, targetLocale = 'ru' } = req.body;
+      
+      if (!formatId) {
+        return res.status(400).json({ message: "formatId is required" });
+      }
+
+      // Get project
+      const project = await storage.getProject(id, userId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Check if script already exists
+      const existingVersion = await storage.getCurrentScriptVersion(id);
+      if (existingVersion) {
+        return res.json({
+          success: true,
+          version: existingVersion,
+          message: 'Script already exists',
+        });
+      }
+
+      // Get Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Anthropic API key not configured. Please add it in Settings." 
+        });
+      }
+
+      console.log(`[Generate Script] Generating script for ${project.sourceType} with format ${formatId}...`);
+      const startTime = Date.now();
+
+      let analysisResult: any;
+      const sourceData: any = project.sourceData || {};
+
+      // Run appropriate advanced analysis based on source type
+      if (project.sourceType === 'news') {
+        const title = sourceData.title || '';
+        const content = sourceData.content || '';
+        
+        if (!title || !content) {
+          return res.status(400).json({ message: "News source missing title or content" });
+        }
+
+        analysisResult = await scoreNewsAdvanced(apiKey.encryptedKey, title, content);
+      } else if (project.sourceType === 'instagram') {
+        const transcription = sourceData.transcription || '';
+        const caption = sourceData.caption || null;
+        
+        if (!transcription) {
+          return res.status(400).json({ message: "Instagram source missing transcription" });
+        }
+
+        analysisResult = await scoreReelAdvanced(apiKey.encryptedKey, transcription, caption);
+      } else if (project.sourceType === 'custom') {
+        const text = sourceData.text || '';
+        
+        if (!text) {
+          return res.status(400).json({ message: "Custom source missing text" });
+        }
+
+        analysisResult = await scoreCustomScriptAdvanced(apiKey.encryptedKey, text, formatId);
+      } else {
+        return res.status(400).json({ message: "Unsupported source type" });
+      }
+
+      if (!analysisResult.scenes || analysisResult.scenes.length === 0) {
+        return res.status(500).json({ 
+          message: "AI analysis did not generate scenes" 
+        });
+      }
+
+      // Create initial script version
+      const newVersion = await createNewScriptVersion({
+        projectId: id,
+        scenes: analysisResult.scenes,
+        createdBy: 'system',
+        changes: {
+          type: 'initial',
+          description: `Initial version from ${formatId} format`,
+        },
+        analysisResult,
+        analysisScore: analysisResult.overallScore,
+        provenance: {
+          source: 'ai_recommendation',
+          formatId: formatId,
+          targetLocale: targetLocale,
+          userId: userId,
+          ts: new Date().toISOString(),
+        },
+        userId: userId,
+      });
+
+      // Extract and create recommendations
+      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, analysisResult.scenes);
+      
+      if (recommendationsData.length > 0) {
+        const recommendations = recommendationsData.map(rec => ({
+          ...rec,
+          scriptVersionId: newVersion.id,
+        }));
+        
+        await storage.createSceneRecommendations(recommendations);
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`[Generate Script] Completed in ${duration}ms`);
+
+      res.json({
+        success: true,
+        version: newVersion,
+        analysisResult,
+        recommendationsCount: recommendationsData.length,
+        metadata: {
+          formatId,
+          targetLocale,
+          analysisTime: duration,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error("Error generating script:", error);
+      res.status(500).json({ 
+        message: error.message || "Failed to generate script",
+        error: error.toString()
+      });
+    }
+  });
 
   // ============================================================================
   // HELPER FUNCTIONS

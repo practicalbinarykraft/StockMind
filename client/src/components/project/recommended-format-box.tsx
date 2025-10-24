@@ -7,6 +7,7 @@ interface FormatRecommendation {
   formatId: string;
   name: string;
   reason: string;
+  whyBetter?: string;
   expectedImpact?: {
     retention?: string;
     saves?: string;
@@ -59,6 +60,15 @@ export function RecommendedFormatBox({
           <p className="text-sm text-muted-foreground mb-2">
             {recommendation.reason}
           </p>
+
+          {recommendation.whyBetter && (
+            <div className="bg-primary/10 border border-primary/20 rounded-md p-2.5 mb-2 flex gap-2">
+              <Lightbulb className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-xs font-medium text-primary">
+                {recommendation.whyBetter}
+              </p>
+            </div>
+          )}
 
           {recommendation.expectedImpact && 
            (recommendation.expectedImpact.retention || recommendation.expectedImpact.saves) && (
