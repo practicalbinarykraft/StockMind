@@ -43,6 +43,34 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 
 ## Recent Changes (October 2025)
 
+### Security & Reliability Overhaul - Critical Production Fixes
+
+**Authentication & Authorization (`server/routes.ts`):**
+- ✅ **getUserId() utility**: Unified authentication - replaced 50+ instances of `req.user.claims.sub` with centralized `getUserId(req)` helper (supports both `req.user.id` and `req.user.claims.sub`)
+- ✅ **Project ownership verification**: Added cross-tenant access protection to ALL project routes using `storage.getProjectById()`:
+  - `/api/projects/:id/steps` (GET & POST) - prevents unauthorized step access
+  - `/api/projects/:id/broll/generate-prompt` - verifies project ownership before AI prompts
+  - `/api/projects/:id/broll/generate` - validates ownership before video generation
+  - `/api/projects/:id/broll/status/:taskId` - prevents status checks for other users' projects
+- ✅ **403 Forbidden responses**: Proper HTTP status codes for authorization failures (not 404 or 500)
+
+**B-Roll Generation Improvements (`server/routes.ts`, `server/idempotency-utils.ts`):**
+- ✅ **Idempotency protection**: Added `generateIdempotencyKey()` using crypto.createHash('sha256') based on projectId, sceneId, prompt, model, aspectRatio
+- ✅ **Anti-duplicate safeguard**: Prevents duplicate video generation requests to Kie.ai API
+- ✅ **Enhanced error handling**: Differentiated 404 (resource not found) vs 500 (server error) from Kie.ai, proper statusCode/apiMessage propagation
+
+**HeyGen Integration Fixes (`server/routes.ts`):**
+- ✅ **Audio/Voice validation**: Added XOR validation ensuring either `audioUrl` OR `voiceId` is provided (not both, not neither) - prevents "voice_id required" API errors
+- ✅ **Better error messages**: Clear validation feedback before API calls to prevent wasted credits
+
+**Storage Layer Enhancements (`server/storage.ts`):**
+- ✅ **getProjectById() method**: New method returning projects without userId filtering (used for ownership verification in routes)
+- ✅ **Interface consistency**: Added to both IStorage interface and DatabaseStorage implementation
+
+**Impact**: Eliminates critical cross-tenant security vulnerabilities, prevents duplicate API charges, improves error handling, and strengthens data integrity.
+
+---
+
 ### Apify Service Refactoring - Production Fixes
 **Critical bug fixes in `server/apify-service.ts`:**
 - ✅ **Actor ID corrected**: Fixed from 'instagram-reel-scraper' to 'apify/instagram-reels-scraper' (added const APIFY_ACTOR_ID)
