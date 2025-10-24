@@ -2228,6 +2228,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Analyze project source and recommend format
+  app.post("/api/projects/:id/analyze-source", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { id } = req.params;
+      
+      // Get project
+      const project = await storage.getProject(id, userId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Anthropic API key not configured. Please add it in Settings." 
+        });
+      }
+
+      console.log(`[Source Analysis] Analyzing ${project.sourceType} source...`);
+      const startTime = Date.now();
+
+      let analysisResult: any;
+      let sourceData = project.sourceData || {};
+
+      // Run appropriate analysis based on source type
+      if (project.sourceType === 'news') {
+        const title = sourceData.title || '';
+        const content = sourceData.content || '';
+        
+        if (!title || !content) {
+          return res.status(400).json({ message: "News source missing title or content" });
+        }
+
+        analysisResult = await scoreNewsAdvanced(apiKey.encryptedKey, title, content);
+      } else if (project.sourceType === 'instagram') {
+        const transcription = sourceData.transcription || '';
+        const caption = sourceData.caption || null;
+        
+        if (!transcription) {
+          return res.status(400).json({ message: "Instagram source missing transcription" });
+        }
+
+        analysisResult = await scoreReelAdvanced(apiKey.encryptedKey, transcription, caption);
+      } else if (project.sourceType === 'custom') {
+        const text = sourceData.text || '';
+        
+        if (!text) {
+          return res.status(400).json({ message: "Custom source missing text" });
+        }
+
+        analysisResult = await scoreCustomScriptAdvanced(apiKey.encryptedKey, text, 'short-form');
+      } else {
+        return res.status(400).json({ message: "Unsupported source type" });
+      }
+
+      // Extract metadata from analysis
+      const breakdown = analysisResult.breakdown || {};
+      const topics: string[] = [];
+      const keywords: string[] = [];
+      const risks: string[] = [];
+
+      // Extract topics from different breakdowns
+      if (breakdown.structure?.points) {
+        topics.push(...breakdown.structure.points.slice(0, 3));
+      }
+      if (breakdown.hook?.strength === 'strong') {
+        topics.push('Сильный хук');
+      }
+
+      // Extract keywords from content
+      const content = sourceData.content || sourceData.text || sourceData.transcription || '';
+      const words = content.split(/\s+/).filter((w: string) => w.length > 4);
+      keywords.push(...words.slice(0, 5));
+
+      // Extract risks
+      if (breakdown.structure?.weakPoints) {
+        risks.push(...breakdown.structure.weakPoints);
+      }
+      if (analysisResult.overallScore < 50) {
+        risks.push('Низкий общий балл - может не зайти аудитории');
+      }
+
+      // Recommend format based on source type and score
+      const recommendedFormat = getRecommendedFormat(
+        project.sourceType,
+        analysisResult.overallScore,
+        breakdown
+      );
+
+      const duration = Date.now() - startTime;
+      console.log(`[Source Analysis] Completed in ${duration}ms`);
+
+      res.json({
+        analysis: {
+          topics: topics.length > 0 ? topics : ['Общая тема'],
+          sentiment: breakdown.emotional?.tone || 'Neutral',
+          keywords: keywords.length > 0 ? keywords : undefined,
+          risks: risks.length > 0 ? risks : undefined,
+        },
+        recommendedFormat,
+        sourceMetadata: {
+          type: project.sourceType,
+          score: analysisResult.overallScore,
+          language: 'ru',
+          wordCount: content.split(/\s+/).length,
+          title: sourceData.title || sourceData.caption || 'Untitled',
+          content: content,
+        },
+        metadata: {
+          analysisTime: duration,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error("Error in source analysis:", error);
+      res.status(500).json({ 
+        message: error.message || "Failed to analyze source",
+        error: error.toString()
+      });
+    }
+  });
+
+  // Helper to recommend format based on source analysis
+  function getRecommendedFormat(
+    sourceType: string,
+    score: number,
+    breakdown: any
+  ): { formatId: string; name: string; reason: string; expectedImpact: { retention?: string; saves?: string } } {
+    // For news sources
+    if (sourceType === 'news') {
+      if (score >= 80) {
+        return {
+          formatId: 'news_update',
+          name: 'News Update',
+          reason: 'Высокая новостная ценность и актуальность материала',
+          expectedImpact: { retention: '+12%', saves: '+18%' }
+        };
+      } else if (score >= 60) {
+        return {
+          formatId: 'explainer',
+          name: 'Explainer',
+          reason: 'Хорошее качество контента, подходит для образовательного формата',
+          expectedImpact: { retention: '+8%', saves: '+12%' }
+        };
+      } else {
+        return {
+          formatId: 'hook_and_story',
+          name: 'Hook & Story',
+          reason: 'Контент требует сильного хука для привлечения внимания',
+          expectedImpact: { retention: '+15%' }
+        };
+      }
+    }
+
+    // For Instagram sources
+    if (sourceType === 'instagram') {
+      if (breakdown.hook?.strength === 'strong') {
+        return {
+          formatId: 'reaction_video',
+          name: 'Reaction Video',
+          reason: 'Сильный хук подходит для реакционного формата',
+          expectedImpact: { retention: '+20%', saves: '+15%' }
+        };
+      } else {
+        return {
+          formatId: 'tutorial',
+          name: 'Tutorial',
+          reason: 'Инструкционный формат усилит восприятие контента',
+          expectedImpact: { retention: '+10%', saves: '+20%' }
+        };
+      }
+    }
+
+    // Default for custom sources
+    return {
+      formatId: 'story_time',
+      name: 'Story Time',
+      reason: 'Нарративный формат подходит для пользовательского контента',
+      expectedImpact: { retention: '+10%' }
+    };
+  }
+
   // ============================================================================
   // HELPER FUNCTIONS
   // ============================================================================
