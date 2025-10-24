@@ -1,0 +1,131 @@
+беру Вариант 1 — доводим «магический» редактор до продакшена сейчас. Ниже — короткий, решительный чек-лист с минимальными патчами.
+
+Что делаем прямо сейчас (1–2 часа)
+
+1) Схема: provenance + diff + быстрые индексы
+
+Миграция (SQL):
+
+-- script_versions: provenance + diff + scores индекс
+ALTER TABLE script_versions
+  ADD COLUMN IF NOT EXISTS provenance JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS diff JSONB DEFAULT '[]'::jsonb;
+
+-- единственная current-версия на проект
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_script_current
+ON script_versions(project_id) WHERE is_current = true;
+
+-- ускоряем выборки истории
+CREATE INDEX IF NOT EXISTS idx_script_versions_proj_desc
+  ON script_versions(project_id, version_number DESC);
+
+-- рекомендации: быстрый Apply All
+CREATE INDEX IF NOT EXISTS idx_scene_recs_version_applied
+  ON scene_recommendations(script_version_id, applied);
+
+2) Бэкенд: заполняем provenance и diff в одном месте
+
+Хелпер создания версии (ваш createNewScriptVersion) — дополним:
+
+type Provenance = { source: 'ai_recommendation'|'manual_edit'|'bulk_apply'|'revert'; agent?: string; userId?: string; ts: string; };
+type SceneDiff = { sceneId: number; before: string; after: string };
+
+async function createNewScriptVersion({
+  projectId, scenes, createdBy, changes, parentVersionId, provenance, diff, scores
+}: {
+  projectId: string;
+  scenes: any[];
+  createdBy: 'ai'|'user'|'system';
+  changes: any;
+  parentVersionId?: string;
+  provenance: Provenance;
+  diff: SceneDiff[];              // ← передаём рассчитанный список изменений
+  scores?: Record<string, number>; // overall/hook/retention/cta (опц.)
+}) {
+  // ... nextVersion, fullScript как раньше
+
+  await db.tx(async (tx) => {
+    await tx.query(`UPDATE script_versions SET is_current=false WHERE project_id=$1 AND is_current=true`, [projectId]);
+
+    const inserted = await tx.query(
+      `INSERT INTO script_versions
+       (project_id, version_number, full_script, scenes, changes, created_by, is_current, parent_version_id, provenance, diff, scores)
+       VALUES ($1,$2,$3,$4,$5,$6,true,$7,$8,$9,$10)
+       RETURNING *`,
+      [projectId, nextVersion, fullScript, scenes, changes, createdBy, parentVersionId ?? null, provenance, JSON.stringify(diff||[]), JSON.stringify(scores||{})]
+    );
+
+    return inserted.rows[0];
+  });
+}
+
+Где формируем diff:
+	•	В apply-scene-recommendation, apply-all-recommendations, edit-scene, revert-to-version перед вызовом createNewScriptVersion соберите список:
+
+const diffs: SceneDiff[] = changedScenes.map(s => ({
+  sceneId: s.id,
+  before: beforeMap[s.id],
+  after:  afterMap[s.id],
+}));
+
+Provenance заполняем:
+
+const prov: Provenance = {
+  source: 'bulk_apply',  // либо 'ai_recommendation' | 'manual_edit' | 'revert'
+  agent: 'architect',    // опционально: имя агрегатора/агента
+  userId: req.user.id,   // для manual/revert
+  ts: new Date().toISOString(),
+};
+
+Apply-All обязательно в транзакции + сортировка (как обсуждали):
+
+const sorted = recs.sort(sortRecs); // priority → scoreDelta → confidence → sceneId
+await db.tx(async (tx) => {
+  // SELECT ... FOR UPDATE (unapplied)
+  // применяем в копии сцен, считаем diff
+  // создаём новую версию через createNewScriptVersion(..)
+  // UPDATE scene_recommendations SET applied=true ...
+});
+
+3) UI: History split-view + diff-подсветка
+
+API уже отдаёт versions[].diff и versions[].scores → используем.
+	•	В History Modal справа показываем две колонки: «Было» | «Стало».
+	•	Для выбранной версии берём diff[] и выводим сценами:
+	•	сверху бейджи score-breakdown (если scores есть),
+	•	для каждого diff — два текстовых блока с подсветкой различий.
+	•	Подсветку слов сделайте через diff-match-patch (лёгкая утилита):
+
+import { diff_match_patch, DIFF_DELETE, DIFF_INSERT } from 'diff-match-patch';
+
+function renderDiff(before: string, after: string) {
+  const dmp = new diff_match_patch();
+  const diffs = dmp.diff_main(before, after);
+  dmp.diff_cleanupSemantic(diffs);
+  return diffs.map(([op, text], i) => {
+    if (op === DIFF_INSERT)  return <span key={i} className="bg-green-200">{text}</span>;
+    if (op === DIFF_DELETE)  return <span key={i} className="bg-red-200 line-through">{text}</span>;
+    return <span key={i}>{text}</span>;
+  });
+}
+
+	•	В списке версий рядом с номером версии — мини-бейдж: +Δscore (если рассчитаете), и тип изменения (AI/manual/bulk/revert).
+	•	В сцен-картах оставьте нынешние бейджи sourceAgent, scoreDelta, confidence.
+
+4) Re-analyze: дебаунс и флаг «грязности»
+	•	На сервере храните last_analysis_at; если < N минут — 429.
+	•	В UI показывайте кнопку «Пересчитать» только если currentVersion.changes.type==='manual_edit' или есть неприменённые рекомендации или есть dirty_since_analysis=true.
+
+5) Защита от гонок
+	•	Кнопки «Применить» и «Применить все» — с лок-флагом busy и отключением до ответа.
+	•	На бэке — транзакции + SELECT ... FOR UPDATE по рекомендациям.
+
+⸻
+
+Что получится в итоге
+	•	История версий с осмысленным diff (было/стало), источником изменений (provenance), и мини-метриками.
+	•	«Apply All» надёжно и детерминированно применяет самое ценное в первую очередь.
+	•	Пользователь видит что именно поменялось и зачем, а не «чёрный ящик».
+	•	Готовая база под будущие инсайты/ML (scores, provenance, diff уже есть).
+
+Хочешь — скину точные патчи под твои файлы (schema, routes, SceneEditor/HistoryModal) одной простынёй, чтобы вставить без поиска.
