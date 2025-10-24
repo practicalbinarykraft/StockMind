@@ -20,9 +20,20 @@ export interface SceneAnalysis {
   variants: string[];
 }
 
+export interface SceneRecommendation {
+  sceneNumber: number;
+  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'general';
+  priority: 'high' | 'medium' | 'low';
+  current: string;
+  suggested: string;
+  reasoning: string;
+  expectedImpact: string;
+}
+
 export interface ScriptAnalysis {
   format: string;
   scenes: SceneAnalysis[];
+  recommendations?: SceneRecommendation[];
   overallScore: number;
   overallComment: string;
 }
@@ -204,14 +215,29 @@ export async function analyzeScript(
 ): Promise<ScriptAnalysis> {
   const anthropic = new Anthropic({ apiKey });
 
-  const prompt = `You are a professional video script analyzer. Analyze this content for ${format} format video.
+  const prompt = `You are a professional video script analyzer with a team of AI agents (Hook Expert, Structure Analyst, Emotional Analyst, CTA Expert). Analyze this content for ${format} format video.
 
 Content: "${content}"
 
-Break it down into 3-5 compelling scenes for short-form video. For each scene:
+Task 1: Break it down into 3-5 compelling scenes for short-form video. For each scene:
 1. Write the scene text (compelling, punchy, engaging)
 2. Score its viral potential (0-100)
 3. Generate 3 alternative rewrite variants
+
+Task 2: As a multi-agent team, provide scene-by-scene improvement recommendations:
+- Hook Expert: Analyze attention grab, first 3 seconds, pattern interrupts
+- Structure Analyst: Analyze pacing, transitions, information density
+- Emotional Analyst: Analyze emotional resonance, relatability, impact
+- CTA Expert: Analyze ending, call-to-action, shareability
+
+For each recommendation include:
+- sceneNumber: which scene this applies to (1, 2, 3, etc.)
+- area: "hook" | "structure" | "emotional" | "cta"
+- priority: "high" | "medium" | "low"  
+- current: current text from the scene
+- suggested: improved version
+- reasoning: why this change improves virality
+- expectedImpact: expected score improvement (e.g., "+15 points")
 
 Respond in JSON format:
 {
@@ -224,13 +250,24 @@ Respond in JSON format:
       "variants": ["<variant 1>", "<variant 2>", "<variant 3>"]
     }
   ],
+  "recommendations": [
+    {
+      "sceneNumber": 1,
+      "area": "hook",
+      "priority": "high",
+      "current": "<current text>",
+      "suggested": "<improved text>",
+      "reasoning": "<why this improves virality>",
+      "expectedImpact": "+15 points"
+    }
+  ],
   "overallScore": <0-100>,
   "overallComment": "<1-2 sentence analysis in Russian>"
 }`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
-    max_tokens: 2048,
+    max_tokens: 4096,
     messages: [{ role: "user", content: prompt }],
   });
 

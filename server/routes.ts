@@ -3318,8 +3318,8 @@ ${content}`;
         userId: userId,
       });
 
-      // Extract and create recommendations
-      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, analysisResult.scenes);
+      // Extract and create recommendations with database scene IDs
+      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, newVersion.scenes as any[]);
       
       if (recommendationsData.length > 0) {
         const recommendations = recommendationsData.map(rec => ({
@@ -3327,7 +3327,11 @@ ${content}`;
           scriptVersionId: newVersion.id,
         }));
         
+        console.log(`[Generate Script] Creating ${recommendations.length} recommendations in database`);
         await storage.createSceneRecommendations(recommendations);
+        console.log(`[Generate Script] Recommendations created successfully`);
+      } else {
+        console.log(`[Generate Script] No recommendations to create`);
       }
 
       const duration = Date.now() - startTime;
@@ -3556,17 +3560,26 @@ ${content}`;
   }
 
   // Helper: Extract scene recommendations from advanced analysis
-  function extractRecommendationsFromAnalysis(analysis: any, scenes: any[]): any[] {
+  function extractRecommendationsFromAnalysis(analysis: any, dbScenes: any[]): any[] {
     const recommendations: any[] = [];
     
-    if (!analysis || !analysis.recommendations) return recommendations;
+    if (!analysis || !analysis.recommendations) {
+      console.log('[Extract Recommendations] No recommendations found in analysis');
+      return recommendations;
+    }
     
-    // Map recommendations to scenes
+    console.log(`[Extract Recommendations] Processing ${analysis.recommendations.length} recommendations for ${dbScenes.length} scenes`);
+    
+    // Map recommendations to scenes using database IDs
     for (const rec of analysis.recommendations) {
-      // Try to find which scene this recommendation applies to
-      const sceneId = findSceneForRecommendation(rec, scenes);
+      // Use explicit sceneNumber from AI (1-indexed)
+      const sceneNumber = rec.sceneNumber;
       
-      if (sceneId !== undefined) {
+      if (sceneNumber && sceneNumber > 0 && sceneNumber <= dbScenes.length) {
+        // Map sceneNumber (1-indexed) to database scene ID
+        const dbScene = dbScenes[sceneNumber - 1];
+        const sceneId = dbScene.id;
+        
         // Extract score delta from expectedImpact (e.g., "+18 points" → 18)
         const scoreDelta = extractScoreDelta(rec.expectedImpact);
         
@@ -3574,7 +3587,7 @@ ${content}`;
         const confidence = priorityToConfidence(rec.priority);
         
         recommendations.push({
-          sceneId,
+          sceneId, // Use database ID, not sceneNumber
           priority: rec.priority || 'medium',
           area: rec.area || 'general',
           currentText: rec.current || '',
@@ -3585,9 +3598,14 @@ ${content}`;
           scoreDelta,
           confidence,
         });
+        
+        console.log(`[Extract Recommendations] Added recommendation for scene #${sceneNumber} (DB ID: ${sceneId}), area: ${rec.area}, priority: ${rec.priority}`);
+      } else {
+        console.log(`[Extract Recommendations] Skipped recommendation - invalid sceneNumber: ${sceneNumber} (total scenes: ${dbScenes.length})`);
       }
     }
     
+    console.log(`[Extract Recommendations] Extracted ${recommendations.length} valid recommendations`);
     return recommendations;
   }
   
