@@ -24,6 +24,7 @@ function Router() {
       <Route path="/instagram-reels" component={InstagramReels} />
       <Route path="/project/new" component={NewProject} />
       <Route path="/project/:id" component={ProjectWorkflow} />
+      <Route path="/projects/:id" component={ProjectWorkflow} />
       <Route component={NotFound} />
     </Switch>
   )
