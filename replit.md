@@ -43,6 +43,29 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 
 ## Recent Changes (October 2025)
 
+### API Keys Security & UX Improvements (Latest)
+
+**Backend Security Enhancements (`server/routes.ts`, `server/storage.ts`, `shared/schema.ts`):**
+- ✅ **Safe DTO pattern**: GET/POST `/api/settings/api-keys` now returns `{id, provider, last4, isActive, createdAt, updatedAt}` only - never exposes encryptedKey to client
+- ✅ **last4 field**: Added `last4 VARCHAR(4)` to api_keys schema for safe display (••••x7Qz format)
+- ✅ **Auto-generation**: `createApiKey()` extracts last 4 chars before encryption and stores separately
+- ✅ **Test endpoints**: Added `/api/settings/api-keys/:id/test` supporting all 6 providers (OpenAI, Anthropic, ElevenLabs, HeyGen, Kie.ai, Apify)
+- ✅ **Code clarity**: Added explicit `decryptedKey` variable with comment explaining misleading encryptedKey field name
+
+**Frontend Improvements (`client/src/pages/settings.tsx` + 5 other files):**
+- ✅ **React best practice**: Fixed render-time redirect bug by moving to useEffect
+- ✅ **Removed sensitive display**: Deleted showKey state, Eye/EyeOff icons - keys now display as ••••last4 only
+- ✅ **Russian i18n**: Added `locale: ru` to all `formatDistanceToNow()` calls across 6 files (settings, home, instagram-reels, project/new, stage-2-content-input)
+- ✅ **Universal test buttons**: Test button now available for ALL providers (was anthropic-only)
+- ✅ **Safe fallbacks**: Added validation for undefined API response fields (viralReelsCount with fallback to 0)
+
+**Instagram UX Enhancements (`server/routes.ts`):**
+- ✅ **Username normalization**: `normalizeInstagramUsername()` accepts @username, instagram.com/username, trailing slashes - extracts clean username
+
+**Impact**: Eliminates API key leakage to client, improves UX with masked display, adds comprehensive testing for all providers, proper Russian localization.
+
+---
+
 ### Security & Reliability Overhaul - Critical Production Fixes
 
 **Authentication & Authorization (`server/routes.ts`):**
