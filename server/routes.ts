@@ -177,7 +177,7 @@ async function fetchAndExtract(url: string): Promise<{
     return {
       success: true,
       content: cleanContent,
-      title: article.title,
+      title: article.title || undefined,
     };
   } catch (error: any) {
     // Handle different error types

@@ -188,20 +188,60 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   }
 
   const handleNewsSelect = async (newsItem: EnrichedRssItem) => {
-    // Mark as selected
-    await apiRequest("PATCH", `/api/news/${newsItem.id}/action`, {
-      action: "selected",
-      projectId: project.id,
-    })
+    try {
+      // Mark as selected
+      await apiRequest("PATCH", `/api/news/${newsItem.id}/action`, {
+        action: "selected",
+        projectId: project.id,
+      })
 
-    proceedMutation.mutate({
-      type: "news",
-      newsId: newsItem.id,
-      title: newsItem.title,
-      content: newsItem.content,
-      url: newsItem.url,
-      score: newsItem.aiScore,
-    })
+      // Show loading toast
+      toast({
+        title: "Loading Article",
+        description: "Extracting full article text...",
+      })
+
+      // Fetch full article content
+      const fullContentResponse = await apiRequest("POST", `/api/news/${newsItem.id}/fetch-full-content`, {})
+      const fullContentData = await fullContentResponse.json() as { success: boolean; content?: string; error?: string; cached?: boolean; fallback?: string }
+
+      // Use full content if available, fallback to RSS snippet
+      const content = fullContentData.success 
+        ? (fullContentData.content || newsItem.content || '')
+        : (fullContentData.fallback || newsItem.content || '')
+
+      // Show warning if extraction failed
+      if (!fullContentData.success) {
+        toast({
+          title: "Using Summary",
+          description: `Could not load full article (${fullContentData.error || 'Unknown error'}). Using RSS summary instead.`,
+          variant: "default",
+        })
+      } else if (fullContentData.cached) {
+        console.log("[Stage 2] Using cached article content")
+      } else {
+        toast({
+          title: "Article Loaded",
+          description: `Extracted ${Math.round((content?.length || 0) / 1000)}k characters`,
+        })
+      }
+
+      proceedMutation.mutate({
+        type: "news",
+        newsId: newsItem.id,
+        title: newsItem.title,
+        content: content,
+        url: newsItem.url,
+        score: newsItem.aiScore,
+      })
+    } catch (error: any) {
+      console.error("Error selecting news:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to select article",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleInstagramContinue = async () => {
