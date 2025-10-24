@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,6 +52,11 @@ export function SceneCard({
 }: SceneCardProps) {
   const [localText, setLocalText] = useState(text);
   const [applyingRec, setApplyingRec] = useState<number | null>(null);
+
+  // Sync local text when parent text changes (e.g., after applying recommendations)
+  useEffect(() => {
+    setLocalText(text);
+  }, [text]);
 
   const handleBlur = () => {
     if (localText !== text) {
