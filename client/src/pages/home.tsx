@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { formatDistanceToNow } from "date-fns"
+import { ru } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import {
   DropdownMenu,
@@ -500,14 +501,14 @@ export default function Home() {
                     {/* Updated Time */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Updated:</span>
-                      <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
+                      <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true, locale: ru })}</span>
                     </div>
                     
                     {project.status === "deleted" && project.deletedAt && (
                       <div className="pt-3 border-t">
                         <div className="flex items-center gap-2 text-xs text-destructive">
                           <Trash2 className="h-3 w-3" />
-                          Deleted {formatDistanceToNow(new Date(project.deletedAt), { addSuffix: true })}
+                          Deleted {formatDistanceToNow(new Date(project.deletedAt), { addSuffix: true, locale: ru })}
                         </div>
                       </div>
                     )}

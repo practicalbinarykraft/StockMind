@@ -12,6 +12,7 @@ import { isUnauthorizedError } from "@/lib/authUtils"
 import { useAuth } from "@/hooks/useAuth"
 import { ScoreBadge } from "@/components/score-badge"
 import { formatDistanceToNow } from "date-fns"
+import { ru } from "date-fns/locale"
 
 const SOURCE_TYPES = [
   {
@@ -311,7 +312,7 @@ export default function NewProject() {
                           )}
                           {reel.publishedAt && (
                             <Badge variant="outline" className="text-xs">
-                              {formatDistanceToNow(new Date(reel.publishedAt), { addSuffix: true })}
+                              {formatDistanceToNow(new Date(reel.publishedAt), { addSuffix: true, locale: ru })}
                             </Badge>
                           )}
                         </div>

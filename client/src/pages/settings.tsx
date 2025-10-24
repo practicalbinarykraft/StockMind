@@ -32,6 +32,7 @@ import type { RssSource, InstagramSource } from "@shared/schema"
 import { StatusBadge } from "@/components/status-badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDistanceToNow } from "date-fns"
+import { ru } from "date-fns/locale"
 import { isUnauthorizedError } from "@/lib/authUtils"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -654,7 +655,7 @@ export default function Settings() {
                         ••••{key.last4}
                       </code>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Updated {formatDistanceToNow(new Date(key.updatedAt), { addSuffix: true })}
+                        Updated {formatDistanceToNow(new Date(key.updatedAt), { addSuffix: true, locale: ru })}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -823,7 +824,7 @@ export default function Settings() {
                       )}
                       <p className="text-xs text-muted-foreground">
                         {source.lastParsed
-                          ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true })}`
+                          ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true, locale: ru })}`
                           : "Not parsed yet"}
                       </p>
                     </div>
@@ -1096,7 +1097,7 @@ export default function Settings() {
 
                         {source.nextCheckAt && (
                           <p className="text-xs text-muted-foreground mt-2">
-                            Следующая проверка: {formatDistanceToNow(new Date(source.nextCheckAt), { addSuffix: true })}
+                            Следующая проверка: {formatDistanceToNow(new Date(source.nextCheckAt), { addSuffix: true, locale: ru })}
                           </p>
                         )}
                       </div>
@@ -1130,7 +1131,7 @@ export default function Settings() {
                       )}
                       <p className="text-xs text-muted-foreground">
                         {source.lastParsed
-                          ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true })}`
+                          ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true, locale: ru })}`
                           : "Not parsed yet"}
                       </p>
                     </div>
@@ -1310,7 +1311,7 @@ export default function Settings() {
                     <h4 className="font-semibold">Только новые с последнего раза</h4>
                     <p className="text-sm text-muted-foreground mt-1">
                       {selectedParseSource?.lastScrapedDate 
-                        ? `Reels новее ${formatDistanceToNow(new Date(selectedParseSource.lastScrapedDate), { addSuffix: true })} • Макс 100 шт`
+                        ? `Reels новее ${formatDistanceToNow(new Date(selectedParseSource.lastScrapedDate), { addSuffix: true, locale: ru })} • Макс 100 шт`
                         : 'Первый парсинг - загрузит до 100 Reels • ~$1.30 Apify'
                       }
                     </p>

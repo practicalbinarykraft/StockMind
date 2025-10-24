@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatDistanceToNow } from "date-fns"
+import { ru } from "date-fns/locale"
 import { 
   ThumbsDown, 
   Check, 
@@ -282,7 +283,7 @@ export default function InstagramReelsPage() {
             {item.publishedAt && (
               <>
                 <span>•</span>
-                <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true })}</span>
+                <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true, locale: ru })}</span>
               </>
             )}
           </div>
