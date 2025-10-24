@@ -3537,8 +3537,8 @@ ${content}`;
     return undefined; // Can't determine scene
   }
 
-  // GET /api/projects/:id/script-history - Get all versions and recommendations
-  app.get("/api/projects/:id/script-history", isAuthenticated, async (req: any, res) => {
+  // Shared handler for script versions/history endpoint
+  const getScriptHistoryHandler = async (req: any, res: any) => {
     try {
       const { id } = req.params;
       const userId = getUserId(req);
@@ -3576,7 +3576,13 @@ ${content}`;
       console.error('[Script History] Error:', error);
       return res.status(500).json({ message: error.message });
     }
-  });
+  };
+
+  // GET /api/projects/:id/script-history - Get all versions and recommendations
+  app.get("/api/projects/:id/script-history", isAuthenticated, getScriptHistoryHandler);
+  
+  // GET /api/projects/:id/script-versions - Alias for backward compatibility
+  app.get("/api/projects/:id/script-versions", isAuthenticated, getScriptHistoryHandler);
 
   // POST /api/projects/:id/apply-scene-recommendation - Apply recommendation to single scene
   app.post("/api/projects/:id/apply-scene-recommendation", isAuthenticated, async (req: any, res) => {
