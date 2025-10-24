@@ -38,6 +38,36 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 ### Database Schema
 - `users`, `sessions`, `api_keys`, `rss_sources`, `rss_items`, `instagram_sources`, `instagram_items`, `projects`, `project_steps`, `script_versions`, `scene_recommendations`.
 
+## Recent Changes (October 24, 2025)
+
+### Enhanced Recommendation System - AI Agent Tracking & Smart Sorting
+
+**Database Enhancements (`shared/schema.ts`):**
+- ✅ **scene_recommendations table enhanced**: Added 3 new fields for better UX and insights
+  - `sourceAgent` (varchar 20): Tracks which AI agent generated recommendation (hook/structure/emotional/cta/general)
+  - `scoreDelta` (integer): Expected score boost (0-100), extracted from expectedImpact
+  - `confidence` (real): AI confidence level (0-1), mapped from priority
+
+**Backend Intelligence (`server/routes.ts`):**
+- ✅ **extractScoreDelta()**: Parses numeric boost from impact strings ("+18 points" → 18, "+35%" → 35)
+- ✅ **priorityToConfidence()**: Maps priority to confidence scores (critical=0.95, high=0.85, medium=0.7, low=0.5)
+- ✅ **Smart Apply All sorting**: Recommendations now applied in optimal order:
+  1. Priority (critical > high > medium > low)
+  2. Score Delta (higher impact first)
+  3. Confidence (more certain recommendations first)
+
+**Frontend UX Improvements (`client/src/components/project/scene-card.tsx`):**
+- ✅ **Source Agent badges**: Visual indicators showing which AI specialist made each recommendation:
+  - Sparkles icon: Hook Expert
+  - Layers icon: Structure Analyst
+  - Heart icon: Emotional Analyst
+  - Target icon: CTA Analyst
+  - Bot icon: General AI
+- ✅ **Score Delta badges**: Green "+X" badges showing expected score boost for high-impact recommendations
+- ✅ **Guideline compliance**: All badges use lucide-react icons (no emoji) following project design guidelines
+
+**Impact**: Users can now see which AI agent made each recommendation, understand expected score improvements, and trust that "Apply All" applies recommendations in the most effective order. Provides transparency into the multi-agent AI system and helps users prioritize manual review of high-impact suggestions.
+
 ## External Dependencies
 - **Anthropic Claude**: AI content analysis, virality scoring, script analysis, multi-agent system.
 - **Apify**: `apify/instagram-reels-scraper` for Instagram Reels content extraction.
