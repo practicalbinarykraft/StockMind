@@ -2378,6 +2378,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sceneId = findSceneForRecommendation(rec, scenes);
       
       if (sceneId !== undefined) {
+        // Extract score delta from expectedImpact (e.g., "+18 points" → 18)
+        const scoreDelta = extractScoreDelta(rec.expectedImpact);
+        
+        // Map priority to confidence
+        const confidence = priorityToConfidence(rec.priority);
+        
         recommendations.push({
           sceneId,
           priority: rec.priority || 'medium',
@@ -2386,11 +2392,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           suggestedText: rec.suggested || '',
           reasoning: rec.reasoning || '',
           expectedImpact: rec.expectedImpact || '',
+          sourceAgent: rec.area || 'general', // Agent that generated this recommendation
+          scoreDelta,
+          confidence,
         });
       }
     }
     
     return recommendations;
+  }
+  
+  // Helper: Extract numeric score delta from impact string
+  function extractScoreDelta(impact: string): number | undefined {
+    if (!impact) return undefined;
+    
+    // Match patterns like "+18 points", "+35%", "18 points", etc.
+    const match = impact.match(/[+]?(\d+)/);
+    return match ? parseInt(match[1], 10) : undefined;
+  }
+  
+  // Helper: Map priority to confidence score
+  function priorityToConfidence(priority: string): number {
+    const mapping: Record<string, number> = {
+      critical: 0.95,
+      high: 0.85,
+      medium: 0.7,
+      low: 0.5,
+    };
+    return mapping[priority] || 0.7;
   }
 
   // Helper: Find which scene a recommendation applies to
