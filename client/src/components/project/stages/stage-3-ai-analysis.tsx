@@ -103,6 +103,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   
   // Detect if script exists
   const hasScript = (scriptVersionsQuery.data && scriptVersionsQuery.data.length > 0) || false
+  
+  // Debug logging
+  console.log('[Stage 3] hasScript:', hasScript, 'versions count:', scriptVersionsQuery.data?.length)
 
   // Get content from step data
   // - Custom scripts: stepData.text
@@ -530,7 +533,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     }
   }
 
-  // Early return for source review mode
+  // MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
   if (STAGE3_MAGIC_UI && !hasScript) {
     return (
       <div className="p-8 max-w-6xl mx-auto">
@@ -643,6 +646,90 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             </div>
           </DialogContent>
         </Dialog>
+      </div>
+    )
+  }
+
+  // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
+  if (STAGE3_MAGIC_UI && hasScript) {
+    const currentVersion = scriptVersionsQuery.data?.[0]
+    
+    if (scriptVersionsQuery.isLoading) {
+      return (
+        <div className="p-8 max-w-6xl mx-auto">
+          <Card>
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-lg font-medium">Загружаем сценарий...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
+    if (!currentVersion) {
+      return (
+        <div className="p-8 max-w-6xl mx-auto">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Сценарий не найден. Пожалуйста, создайте новый сценарий.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )
+    }
+
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Edit2 className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">Редактор сценария</h1>
+          </div>
+          <p className="text-lg text-muted-foreground">
+            Просмотрите и отредактируйте сцены, примените рекомендации AI
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <SourceSummaryBar source={sourceData} projectId={project.id} />
+          
+          <SceneEditor
+            projectId={project.id}
+            scenes={currentVersion.scenes}
+            onReanalyze={() => {
+              // TODO: implement reanalyze
+              toast({
+                title: "Функция в разработке",
+                description: "Повторный анализ скоро будет доступен"
+              })
+            }}
+          />
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3">
+            <Button
+              size="lg"
+              onClick={handleProceed}
+              disabled={updateProjectMutation.isPending}
+              data-testid="button-proceed"
+            >
+              {updateProjectMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Сохраняем...
+                </>
+              ) : (
+                <>
+                  Перейти к озвучке
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
