@@ -68,6 +68,36 @@ ReelRepurposer is an AI-powered video production pipeline for professional conte
 
 **Impact**: Users can now see which AI agent made each recommendation, understand expected score improvements, and trust that "Apply All" applies recommendations in the most effective order. Provides transparency into the multi-agent AI system and helps users prioritize manual review of high-impact suggestions.
 
+### Production-Grade Version Control & Provenance Tracking
+
+**Database Schema (`shared/schema.ts`):**
+- ✅ **Provenance tracking**: Added `provenance` JSONB field to `script_versions` table capturing:
+  - `source`: Type of change (ai_recommendation, manual_edit, bulk_apply, revert)
+  - `agentType`: AI agent responsible (if applicable)
+  - `userId`: User who made the change
+  - `timestamp`: When change occurred
+  - `recommendationIds`: Array of applied recommendations (for bulk operations)
+- ✅ **Diff visualization**: Added `diff` JSONB field storing before/after snapshots per scene for visual comparison
+- ✅ **Performance indexes**: Unique constraint on current versions, DESC ordering for history queries, optimized recommendation filtering
+
+**Backend Intelligence (`server/routes.ts`):**
+- ✅ **Auto-diff calculation**: `createNewScriptVersion()` helper automatically compares current vs previous version, identifying added/removed/modified scenes
+- ✅ **Provenance auto-population**: All mutation endpoints (apply, apply-all, edit, revert) automatically track source, agent, user, and timestamp
+- ✅ **Transaction safety**: Apply All wrapped in transaction with `SELECT FOR UPDATE` to prevent race conditions
+
+**Frontend History Modal (`history-modal.tsx`):**
+- ✅ **Split-view diff display**: Shows before/after changes side-by-side using diff-match-patch library
+- ✅ **Word-level highlighting**: Green additions, red deletions, inline diff visualization
+- ✅ **Provenance badges**: Visual indicators showing change source (AI Recommendation, Manual Edit, Bulk Apply, Revert)
+- ✅ **Graceful fallback**: Simple preview when diff data unavailable (backward compatibility)
+
+**Race Protection (`scene-card.tsx`, `scene-editor.tsx`):**
+- ✅ **Mutual exclusion**: Apply All disables individual Apply buttons, individual Apply disables Apply All
+- ✅ **Clear feedback**: Status text shows "Применяем все..." or "Применяем рекомендацию..." during operations
+- ✅ **Prevents double-submit**: Disabled states prevent concurrent mutations and data corruption
+
+**Impact**: Users get complete audit trail of all script changes, can visualize exactly what changed between versions, understand who/what made each modification, and confidently use Apply/Apply All operations without risk of race conditions. Production-ready version control system with non-destructive infinite undo and full change transparency.
+
 ## External Dependencies
 - **Anthropic Claude**: AI content analysis, virality scoring, script analysis, multi-agent system.
 - **Apify**: `apify/instagram-reels-scraper` for Instagram Reels content extraction.
