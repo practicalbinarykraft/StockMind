@@ -15,6 +15,9 @@ interface SceneRecommendation {
   reasoning: string;
   expectedImpact: string;
   appliedAt?: string;
+  sourceAgent?: string; // AI agent that generated this recommendation
+  scoreDelta?: number; // Expected score boost
+  confidence?: number; // AI confidence (0-1)
 }
 
 interface SceneCardProps {
@@ -119,14 +122,29 @@ export function SceneCard({
                   className="space-y-2 rounded-md border bg-card/50 p-3"
                   data-testid={`recommendation-${rec.id}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <AreaIcon className={`h-3.5 w-3.5 ${areaConfig[rec.area].color}`} />
                       <span className="text-xs font-medium">{areaConfig[rec.area].label}</span>
-                      <Badge variant="outline" className={`${priorityStyle.color} text-xs`}>
-                        {priorityStyle.label}
-                      </Badge>
                     </div>
+                    <Badge variant="outline" className={`${priorityStyle.color} text-xs`}>
+                      {priorityStyle.label}
+                    </Badge>
+                    {rec.sourceAgent && (
+                      <Badge variant="secondary" className="text-xs">
+                        {rec.sourceAgent === 'hook' && '🎯 Hook Expert'}
+                        {rec.sourceAgent === 'structure' && '📊 Structure Analyst'}
+                        {rec.sourceAgent === 'emotional' && '💭 Emotional Analyst'}
+                        {rec.sourceAgent === 'cta' && '🎬 CTA Analyst'}
+                        {rec.sourceAgent === 'general' && '🤖 AI'}
+                      </Badge>
+                    )}
+                    {rec.scoreDelta !== undefined && rec.scoreDelta > 0 && (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 text-xs gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        +{rec.scoreDelta}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="space-y-1.5 text-xs">
