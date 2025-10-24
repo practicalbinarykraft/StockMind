@@ -40,7 +40,7 @@ import { useAuth } from "@/hooks/useAuth"
 type SafeApiKey = {
   id: string
   provider: string
-  last4: string
+  last4: string | null  // Nullable for legacy keys created before last4 feature
   description: string | null
   isActive: boolean
   createdAt: Date
@@ -657,8 +657,13 @@ export default function Settings() {
                         <p className="text-sm text-muted-foreground mb-2">{key.description}</p>
                       )}
                       <code className="text-sm font-mono px-2 py-1 bg-muted rounded">
-                        ••••{key.last4}
+                        {key.last4 ? `••••${key.last4}` : '••••••••'}
                       </code>
+                      {!key.last4 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                          Legacy key - consider recreating for better security display
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2">
                         Updated {formatDistanceToNow(new Date(key.updatedAt), { addSuffix: true, locale: ru })}
                       </p>
