@@ -145,9 +145,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   // Generate script mutation (for source review mode) - calls new unified endpoint
   const generateMutation = useMutation({
     mutationFn: async (formatId: string) => {
+      // Generate idempotency key to prevent double-click issues
+      const idempotencyKey = `${project.id}:${formatId}:${Date.now()}`
+      
       const res = await apiRequest("POST", `/api/projects/${project.id}/generate-script`, {
         formatId,
-        targetLocale: 'ru'
+        targetLocale: 'ru',
+        idempotencyKey
       })
       return await res.json()
     },

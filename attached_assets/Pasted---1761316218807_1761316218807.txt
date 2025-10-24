@@ -1,0 +1,173 @@
+принял — это блокер. Ниже даю «снимаем-пожар» план + точечные фиксы, чтобы сценарий гарантированно появлялся и экран переключался на редактор.
+
+Что скорее всего ломается
+	1.	Генерация прошла, но версия сценария не создана (или создаётся отдельным шагом и тихо падает).
+	2.	Фронт не переключает режим на редактор после успешной генерации (нет refetch/invalidateQueries или локальный стейт не обновляется).
+	3.	Есть раздвоение логики: /generate-script → потом ещё /create-initial-version. Любой из двух вызовов мог упасть → вы остались на «анализе исходника».
+
+Срочные правки (безопасные)
+
+1) Бэкенд: делаем атомарно в одном эндпоинте
+
+Сделайте так, чтобы один запрос создавал и текст сценария, и script_version в транзакции, и сразу возвращал созданную версию.
+
+// POST /api/projects/:id/generate-and-create-version
+app.post('/api/projects/:id/generate-and-create-version', isAuth, async (req, res) => {
+  const { id } = req.params;
+  const { format, lang, idempotencyKey } = req.body;
+
+  // идемпотентность: если уже есть запись с этим ключом — возвращаем её
+  const existing = await db.query(
+    `select * from script_versions where project_id=$1 and provenance->>'idem' = $2 limit 1`,
+    [id, idempotencyKey]
+  );
+  if (existing.rows[0]) return res.json({ ok: true, version: existing.rows[0], idempotent: true });
+
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+
+    // 1) генерируем сценарий (Anthropic и т.п.)
+    const script = await generateScriptForProject({ projectId: id, format, lang }); // бросает ошибку при fail
+
+    // 2) высчитываем scenes[], fullScript, scores, changes, provenance, diff
+    const scenes = script.scenes;
+    const fullScript = scenes.map(s => `[${s.start}-${s.end}s] ${s.text}`).join('\n');
+
+    // снимаем флаг current со старых
+    await client.query(
+      `update script_versions set is_current=false where project_id=$1`,
+      [id]
+    );
+
+    // 3) создаём версию
+    const insert = await client.query(
+      `insert into script_versions
+        (project_id, version_number, full_script, scenes, scores, is_current, provenance, diff, created_by)
+       values
+        ($1,
+         coalesce((select max(version_number) from script_versions where project_id=$1),0)+1,
+         $2, $3, $4, true,
+         $5, $6, 'ai')
+       returning *`,
+      [
+        id,
+        fullScript,
+        JSON.stringify(scenes),
+        JSON.stringify(script.scores ?? {}),
+        JSON.stringify({ source: 'ai_recommendation', agentType: 'architect', idem: idempotencyKey, ts: Date.now() }),
+        JSON.stringify([]), // первый раз diff пустой
+      ]
+    );
+
+    await client.query('commit');
+    return res.json({ ok: true, version: insert.rows[0] });
+  } catch (e:any) {
+    await client.query('rollback');
+    console.error('generate-and-create-version failed:', e?.message);
+    return res.status(500).json({ ok: false, message: e?.message || 'Internal error' });
+  } finally {
+    client.release();
+  }
+});
+
+Зачем так: убираем хрупкую связку «сгенерировал → потом создал версию». В одном запросе меньше шансов «проглотить» ошибку и оставить юзера на том же экране.
+
+⸻
+
+2) Фронт: один вызов + мгновенное переключение на редактор
+
+В Stage3 (кнопка «Применить рекомендованный» / «Generate Script») замените два вызова на один:
+
+async function handleApplyRecommended() {
+  setIsGenerating(true);
+  const idem = `${projectId}:${Date.now()}`; // простой ключ
+
+  try {
+    // 1. один запрос делает всё и возвращает созданную версию
+    const res = await apiRequest(
+      'POST',
+      `/api/projects/${projectId}/generate-and-create-version`,
+      { format: recommendedFormat, lang: targetLang, idempotencyKey: idem }
+    ).then(r => r.json());
+
+    if (!res?.ok || !res?.version) throw new Error(res?.message || 'No version returned');
+
+    // 2. оптимистично подменяем локальный state, чтобы сразу показать редактор
+    setCurrentVersion(res.version);
+    setViewMode('script-editor'); // <-- переключаемся с «анализ исходника» на «редактор»
+
+    // 3. и параллельно подтягиваем историю/рекомендации из БД
+    queryClient.invalidateQueries({ queryKey: ['script-history', projectId] });
+    toast({ title: 'Сценарий создан', description: `Версия v${res.version.versionNumber}` });
+  } catch (e:any) {
+    console.error('Generate failed:', e);
+    toast({ title: 'Ошибка генерации', description: e?.message || 'Попробуйте ещё раз', variant: 'destructive' });
+  } finally {
+    setIsGenerating(false);
+  }
+}
+
+Важно:
+	•	переключение UI идёт сразу после успешного ответа, не ждём дополнительных рефетчей;
+	•	затем делаем invalidateQueries чтобы подтянуть полную историю/рекомендации.
+
+⸻
+
+3) Условие показа режимов (исправить детекцию)
+
+Было много кейсов, когда UI «не видел» новый сценарий. Правильная, нечувствительная к гонкам проверка:
+
+const hasGeneratedScript =
+  !!currentVersion ||
+  (Array.isArray(history?.versions) && history.versions.length > 0);
+
+return hasGeneratedScript ? <ScriptEditor .../> : <SourceReview .../>;
+
+Не завязывайтесь на побочные флаги; проверяйте факт наличия хотя бы одной версии.
+
+⸻
+
+4) Тосты и логи (чтобы поймать повтор)
+	•	При старте: toast("Генерируем сценарий…"), disable кнопки.
+	•	На успех: toast("Сценарий создан (vN)"), UI переключился.
+	•	На ошибку: красный тост с текстом из ответа/исключения.
+	•	В консоль: console.info('Script version created', version.id); на бэке — такой же лог.
+
+⸻
+
+5) База: быстрая проверка (после клика)
+
+SQL, чтобы убедиться, что версия реально есть:
+
+select version_number, is_current, created_at
+from script_versions
+where project_id = $1
+order by version_number desc
+limit 5;
+
+Если пусто — падение на бэке. Если есть, а UI не переключился — фронтовая логика/кэш.
+
+⸻
+
+6) Страховка от «двойного клика» и повтора
+	•	На фронте кнопку «Применить…» делаем disabled + спиннер пока идёт запрос.
+	•	На бэке используем idempotencyKey (см. выше) — повтор вернёт ту же версию.
+
+⸻
+
+7) Что сказать Replit (коротко)
+	•	Перевести генерацию в один эндпоинт POST /generate-and-create-version (атомарная транзакция).
+	•	В handleApplyRecommended вызывать только его; по ok → сразу выставлять setViewMode('script-editor') и подставлять currentVersion из ответа; затем invalidateQueries(['script-history', projectId]).
+	•	Исправить условие показа режимов (см. пункт 3).
+	•	Добавить идемпотентность и отключение кнопки на время запроса.
+
+⸻
+
+Контрольный список после фикса
+	•	Нажал «Применить» → через 1–3 сек вижу редактор с версиями.
+	•	В Network ровно 1 POST (без «create-initial-version» вторым шагом).
+	•	В БД — новая строка в script_versions, is_current = true.
+	•	Возврат назад/вперёд на Stage 3 не запускает анализ заново.
+
+Это решение минимально-инвазивное, быстрое и снимает причину «генерация без результата».

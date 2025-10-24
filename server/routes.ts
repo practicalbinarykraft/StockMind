@@ -80,6 +80,152 @@ function normalizeInstagramUsername(input: string): string {
   return username.toLowerCase();
 }
 
+// Article extraction metrics (for monitoring and analytics)
+type ExtractionOutcome = 
+  | 'success' 
+  | 'fallback_rss' 
+  | 'timeout' 
+  | 'paywall' 
+  | 'ssrf_blocked'
+  | 'content_too_large'
+  | 'http_error'
+  | 'parse_error';
+
+interface ExtractionMetrics {
+  outcome: ExtractionOutcome;
+  url: string;
+  contentLength?: number;
+  duration: number;
+  errorDetails?: string;
+}
+
+function logExtractionMetrics(metrics: ExtractionMetrics) {
+  const prefix = `[Article Extractor]`;
+  const outcomeEmoji = {
+    success: '✅',
+    fallback_rss: '📰',
+    timeout: '⏱️',
+    paywall: '🔒',
+    ssrf_blocked: '🛡️',
+    content_too_large: '📏',
+    http_error: '❌',
+    parse_error: '⚠️',
+  };
+  
+  const emoji = outcomeEmoji[metrics.outcome] || '❓';
+  const msg = `${prefix} ${emoji} ${metrics.outcome.toUpperCase()} - ${metrics.url} (${metrics.duration}ms)`;
+  
+  if (metrics.contentLength) {
+    console.log(`${msg} - ${metrics.contentLength} chars`);
+  } else if (metrics.errorDetails) {
+    console.log(`${msg} - ${metrics.errorDetails}`);
+  } else {
+    console.log(msg);
+  }
+}
+
+/**
+ * Check if IP address is in private/local range
+ * Supports IPv4 and IPv6
+ */
+function isPrivateOrLocalIP(ip: string): boolean {
+  // IPv4 loopback and private ranges
+  const ipv4Patterns = [
+    /^127\./,                    // Loopback (127.0.0.0/8)
+    /^10\./,                     // Private (10.0.0.0/8)
+    /^172\.(1[6-9]|2[0-9]|3[01])\./, // Private (172.16.0.0/12)
+    /^192\.168\./,               // Private (192.168.0.0/16)
+    /^169\.254\./,               // Link-local (169.254.0.0/16)
+    /^0\.0\.0\.0$/,              // Unspecified
+  ];
+  
+  for (const pattern of ipv4Patterns) {
+    if (pattern.test(ip)) return true;
+  }
+  
+  // IPv6 private/local ranges (basic check)
+  const ipv6Patterns = [
+    /^::1$/,                     // Loopback
+    /^::$/,                      // Unspecified
+    /^fe80:/i,                   // Link-local (fe80::/10)
+    /^fc00:/i,                   // Unique local (fc00::/7)
+    /^fd00:/i,                   // Unique local (fd00::/8)
+    /^ff00:/i,                   // Multicast (ff00::/8)
+  ];
+  
+  for (const pattern of ipv6Patterns) {
+    if (pattern.test(ip)) return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Validate URL for SSRF protection
+ * Blocks localhost, private IP ranges, and suspicious hostnames
+ * Note: This is basic protection. Full protection would require DNS resolution
+ * which is not feasible in this environment
+ */
+function isUrlSafe(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    
+    // Only allow HTTP and HTTPS
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return false;
+    }
+    
+    const hostname = url.hostname.toLowerCase();
+    
+    // Block obvious localhost variations
+    const localhostPatterns = [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      '::1',
+      '0:0:0:0:0:0:0:1',
+    ];
+    
+    if (localhostPatterns.includes(hostname)) {
+      return false;
+    }
+    
+    // Block suspicious subdomains (DNS rebinding protection)
+    const suspiciousDomains = [
+      '.localhost',
+      '.localdomain',
+      '.local',
+      '.internal',
+      '.home',
+      '.lan',
+      '.nip.io',          // Common DNS rebinding service
+      '.xip.io',          // Common DNS rebinding service  
+      '.sslip.io',        // Common DNS rebinding service
+      '.localtest.me',    // Common DNS rebinding service
+    ];
+    
+    for (const domain of suspiciousDomains) {
+      if (hostname.endsWith(domain) || hostname === domain.substring(1)) {
+        return false;
+      }
+    }
+    
+    // Check if hostname is a direct IP address
+    if (isPrivateOrLocalIP(hostname)) {
+      return false;
+    }
+    
+    // WARNING: This doesn't resolve DNS, so domains that resolve to private IPs
+    // can still pass. Full protection would require DNS resolution + IP check,
+    // but that adds complexity and latency. Consider using a dedicated SSRF
+    // protection library for production use.
+    
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fetch and extract full article content from URL using Readability
  * @param url - Article URL to fetch and parse
@@ -93,9 +239,25 @@ async function fetchAndExtract(url: string): Promise<{
 }> {
   const FETCH_TIMEOUT = 15000; // 15 seconds
   const MIN_CONTENT_LENGTH = 500; // Minimum characters for valid article
+  const MAX_HTML_SIZE = 3 * 1024 * 1024; // 3MB
+  const startTime = Date.now();
   
   try {
     console.log(`[Article Extractor] Fetching URL: ${url}`);
+    
+    // SSRF protection: validate URL
+    if (!isUrlSafe(url)) {
+      logExtractionMetrics({
+        outcome: 'ssrf_blocked',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: 'Invalid or restricted URL'
+      });
+      return {
+        success: false,
+        error: 'Invalid or restricted URL',
+      };
+    }
     
     // Fetch HTML with timeout
     const controller = new AbortController();
@@ -112,34 +274,82 @@ async function fetchAndExtract(url: string): Promise<{
     
     // Check response status
     if (!response.ok) {
-      console.warn(`[Article Extractor] HTTP ${response.status} for ${url}`);
-      
       // Detect paywalls and access restrictions
       if (response.status === 403 || response.status === 401) {
+        logExtractionMetrics({
+          outcome: 'paywall',
+          url,
+          duration: Date.now() - startTime,
+          errorDetails: `HTTP ${response.status}`
+        });
         return {
           success: false,
           error: 'Paywall or access restricted',
         };
       }
       
+      logExtractionMetrics({
+        outcome: 'http_error',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: `HTTP ${response.status}`
+      });
       return {
         success: false,
         error: `HTTP ${response.status}`,
       };
     }
     
+    // Check Content-Length header (if provided)
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > MAX_HTML_SIZE) {
+      logExtractionMetrics({
+        outcome: 'content_too_large',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: `${contentLength} bytes (from Content-Length)`
+      });
+      return {
+        success: false,
+        error: 'Content too large',
+      };
+    }
+    
+    // NOTE: If Content-Length is missing, we still buffer the entire response
+    // before checking size. For production, consider streaming the response
+    // with a size limit to prevent memory exhaustion attacks.
+    
     // Check content type
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
-      console.warn(`[Article Extractor] Non-HTML content type: ${contentType}`);
+      logExtractionMetrics({
+        outcome: 'http_error',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: `Non-HTML: ${contentType}`
+      });
       return {
         success: false,
         error: 'Not an HTML page',
       };
     }
     
-    // Get HTML text
+    // Get HTML text with size limit
     const html = await response.text();
+    
+    // Double-check actual size (in case Content-Length was missing)
+    if (html.length > MAX_HTML_SIZE) {
+      logExtractionMetrics({
+        outcome: 'content_too_large',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: `${html.length} bytes`
+      });
+      return {
+        success: false,
+        error: 'HTML content too large',
+      };
+    }
     
     // Parse with jsdom
     const dom = new JSDOM(html, { url });
@@ -150,7 +360,12 @@ async function fetchAndExtract(url: string): Promise<{
     const article = reader.parse();
     
     if (!article || !article.textContent) {
-      console.warn(`[Article Extractor] Readability failed to parse ${url}`);
+      logExtractionMetrics({
+        outcome: 'parse_error',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: 'Readability failed'
+      });
       return {
         success: false,
         error: 'Failed to extract article content',
@@ -165,14 +380,25 @@ async function fetchAndExtract(url: string): Promise<{
     
     // Check minimum content length (detect paywalls that show partial content)
     if (cleanContent.length < MIN_CONTENT_LENGTH) {
-      console.warn(`[Article Extractor] Content too short (${cleanContent.length} chars) - possible paywall`);
+      logExtractionMetrics({
+        outcome: 'paywall',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: `${cleanContent.length} chars (too short)`
+      });
       return {
         success: false,
         error: 'Content too short (possible paywall)',
       };
     }
     
-    console.log(`[Article Extractor] Success! Extracted ${cleanContent.length} characters from ${url}`);
+    // Success!
+    logExtractionMetrics({
+      outcome: 'success',
+      url,
+      contentLength: cleanContent.length,
+      duration: Date.now() - startTime
+    });
     
     return {
       success: true,
@@ -182,7 +408,12 @@ async function fetchAndExtract(url: string): Promise<{
   } catch (error: any) {
     // Handle different error types
     if (error.name === 'AbortError') {
-      console.error(`[Article Extractor] Timeout fetching ${url}`);
+      logExtractionMetrics({
+        outcome: 'timeout',
+        url,
+        duration: Date.now() - startTime,
+        errorDetails: 'Request timeout'
+      });
       return {
         success: false,
         error: 'Request timeout',
@@ -2758,7 +2989,7 @@ ${content}`;
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const { id } = req.params;
-      const { formatId, targetLocale = 'ru' } = req.body;
+      const { formatId, targetLocale = 'ru', idempotencyKey } = req.body;
       
       if (!formatId) {
         return res.status(400).json({ message: "formatId is required" });
@@ -2770,14 +3001,37 @@ ${content}`;
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Check if script already exists
+      // Check if script already exists (basic idempotency)
       const existingVersion = await storage.getCurrentScriptVersion(id);
       if (existingVersion) {
+        console.log(`[Generate Script] Script already exists for project ${id}`);
         return res.json({
           success: true,
           version: existingVersion,
           message: 'Script already exists',
+          idempotent: true,
         });
+      }
+      
+      // Advanced idempotency: check if this exact request was already processed
+      if (idempotencyKey) {
+        const versions = await storage.getScriptVersions(id);
+        const idempotentVersion = versions.find((v: any) => 
+          v.provenance && 
+          typeof v.provenance === 'object' && 
+          'idempotencyKey' in v.provenance &&
+          v.provenance.idempotencyKey === idempotencyKey
+        );
+        
+        if (idempotentVersion) {
+          console.log(`[Generate Script] Found idempotent version for key ${idempotencyKey}`);
+          return res.json({
+            success: true,
+            version: idempotentVersion,
+            message: 'Returning existing version (idempotent request)',
+            idempotent: true,
+          });
+        }
       }
 
       // Get Anthropic API key
@@ -2848,6 +3102,7 @@ ${content}`;
           formatId: formatId,
           targetLocale: targetLocale,
           userId: userId,
+          idempotencyKey: idempotencyKey || `${id}:${formatId}:${Date.now()}`,
           ts: new Date().toISOString(),
         },
         userId: userId,
