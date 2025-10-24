@@ -139,69 +139,9 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
   const hasRecommendations = activeRecommendations.length > 0;
 
   return (
-    <div className="space-y-4" data-testid="scene-editor">
-      {/* Header with actions */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
-          <div>
-            <h2 className="text-lg font-semibold">Редактор сцен</h2>
-            <p className="text-sm text-muted-foreground">
-              {hasRecommendations 
-                ? `${activeRecommendations.length} активных рекомендаций`
-                : 'Все рекомендации применены'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowHistory(true)}
-              className="gap-1.5"
-              data-testid="button-show-history"
-            >
-              <History className="h-4 w-4" />
-              История
-            </Button>
-            {onReanalyze && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onReanalyze}
-                className="gap-1.5"
-                data-testid="button-reanalyze"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Пересчитать
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-
-        {hasRecommendations && (
-          <CardContent>
-            <Button
-              onClick={() => applyAllMutation.mutate()}
-              disabled={applyAllMutation.isPending || applyRecommendationMutation.isPending}
-              className="w-full gap-2"
-              data-testid="button-apply-all"
-            >
-              {applyAllMutation.isPending ? (
-                <>Применяем...</>
-              ) : applyRecommendationMutation.isPending ? (
-                <>Применяем рекомендацию...</>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Применить все рекомендации ({activeRecommendations.length})
-                </>
-              )}
-            </Button>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Scenes grid */}
-      <div className="grid gap-4 md:grid-cols-2">
+    <div className="flex gap-6" data-testid="scene-editor">
+      {/* Left column: Scenes in single column */}
+      <div className="flex-1 space-y-4">
         {scenes.map((scene, index) => {
           const sceneRecommendations = recommendations.filter(r => r.sceneId === scene.id);
           
@@ -219,6 +159,63 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
             />
           );
         })}
+      </div>
+
+      {/* Right column: Controls and metadata */}
+      <div className="w-80 flex-shrink-0 space-y-4 sticky top-4 h-fit">
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold">Инструменты</h2>
+            <p className="text-sm text-muted-foreground">
+              {hasRecommendations 
+                ? `${activeRecommendations.length} активных рекомендаций`
+                : 'Все рекомендации применены'}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {hasRecommendations && (
+              <Button
+                onClick={() => applyAllMutation.mutate()}
+                disabled={applyAllMutation.isPending || applyRecommendationMutation.isPending}
+                className="w-full gap-2"
+                data-testid="button-apply-all"
+              >
+                {applyAllMutation.isPending ? (
+                  <>Применяем...</>
+                ) : applyRecommendationMutation.isPending ? (
+                  <>Применяем...</>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Улучшить всё ({activeRecommendations.length})
+                  </>
+                )}
+              </Button>
+            )}
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowHistory(true)}
+              className="w-full gap-2"
+              data-testid="button-show-history"
+            >
+              <History className="h-4 w-4" />
+              История изменений
+            </Button>
+            
+            {onReanalyze && (
+              <Button
+                variant="outline"
+                onClick={onReanalyze}
+                className="w-full gap-2"
+                data-testid="button-reanalyze"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Пересчитать анализ
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* History modal */}
