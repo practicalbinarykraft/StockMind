@@ -181,12 +181,14 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
           <CardContent>
             <Button
               onClick={() => applyAllMutation.mutate()}
-              disabled={applyAllMutation.isPending}
+              disabled={applyAllMutation.isPending || applyRecommendationMutation.isPending}
               className="w-full gap-2"
               data-testid="button-apply-all"
             >
               {applyAllMutation.isPending ? (
                 <>Применяем...</>
+              ) : applyRecommendationMutation.isPending ? (
+                <>Применяем рекомендацию...</>
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
@@ -213,6 +215,7 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
               onTextChange={handleTextChange}
               onApplyRecommendation={(recId) => applyRecommendationMutation.mutateAsync(recId)}
               isEditing={editSceneMutation.isPending || applyRecommendationMutation.isPending}
+              isApplyingAll={applyAllMutation.isPending}
             />
           );
         })}

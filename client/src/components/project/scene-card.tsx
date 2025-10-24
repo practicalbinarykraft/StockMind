@@ -28,6 +28,7 @@ interface SceneCardProps {
   onTextChange: (sceneId: number, newText: string) => void;
   onApplyRecommendation: (recommendationId: number) => Promise<void>;
   isEditing: boolean;
+  isApplyingAll?: boolean; // True when Apply All is running
 }
 
 const priorityConfig = {
@@ -52,6 +53,7 @@ export function SceneCard({
   onTextChange,
   onApplyRecommendation,
   isEditing,
+  isApplyingAll = false,
 }: SceneCardProps) {
   const [localText, setLocalText] = useState(text);
   const [applyingRec, setApplyingRec] = useState<number | null>(null);
@@ -204,12 +206,14 @@ export function SceneCard({
                   <Button
                     size="sm"
                     onClick={() => handleApply(rec.id)}
-                    disabled={applyingRec === rec.id || isEditing}
+                    disabled={applyingRec !== null || isEditing || isApplyingAll}
                     className="w-full gap-1.5"
                     data-testid={`button-apply-recommendation-${rec.id}`}
                   >
                     {applyingRec === rec.id ? (
                       <>Применяем...</>
+                    ) : isApplyingAll ? (
+                      <>Применяем все...</>
                     ) : (
                       <>
                         <CheckCircle2 className="h-3.5 w-3.5" />

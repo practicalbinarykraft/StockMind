@@ -389,6 +389,9 @@ export const scriptVersions = pgTable("script_versions", {
   
   changes: jsonb("changes"), // Change metadata: { type, affectedScenes, description }
   
+  provenance: jsonb("provenance"), // { source: 'ai_recommendation'|'manual_edit'|'bulk_apply'|'revert', agent?: string, userId?: string, ts: string }
+  diff: jsonb("diff"), // Array of { sceneId: number, before: string, after: string }
+  
   analysisResult: jsonb("analysis_result"), // Cached AI analysis for this version
   analysisScore: integer("analysis_score"), // Overall score 0-100
   
@@ -399,6 +402,8 @@ export const scriptVersions = pgTable("script_versions", {
 }, (table) => [
   index("script_versions_project_idx").on(table.projectId, table.versionNumber),
   index("script_versions_current_idx").on(table.projectId, table.isCurrent),
+  index("script_versions_proj_desc_idx").on(table.projectId, sql`${table.versionNumber} DESC`),
+  uniqueIndex("uniq_script_current").on(table.projectId).where(sql`${table.isCurrent} = true`),
 ]);
 
 export const insertScriptVersionSchema = createInsertSchema(scriptVersions).omit({
@@ -439,6 +444,7 @@ export const sceneRecommendations = pgTable("scene_recommendations", {
 }, (table) => [
   index("scene_recommendations_version_idx").on(table.scriptVersionId),
   index("scene_recommendations_scene_idx").on(table.sceneId),
+  index("scene_recommendations_version_applied_idx").on(table.scriptVersionId, table.applied),
 ]);
 
 export const insertSceneRecommendationSchema = createInsertSchema(sceneRecommendations).omit({

@@ -2331,8 +2331,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     parentVersionId?: string;
     analysisResult?: any;
     analysisScore?: number;
+    provenance?: any; // { source, agent?, userId?, ts }
+    diff?: any[]; // [{ sceneId, before, after }]
+    userId?: string;
   }) {
-    const { projectId, scenes, createdBy, changes, parentVersionId, analysisResult, analysisScore } = data;
+    const { projectId, scenes, createdBy, changes, parentVersionId, analysisResult, analysisScore, provenance, diff, userId } = data;
     
     // Get next version number
     const versions = await storage.getScriptVersions(projectId);
@@ -2343,8 +2346,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .map((s: any) => `[${s.start}-${s.end}s] ${s.text}`)
       .join('\n');
     
-    // Unmark old current version
+    // Get current version for diff calculation
     const currentVersion = await storage.getCurrentScriptVersion(projectId);
+    
+    // Calculate diff if not provided
+    let finalDiff = diff;
+    if (!finalDiff && currentVersion && currentVersion.scenes) {
+      finalDiff = calculateSceneDiff(currentVersion.scenes as any[], scenes);
+    }
+    
+    // Build provenance if not provided
+    let finalProvenance = provenance;
+    if (!finalProvenance) {
+      finalProvenance = {
+        source: changes?.type || 'unknown',
+        userId: userId,
+        ts: new Date().toISOString(),
+      };
+    }
+    
+    // Unmark old current version
     if (currentVersion) {
       await storage.updateScriptVersionCurrent(projectId, ''); // This will unmark all
     }
@@ -2361,9 +2382,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       parentVersionId,
       analysisResult,
       analysisScore,
+      provenance: finalProvenance,
+      diff: finalDiff,
     });
     
     return newVersion;
+  }
+  
+  // Helper: Calculate diff between old and new scenes
+  function calculateSceneDiff(oldScenes: any[], newScenes: any[]): any[] {
+    const diffs: any[] = [];
+    
+    // Compare each scene
+    for (let i = 0; i < Math.max(oldScenes.length, newScenes.length); i++) {
+      const oldScene = oldScenes[i];
+      const newScene = newScenes[i];
+      
+      // Scene was added
+      if (!oldScene && newScene) {
+        diffs.push({
+          sceneId: newScene.id || i + 1,
+          before: '',
+          after: newScene.text || '',
+        });
+      }
+      // Scene was removed
+      else if (oldScene && !newScene) {
+        diffs.push({
+          sceneId: oldScene.id || i + 1,
+          before: oldScene.text || '',
+          after: '',
+        });
+      }
+      // Scene was modified
+      else if (oldScene && newScene && oldScene.text !== newScene.text) {
+        diffs.push({
+          sceneId: newScene.id || i + 1,
+          before: oldScene.text || '',
+          after: newScene.text || '',
+        });
+      }
+    }
+    
+    return diffs;
   }
 
   // Helper: Extract scene recommendations from advanced analysis
@@ -2527,7 +2588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       targetScene.recommendationApplied = true;
       targetScene.lastModified = new Date().toISOString();
       
-      // Create new version
+      // Create new version with provenance
       const newVersion = await createNewScriptVersion({
         projectId: id,
         scenes,
@@ -2543,6 +2604,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentVersionId: currentVersion.id,
         analysisResult: currentVersion.analysisResult,
         analysisScore: currentVersion.analysisScore ?? undefined,
+        provenance: {
+          source: 'ai_recommendation',
+          agent: recommendation.sourceAgent || recommendation.area || 'general',
+          userId: userId,
+          ts: new Date().toISOString(),
+        },
+        userId: userId,
       });
       
       // Mark recommendation as applied
@@ -2587,7 +2655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Sort recommendations by priority, score delta, and confidence
+      // Sort recommendations by priority, score delta, confidence, and sceneId (for determinism)
       unappliedRecommendations.sort((a, b) => {
         // Priority order: critical > high > medium > low
         const priorityOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
@@ -2601,10 +2669,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const bScore = b.scoreDelta || 0;
         if (aScore !== bScore) return bScore - aScore;
         
-        // Finally by confidence (higher first)
+        // Then by confidence (higher first)
         const aConf = a.confidence || 0.5;
         const bConf = b.confidence || 0.5;
-        return bConf - aConf;
+        if (aConf !== bConf) return bConf - aConf;
+        
+        // Finally by sceneId (for deterministic ordering)
+        return a.sceneId - b.sceneId;
       });
       
       // Clone scenes and apply all recommendations
@@ -2621,7 +2692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Create new version
+      // Create new version with provenance
       const newVersion = await createNewScriptVersion({
         projectId: id,
         scenes,
@@ -2635,6 +2706,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentVersionId: currentVersion.id,
         analysisResult: currentVersion.analysisResult,
         analysisScore: currentVersion.analysisScore ?? undefined,
+        provenance: {
+          source: 'bulk_apply',
+          agent: 'architect', // Aggregator that orchestrated all agent recommendations
+          userId: userId,
+          ts: new Date().toISOString(),
+        },
+        userId: userId,
       });
       
       // Mark all as applied
@@ -2684,7 +2762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       scene.manuallyEdited = true;
       scene.lastModified = new Date().toISOString();
       
-      // Create new version
+      // Create new version with provenance
       const newVersion = await createNewScriptVersion({
         projectId: id,
         scenes,
@@ -2699,6 +2777,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentVersionId: currentVersion.id,
         analysisResult: currentVersion.analysisResult,
         analysisScore: currentVersion.analysisScore ?? undefined,
+        provenance: {
+          source: 'manual_edit',
+          userId: userId,
+          ts: new Date().toISOString(),
+        },
+        userId: userId,
       });
       
       return res.json({
@@ -2734,7 +2818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const currentVersion = await storage.getCurrentScriptVersion(id);
       
-      // Create new version from old one (non-destructive!)
+      // Create new version from old one (non-destructive!) with provenance
       const newVersion = await createNewScriptVersion({
         projectId: id,
         scenes: targetVersion.scenes as any[],
@@ -2747,6 +2831,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentVersionId: currentVersion?.id,
         analysisResult: targetVersion.analysisResult as any,
         analysisScore: targetVersion.analysisScore ?? undefined,
+        provenance: {
+          source: 'revert',
+          userId: userId,
+          revertedToVersion: targetVersion.versionNumber,
+          ts: new Date().toISOString(),
+        },
+        userId: userId,
       });
       
       return res.json({
