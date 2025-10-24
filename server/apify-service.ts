@@ -28,12 +28,12 @@ function safeNumber(value: any, defaultValue: number = 0): number {
  * Normalize Apify reel data to safe types for database storage
  * - Converts floats to integers for duration/counts
  * - Mutual recovery: shortCode ↔ URL
- * - Handles multiple duration field names
+ * - Handles multiple field name variants (videoUrl/video_url, etc.)
  * - Safe defaults for all fields
  */
 function mapApifyReel(item: any, shortCodeFallback?: string): InstagramReelData {
-  // Mutual recovery: shortCode ↔ URL
-  let shortCode = item.shortCode || item.id || shortCodeFallback || '';
+  // Mutual recovery: shortCode ↔ URL (support multiple field names)
+  let shortCode = item.shortCode || item.shortcode || item.id || shortCodeFallback || '';
   let url = item.url || '';
 
   // If no shortCode but have URL, extract it
@@ -50,7 +50,7 @@ function mapApifyReel(item: any, shortCodeFallback?: string): InstagramReelData 
   }
 
   // Handle multiple possible duration field names
-  const rawDuration = item.videoDuration ?? item.durationInSeconds ?? item.duration ?? item.videoLength ?? 0;
+  const rawDuration = item.videoDuration ?? item.durationInSeconds ?? item.duration ?? item.videoLength ?? item.lengthSeconds ?? 0;
   const normalizedDuration = safeNumber(rawDuration, 0);
 
   // Log if we had to normalize duration (float → int)
@@ -58,25 +58,50 @@ function mapApifyReel(item: any, shortCodeFallback?: string): InstagramReelData 
     console.log(`[Apify] Normalized duration for ${shortCode}: ${rawDuration} → ${normalizedDuration}s`);
   }
 
+  // Support multiple field name variants for videoUrl
+  const videoUrl = item.videoUrl || item.video_url || item.video || item.mediaUrl || '';
+  
+  // Support multiple field name variants for thumbnailUrl
+  const thumbnailUrl = item.thumbnailUrl || item.thumbnail_url || item.displayUrl || 
+                       item.display_url || item.imageUrl || item.image_url || 
+                       item.coverUrl || item.cover_url || item.images?.[0] || '';
+
+  // Support multiple field name variants for caption
+  const caption = (item.caption || item.title || '').trim();
+
+  // Helper to convert to array safely
+  const toArray = (value: any): string[] => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (typeof value === 'string') return value.split(/\s+/).filter(Boolean);
+    return [];
+  };
+
+  // Extract hashtags/mentions from caption as fallback
+  const hashtagsFromCaption = (caption.match(/#\w+/g) || []).map((s: string) => s.replace('#', ''));
+  const mentionsFromCaption = (caption.match(/@\w+/g) || []).map((s: string) => s.replace('@', ''));
+
+  const hashtags = toArray(item.hashtags).length ? toArray(item.hashtags) : hashtagsFromCaption;
+  const mentions = toArray(item.mentions).length ? toArray(item.mentions) : mentionsFromCaption;
+
   return {
     id: item.id || shortCode,
     shortCode,
     url,
-    caption: (item.caption || '').trim(),
-    hashtags: item.hashtags || [],
-    mentions: item.mentions || [],
-    videoUrl: item.videoUrl || '',
-    thumbnailUrl: item.thumbnailUrl || item.displayUrl || item.images?.[0] || '',
+    caption,
+    hashtags,
+    mentions,
+    videoUrl,
+    thumbnailUrl: thumbnailUrl || undefined,
     videoDuration: normalizedDuration,
-    likesCount: safeNumber(item.likesCount, 0),
-    commentsCount: safeNumber(item.commentsCount, 0),
-    videoViewCount: safeNumber(item.videoViewCount || item.videoPlayCount, 0),
-    videoPlayCount: safeNumber(item.videoPlayCount || item.videoViewCount, 0),
-    sharesCount: safeNumber(item.sharesCount, 0),
-    timestamp: item.timestamp || new Date().toISOString(),
-    ownerUsername: item.ownerUsername || '',
-    ownerFullName: item.ownerFullName,
-    ownerId: item.ownerId,
+    likesCount: safeNumber(item.likesCount ?? item.likes, 0),
+    commentsCount: safeNumber(item.commentsCount ?? item.comments, 0),
+    videoViewCount: safeNumber(item.videoViewCount ?? item.views ?? item.videoPlayCount ?? item.plays, 0),
+    videoPlayCount: safeNumber(item.videoPlayCount ?? item.plays ?? item.videoViewCount ?? item.views, 0),
+    sharesCount: safeNumber(item.sharesCount ?? item.shares, 0),
+    timestamp: item.timestamp || item.takenAt || item.publishedAt || new Date().toISOString(),
+    ownerUsername: item.ownerUsername || item.username || '',
+    ownerFullName: item.ownerFullName || item.ownerFullname || item.fullName,
+    ownerId: item.ownerId || item.owner?.id,
     musicInfo: item.musicInfo ? {
       artist: item.musicInfo.artist,
       songName: item.musicInfo.songName,
@@ -180,9 +205,11 @@ export async function scrapeInstagramReels(
     }
 
     // Transform Apify results using mapApifyReel for safe normalization
-    const transformedItems: InstagramReelData[] = items.map((item: any) => 
-      mapApifyReel(item)
-    );
+    const transformedItems: InstagramReelData[] = items
+      .map((item: any) => mapApifyReel(item))
+      .filter(reel => reel.videoUrl); // Filter out reels without video URLs
+
+    console.log(`[Apify] ✅ Transformed ${transformedItems.length} valid Reels (filtered empty videos)`);
 
     return {
       success: true,
