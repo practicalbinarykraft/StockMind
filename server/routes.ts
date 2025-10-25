@@ -25,6 +25,7 @@ const rssParser = new Parser();
 import { fetchAndExtract } from './lib/fetchAndExtract';
 import { clampIdemKey, makeIdemKey } from './lib/idempotency';
 import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
+import { testApiKeyByProvider } from './lib/api-key-tester';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -379,150 +380,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // after getApiKeyById() returns (see storage.ts line 239 where it calls decryptApiKey)
       const decryptedKey = apiKey.encryptedKey;
       
-      // Test based on provider
-      switch (apiKey.provider) {
-        case 'anthropic': {
-          const Anthropic = (await import('@anthropic-ai/sdk')).default;
-          const anthropic = new Anthropic({ apiKey: decryptedKey });
-          
-          const message = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 50,
-            messages: [{ 
-              role: 'user', 
-              content: 'Say "API key is working!" in one sentence.' 
-            }],
-          });
-          
-          const textContent = message.content.find((c: any) => c.type === 'text');
-          res.json({ 
-            success: true, 
-            message: (textContent as any)?.text || 'Anthropic API key is valid',
-            provider: apiKey.provider 
-          });
-          break;
-        }
-        
-        case 'openai': {
-          const OpenAI = (await import('openai')).default;
-          const openai = new OpenAI({ apiKey: decryptedKey });
-          
-          // Test with simple completion
-          const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: 'Say "Hello" in Russian' }],
-            max_tokens: 10,
-          });
-          
-          res.json({
-            success: true,
-            message: completion.choices[0]?.message?.content || 'OpenAI API key is valid',
-            provider: apiKey.provider
-          });
-          break;
-        }
-        
-        case 'apify': {
-          const result = await testApifyApiKey(decryptedKey);
-          if (result.success) {
-            res.json({
-              success: true,
-              message: `Apify API key is valid. Quota: $${result.usage?.availableCredits?.toFixed(2) || 'unknown'}`,
-              provider: apiKey.provider
-            });
-          } else {
-            res.status(400).json({
-              success: false,
-              message: result.error || 'Apify API key is invalid'
-            });
-          }
-          break;
-        }
-        
-        case 'elevenlabs': {
-          // Test ElevenLabs API - get user info
-          const response = await fetch('https://api.elevenlabs.io/v1/user', {
-            headers: {
-              'xi-api-key': decryptedKey,
-            },
-          });
-          
-          if (!response.ok) {
-            throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          res.json({
-            success: true,
-            message: `ElevenLabs API key is valid. Quota: ${data.subscription?.character_count || 0}/${data.subscription?.character_limit || 0} chars`,
-            provider: apiKey.provider
-          });
-          break;
-        }
-        
-        case 'heygen': {
-          // Test HeyGen API - get user info
-          const response = await fetch('https://api.heygen.com/v1/user.get', {
-            method: 'GET',
-            headers: {
-              'X-Api-Key': decryptedKey,
-            },
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HeyGen API error: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          res.json({
-            success: true,
-            message: data.data?.email 
-              ? `HeyGen API key is valid. Account: ${data.data.email}` 
-              : 'HeyGen API key is valid',
-            provider: apiKey.provider
-          });
-          break;
-        }
-        
-        case 'kieai': {
-          // Test Kie.ai API - check quota
-          const response = await fetch('https://api.kie.ai/v1/quota', {
-            headers: {
-              'Authorization': `Bearer ${decryptedKey}`,
-            },
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Kie.ai API error: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          res.json({
-            success: true,
-            message: data.remaining !== undefined 
-              ? `Kie.ai API key is valid. Remaining credits: ${data.remaining}` 
-              : 'Kie.ai API key is valid',
-            provider: apiKey.provider
-          });
-          break;
-        }
-        
-        default:
-          res.status(400).json({ 
-            success: false, 
-            message: `Testing for ${apiKey.provider} is not supported` 
-          });
+      // Test using centralized utility
+      const result = await testApiKeyByProvider(apiKey.provider, decryptedKey);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
       }
     } catch (error: any) {
       console.error("Error testing API key:", error);
-      
-      if (error.message?.includes('invalid') || error.message?.includes('authentication')) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "API key is invalid or expired" 
-        });
-      }
-      
       res.status(500).json({ 
         success: false, 
         message: error.message || "Failed to test API key" 
@@ -2065,7 +1932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Idempotency: generate stable request ID based on parameters
       const finalModel = model || 'veo3_fast';
       const finalAspectRatio = aspectRatio || '9:16';
-      const { generateIdempotencyKey } = await import('./idempotency-utils');
+      const { generateIdempotencyKey } = await import('./lib/idempotency');
       const idempotencyKey = generateIdempotencyKey({
         projectId: id,
         sceneId,
