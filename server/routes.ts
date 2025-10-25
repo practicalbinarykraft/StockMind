@@ -3491,11 +3491,17 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
       // Format response
       const formatVersion = (version: any, metrics: any, breakdown: any) => {
         const predicted = metrics.predicted || {};
+        const scenes = (version.scenes || []).map((scene: any) => ({
+          id: scene.sceneNumber,
+          text: scene.text
+        }));
+        
         return {
           id: version.id,
           overall: metrics.overallScore || version.analysisScore || 0,
           breakdown,
-          review: version.review || "Рецензия не доступна"
+          review: version.review || "Рецензия не доступна",
+          scenes
         };
       };
 

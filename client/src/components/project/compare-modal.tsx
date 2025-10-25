@@ -4,9 +4,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+interface Scene {
+  id: number;
+  text: string;
+}
 
 interface CompareData {
   base: {
@@ -19,6 +25,7 @@ interface CompareData {
       cta: number;
     };
     review: string;
+    scenes: Scene[];
   };
   candidate: {
     id: string;
@@ -30,6 +37,7 @@ interface CompareData {
       cta: number;
     };
     review: string;
+    scenes: Scene[];
   };
   delta: {
     overall: number;
@@ -203,59 +211,120 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
 
         {/* Success state - show comparison */}
         {data && !isLoading && !isError && (
-          <>
-            {/* Overall Delta */}
-            <div className="flex items-center justify-center gap-3 p-4 bg-muted/50 rounded-lg">
-              <span className="text-sm text-muted-foreground">Изменение общего балла:</span>
-              <DeltaBadge delta={data.delta.overall} />
-            </div>
+          <Tabs defaultValue="metrics" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="metrics" data-testid="tab-metrics">Метрики</TabsTrigger>
+              <TabsTrigger value="scenes" data-testid="tab-scenes">Сцены</TabsTrigger>
+            </TabsList>
 
-            {/* Breakdown deltas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Изменения по зонам</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-4 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="text-muted-foreground mb-1">Хук</div>
-                  <DeltaBadge delta={data.delta.hook} />
-                </div>
-                <div className="text-center">
-                  <div className="text-muted-foreground mb-1">Структура</div>
-                  <DeltaBadge delta={data.delta.structure} />
-                </div>
-                <div className="text-center">
-                  <div className="text-muted-foreground mb-1">Эмоции</div>
-                  <DeltaBadge delta={data.delta.emotional} />
-                </div>
-                <div className="text-center">
-                  <div className="text-muted-foreground mb-1">CTA</div>
-                  <DeltaBadge delta={data.delta.cta} />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Side-by-side comparison */}
-            <div className="flex gap-6">
-              <VersionColumn 
-                version={data.base}
-                title="ДО (Базовая версия)"
-                isPrimary={true}
-              />
-
-              <div className="flex items-center">
-                <div className="h-px w-8 bg-border" />
+            {/* Tab 1: Metrics */}
+            <TabsContent value="metrics" className="space-y-4">
+              {/* Overall Delta */}
+              <div className="flex items-center justify-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <span className="text-sm text-muted-foreground">Изменение общего балла:</span>
+                <DeltaBadge delta={data.delta.overall} />
               </div>
 
-              <VersionColumn 
-                version={data.candidate}
-                title="ПОСЛЕ (Новая версия)"
-                isPrimary={false}
-              />
-            </div>
+              {/* Breakdown deltas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Изменения по зонам</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-4 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-muted-foreground mb-1">Хук</div>
+                    <DeltaBadge delta={data.delta.hook} />
+                  </div>
+                  <div className="text-center">
+                    <div className="text-muted-foreground mb-1">Структура</div>
+                    <DeltaBadge delta={data.delta.structure} />
+                  </div>
+                  <div className="text-center">
+                    <div className="text-muted-foreground mb-1">Эмоции</div>
+                    <DeltaBadge delta={data.delta.emotional} />
+                  </div>
+                  <div className="text-center">
+                    <div className="text-muted-foreground mb-1">CTA</div>
+                    <DeltaBadge delta={data.delta.cta} />
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Action buttons */}
-            <div className="flex gap-3 pt-4 border-t">
+              {/* Side-by-side comparison */}
+              <div className="flex gap-6">
+                <VersionColumn 
+                  version={data.base}
+                  title="ДО (Базовая версия)"
+                  isPrimary={true}
+                />
+
+                <div className="flex items-center">
+                  <div className="h-px w-8 bg-border" />
+                </div>
+
+                <VersionColumn 
+                  version={data.candidate}
+                  title="ПОСЛЕ (Новая версия)"
+                  isPrimary={false}
+                />
+              </div>
+            </TabsContent>
+
+            {/* Tab 2: Scenes */}
+            <TabsContent value="scenes" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Base scenes */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-center">ДО (Базовая версия)</h3>
+                  {data.base.scenes.map((scene: Scene) => {
+                    const candidateScene = data.candidate.scenes.find((s: Scene) => s.id === scene.id);
+                    const isChanged = candidateScene && candidateScene.text !== scene.text;
+                    
+                    return (
+                      <Card key={scene.id} className={isChanged ? "border-amber-500" : ""}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">Сцена {scene.id}</CardTitle>
+                            {isChanged && <Badge variant="outline" className="text-xs">Изменена</Badge>}
+                            {!isChanged && <Badge variant="secondary" className="text-xs">Без изменений</Badge>}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{scene.text}</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Candidate scenes */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-center">ПОСЛЕ (Новая версия)</h3>
+                  {data.candidate.scenes.map((scene: Scene) => {
+                    const baseScene = data.base.scenes.find((s: Scene) => s.id === scene.id);
+                    const isChanged = baseScene && baseScene.text !== scene.text;
+                    
+                    return (
+                      <Card key={scene.id} className={isChanged ? "border-green-500" : ""}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">Сцена {scene.id}</CardTitle>
+                            {isChanged && <Badge variant="outline" className="text-xs">Изменена</Badge>}
+                            {!isChanged && <Badge variant="secondary" className="text-xs">Без изменений</Badge>}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{scene.text}</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Action buttons - outside tabs */}
+            <div className="flex gap-3 pt-4 border-t mt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -279,7 +348,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
                 Выбрать ПОСЛЕ
               </Button>
             </div>
-          </>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>
