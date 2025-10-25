@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Film, CheckCircle2, ArrowLeft, AlertCircle, Sparkles, Play, Pause, Download, Loader2 } from "lucide-react"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
 import { useState, useRef, useEffect } from "react"
 

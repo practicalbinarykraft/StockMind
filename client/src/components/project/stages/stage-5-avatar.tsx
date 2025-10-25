@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/query-client"
 import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight } from "lucide-react"
 
 interface Stage5Props {

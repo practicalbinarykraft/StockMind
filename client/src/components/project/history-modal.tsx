@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { History, RotateCcw, CheckCircle2, User, Sparkles, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { queryClient, apiRequest } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/query-client';
 import { diff_match_patch, DIFF_DELETE, DIFF_INSERT, DIFF_EQUAL } from 'diff-match-patch';
 
 interface Scene {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/query-client"
 import { type Project } from "@shared/schema"
 import { type AdvancedScoreResult } from "@shared/advanced-analysis-types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"

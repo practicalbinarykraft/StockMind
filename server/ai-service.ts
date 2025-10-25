@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { callClaudeJson } from "./lib/callClaudeJson";
+import { callClaudeJson } from "./lib/call-claude-json";
 
 // Token limits for different request types
 export const MAX_TOKENS_SHORT = 512;

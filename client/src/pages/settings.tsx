@@ -27,14 +27,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
-import { apiRequest, queryClient } from "@/lib/queryClient"
+import { apiRequest, queryClient } from "@/lib/query-client"
 import type { RssSource, InstagramSource } from "@shared/schema"
 import { StatusBadge } from "@/components/status-badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
-import { isUnauthorizedError } from "@/lib/authUtils"
-import { useAuth } from "@/hooks/useAuth"
+import { isUnauthorizedError } from "@/lib/auth-utils"
+import { useAuth } from "@/hooks/use-auth"
 
 // Safe API Key type (without encryptedKey) - matches backend DTO
 type SafeApiKey = {

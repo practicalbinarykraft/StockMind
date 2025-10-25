@@ -6,7 +6,7 @@ import { ArrowLeft, Menu } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ProjectSidebar } from "@/components/project/project-sidebar"
 import { StageContent } from "@/components/project/stage-content"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { useState, useEffect } from "react"
 

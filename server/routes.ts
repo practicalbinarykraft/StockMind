@@ -2,7 +2,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./replit-auth";
 import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema, instagramItems, instagramSources } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -22,7 +22,7 @@ import fs from "fs";
 
 const rssParser = new Parser();
 
-import { fetchAndExtract } from './lib/fetchAndExtract';
+import { fetchAndExtract } from './lib/fetch-and-extract';
 import { clampIdemKey, makeIdemKey } from './lib/idempotency';
 import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
 import { testApiKeyByProvider } from './lib/api-key-tester';

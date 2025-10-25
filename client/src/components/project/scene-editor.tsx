@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SceneCard } from './scene-card';
 import { HistoryModal } from './history-modal';
 import { Sparkles, History, CheckCircle2, RefreshCw } from 'lucide-react';
-import { queryClient, apiRequest } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/query-client';
 
 interface Scene {
   id: number;
