@@ -15,8 +15,6 @@ import { History, RotateCcw, CheckCircle2, User, Sparkles, ArrowRight } from 'lu
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { queryClient, apiRequest } from '@/lib/query-client';
-import { diff_match_patch, DIFF_DELETE, DIFF_INSERT, DIFF_EQUAL } from 'diff-match-patch';
-
 interface Scene {
   id: number;
   text: string;
@@ -63,31 +61,6 @@ const createdByConfig = {
   ai: { icon: Sparkles, label: 'AI', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
   system: { icon: CheckCircle2, label: 'Система', color: 'bg-green-500/10 text-green-600 dark:text-green-400' },
 };
-
-// Helper function to render diff highlighting
-function renderDiff(before: string, after: string) {
-  const dmp = new diff_match_patch();
-  const diffs = dmp.diff_main(before, after);
-  dmp.diff_cleanupSemantic(diffs);
-  
-  return diffs.map(([op, text], i) => {
-    if (op === DIFF_INSERT) {
-      return (
-        <span key={i} className="bg-green-500/20 dark:bg-green-500/30 text-green-900 dark:text-green-100">
-          {text}
-        </span>
-      );
-    }
-    if (op === DIFF_DELETE) {
-      return (
-        <span key={i} className="bg-red-500/20 dark:bg-red-500/30 text-red-900 dark:text-red-100 line-through">
-          {text}
-        </span>
-      );
-    }
-    return <span key={i}>{text}</span>;
-  });
-}
 
 export function HistoryModal({ projectId, currentScenes, onClose, onRevert }: HistoryModalProps) {
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
@@ -306,10 +279,10 @@ export function HistoryModal({ projectId, currentScenes, onClose, onRevert }: Hi
                       
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-md border border-red-500/20 bg-red-500/5 p-3">
-                          <p className="text-sm">{renderDiff(diff.before, diff.after)}</p>
+                          <p className="text-sm">{diff.before}</p>
                         </div>
                         <div className="rounded-md border border-green-500/20 bg-green-500/5 p-3">
-                          <p className="text-sm">{renderDiff(diff.before, diff.after)}</p>
+                          <p className="text-sm">{diff.after}</p>
                         </div>
                       </div>
                     </div>
