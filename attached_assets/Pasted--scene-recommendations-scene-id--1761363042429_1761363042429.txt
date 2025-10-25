@@ -1,0 +1,142 @@
+Поймал баг: бэкенд падает на вставке рекомендаций, потому что в scene_recommendations.scene_id уходит NULL.
+
+Что произошло
+	•	Скрипт сгенерировался → создали новую script_version.
+	•	Дальше сервис формирует рекомендации и пытается вставить их в scene_recommendations.
+	•	Маппинг sceneNumber (из ответа ИИ) → scene_id (в БД) не сработал → scene_id оказался null → PostgreSQL с NOT NULL валится 500.
+
+Это ровно видно из ошибки:
+
+500: "null value in column \"scene_id\" of relation \"scene_recommendations\" violates not-null constraint"
+
+
+⸻
+
+Как починить (безопасный фикс по шагам)
+
+1) Гарантировать ID у каждой сцены версии
+
+Сейчас, судя по стеку, сцены в script_versions.scenes могут храниться без собственного id. Тогда после вставки версии нам просто нечем прочно привязать рекомендации.
+
+Правка в helper createNewScriptVersion(...): присваиваем стабильные id сценам перед сохранением версии.
+
+// до вставки версии
+const scenesWithIds = data.scenes.map((s: any, idx: number) => ({
+  id: Number.isFinite(s.id) ? s.id : idx + 1,   // гарантируем числовой id 1..N
+  ...s,
+}));
+
+// build full script из scenesWithIds
+const fullScript = scenesWithIds
+  .map((s: any) => `[${s.start}-${s.end}s] ${s.text}`)
+  .join('\n');
+
+// снимаем current со старых, как и раньше...
+// вставляем новую версию:
+const [newVersion] = await db.insert(scriptVersions).values({
+  projectId: data.projectId,
+  versionNumber: nextVersion,
+  fullScript,
+  scenes: scenesWithIds,     // <— сохраняем с id!
+  changes: data.changes,
+  createdBy: data.createdBy,
+  isCurrent: true,
+  parentVersionId: data.parentVersionId
+}).returning();
+
+2) Маппинг рекомендаций к сценам — только по существующим id
+
+После того, как новая версия сохранена, при разборе результата ИИ:
+
+function mapRecToSceneId(rec: { sceneNumber?: number }, scenes: any[]): number | null {
+  // 1) прямое попадание по порядковому номеру
+  if (Number.isFinite(rec.sceneNumber)) {
+    const idx = Math.max(0, Math.min(scenes.length - 1, (rec.sceneNumber as number) - 1));
+    return scenes[idx]?.id ?? null;
+  }
+  // 2) можно добавить эвристику по совпадению текста, если нужно
+  return null;
+}
+
+И в месте вставки:
+
+const scenes = newVersion.scenes as any[];
+
+const rows = extractedRecs
+  .map((r) => {
+    const sceneId = mapRecToSceneId(r, scenes);
+    if (!sceneId) return null; // не вставляем «битые» записи
+    return {
+      scriptVersionId: newVersion.id,
+      sceneId,
+      priority: r.priority ?? 'medium',
+      area: r.area ?? 'general',
+      currentText: r.currentText ?? '',
+      suggestedText: r.suggestedText ?? '',
+      reasoning: r.reasoning ?? '',
+      expectedImpact: r.expectedImpact ?? '',
+      sourceAgent: r.sourceAgent ?? 'general',
+      scoreDelta: r.scoreDelta ?? 0,
+      confidence: r.confidence ?? 0.7,
+      applied: false,
+    };
+  })
+  .filter(Boolean) as any[];
+
+if (rows.length) {
+  await db.insert(sceneRecommendations).values(rows);
+} else {
+  // логируем, чтобы видно было, что rec пришли без корректной привязки
+  console.warn('[recs] skipped: no valid sceneId after mapping');
+}
+
+3) Защититься от «битых» данных из ИИ
+
+Добавьте в промпт анализатора явное требование возвращать sceneNumber (1..N). И оставьте в коде клэмп (как выше), чтобы 0/отрицательные/слишком большие номера не ломали вставку.
+
+4) (Опционально) Fallback, если номер не пришёл
+
+Если sceneNumber иногда отсутствует — можно привязывать к ближайшей сцене по длине/семантике, но не вставляйте NULL. Лучше пропустить такую рекомендацию и залогировать.
+
+⸻
+
+Быстрая страховка (на сейчас)
+
+Пока фикс вмерживается, добавьте простой guard перед вставкой:
+
+if (!sceneId) {
+  // skip & log
+  return;
+}
+
+Это уберёт 500 и позволит проходить флоу. Но обязательно сделайте шаги 1–2, чтобы рекомендации реально создавались.
+
+⸻
+
+Что проверить после правки
+	1.	Создать проект → сгенерировать скрипт.
+	2.	В БД:
+
+select sv.id, jsonb_array_length(sv.scenes) as n, sv.scenes->0->>'id' as first_id
+from script_versions sv
+where sv.project_id = :pid and sv.is_current = true;
+
+Ожидаем: у сцен есть id (строки, приводимые к числу, или сразу числа).
+	3.	Рекомендации:
+
+select scene_id, applied, source_agent, score_delta
+from scene_recommendations sr
+join script_versions sv on sv.id = sr.script_version_id
+where sv.project_id = :pid and sv.is_current = true;
+
+Ожидаем: есть строки, scene_id ≠ null.
+	4.	UI: на карточках сцен появились бейджи и кнопка «Применить», «Применить все» показывает количество.
+
+⸻
+
+Почему это не сломает остальное
+	•	Мы не меняем схему БД — только контент scenes (добавляем поле id в JSON).
+	•	«История» и «Откат» продолжат работать: новые версии так же сохраняют полный scenes с id.
+	•	Apply/Apply All mаппят по scene_id, значит попадание станет стабильным.
+
+Если нужно — скину мини-патч диффами для createNewScriptVersion и места вставки рекомендаций.
