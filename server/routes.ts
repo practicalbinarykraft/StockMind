@@ -1291,11 +1291,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extract full content
       const result = await fetchAndExtract(item.url);
       
-      if (!result.success) {
-        console.warn(`[Article Extractor] Failed to extract ${item.url}: ${result.error}`);
+      if (!result.ok) {
+        console.warn(`[Article Extractor] Failed to extract ${item.url}: ${result.reason}`);
         return res.json({
           success: false,
-          error: result.error,
+          error: result.reason,
           fallback: item.content, // Return RSS snippet as fallback
         });
       }

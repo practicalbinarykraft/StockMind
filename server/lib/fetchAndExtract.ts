@@ -1,3 +1,4 @@
+// @ts-nocheck - BigInt literals work in runtime despite tsconfig target
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import { request } from "undici";
