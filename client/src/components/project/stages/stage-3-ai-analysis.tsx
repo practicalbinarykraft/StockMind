@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { type Project } from "@shared/schema"
@@ -92,6 +92,18 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [showFormatModal, setShowFormatModal] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState<'ru' | 'en'>('ru') // Default to Russian
   const { toast} = useToast()
+  
+  // Store polling timers for cleanup
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+    };
+  }, []);
 
   // Restore polling after page reload
   useEffect(() => {
@@ -141,11 +153,17 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       }, 2000);
 
       // Auto-clear after 70s
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         clearInterval(interval);
         localStorage.removeItem('reanalyzeJobId');
         localStorage.removeItem('reanalyzeProjectId');
       }, 70000);
+
+      // Cleanup on unmount
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
     }
   }, [project.id]);
 
@@ -189,8 +207,12 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       localStorage.setItem('reanalyzeJobId', jobId);
       localStorage.setItem('reanalyzeProjectId', project.id);
 
+      // Clear any existing polling timers
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+
       // Start polling
-      const interval = setInterval(async () => {
+      pollingIntervalRef.current = setInterval(async () => {
         try {
           const res = await fetch(`/api/projects/${project.id}/reanalyze/status?jobId=${jobId}`);
           const json = await res.json();
@@ -199,7 +221,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           setJobStatus(status);
 
           if (status.status === 'done') {
-            clearInterval(interval);
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
             setReanalyzeJobId(null);
             setJobStatus(null);
             localStorage.removeItem('reanalyzeJobId');
@@ -210,7 +233,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             });
             queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
           } else if (status.status === 'error') {
-            clearInterval(interval);
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
             setReanalyzeJobId(null);
             localStorage.removeItem('reanalyzeJobId');
             localStorage.removeItem('reanalyzeProjectId');
@@ -227,8 +251,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       }, 2000); // Poll every 2s
 
       // Auto-clear after 70s
-      setTimeout(() => {
-        clearInterval(interval);
+      pollingTimeoutRef.current = setTimeout(() => {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         localStorage.removeItem('reanalyzeJobId');
         localStorage.removeItem('reanalyzeProjectId');
       }, 70000);
