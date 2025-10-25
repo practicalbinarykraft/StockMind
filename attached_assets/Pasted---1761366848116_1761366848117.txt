@@ -1,0 +1,286 @@
+отлично — идём «с бэка». Ниже даю точечные правки/добавления, чтобы закрыть все дырки без «ломки» архитектуры. Я разделил на: что создать, что поменять, и где подключить. Код — готовыми кусками.
+
+⸻
+
+Что создать (новые файлы)
+
+1) server/lib/fetchAndExtract.ts
+
+Извлечение полного текста статьи (SSR-safe, таймаут, редиректы, Readability).
+
+// server/lib/fetchAndExtract.ts
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
+import { request } from "undici";
+import { URL } from "node:url";
+import dns from "node:dns/promises";
+
+// ---- SSRF guard helpers ----
+const PRIVATE_V4 = [
+  [ "10.0.0.0", 8 ],
+  [ "172.16.0.0", 12 ],
+  [ "192.168.0.0", 16 ],
+  [ "127.0.0.0", 8 ],
+];
+const PRIVATE_V6 = [ "fc00::/7", "fe80::/10", "::1/128" ];
+const BAD_SUFFIX = [ ".nip.io", ".xip.io", ".sslip.io", ".localtest.me" ];
+
+function ipInCidr(ip: string, cidr: string) {
+  const [base, bitsStr] = cidr.split("/");
+  const bits = Number(bitsStr);
+  const buffA = Buffer.from(ip.includes(":") ? ipToV6(ip) : ipToV4(ip));
+  const buffB = Buffer.from(ip.includes(":") ? ipToV6(base) : ipToV4(base));
+  const bytes = Math.ceil(bits / 8);
+  const mask = 0xff00 >> (bits % 8);
+  for (let i = 0; i < bytes; i++) {
+    if (i === bytes - 1 && bits % 8 !== 0) {
+      if ((buffA[i] & mask) !== (buffB[i] & mask)) return false;
+    } else if (buffA[i] !== buffB[i]) return false;
+  }
+  return true;
+}
+function ipToV4(ip: string) {
+  return ip.split(".").map(n => Number(n));
+}
+function ipToV6(ip: string) {
+  return new URL(`http://[${ip}]`).hostname; // normalizes
+}
+
+async function validateExternalUrl(raw: string) {
+  const u = new URL(raw);
+  if (!/^https?:$/.test(u.protocol)) throw new Error("Only HTTP/HTTPS allowed");
+  if (BAD_SUFFIX.some(sfx => u.hostname.endsWith(sfx))) throw new Error("Blocked hostname");
+  // resolve ALL records; block if any private
+  const addrs = [
+    ...(await dns.resolve4(u.hostname).catch(() => [])),
+    ...(await dns.resolve6(u.hostname).catch(() => [])),
+  ] as string[];
+  if (addrs.length === 0) throw new Error("Cannot resolve host");
+  for (const a of addrs) {
+    if (a.includes(":")) {
+      if (PRIVATE_V6.some(c => ipInCidr(a, c))) throw new Error("Private IPv6 blocked");
+    } else {
+      if (PRIVATE_V4.some(([base, bits]) => ipInCidr(a, `${base}/${bits}`))) {
+        throw new Error("Private IPv4 blocked");
+      }
+    }
+  }
+  return u;
+}
+
+async function fetchFollowingRedirects(u: URL, max = 5) {
+  let current = u;
+  for (let i = 0; i < max; i++) {
+    const res = await request(current.toString(), {
+      method: "GET",
+      headers: { "user-agent": "ReelRepurposer/1.0 (+fetch)" },
+      maxRedirections: 0,
+      bodyTimeout: 10_000,
+      headersTimeout: 10_000,
+    }).catch((e) => { throw new Error(`fetch failed: ${e.message}`); });
+
+    const loc = res.headers.location;
+    if (res.statusCode >= 300 && res.statusCode < 400 && loc) {
+      const next = new URL(loc, current);
+      await validateExternalUrl(next.toString()); // validate each hop
+      current = next;
+      continue;
+    }
+    return res;
+  }
+  throw new Error("Too many redirects");
+}
+
+export async function fetchAndExtract(url: string): Promise<{
+  ok: boolean;
+  reason?: string;
+  title?: string;
+  content?: string; // plain text
+}> {
+  try {
+    const u = await validateExternalUrl(url);
+    const res = await fetchFollowingRedirects(u);
+
+    const ctype = res.headers["content-type"]?.toString() || "";
+    if (!ctype.includes("text/html")) return { ok: false, reason: "not-html" };
+
+    const html = await res.body.text();
+    if (html.length < 1000) return { ok: false, reason: "too-short" };
+
+    const dom = new JSDOM(html, { url: url });
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+    if (!article || !article.textContent || article.textContent.length < 500) {
+      return { ok: false, reason: "readability-failed" };
+    }
+    return { ok: true, title: article.title ?? undefined, content: article.textContent };
+  } catch (e: any) {
+    return { ok: false, reason: e.message || "unknown-error" };
+  }
+}
+
+Зависимости (если ещё не стоят):
+@mozilla/readability, jsdom, undici.
+
+⸻
+
+2) server/lib/idempotency.ts
+
+Простая генерация/проверка ключа.
+
+// server/lib/idempotency.ts
+import crypto from "node:crypto";
+export const makeIdemKey = () => crypto.randomUUID();
+export const clampIdemKey = (k?: string) =>
+  (k && typeof k === "string" && k.length <= 64 ? k : undefined);
+
+
+⸻
+
+Что поменять (существующие файлы)
+
+3) shared/schema.ts
+
+Если полей ещё нет — добавьте к rss_items:
+
+// rss_items
+fullContent: text("full_content"),        // полный текст
+lastFetchedAt: timestamp("last_fetched_at", { mode: "date" }),
+
+И индексы под выборку по id.
+
+4) server/storage.ts
+
+Методы кэширования полного текста:
+
+// добавить
+export async function getRssItemById(id: string) {
+  return db.query.rssItems.findFirst({ where: (t, { eq }) => eq(t.id, id) });
+}
+export async function setRssItemFullContent(id: string, content: string) {
+  return db.update(rssItems)
+    .set({ fullContent: content, lastFetchedAt: new Date() })
+    .where(eq(rssItems.id, id));
+}
+
+5) server/routes.ts
+
+Добавить два endpoint’а и применить их в потоке Stage 2/3.
+
+5.1 POST /api/news/:id/fetch-full-content
+
+Кэш + извлечение.
+
+import { fetchAndExtract } from "./lib/fetchAndExtract";
+import { getRssItemById, setRssItemFullContent } from "./storage";
+
+app.post("/api/news/:id/fetch-full-content", async (req, res) => {
+  try {
+    const item = await getRssItemById(req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: "not_found" });
+
+    if (item.fullContent && item.lastFetchedAt && Date.now() - item.lastFetchedAt.getTime() < 6*60*60*1000) {
+      return res.json({ success: true, cached: true, content: item.fullContent });
+    }
+
+    const url = item.link || item.url;
+    if (!url) return res.json({ success: false, error: "no_url", fallback: item.contentSnippet || "" });
+
+    const out = await fetchAndExtract(url);
+    if (out.ok && out.content) {
+      await setRssItemFullContent(item.id, out.content);
+      return res.json({ success: true, cached: false, content: out.content });
+    }
+    return res.json({ success: false, error: out.reason || "extract_failed", fallback: item.content || item.contentSnippet || "" });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+5.2 GET /api/projects/:id/script-versions
+
+Чтобы фронт не «падал» на /script-versions (сейчас есть только /script-history).
+
+app.get("/api/projects/:id/script-versions", async (req, res) => {
+  const { id } = req.params;
+  // вернём текущую + историю (совместимо)
+  const versions = await storage.listScriptVersions(id); // если нет — добавьте метод
+  return res.json({ versions });
+});
+
+Если уже есть listScriptVersions → используйте. Иначе добавьте в storage.ts селект по script_versions с сортировкой created_at DESC.
+
+5.3 Генерация рекомендаций сохраняет scene_id
+
+Причина прошлой 500-ки: в таблицу scene_recommendations писался scene_id = NULL. Заполняем по порядковому номеру сцены.
+
+В обработчике POST /api/projects/:id/generate-script после сборки newVersion.scenes:
+
+// scenes уже сохранены внутри новой версии. Пронумеруем:
+const sceneIdByNumber = new Map<number, number>(); // sceneNumber -> scene_id (PK)
+newVersion.scenes.forEach((sc, idx) => {
+  sceneIdByNumber.set(idx + 1, sc.id); // гарантия 1..N
+});
+
+// при маппинге AI-рекомендаций:
+const rows = ai.recommendations.map(r => ({
+  scriptVersionId: newVersion.id,
+  sceneId: sceneIdByNumber.get(r.sceneNumber)!, // теперь не undefined
+  sourceAgent: r.area, // 'hook'|'structure'|'emotional'|'cta'
+  priority: r.priority,
+  area: r.area,
+  currentText: r.current,
+  suggestedText: r.suggested,
+  reasoning: r.reasoning,
+  expectedImpact: r.expectedImpact,
+  scoreDelta: extractScoreDelta(r.expectedImpact), // ваша утилита
+  confidence: priorityToConfidence(r.priority),    // ваша утилита
+  applied: false
+}));
+
+await storage.createSceneRecommendations(rows);
+
+5.4 Идемпотентность генерации (защита от двойного клика)
+
+В начале хэндлера генерации:
+
+import { clampIdemKey } from "./lib/idempotency";
+
+const idem = clampIdemKey(req.headers["x-idempotency-key"] as string | undefined);
+if (idem) {
+  const existing = await storage.findVersionByIdemKey(projectId, idem);
+  if (existing) return res.json({ ok: true, versionId: existing.id, reused: true });
+}
+...
+await storage.markVersionProvenance(newVersion.id, { idempotencyKey: idem });
+
+И добавьте простой метод/поле provenance->idempotencyKey (JSONB) — если у вас уже есть provenance, просто включите туда ключ.
+
+⸻
+
+Где подключить на фронте (минимум)
+
+(Чтобы не «ломать» UI, только вызовы.)
+	1.	Stage-2: при выборе новости вызвать
+POST /api/news/:id/fetch-full-content — положить fullContent в проект/степ-дату.
+	2.	Stage-3: при генерации добавить заголовок:
+X-Idempotency-Key: uuid.
+	3.	После generate-script — обязательно refetch:
+GET /api/projects/:id/script-versions → если versions[0] есть → показывать Scene Editor (Mode 2).
+
+⸻
+
+Что проверить сразу
+	•	POST /api/news/:id/fetch-full-content → в ответе success=true и content.length > 1000.
+	•	POST /api/projects/:id/generate-script → в логах сразу после — вставки в scene_recommendations без NULL scene_id.
+	•	GET /api/projects/:id/script-versions → возвращается массив (не 404).
+	•	После генерации на UI нет больше «всё применено», а есть карточки с рекомендациями.
+
+⸻
+
+Почему этого достаточно
+	•	Безопасно: новая логика изолирована в server/lib/*, маршруты добавлены, существующие не сломаны.
+	•	Прозрачно: фронт получает корректные версии и может рендерить «магический» редактор.
+	•	Надёжно: SSRF-гард, таймауты, редиректы, кэш, идемпотентность.
+
+Если ок — скажи, я дам следующий пакет (минимальные правки для storage.ts и точный SQL под listScriptVersions/createSceneRecommendations, если их нет).
