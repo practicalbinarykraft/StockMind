@@ -276,13 +276,26 @@ Respond in JSON format:
     throw new Error("No text response from AI");
   }
 
-  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+  // Clean markdown code blocks if present
+  let responseText = textContent.text;
+  
+  // Remove ```json ... ``` blocks
+  responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+  
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
+    console.error('[AI Service] Could not find JSON in response:', responseText.substring(0, 500));
     throw new Error("Could not parse AI response");
   }
 
-  const result = JSON.parse(jsonMatch[0]);
-  return result;
+  try {
+    const result = JSON.parse(jsonMatch[0]);
+    return result;
+  } catch (error: any) {
+    console.error('[AI Service] JSON parse error:', error.message);
+    console.error('[AI Service] Failed JSON:', jsonMatch[0].substring(0, 1000));
+    throw new Error(`Failed to parse AI response: ${error.message}`);
+  }
 }
 
 export async function generateAiPrompt(
