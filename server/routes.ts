@@ -26,6 +26,7 @@ import { fetchAndExtract } from './lib/fetchAndExtract';
 import { clampIdemKey, makeIdemKey } from './lib/idempotency';
 import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
 import { testApiKeyByProvider } from './lib/api-key-tester';
+import { apiResponse } from './lib/api-response';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -3396,15 +3397,14 @@ ${content}`;
       const recommendationIds = unappliedRecommendations.map(r => r.id);
       await storage.markRecommendationsAppliedBatch(recommendationIds);
       
-      return res.json({
-        success: true,
+      return apiResponse.ok(res, {
         newVersion,
         appliedCount: unappliedRecommendations.length,
         affectedScenes: affectedSceneIds,
       });
     } catch (error: any) {
       console.error('[Apply All Recommendations] Error:', error);
-      return res.status(500).json({ message: error.message });
+      return apiResponse.serverError(res, error.message, error);
     }
   });
 
@@ -3461,14 +3461,13 @@ ${content}`;
         userId: userId,
       });
       
-      return res.json({
-        success: true,
+      return apiResponse.ok(res, {
         newVersion,
         needsReanalysis: true,
       });
     } catch (error: any) {
       console.error('[Edit Scene] Error:', error);
-      return res.status(500).json({ message: error.message });
+      return apiResponse.serverError(res, error.message, error);
     }
   });
 
