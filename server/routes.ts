@@ -2988,11 +2988,12 @@ ${content}`;
       }
       
       // Get sceneId from recommendation (not from request body!)
-      const sceneId = recommendation.sceneId;
+      // NOTE: recommendation.sceneId is the scene NUMBER (1-indexed), not database ID
+      const sceneNumber = recommendation.sceneId;
       
       // Clone current scenes and apply recommendation
       const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
-      const targetScene = scenes.find((s: any) => s.id === sceneId);
+      const targetScene = scenes.find((s: any) => s.sceneNumber === sceneNumber);
       
       if (!targetScene) {
         return res.status(404).json({ message: 'Scene not found' });
@@ -3010,8 +3011,8 @@ ${content}`;
         createdBy: 'ai',
         changes: {
           type: 'scene_recommendation',
-          affectedScenes: [sceneId],
-          sceneId,
+          affectedScenes: [sceneNumber],
+          sceneId: sceneNumber,
           before: oldText,
           after: recommendation.suggestedText,
           reason: recommendation.reasoning,
@@ -3055,7 +3056,7 @@ ${content}`;
         success: true,
         data: {
           affectedScene: {
-            sceneNumber: sceneId,
+            sceneNumber: sceneNumber,
             text: targetScene.text,
           },
           needsReanalysis: true,
