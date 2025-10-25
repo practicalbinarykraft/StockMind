@@ -2647,7 +2647,10 @@ ${content}`;
       // Generate script with scenes using analyzeScript
       const analysisResult = await analyzeScript(apiKey.encryptedKey, formatId, content);
 
+      console.log('[Generate Script] AI returned:', JSON.stringify(analysisResult, null, 2));
+
       if (!analysisResult.scenes || analysisResult.scenes.length === 0) {
+        console.error('[Generate Script] Missing scenes! Result:', analysisResult);
         return res.status(500).json({ 
           message: "AI analysis did not generate scenes" 
         });
