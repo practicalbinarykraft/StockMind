@@ -926,6 +926,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Compare Modal */}
+        <CompareModal
+          open={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          projectId={project.id}
+        />
       </div>
     )
   }
@@ -1029,6 +1036,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             </Button>
           </div>
         </div>
+
+        {/* Compare Modal */}
+        <CompareModal
+          open={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          projectId={project.id}
+        />
       </div>
     )
   }

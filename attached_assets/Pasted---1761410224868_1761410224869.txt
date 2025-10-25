@@ -1,0 +1,107 @@
+понял: в уже созданном проекте кнопка «Открыть сравнение (ДО/ПОСЛЕ)» по-прежнему не реагирует. Ниже — короткий хотфикс-ТЗ, которое закроет проблему именно «не открывается модалка» (без переписывания бэка).
+
+ТЗ для реплита: завести кнопку «ДО/ПОСЛЕ»
+
+1) Гарантированно смонтировать модалку
+
+Сейчас Stage3 рендерится в трёх разных ветках (MAGIC UI без скрипта / MAGIC UI со скриптом / legacy), и модалка либо не монтируется, либо монтируется в другой ветке.
+
+Сделать так:
+	•	В stage-3-ai-analysis.tsx поднимите state compareOpen в самый верх файла.
+	•	**Смонтируйте <CompareModal .../> в каждой return-ветке** (в самом низу JSX, рядом с `), чтобы он всегда был в DOM вне зависимости от ветки:
+
+// в начале компонента
+const [compareOpen, setCompareOpen] = useState(false);
+
+// ...в КАЖДОЙ ветке return (MAGIC no-script / MAGIC has-script / legacy)
+<CompareModal
+  open={compareOpen}
+  onClose={() => setCompareOpen(false)}
+  projectId={project.id}
+/>
+
+Важно: не заворачивать это в условие hasCandidate; наличие кандидата влияет на содержимое, но не на сам монтаж модалки.
+
+2) Починить сам клик
+
+Убедиться, что кнопка вызывает только открытие модалки, без предварительных fetch/mutate.
+
+В боковой панели «Инструменты»:
+
+<Button
+  type="button"                         // обязательно, чтобы не было submit
+  className="w-full"
+  disabled={!hasCandidate}
+  onClick={() => {
+    console.log('[Compare] click');     // оставить временно
+    setCompareOpen(true);               // НЕМЕДЛЕННО открываем модалку
+  }}
+  data-testid="button-open-compare"
+>
+  Открыть сравнение (ДО/ПОСЛЕ)
+</Button>
+
+Частые причины “тишины”, которые нужно исключить:
+	•	не указан type="button" (кнопка внутри формы — уходит в “пустой submit”);
+	•	onClick навешан на обёртку, а не на сам <Button>;
+	•	модалка смонтирована в другой ветке render и этот стейт её не видит.
+
+3) Пусть модалка сама грузит данные
+
+В CompareModal.tsx данные тянем внутри модалки (а не в родителе). Это уже почти сделано — зафиксируйте:
+
+const { data, isLoading, isError, error } = useQuery({
+  queryKey: ['/api/projects', projectId, 'reanalyze', 'compare', 'latest'],
+  queryFn: async () => {
+    const res = await apiRequest('GET', `/api/projects/${projectId}/reanalyze/compare/latest`);
+    const json = await res.json();
+    return json.data ?? json;
+  },
+  enabled: open && !!projectId
+});
+
+UI-состояния:
+	•	open && isLoading → простой спиннер «Загружаем сравнение…»
+	•	404/нет кандидата → показать текст прямо в модалке: «Нет версии для сравнения. Сначала нажмите “Сделать версию для сравнения”.»
+	•	Ошибка сети → красный тост и onClose().
+
+4) Выбор версии
+
+Кнопки в модалке должны бить по POST /reanalyze/compare/choose:
+
+async function choose(keep: 'base'|'candidate') {
+  const res = await apiRequest('POST', `/api/projects/${projectId}/reanalyze/compare/choose`, { keep });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Failed');
+
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "script-history"] }),
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "scene-recommendations"] }),
+  ]);
+
+  onClose();
+  toast({ title: 'Версия выбрана', description: keep === 'candidate' ? 'Применили ПОСЛЕ' : 'Оставили ДО' });
+}
+
+5) hasCandidate считайте надёжно
+
+После /script-history:
+
+const versions = scriptVersionsQuery.data?.versions ?? [];
+const hasCandidate = versions.some((v:any) => v.is_candidate === true || v.status === 'candidate');
+
+Кнопку делайте disabled при !hasCandidate, но модалку монтируйте всегда (см. п.1).
+
+6) Диагностические логи (на время)
+	•	В обработчике кнопки: console.log('[Compare] click')
+	•	В модалке: useEffect(() => console.log('[CompareModal] open=', open), [open])
+
+Если click есть, а open=true нет — state не меняется (другая ветка / другой хук). Если open=true есть, а модалки нет — она не смонтирована в текущей ветке.
+
+7) Критерии приёмки
+	1.	В любом режиме Stage-3 (MAGIC/legacy) при наличии кандидата клик по кнопке мгновенно открывает модалку (без предварительных сетевых ожиданий).
+	2.	Модалка показывает лоадер, затем «ДО/ПОСЛЕ» и позволяет выбрать версию; после выбора кэш инвалидации отрабатывает, сценарий на экране обновлён.
+	3.	Если кандидата нет — кнопка disabled; при форс-клике по активной кнопке без кандидата — понятный тост.
+	4.	В консоли нет ошибок; сеть показывает запросы только из модалки: GET /reanalyze/compare/latest при открытии и POST /compare/choose при выборе.
+
+Сделайте именно эти правки (особенно — смонтировать модалку во всех ветках и открывать её сразу). После этого кнопка будет жить предсказуемо в любом уже созданном проекте.
