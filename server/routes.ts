@@ -2654,7 +2654,7 @@ ${content}`;
       }
 
       // Create initial script version
-      const newVersion = await createNewScriptVersion({
+      const newVersion = await scriptVersionService.createVersion({
         projectId: id,
         scenes: analysisResult.scenes,
         createdBy: 'system',
@@ -2811,106 +2811,6 @@ ${content}`;
   // SCRIPT VERSIONING & SCENE EDITING ENDPOINTS
   // ============================================================================
 
-  // Helper: Create new script version
-  async function createNewScriptVersion(data: {
-    projectId: string;
-    scenes: any[];
-    createdBy: 'user' | 'ai' | 'system';
-    changes: any;
-    parentVersionId?: string;
-    analysisResult?: any;
-    analysisScore?: number;
-    provenance?: any; // { source, agent?, userId?, ts }
-    diff?: any[]; // [{ sceneId, before, after }]
-    userId?: string;
-  }) {
-    const { projectId, scenes, createdBy, changes, parentVersionId, analysisResult, analysisScore, provenance, diff, userId } = data;
-    
-    // Get next version number
-    const versions = await storage.getScriptVersions(projectId);
-    const nextVersion = versions.length > 0 ? Math.max(...versions.map(v => v.versionNumber)) + 1 : 1;
-    
-    // Build full script text
-    const fullScript = scenes
-      .map((s: any) => `[${s.start}-${s.end}s] ${s.text}`)
-      .join('\n');
-    
-    // Get current version for diff calculation
-    const currentVersion = await storage.getCurrentScriptVersion(projectId);
-    
-    // Calculate diff if not provided
-    let finalDiff = diff;
-    if (!finalDiff && currentVersion && currentVersion.scenes) {
-      finalDiff = calculateSceneDiff(currentVersion.scenes as any[], scenes);
-    }
-    
-    // Build provenance if not provided
-    let finalProvenance = provenance;
-    if (!finalProvenance) {
-      finalProvenance = {
-        source: changes?.type || 'unknown',
-        userId: userId,
-        ts: new Date().toISOString(),
-      };
-    }
-    
-    // Create new version atomically (with transaction to prevent race conditions)
-    const newVersion = await storage.createScriptVersionAtomic({
-      projectId,
-      versionNumber: nextVersion,
-      fullScript,
-      scenes,
-      changes,
-      createdBy,
-      isCurrent: true,
-      parentVersionId,
-      analysisResult,
-      analysisScore,
-      provenance: finalProvenance,
-      diff: finalDiff,
-    });
-    
-    return newVersion;
-  }
-  
-  // Helper: Calculate diff between old and new scenes
-  function calculateSceneDiff(oldScenes: any[], newScenes: any[]): any[] {
-    const diffs: any[] = [];
-    
-    // Compare each scene
-    for (let i = 0; i < Math.max(oldScenes.length, newScenes.length); i++) {
-      const oldScene = oldScenes[i];
-      const newScene = newScenes[i];
-      
-      // Scene was added
-      if (!oldScene && newScene) {
-        diffs.push({
-          sceneId: newScene.id || i + 1,
-          before: '',
-          after: newScene.text || '',
-        });
-      }
-      // Scene was removed
-      else if (oldScene && !newScene) {
-        diffs.push({
-          sceneId: oldScene.id || i + 1,
-          before: oldScene.text || '',
-          after: '',
-        });
-      }
-      // Scene was modified
-      else if (oldScene && newScene && oldScene.text !== newScene.text) {
-        diffs.push({
-          sceneId: newScene.id || i + 1,
-          before: oldScene.text || '',
-          after: newScene.text || '',
-        });
-      }
-    }
-    
-    return diffs;
-  }
-
   // Helper: Extract scene recommendations from advanced analysis
   function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number): any[] {
     const recommendations: any[] = [];
@@ -2955,51 +2855,6 @@ ${content}`;
     
     console.log(`[Extract Recommendations] Extracted ${recommendations.length} valid recommendations`);
     return recommendations;
-  }
-  
-  // Helper: Extract numeric score delta from impact string
-  function extractScoreDelta(impact: string): number | undefined {
-    if (!impact) return undefined;
-    
-    // Match patterns like "+18 points", "+35%", "18 points", etc.
-    const match = impact.match(/[+]?(\d+)/);
-    return match ? parseInt(match[1], 10) : undefined;
-  }
-  
-  // Helper: Map priority to confidence score
-  function priorityToConfidence(priority: string): number {
-    const mapping: Record<string, number> = {
-      critical: 0.95,
-      high: 0.85,
-      medium: 0.7,
-      low: 0.5,
-    };
-    return mapping[priority] || 0.7;
-  }
-
-  // Helper: Find which scene a recommendation applies to
-  function findSceneForRecommendation(rec: any, scenes: any[]): number | undefined {
-    const area = rec.area?.toLowerCase() || '';
-    
-    // Map recommendation areas to scene indices
-    if (area.includes('hook') || area.includes('opening') || area.includes('attention')) {
-      return 1; // First scene
-    } else if (area.includes('cta') || area.includes('call-to-action') || area.includes('ending')) {
-      return scenes.length; // Last scene
-    } else if (area.includes('structure') || area.includes('pacing')) {
-      return 2; // Middle scenes
-    }
-    
-    // If current text matches a scene, use that
-    const currentText = rec.current?.toLowerCase() || '';
-    for (let i = 0; i < scenes.length; i++) {
-      const sceneText = scenes[i].text?.toLowerCase() || '';
-      if (currentText && sceneText.includes(currentText)) {
-        return i + 1;
-      }
-    }
-    
-    return undefined; // Can't determine scene
   }
 
   // Shared handler for script versions/history endpoint
@@ -3143,7 +2998,7 @@ ${content}`;
       targetScene.lastModified = new Date().toISOString();
       
       // Create new version with provenance
-      const newVersion = await createNewScriptVersion({
+      const newVersion = await scriptVersionService.createVersion({
         projectId: id,
         scenes,
         createdBy: 'ai',
@@ -3285,7 +3140,7 @@ ${content}`;
       }
       
       // Create initial version
-      const newVersion = await createNewScriptVersion({
+      const newVersion = await scriptVersionService.createVersion({
         projectId: id,
         scenes,
         createdBy: 'system',
