@@ -14,6 +14,7 @@ import { SceneEditor } from "@/components/project/scene-editor"
 import { SourceSummaryBar } from "../source-summary-bar"
 import { SourceAnalysisCard } from "../source-analysis-card"
 import { RecommendedFormatBox } from "../recommended-format-box"
+import { ReanalyzeCompareModal } from "../reanalyze-compare-modal"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -73,6 +74,7 @@ interface AIAnalysis {
 
 export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null)
+  const [showCompareModal, setShowCompareModal] = useState(false)
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedScoreResult | null>(null)
   const [analysisMode, setAnalysisMode] = useState<'simple' | 'advanced'>('advanced') // Default to advanced
   const [selectedFormat, setSelectedFormat] = useState<string>("news")
@@ -86,6 +88,30 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [showFormatModal, setShowFormatModal] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState<'ru' | 'en'>('ru') // Default to Russian
   const { toast} = useToast()
+
+  // Reanalyze mutation
+  const reanalyzeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/projects/${project.id}/reanalyze`, {
+        idempotencyKey: `reanalyze-${Date.now()}`
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Пересчет завершен",
+        description: "Анализ выполнен, открываем сравнение версий"
+      });
+      setShowCompareModal(true);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка пересчета",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
 
   // Feature flag check
   const STAGE3_MAGIC_UI = import.meta.env.VITE_STAGE3_MAGIC_UI === 'true'
@@ -777,11 +803,14 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               projectId={project.id}
               scenes={currentVersion.scenes}
               onReanalyze={() => {
-                // TODO: implement reanalyze
+                if (reanalyzeMutation.isPending) return;
+                
                 toast({
-                  title: "Функция в разработке",
-                  description: "Повторный анализ скоро будет доступен"
-                })
+                  title: "Запуск пересчета",
+                  description: "Анализируем сценарий, это может занять до минуты..."
+                });
+                
+                reanalyzeMutation.mutate();
               }}
             />
           </div>
@@ -1196,6 +1225,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reanalyze Compare Modal */}
+      <ReanalyzeCompareModal
+        projectId={project.id}
+        open={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+      />
     </div>
   )
 }
