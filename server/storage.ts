@@ -830,6 +830,49 @@ export class DatabaseStorage implements IStorage {
       .set({ applied: true, appliedAt: new Date() })
       .where(eq(sceneRecommendations.id, id));
   }
+
+  // Additional utility methods for new features
+  async getRssItemById(id: string): Promise<RssItem | undefined> {
+    return await db.query.rssItems.findFirst({
+      where: (t, { eq }) => eq(t.id, id)
+    });
+  }
+
+  async setRssItemFullContent(id: string, content: string): Promise<void> {
+    await db
+      .update(rssItems)
+      .set({ fullContent: content, lastFetchedAt: new Date() })
+      .where(eq(rssItems.id, id));
+  }
+
+  async listScriptVersions(projectId: string): Promise<ScriptVersion[]> {
+    return await db
+      .select()
+      .from(scriptVersions)
+      .where(eq(scriptVersions.projectId, projectId))
+      .orderBy(desc(scriptVersions.versionNumber));
+  }
+
+  async findVersionByIdemKey(projectId: string, idemKey: string): Promise<ScriptVersion[]> {
+    return await db
+      .select()
+      .from(scriptVersions)
+      .where(
+        and(
+          eq(scriptVersions.projectId, projectId),
+          sql`${scriptVersions.provenance}::jsonb ->> 'idempotencyKey' = ${idemKey}`
+        )
+      )
+      .limit(1);
+  }
+
+  async markVersionProvenance(versionId: string, prov: any): Promise<void> {
+    await db.execute(sql`
+      UPDATE script_versions
+      SET provenance = COALESCE(provenance, '{}'::jsonb) || ${JSON.stringify(prov)}::jsonb
+      WHERE id = ${versionId}
+    `);
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -22,13 +22,9 @@ import fs from "fs";
 
 const rssParser = new Parser();
 
-import { Readability } from '@mozilla/readability';
-import { JSDOM } from 'jsdom';
-import { fetch as undiciFetch } from 'undici';
-import { lookup } from 'node:dns';
-import { promisify } from 'node:util';
-
-const dnsLookup = promisify(lookup);
+import { fetchAndExtract } from './lib/fetchAndExtract';
+import { clampIdemKey } from './lib/idempotency';
+import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -3765,6 +3761,25 @@ ${content}`;
 
   // GET /api/projects/:id/script-history - Single source of truth for script versions and recommendations
   app.get("/api/projects/:id/script-history", isAuthenticated, getScriptHistoryHandler);
+
+  // GET /api/projects/:id/script-versions - Get all script versions for frontend
+  app.get("/api/projects/:id/script-versions", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const versions = await storage.listScriptVersions(id);
+      return res.json({ versions });
+    } catch (error: any) {
+      console.error('[Script Versions] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
 
   // GET /api/projects/:id/scene-recommendations - Get scene recommendations for current version
   app.get("/api/projects/:id/scene-recommendations", isAuthenticated, async (req: any, res) => {
