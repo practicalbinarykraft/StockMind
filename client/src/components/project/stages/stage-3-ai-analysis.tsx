@@ -307,6 +307,16 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         console.error("Failed to cache analysis:", err)
       })
     },
+    onError: (error: any) => {
+      const is404 = error?.message?.includes('404') || error?.status === 404;
+      toast({
+        title: 'Ошибка анализа',
+        description: is404 
+          ? 'Legacy-анализ недоступен. Используйте Advanced Analyze для более детального анализа скрипта.'
+          : error.message || 'Не удалось выполнить анализ скрипта',
+        variant: 'destructive',
+      });
+    },
   })
 
   // Score variant mutation
