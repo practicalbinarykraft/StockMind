@@ -166,7 +166,7 @@ export function RecommendedFormatBox({
             data-testid="button-apply-recommended"
           >
             <Sparkles className="h-4 w-4" />
-            {isLoading ? 'Применяем...' : 'Применить рекомендованный'}
+            {isLoading ? 'Создаем...' : 'Создать сценарий'}
           </Button>
 
           <Button
