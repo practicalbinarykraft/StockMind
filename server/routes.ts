@@ -27,6 +27,7 @@ import { clampIdemKey, makeIdemKey } from './lib/idempotency';
 import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
 import { testApiKeyByProvider } from './lib/api-key-tester';
 import { apiResponse } from './lib/api-response';
+import { ProjectService } from './services/project-service';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -281,6 +282,9 @@ async function scoreInstagramItemBackground(
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Initialize services
+  const projectService = new ProjectService(storage);
 
   // ============================================================================
   // AUTH ROUTES
@@ -1329,7 +1333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const validated = insertProjectSchema.parse(req.body);
-      const project = await storage.createProject(userId, validated);
+      const project = await projectService.createProject(userId, validated);
       res.json(project);
     } catch (error: any) {
       console.error("Error creating project:", error);
@@ -1344,91 +1348,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { itemId } = req.params;
 
-      // Get the Instagram item
-      const items = await storage.getInstagramItems(userId);
-      const item = items.find(i => i.id === itemId);
-
-      if (!item) {
-        return res.status(404).json({ message: "Instagram Reel not found or not authorized" });
-      }
-
-      // Check if already used in a project
-      if (item.usedInProject) {
-        return res.status(400).json({ 
-          message: "This Reel is already used in another project",
-          projectId: item.usedInProject
-        });
-      }
-
-      // Check if transcription is available
-      if (!item.transcriptionText || item.transcriptionStatus !== 'completed') {
-        return res.status(400).json({ 
-          message: "Reel must be transcribed before creating a project. Current status: " + (item.transcriptionStatus || 'pending')
-        });
-      }
-
-      // Generate project title from caption or transcription (max 50 chars)
-      const titleSource = item.caption || item.transcriptionText || 'Instagram Reel';
-      const title = titleSource.length > 50 
-        ? titleSource.substring(0, 47) + '...' 
-        : titleSource;
-
-      // Create project atomically (with transaction to prevent data inconsistency)
-      const project = await storage.createProjectFromInstagramAtomic(
-        userId,
-        {
-          title,
-          sourceType: 'instagram',
-          sourceData: {
-            itemId: item.id,
-            externalId: item.externalId,
-            shortCode: item.shortCode,
-            url: item.url,
-            caption: item.caption,
-            ownerUsername: item.ownerUsername,
-            transcription: item.transcriptionText,
-            language: item.language,
-            aiScore: item.aiScore,
-            aiComment: item.aiComment,
-            freshnessScore: item.freshnessScore,
-            viralityScore: item.viralityScore,
-            qualityScore: item.qualityScore,
-            engagement: {
-              likes: item.likesCount,
-              comments: item.commentsCount,
-              views: item.videoViewCount,
-            }
-          },
-          currentStage: 2,
-          status: 'draft',
-        },
-        {
-          projectId: '',
-          stepNumber: 2,
-          data: {
-            id: item.id,
-            contentType: 'instagram',
-            transcriptionText: item.transcriptionText,
-            caption: item.caption,
-            language: item.language,
-            aiScore: item.aiScore,
-            aiComment: item.aiComment,
-            freshnessScore: item.freshnessScore,
-            viralityScore: item.viralityScore,
-            qualityScore: item.qualityScore,
-            thumbnailUrl: item.thumbnailUrl,
-            url: item.url,
-            ownerUsername: item.ownerUsername,
-          },
-        },
-        itemId
-      );
+      const project = await projectService.createProjectFromInstagram(userId, itemId);
 
       console.log(`[Project] Created from Instagram Reel: ${project.id} (item: ${itemId})`);
       res.json(project);
     } catch (error: any) {
       console.error("Error creating project from Instagram:", error);
-      res.status(500).json({ message: error.message || "Failed to create project from Instagram Reel" });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ 
+        message: error.message || "Failed to create project from Instagram Reel",
+        projectId: error.projectId
+      });
     }
   });
 
@@ -1439,67 +1369,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { itemId } = req.params;
 
-      // Get the news item
-      const items = await storage.getRssItems(userId);
-      const item = items.find(i => i.id === itemId);
+      const project = await projectService.createProjectFromNews(userId, itemId);
 
-      if (!item) {
-        return res.status(404).json({ message: "News item not found or not authorized" });
-      }
-
-      // Check if already used in a project
-      if (item.usedInProject) {
-        return res.status(400).json({ 
-          message: "This news item is already used in another project",
-          projectId: item.usedInProject
-        });
-      }
-
-      // Generate concise project title from news title (max 60 chars)
-      const titleSource = item.title || 'News Article';
-      const title = titleSource.length > 60 
-        ? titleSource.substring(0, 57) + '...' 
-        : titleSource;
-
-      // Create project atomically (with transaction to prevent data inconsistency)
-      const project = await storage.createProjectFromNewsAtomic(
-        userId,
-        {
-          title,
-          sourceType: 'news',
-          sourceData: {
-            itemId: item.id,
-            title: item.title,
-            url: item.url,
-            content: item.content,
-            imageUrl: item.imageUrl,
-            publishedAt: item.publishedAt,
-            aiScore: item.aiScore,
-            aiComment: item.aiComment,
-          },
-          currentStage: 2,
-          status: 'draft',
-        },
-        {
-          projectId: '',
-          stepNumber: 2,
-          data: {
-            title: item.title,
-            content: item.content,
-            url: item.url,
-            imageUrl: item.imageUrl,
-            publishedAt: item.publishedAt,
-            aiScore: item.aiScore,
-            aiComment: item.aiComment,
-          }
-        },
-        itemId
-      );
-
+      console.log(`[Project] Created from News: ${project.id} (item: ${itemId})`);
       return res.json(project);
     } catch (error: any) {
       console.error("Error creating project from news:", error);
-      res.status(500).json({ message: error.message || "Failed to create project from news item" });
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({ 
+        message: error.message || "Failed to create project from news item",
+        projectId: error.projectId
+      });
     }
   });
 
