@@ -3318,8 +3318,8 @@ ${content}`;
         userId: userId,
       });
 
-      // Extract and create recommendations with database scene IDs
-      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, newVersion.scenes as any[]);
+      // Extract and create recommendations (sceneId = scene number, not database PK)
+      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, analysisResult.scenes.length);
       
       if (recommendationsData.length > 0) {
         const recommendations = recommendationsData.map(rec => ({
@@ -3560,7 +3560,7 @@ ${content}`;
   }
 
   // Helper: Extract scene recommendations from advanced analysis
-  function extractRecommendationsFromAnalysis(analysis: any, dbScenes: any[]): any[] {
+  function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number): any[] {
     const recommendations: any[] = [];
     
     if (!analysis || !analysis.recommendations) {
@@ -3568,18 +3568,14 @@ ${content}`;
       return recommendations;
     }
     
-    console.log(`[Extract Recommendations] Processing ${analysis.recommendations.length} recommendations for ${dbScenes.length} scenes`);
+    console.log(`[Extract Recommendations] Processing ${analysis.recommendations.length} recommendations for ${totalScenes} scenes`);
     
-    // Map recommendations to scenes using database IDs
+    // Map recommendations to scenes using scene numbers (1-indexed)
     for (const rec of analysis.recommendations) {
       // Use explicit sceneNumber from AI (1-indexed)
       const sceneNumber = rec.sceneNumber;
       
-      if (sceneNumber && sceneNumber > 0 && sceneNumber <= dbScenes.length) {
-        // Map sceneNumber (1-indexed) to database scene ID
-        const dbScene = dbScenes[sceneNumber - 1];
-        const sceneId = dbScene.id;
-        
+      if (sceneNumber && sceneNumber > 0 && sceneNumber <= totalScenes) {
         // Extract score delta from expectedImpact (e.g., "+18 points" → 18)
         const scoreDelta = extractScoreDelta(rec.expectedImpact);
         
@@ -3587,7 +3583,7 @@ ${content}`;
         const confidence = priorityToConfidence(rec.priority);
         
         recommendations.push({
-          sceneId, // Use database ID, not sceneNumber
+          sceneId: sceneNumber, // sceneId is just the scene number (1, 2, 3...), not a database PK
           priority: rec.priority || 'medium',
           area: rec.area || 'general',
           currentText: rec.current || '',
@@ -3599,9 +3595,9 @@ ${content}`;
           confidence,
         });
         
-        console.log(`[Extract Recommendations] Added recommendation for scene #${sceneNumber} (DB ID: ${sceneId}), area: ${rec.area}, priority: ${rec.priority}`);
+        console.log(`[Extract Recommendations] Added recommendation for scene #${sceneNumber}, area: ${rec.area}, priority: ${rec.priority}`);
       } else {
-        console.log(`[Extract Recommendations] Skipped recommendation - invalid sceneNumber: ${sceneNumber} (total scenes: ${dbScenes.length})`);
+        console.log(`[Extract Recommendations] Skipped recommendation - invalid sceneNumber: ${sceneNumber} (total scenes: ${totalScenes})`);
       }
     }
     

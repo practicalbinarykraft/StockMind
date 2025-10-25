@@ -1,0 +1,58 @@
+круто! давай быстро зашьём это в стабильность. Ниже — ультра-короткий чек-лист, как убедиться, что генерация рекомендаций реально работает от и до, и что «магия» видна в UI.
+
+Смок-тест (3 шага)
+	1.	Создай новый проект → выбери новость → нажми «Начать анализ» → «Применить рекомендованный».
+	2.	Ожидаем: авто-переключение в «Редактор сценария», в правой колонке «Инструменты» видно «Доступно N рекомендаций», на карточках сцен — бейджи (агент/приоритет/+score) и кнопка «Применить».
+	3.	Нажми «Применить все» → должна появиться новая версия в «Истории», бейджи исчезают (applied=true), «Все рекомендации применены».
+
+Что проверить в бэкенде (быстро)
+
+SQL (любой клиент):
+
+-- 1) есть ли рекомендации на текущую версию?
+select count(*) 
+from scene_recommendations sr
+join script_versions sv on sv.id = sr.script_version_id
+where sv.project_id = :project_id and sv.is_current = true;
+
+-- 2) не «залипли» ли они как applied=false после Apply All?
+select sr.scene_id, sr.applied
+from scene_recommendations sr
+join script_versions sv on sv.id = sr.script_version_id
+where sv.project_id = :project_id and sv.is_current = true;
+
+Ожидание: в (1) count > 0 сразу после генерации; после «Применить все» записи либо помечены applied=true, либо создана новая версия, а список не применённых пуст.
+
+Что проверить во фронте
+	•	Запрос: GET /api/projects/:id/script-history возвращает:
+	•	currentVersion.scenes (массив)
+	•	recommendations (массив не пуст сразу после генерации)
+	•	В редакторе сцены, источник данных — только этот эндпоинт (без /script-versions).
+	•	После POST /generate-script:
+	•	есть invalidateQueries(['script-history', id])
+	•	setMode('editor') вызывается
+	•	toast показывает «Создано X сцен • N рекомендаций»
+
+Если что-то снова не так — быстрая диагностика
+
+Сценарий А — в БД рекомендаций нет:
+	•	Проверь, что в POST /generate-script после сохранения script_version вызывается сборка рекомендаций и insert в scene_recommendations с полями:
+script_version_id, scene_id, priority, area, current_text, suggested_text, reasoning, expected_impact, sourceAgent, scoreDelta, confidence, applied=false.
+	•	Убедись, что маппинг sceneNumber → scene_id берётся из newVersion.scenes (не путать с порядком в массиве).
+
+Сценарий B — в БД есть, в UI пусто:
+	•	Проверь, что в ответе /script-history поле recommendations реально возвращается.
+	•	В редакторе фильтр unapplied = recommendations.filter(r => !r.applied) и он используется для бейджей и панели «Инструменты».
+	•	Нет ли feature-flag’а, который отключает запрос (enabled: false у useQuery)?
+
+Сценарий C — кнопки «Применить»/«Применить все» не меняют состояние:
+	•	POST /apply-scene-recommendation//apply-all-recommendations после успеха делают invalidateQueries(['script-history', id]).
+	•	На бэке: операции обёрнуты в транзакцию; создаётся новая версия через helper createNewScriptVersion(...), а рекомендации помечаются applied=true.
+
+UX-мелочи, чтобы «магия» ощущалась
+	•	После генерации: авто-скролл к Сцене 1 + статусная плашка «Доступно N улучшений».
+	•	В бейджах рекомендации: агент (Hook/Structure/Emotional/CTA), приоритет, +scoreDelta.
+	•	После ручного редактирования сцены: сразу показать «Пересчитать анализ».
+	•	В «Истории»: слово-уровневый diff «было/стало».
+
+Если по этому чек-листу что-то не сойдётся — скинь один скрин из Network (ответ /script-history) и одну строчку SQL count(*) сверху. По ним за 1 проход докрутим.
