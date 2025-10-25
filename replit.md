@@ -50,6 +50,51 @@ The user interface adheres to a professional, production-tool aesthetic inspired
 
 ## Recent Changes
 
+### October 25, 2025 - Async Reanalysis Frontend Integration (COMPLETED ✅)
+**Status**: FULLY INTEGRATED IN STAGE 3
+
+Successfully integrated async reanalysis workflow into Stage 3 AI Analysis frontend.
+
+**Integration Accomplishments:**
+1. **Modal Replacement** ✅
+   - Replaced `ReanalyzeCompareModal` with new `CompareModal` component
+   - Updated all imports and component usage throughout Stage 3
+   
+2. **Async Workflow Implementation** ✅
+   - Updated `reanalyzeMutation` to call `/api/projects/:id/reanalyze/start`
+   - Implemented 2-second polling mechanism for job status updates
+   - Added toast notifications for job lifecycle (start → progress → done/error)
+   - Auto-cleanup polling after 60 seconds
+
+3. **New Mutations Added** ✅
+   - `fetchCompareDataMutation`: Loads comparison data via `/compare/latest`
+   - `chooseMutation`: Handles version selection via `/compare/choose`
+   - Proper cache invalidation on version selection
+
+4. **SceneEditor Updates** ✅
+   - Added `onOpenCompare` prop to trigger comparison modal
+   - Added `hasCandidate` prop to show/hide comparison button
+   - Updated both SceneEditor instances in Stage 3 (magic UI + legacy UI)
+
+5. **State Management** ✅
+   - Added `compareData`, `reanalyzeJobId` state variables
+   - Implemented `hasCandidate` detection from `scriptVersionsQuery`
+   - Proper cleanup on modal close and version selection
+
+**Technical Flow:**
+- User clicks "Сделать версию для сравнения" → POST /reanalyze/start → jobId returned
+- Frontend polls GET /reanalyze/status every 2s until status === 'done'
+- User clicks "Открыть сравнение (ДО/ПОСЛЕ)" → GET /compare/latest → CompareModal opens
+- User chooses version → POST /compare/choose → cache invalidated → modal closes
+
+**Code Quality:**
+- Zero LSP errors
+- Zero runtime errors
+- All HMR updates successful
+- Clean async/await patterns throughout
+
+---
+
 ### October 25, 2025 - Phase 3: Code Quality & Polish (P2 - COMPLETED ✅)
 **Status**: ALL TASKS COMPLETED AND ARCHITECT APPROVED
 

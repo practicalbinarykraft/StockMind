@@ -149,10 +149,14 @@ export interface IStorage {
 
   // Script Versions
   getScriptVersions(projectId: string): Promise<ScriptVersion[]>;
+  listScriptVersions(projectId: string): Promise<ScriptVersion[]>;
   getCurrentScriptVersion(projectId: string): Promise<ScriptVersion | undefined>;
+  getLatestCandidateVersion(projectId: string): Promise<ScriptVersion | undefined>;
   createScriptVersion(data: InsertScriptVersion): Promise<ScriptVersion>;
   updateScriptVersionCurrent(projectId: string, versionId: string): Promise<void>;
   createScriptVersionAtomic(data: InsertScriptVersion): Promise<ScriptVersion>;
+  promoteCandidate(projectId: string, candidateId: string): Promise<void>;
+  rejectCandidate(projectId: string, candidateId: string): Promise<void>;
 
   // Scene Recommendations
   getSceneRecommendations(scriptVersionId: string): Promise<SceneRecommendation[]>;
@@ -868,6 +872,60 @@ export class DatabaseStorage implements IStorage {
       
       return newVersion;
     });
+  }
+
+  async getLatestCandidateVersion(projectId: string): Promise<ScriptVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(scriptVersions)
+      .where(
+        and(
+          eq(scriptVersions.projectId, projectId),
+          eq(scriptVersions.isCandidate, true)
+        )
+      )
+      .orderBy(desc(scriptVersions.createdAt))
+      .limit(1);
+    return version;
+  }
+
+  async promoteCandidate(projectId: string, candidateId: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Unmark current version
+      await tx
+        .update(scriptVersions)
+        .set({ isCurrent: false })
+        .where(
+          and(
+            eq(scriptVersions.projectId, projectId),
+            eq(scriptVersions.isCurrent, true)
+          )
+        );
+      
+      // Promote candidate to current
+      await tx
+        .update(scriptVersions)
+        .set({ 
+          isCurrent: true, 
+          isCandidate: false 
+        })
+        .where(eq(scriptVersions.id, candidateId));
+    });
+  }
+
+  async rejectCandidate(projectId: string, candidateId: string): Promise<void> {
+    await db
+      .update(scriptVersions)
+      .set({ 
+        isCandidate: false,
+        isRejected: true
+      })
+      .where(
+        and(
+          eq(scriptVersions.id, candidateId),
+          eq(scriptVersions.projectId, projectId)
+        )
+      );
   }
 
   // Scene Recommendations

@@ -14,7 +14,7 @@ import { SceneEditor } from "@/components/project/scene-editor"
 import { SourceSummaryBar } from "../source-summary-bar"
 import { SourceAnalysisCard } from "../source-analysis-card"
 import { RecommendedFormatBox } from "../recommended-format-box"
-import { ReanalyzeCompareModal } from "../reanalyze-compare-modal"
+import { CompareModal } from "../compare-modal"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -75,6 +75,8 @@ interface AIAnalysis {
 export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null)
   const [showCompareModal, setShowCompareModal] = useState(false)
+  const [compareData, setCompareData] = useState<any>(null)
+  const [reanalyzeJobId, setReanalyzeJobId] = useState<string | null>(null)
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedScoreResult | null>(null)
   const [analysisMode, setAnalysisMode] = useState<'simple' | 'advanced'>('advanced') // Default to advanced
   const [selectedFormat, setSelectedFormat] = useState<string>("news")
@@ -89,24 +91,100 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [targetLanguage, setTargetLanguage] = useState<'ru' | 'en'>('ru') // Default to Russian
   const { toast} = useToast()
 
-  // Reanalyze mutation
+  // Reanalyze mutation - starts async job
   const reanalyzeMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/projects/${project.id}/reanalyze`, {
-        idempotencyKey: `reanalyze-${Date.now()}`
+      const res = await apiRequest('POST', `/api/projects/${project.id}/reanalyze/start`);
+      const json = await res.json();
+      const data = json?.data ?? json;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      const jobId = data.jobId;
+      setReanalyzeJobId(jobId);
+      
+      toast({
+        title: "Анализ запущен",
+        description: "Займет до 1 минуты. Мы уведомим когда будет готово",
       });
-      return response;
+
+      // Start polling
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/projects/${project.id}/reanalyze/status?jobId=${jobId}`);
+          const json = await res.json();
+          const status = json?.data ?? json;
+
+          if (status.status === 'done') {
+            clearInterval(interval);
+            setReanalyzeJobId(null);
+            toast({
+              title: "Версия для сравнения готова",
+              description: "Откройте сравнение ДО/ПОСЛЕ",
+            });
+            queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+          } else if (status.status === 'error') {
+            clearInterval(interval);
+            setReanalyzeJobId(null);
+            toast({
+              title: "Ошибка анализа",
+              description: status.error || "Произошла ошибка",
+              variant: "destructive"
+            });
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 2000); // Poll every 2s
+
+      // Auto-clear after 60s
+      setTimeout(() => clearInterval(interval), 60000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка запуска анализа",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Compare/choose mutations
+  const fetchCompareDataMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('GET', `/api/projects/${project.id}/compare/latest`);
+      const json = await res.json();
+      return json?.data ?? json;
+    },
+    onSuccess: (data: any) => {
+      setCompareData(data);
+      setShowCompareModal(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка получения данных",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const chooseMutation = useMutation({
+    mutationFn: async (keep: 'base' | 'candidate') => {
+      const res = await apiRequest('POST', `/api/projects/${project.id}/compare/choose`, { keep });
+      return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Пересчет завершен",
-        description: "Анализ выполнен, открываем сравнение версий"
+        title: "Выбор сохранен",
       });
-      setShowCompareModal(true);
+      setShowCompareModal(false);
+      setCompareData(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
-        title: "Ошибка пересчета",
+        title: "Ошибка выбора версии",
         description: error.message,
         variant: "destructive"
       });
@@ -134,6 +212,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const hasScript = Boolean(
     scriptVersionsQuery.data?.currentVersion || 
     (scriptVersionsQuery.data?.versions && scriptVersionsQuery.data.versions.length > 0)
+  )
+
+  // Check if there's a candidate version for comparison
+  const hasCandidate = Boolean(
+    scriptVersionsQuery.data?.versions?.some((v: any) => v.isCandidate)
   )
 
   // Get content from step data
@@ -804,14 +887,12 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               scenes={currentVersion.scenes}
               onReanalyze={() => {
                 if (reanalyzeMutation.isPending) return;
-                
-                toast({
-                  title: "Запуск пересчета",
-                  description: "Анализируем сценарий, это может занять до минуты..."
-                });
-                
                 reanalyzeMutation.mutate();
               }}
+              onOpenCompare={() => {
+                fetchCompareDataMutation.mutate();
+              }}
+              hasCandidate={hasCandidate}
             />
           </div>
 
@@ -975,6 +1056,10 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 projectId={project.id}
                 scenes={stepData.scenes}
                 onReanalyze={() => setReanalyzeDialogOpen(true)}
+                onOpenCompare={() => {
+                  fetchCompareDataMutation.mutate();
+                }}
+                hasCandidate={hasCandidate}
               />
             )}
 
@@ -1226,11 +1311,18 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reanalyze Compare Modal */}
-      <ReanalyzeCompareModal
-        projectId={project.id}
+      {/* Compare Modal */}
+      <CompareModal
         open={showCompareModal}
-        onClose={() => setShowCompareModal(false)}
+        onOpenChange={setShowCompareModal}
+        data={compareData}
+        onChoose={(choice) => chooseMutation.mutate(choice)}
+        onBackToEdit={() => setShowCompareModal(false)}
+        onProceedToVoice={() => {
+          setShowCompareModal(false);
+          // TODO: Navigate to voiceover stage
+        }}
+        isChoosing={chooseMutation.isPending}
       />
     </div>
   )

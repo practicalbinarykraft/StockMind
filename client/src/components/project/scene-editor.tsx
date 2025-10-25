@@ -29,9 +29,11 @@ interface SceneEditorProps {
   projectId: string;
   scenes: Scene[];
   onReanalyze?: () => void;
+  onOpenCompare?: () => void;
+  hasCandidate?: boolean;
 }
 
-export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: SceneEditorProps) {
+export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze, onOpenCompare, hasCandidate }: SceneEditorProps) {
   const [scenes, setScenes] = useState(initialScenes);
   const [showHistory, setShowHistory] = useState(false);
   const { toast } = useToast();
@@ -223,7 +225,18 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
                 data-testid="button-reanalyze"
               >
                 <RefreshCw className="h-4 w-4" />
-                Пересчитать анализ
+                Сделать версию для сравнения
+              </Button>
+            )}
+            
+            {onOpenCompare && hasCandidate && (
+              <Button
+                onClick={onOpenCompare}
+                className="w-full gap-2"
+                data-testid="button-open-compare"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Открыть сравнение (ДО/ПОСЛЕ)
               </Button>
             )}
           </CardContent>

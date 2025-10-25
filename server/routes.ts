@@ -29,6 +29,7 @@ import { testApiKeyByProvider } from './lib/api-key-tester';
 import { apiResponse } from './lib/api-response';
 import { ProjectService } from './services/project-service';
 import { ScriptVersionService } from './services/script-version-service';
+import { jobManager } from './lib/reanalysis-job-manager';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -3207,88 +3208,108 @@ ${content}`;
   });
 
   // ============================================================================
-  // REANALYZE ROUTES (Iterative Improvement Workflow)
+  // REANALYZE ROUTES (Asynchronous Iterative Improvement Workflow)
   // ============================================================================
 
-  // POST /api/projects/:id/reanalyze - Create candidate version with new analysis
-  app.post("/api/projects/:id/reanalyze", isAuthenticated, async (req: any, res) => {
+  // POST /api/projects/:id/reanalyze/start - Start async reanalysis job
+  app.post("/api/projects/:id/reanalyze/start", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
 
-      const { id } = req.params;
-      const { idempotencyKey } = req.body;
+      const { id: projectId } = req.params;
 
-      // Check for existing project
-      const project = await storage.getProject(id, userId);
+      // Validate project exists
+      const project = await storage.getProject(projectId, userId);
       if (!project) return apiResponse.notFound(res, "Project not found");
 
       // Get current version
-      const scriptHistory = await storage.listScriptVersions(id);
-      const currentVersion = scriptHistory.find(v => v.isCurrent);
+      const currentVersion = await storage.getCurrentScriptVersion(projectId);
       if (!currentVersion) {
         return apiResponse.badRequest(res, "No current version found");
       }
 
-      // Get Anthropic API key
+      // Check for API key
       const apiKey = await storage.getUserApiKey(userId, 'anthropic');
       if (!apiKey) {
         return apiResponse.notFound(res, "Anthropic API key not configured");
       }
 
-      console.log('[Reanalyze] Starting advanced analysis for version', currentVersion.id);
+      // Create job (throws ALREADY_RUNNING if job exists)
+      let job;
+      try {
+        job = jobManager.createJob(projectId);
+      } catch (err: any) {
+        if (err.message === 'ALREADY_RUNNING') {
+          return res.status(409).json({
+            success: false,
+            error: "Reanalysis already in progress",
+            retryAfter: 5
+          });
+        }
+        throw err;
+      }
 
-      // Run advanced analysis on current version's full script
-      const analysisResult = await scoreCustomScriptAdvanced(
-        apiKey.encryptedKey,
-        currentVersion.fullScript,
-        'short-form'
-      );
+      console.log(`[Reanalyze] Job ${job.jobId} created for project ${projectId}`);
 
-      // Calculate per-scene scores if scenes are available
-      const perSceneScores = currentVersion.scenes && Array.isArray(currentVersion.scenes)
-        ? await Promise.all(
-            currentVersion.scenes.map(async (scene: any) => {
-              try {
-                const sceneAnalysis = await scoreCustomScriptAdvanced(
-                  apiKey.encryptedKey,
-                  scene.text,
-                  'short-form'
-                );
-                return {
-                  sceneNumber: scene.sceneNumber,
-                  score: sceneAnalysis.overallScore
-                };
-              } catch (err) {
-                console.error(`Failed to analyze scene ${scene.sceneNumber}:`, err);
-                return {
-                  sceneNumber: scene.sceneNumber,
-                  score: 0
-                };
-              }
-            })
-          )
-        : [];
+      // Start async processing
+      setImmediate(async () => {
+        try {
+          jobManager.updateJobStatus(job.jobId, 'running');
+          
+          const scenes = currentVersion.scenes as any || [];
+          console.log(`[Reanalyze] Job ${job.jobId} running - analyzing ${scenes.length} scenes`);
+          
+          // Run advanced analysis
+          const analysisResult = await scoreCustomScriptAdvanced(
+            apiKey.encryptedKey,
+            currentVersion.fullScript,
+            'short-form'
+          );
 
-      // Build metrics object from analysis result
-      const predicted = analysisResult.predictedMetrics || {};
-      const metrics = {
-        overallScore: analysisResult.overallScore,
-        hookScore: analysisResult.breakdown?.hook?.score || 0,
-        structureScore: analysisResult.breakdown?.structure?.score || 0,
-        emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
-        ctaScore: analysisResult.breakdown?.cta?.score || 0,
-        predicted: {
-          retention: (predicted as any).estimatedRetention || (predicted as any).retention || "н/д",
-          saves: (predicted as any).estimatedSaves || (predicted as any).saves || "н/д",
-          shares: (predicted as any).estimatedShares || (predicted as any).shares || "н/д",
-          viralProbability: (predicted as any).viralProbability || "low"
-        },
-        perScene: perSceneScores
-      };
+          // Per-scene analysis
+          const perSceneScores = scenes && Array.isArray(scenes)
+            ? await Promise.all(
+                scenes.map(async (scene: any) => {
+                  try {
+                    const sceneAnalysis = await scoreCustomScriptAdvanced(
+                      apiKey.encryptedKey,
+                      scene.text,
+                      'short-form'
+                    );
+                    return {
+                      sceneNumber: scene.sceneNumber,
+                      score: sceneAnalysis.overallScore
+                    };
+                  } catch (err) {
+                    console.error(`[Job ${job.jobId}] Scene ${scene.sceneNumber} analysis failed:`, err);
+                    return {
+                      sceneNumber: scene.sceneNumber,
+                      score: 0
+                    };
+                  }
+                })
+              )
+            : [];
 
-      // Generate review summary
-      const review = `Общая оценка: ${analysisResult.overallScore}/100 (${analysisResult.verdict})
+          // Build metrics
+          const predicted = analysisResult.predictedMetrics || {};
+          const metrics = {
+            overallScore: analysisResult.overallScore,
+            hookScore: analysisResult.breakdown?.hook?.score || 0,
+            structureScore: analysisResult.breakdown?.structure?.score || 0,
+            emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
+            ctaScore: analysisResult.breakdown?.cta?.score || 0,
+            predicted: {
+              retention: (predicted as any).estimatedRetention || "н/д",
+              saves: (predicted as any).estimatedSaves || "н/д",
+              shares: (predicted as any).estimatedShares || "н/д",
+              viralProbability: (predicted as any).viralProbability || "low"
+            },
+            perScene: perSceneScores
+          };
+
+          const review = `Общая оценка: ${analysisResult.overallScore}/100 (${analysisResult.verdict})
 
 Сильные стороны:
 ${analysisResult.strengths?.map((s: string) => `• ${s}`).join('\n') || '• Не указано'}
@@ -3296,248 +3317,243 @@ ${analysisResult.strengths?.map((s: string) => `• ${s}`).join('\n') || '• Н
 Слабые стороны:
 ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• Не указано'}
 
-Прогноз эффективности:
+Прогноз:
 • Удержание: ${metrics.predicted.retention}
 • Сохранения: ${metrics.predicted.saves}
-• Репосты: ${metrics.predicted.shares}
-• Вирусность: ${metrics.predicted.viralProbability}`;
+• Репосты: ${metrics.predicted.shares}`;
 
-      // Create candidate version
-      const candidateVersion = await db.transaction(async (tx) => {
-        // Check if there's already a candidate
-        const existing = await tx
-          .select()
-          .from(scriptVersions)
-          .where(and(
-            eq(scriptVersions.projectId, id),
-            eq(scriptVersions.isCandidate, true)
-          ))
-          .limit(1);
+          // Create candidate version
+          const candidateVersion = await db.transaction(async (tx) => {
+            // Remove existing candidate
+            const existing = await tx
+              .select()
+              .from(scriptVersions)
+              .where(and(
+                eq(scriptVersions.projectId, projectId),
+                eq(scriptVersions.isCandidate, true)
+              ))
+              .limit(1);
 
-        // Delete existing candidate if present
-        if (existing.length > 0) {
-          await tx
-            .delete(scriptVersions)
-            .where(eq(scriptVersions.id, existing[0].id));
-          
-          await tx
-            .delete(sceneRecommendations)
-            .where(eq(sceneRecommendations.scriptVersionId, existing[0].id));
+            if (existing.length > 0) {
+              await tx.delete(scriptVersions).where(eq(scriptVersions.id, existing[0].id));
+              await tx.delete(sceneRecommendations).where(eq(sceneRecommendations.scriptVersionId, existing[0].id));
+            }
+
+            // Get next version number
+            const maxResult = await tx
+              .select({ max: sql<number>`COALESCE(MAX(${scriptVersions.versionNumber}), 0)` })
+              .from(scriptVersions)
+              .where(eq(scriptVersions.projectId, projectId));
+            
+            const nextVersion = (maxResult[0]?.max || 0) + 1;
+
+            // Create candidate
+            const [candidate] = await tx.insert(scriptVersions).values({
+              projectId,
+              versionNumber: nextVersion,
+              createdBy: 'ai',
+              fullScript: currentVersion.fullScript,
+              scenes: currentVersion.scenes,
+              isCandidate: true,
+              isCurrent: false,
+              baseVersionId: currentVersion.id,
+              parentVersionId: currentVersion.id,
+              metrics,
+              review,
+              analysisResult,
+              analysisScore: analysisResult.overallScore
+            }).returning();
+
+            return candidate;
+          });
+
+          jobManager.updateJobStatus(job.jobId, 'done', candidateVersion.id);
+          console.log(`[Reanalyze] Job ${job.jobId} completed - candidate ${candidateVersion.id}`);
+
+        } catch (error: any) {
+          console.error(`[Reanalyze] Job ${job.jobId} failed:`, error);
+          jobManager.updateJobStatus(job.jobId, 'error', undefined, error.message || 'Reanalysis failed');
         }
-
-        // Get next version number
-        const maxVersionResult = await tx
-          .select({ max: sql<number>`COALESCE(MAX(${scriptVersions.versionNumber}), 0)` })
-          .from(scriptVersions)
-          .where(eq(scriptVersions.projectId, id));
-        
-        const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
-
-        // Insert candidate version
-        const [candidate] = await tx.insert(scriptVersions).values({
-          projectId: id,
-          versionNumber: nextVersion,
-          createdBy: 'ai',
-          fullScript: currentVersion.fullScript,
-          scenes: currentVersion.scenes,
-          isCandidate: true,
-          isCurrent: false,
-          baseVersionId: currentVersion.id,
-          parentVersionId: currentVersion.id,
-          metrics: metrics,
-          review: review,
-          analysisResult: analysisResult,
-          analysisScore: analysisResult.overallScore
-        }).returning();
-
-        // Generate scene recommendations from analysis
-        if (analysisResult.recommendations && Array.isArray(analysisResult.recommendations)) {
-          const recommendations = analysisResult.recommendations.slice(0, 10).map((rec: any) => ({
-            scriptVersionId: candidate.id,
-            sceneId: 1, // Default to scene 1 if no specific scene mentioned
-            priority: rec.priority === 'critical' || rec.priority === 'high' ? 'high' : 
-                     rec.priority === 'low' ? 'low' : 'medium',
-            area: rec.area || 'general',
-            currentText: rec.current || '',
-            suggestedText: rec.suggested || '',
-            reasoning: rec.reasoning || '',
-            expectedImpact: rec.expectedImpact || '+10 points',
-            sourceAgent: 'general',
-            scoreDelta: parseInt(rec.expectedImpact?.match(/\+?(\d+)/)?.[1] || '10'),
-            confidence: 0.8,
-            applied: false
-          }));
-
-          if (recommendations.length > 0) {
-            await tx.insert(sceneRecommendations).values(recommendations);
-          }
-        }
-
-        return candidate;
       });
 
-      console.log('[Reanalyze] Created candidate version', candidateVersion.id);
-
+      // Return immediately with 202
+      res.status(202);
       return apiResponse.ok(res, {
-        candidateVersionId: candidateVersion.id
+        jobId: job.jobId,
+        message: "Reanalysis started"
       });
 
     } catch (error: any) {
-      console.error("Error in reanalyze:", error);
-      return apiResponse.serverError(res, error.message || "Failed to reanalyze");
+      console.error("[Reanalyze Start] Error:", error);
+      return apiResponse.serverError(res, error.message || "Failed to start reanalysis");
     }
   });
 
-  // GET /api/projects/:id/reanalyze/compare - Get comparison data
-  app.get("/api/projects/:id/reanalyze/compare", isAuthenticated, async (req: any, res) => {
+  // GET /api/projects/:id/reanalyze/status - Check job status
+  app.get("/api/projects/:id/reanalyze/status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
 
-      const { id } = req.params;
+      const { id: projectId } = req.params;
+      const { jobId } = req.query;
 
-      // Get project
-      const project = await storage.getProject(id, userId);
+      if (!jobId || typeof jobId !== 'string') {
+        return apiResponse.badRequest(res, "jobId required");
+      }
+
+      // Validate project access
+      const project = await storage.getProject(projectId, userId);
       if (!project) return apiResponse.notFound(res, "Project not found");
 
-      // Get all versions
-      const scriptHistory = await storage.listScriptVersions(id);
-      
-      // Find current and candidate
-      const currentVersion = scriptHistory.find(v => v.isCurrent);
-      const candidateVersion = scriptHistory.find(v => v.isCandidate);
+      const job = jobManager.getJob(jobId);
+      if (!job || job.projectId !== projectId) {
+        return apiResponse.notFound(res, "Job not found");
+      }
+
+      if (job.status === 'done') {
+        return apiResponse.ok(res, {
+          status: 'done',
+          candidateVersionId: job.candidateVersionId
+        });
+      } else if (job.status === 'error') {
+        return apiResponse.ok(res, {
+          status: 'error',
+          error: job.error || 'Unknown error'
+        });
+      } else {
+        return apiResponse.ok(res, {
+          status: job.status // 'pending' | 'running'
+        });
+      }
+
+    } catch (error: any) {
+      console.error("[Reanalyze Status] Error:", error);
+      return apiResponse.serverError(res, error.message);
+    }
+  });
+
+  // GET /api/projects/:id/compare/latest - Get comparison data for modal
+  app.get("/api/projects/:id/compare/latest", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId } = req.params;
+
+      // Validate project
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get current and candidate versions
+      const currentVersion = await storage.getCurrentScriptVersion(projectId);
+      const candidateVersion = await storage.getLatestCandidateVersion(projectId);
 
       if (!currentVersion || !candidateVersion) {
         return apiResponse.badRequest(res, "Missing current or candidate version");
       }
 
-      // Calculate deltas
-      const beforeMetrics = currentVersion.metrics as any || {};
-      const afterMetrics = candidateVersion.metrics as any || {};
-      const beforeScore = beforeMetrics.overallScore || currentVersion.analysisScore || 0;
-      const afterScore = afterMetrics.overallScore || candidateVersion.analysisScore || 0;
-      const overallDelta = afterScore - beforeScore;
-
-      // Per-scene deltas
-      const beforePerScene = beforeMetrics.perScene || [];
-      const afterPerScene = afterMetrics.perScene || [];
+      // Extract metrics
+      const baseMetrics = currentVersion.metrics as any || {};
+      const candidateMetrics = candidateVersion.metrics as any || {};
       
-      const perSceneDelta = afterPerScene.map((afterScene: any) => {
-        const beforeScene = beforePerScene.find((s: any) => s.sceneNumber === afterScene.sceneNumber);
+      const baseScore = baseMetrics.overallScore || currentVersion.analysisScore || 0;
+      const candidateScore = candidateMetrics.overallScore || candidateVersion.analysisScore || 0;
+
+      // Calculate deltas
+      const overallScoreDelta = candidateScore - baseScore;
+
+      const basePerScene = baseMetrics.perScene || [];
+      const candidatePerScene = candidateMetrics.perScene || [];
+      
+      const perSceneDelta = candidatePerScene.map((candidateScene: any) => {
+        const baseScene = basePerScene.find((s: any) => s.sceneNumber === candidateScene.sceneNumber);
         return {
-          sceneNumber: afterScene.sceneNumber,
-          delta: afterScene.score - (beforeScene?.score || 0)
+          sceneNumber: candidateScene.sceneNumber,
+          scoreDelta: candidateScene.score - (baseScene?.score || 0)
         };
       });
 
+      // Format response
+      const formatVersion = (version: any, metrics: any, score: number) => {
+        const predicted = metrics.predicted || {};
+        return {
+          versionId: version.id,
+          overallScore: score,
+          metrics: {
+            estimatedRetention: predicted.retention || "н/д",
+            estimatedSaves: predicted.saves || "н/д",
+            estimatedShares: predicted.shares || "н/д"
+          },
+          scenes: (version.scenes || []).map((scene: any, idx: number) => {
+            const sceneScore = metrics.perScene?.[idx] || {};
+            return {
+              sceneNumber: scene.sceneNumber,
+              text: scene.text,
+              score: sceneScore.score || 0
+            };
+          })
+        };
+      };
+
       return apiResponse.ok(res, {
-        before: {
-          versionId: currentVersion.id,
-          scenes: currentVersion.scenes || [],
-          metrics: currentVersion.metrics || {
-            overallScore: beforeScore,
-            hookScore: 0,
-            structureScore: 0,
-            emotionalScore: 0,
-            ctaScore: 0
-          },
-          review: currentVersion.review || 'Анализ не выполнен'
-        },
-        after: {
-          versionId: candidateVersion.id,
-          scenes: candidateVersion.scenes || [],
-          metrics: candidateVersion.metrics || {
-            overallScore: afterScore,
-            hookScore: 0,
-            structureScore: 0,
-            emotionalScore: 0,
-            ctaScore: 0
-          },
-          review: candidateVersion.review || 'Анализ не выполнен'
-        },
-        diff: {
-          overallDelta: overallDelta,
-          perScene: perSceneDelta
+        base: formatVersion(currentVersion, baseMetrics, baseScore),
+        candidate: formatVersion(candidateVersion, candidateMetrics, candidateScore),
+        deltas: {
+          overallScoreDelta,
+          scenes: perSceneDelta
         }
       });
 
     } catch (error: any) {
-      console.error("Error in compare:", error);
-      return apiResponse.serverError(res, error.message || "Failed to compare versions");
+      console.error("[Compare Latest] Error:", error);
+      return apiResponse.serverError(res, error.message);
     }
   });
 
-  // POST /api/projects/:id/reanalyze/choose - Choose which version to keep
-  app.post("/api/projects/:id/reanalyze/choose", isAuthenticated, async (req: any, res) => {
+  // POST /api/projects/:id/compare/choose - Choose which version to keep
+  app.post("/api/projects/:id/compare/choose", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
 
-      const { id } = req.params;
-      const { choice } = req.body; // "before" | "after"
+      const { id: projectId } = req.params;
+      const { keep } = req.body; // "base" | "candidate"
 
-      if (!choice || !['before', 'after'].includes(choice)) {
-        return apiResponse.badRequest(res, "Choice must be 'before' or 'after'");
+      if (!keep || !['base', 'candidate'].includes(keep)) {
+        return apiResponse.badRequest(res, "keep must be 'base' or 'candidate'");
       }
 
-      // Get project
-      const project = await storage.getProject(id, userId);
+      // Validate project
+      const project = await storage.getProject(projectId, userId);
       if (!project) return apiResponse.notFound(res, "Project not found");
 
-      // Execute in transaction
-      const result = await db.transaction(async (tx) => {
-        // Get current and candidate versions
-        const versions = await tx
-          .select()
-          .from(scriptVersions)
-          .where(eq(scriptVersions.projectId, id));
+      // Get versions
+      const currentVersion = await storage.getCurrentScriptVersion(projectId);
+      const candidateVersion = await storage.getLatestCandidateVersion(projectId);
 
-        const currentVersion = versions.find(v => v.isCurrent);
-        const candidateVersion = versions.find(v => v.isCandidate);
+      if (!currentVersion || !candidateVersion) {
+        return apiResponse.badRequest(res, "Missing current or candidate version");
+      }
 
-        if (!currentVersion || !candidateVersion) {
-          throw new Error("Missing current or candidate version");
-        }
+      if (keep === 'candidate') {
+        // Promote candidate to current
+        await storage.promoteCandidate(projectId, candidateVersion.id);
+        console.log(`[Compare Choose] Promoted candidate ${candidateVersion.id} to current`);
+      } else {
+        // Reject candidate
+        await storage.rejectCandidate(projectId, candidateVersion.id);
+        console.log(`[Compare Choose] Rejected candidate ${candidateVersion.id}`);
+      }
 
-        let chosenVersionId: string;
-
-        if (choice === 'before') {
-          // Keep current, remove candidate
-          await tx
-            .delete(scriptVersions)
-            .where(eq(scriptVersions.id, candidateVersion.id));
-          
-          await tx
-            .delete(sceneRecommendations)
-            .where(eq(sceneRecommendations.scriptVersionId, candidateVersion.id));
-          
-          chosenVersionId = currentVersion.id;
-        } else {
-          // Make candidate current, demote old current
-          await tx
-            .update(scriptVersions)
-            .set({ isCurrent: false })
-            .where(eq(scriptVersions.id, currentVersion.id));
-
-          await tx
-            .update(scriptVersions)
-            .set({ 
-              isCurrent: true,
-              isCandidate: false
-            })
-            .where(eq(scriptVersions.id, candidateVersion.id));
-
-          chosenVersionId = candidateVersion.id;
-        }
-
-        return { currentVersionId: chosenVersionId };
+      return apiResponse.ok(res, {
+        success: true,
+        choice: keep
       });
 
-      return apiResponse.ok(res, result);
-
     } catch (error: any) {
-      console.error("Error in choose:", error);
-      return apiResponse.serverError(res, error.message || "Failed to choose version");
+      console.error("[Compare Choose] Error:", error);
+      return apiResponse.serverError(res, error.message);
     }
   });
 

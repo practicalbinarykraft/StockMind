@@ -1,0 +1,148 @@
+ок, вижу два слоя задачи: (A) переименовать/развести действия в UI, (B) довести сам «пересчёт» до устойчивого сценария без таймаутов и с модалкой сравнения. Ниже — короткое ТЗ для реплита, которое закрывает оба.
+
+⸻
+
+ТЗ: «Пересчитать анализ» → устойчивый re-analyze + модалка сравнения ДО/ПОСЛЕ
+
+0) Терминология и кнопки в UI
+	1.	В правой панели «Инструменты»:
+	•	Кнопка «Сделать версию для сравнения» (раньше «Пересчитать анализ»).
+	•	Кнопка «Открыть сравнение (ДО/ПОСЛЕ)» — активна, когда есть candidate-версия.
+	•	Оставить «Улучшить всё» и «История изменений».
+
+Тексты тултипов/тостов:
+	•	«Сделать версию для сравнения» → запускает фоновый пересчёт и создаёт candidate-версию. Тост: «Анализ запущен, займёт до ~1 мин. Мы уведомим, когда будет готово».
+	•	По готовности: «Версия для сравнения готова. Откройте сравнение ДО/ПОСЛЕ».
+	•	Ошибка/таймаут: показывать конкретное сообщение из сервера.
+
+1) Бэкенд: асинхронный пересчёт (устранить 500 и таймауты)
+
+1.1 Контракты API
+	•	POST /api/projects/:id/reanalyze/start → 202
+Возвращает:
+
+{ "success": true, "jobId": "uuid", "message": "Reanalysis started" }
+
+Действия:
+	•	Находит текущую версию: storage.getCurrentScriptVersion(projectId).
+	•	Кладёт задачу в очередь (или запускает асинхронно) на перерасчёт с использованием актуальных сцен из текущей версии.
+	•	Никаких длинных синхронных ожиданий в этом запросе.
+
+	•	GET /api/projects/:id/reanalyze/status?jobId=… → 200
+Возвращает одно из:
+
+{ "status": "pending" | "running" }
+
+{ "status": "done", "candidateVersionId": "uuid" }
+
+{ "status": "error", "error": "string" }
+
+
+	•	GET /api/projects/:id/compare/latest → 200
+Возвращает объект для модалки сравнения:
+
+{
+  "base": {
+    "versionId": "uuid",
+    "overallScore": 74,
+    "metrics": { "estimatedRetention": "45-55%", "estimatedSaves": "2-3%", "estimatedShares": "1-2%" },
+    "scenes": [{ "sceneNumber": 1, "text": "...", "score": 72 }, ...]
+  },
+  "candidate": {
+    "versionId": "uuid",
+    "overallScore": 83,
+    "metrics": { "estimatedRetention": "55-65%", "estimatedSaves": "3-5%", "estimatedShares": "2-3%" },
+    "scenes": [{ "sceneNumber": 1, "text": "...", "score": 80 }, ...]
+  },
+  "deltas": {
+    "overallScoreDelta": +9,
+    "scenes": [{ "sceneNumber": 1, "scoreDelta": +8 }, ...]
+  }
+}
+
+Требование: данные тянуть из script_versions (base = is_current=true, candidate = is_candidate=true последняя для проекта). Никаких storage.getScriptHistory() — использовать listScriptVersions / getCurrentScriptVersion.
+
+	•	POST /api/projects/:id/compare/choose → 200
+Тело:
+
+{ "keep": "base" | "candidate" }
+
+Логика:
+	•	Если keep=candidate: помечаем текущую версию is_current=false, у candidate ставим is_current=true, is_candidate=false.
+	•	Если keep=base: просто удаляем candidate / ставим у неё is_candidate=false, is_rejected=true.
+	•	Возвращаем { success: true }.
+
+1.2 Storage-слой (проверить наличие/добавить)
+	•	getCurrentScriptVersion(projectId: string)
+	•	createScriptVersion({ projectId, baseVersionId?, isCandidate?, scenes, metrics?, review? })
+	•	getLatestCandidateVersion(projectId: string)
+	•	listScriptVersions(projectId: string)
+	•	promoteCandidate(projectId: string, candidateId: string) — атомарно сменить флаги.
+	•	rejectCandidate(projectId: string, candidateId: string) — атомарно снять candidate.
+
+Колонки script_versions: id, project_id, scenes jsonb, metrics jsonb, overall_score int, is_current bool, is_candidate bool, is_rejected bool, base_version_id uuid, created_at timestamptz.
+
+1.3 Исправление текущего бага
+	•	Везде, где было storage.getScriptHistory, заменить на валидные методы (listScriptVersions, getCurrentScriptVersion).
+	•	В роуте сравнения не обращаться к несуществующим полям breakdown. Использовать фактическую структуру AdvancedScoreResult:
+	•	общий балл → overallScore
+	•	метрики → predictedMetrics.estimatedRetention|Saves|Shares (сервер при сохранении кладёт это в script_versions.metrics в таком же виде).
+	•	Логи: при reanalyze логировать projectId, baseVersionId, длину массива сцен и длительность шага. При ошибке — стек.
+
+1.4 Отказоустойчивость
+	•	Job timeout на сервере: 70 секунд с явным переводом статуса в error и сообщением "Reanalysis timed out".
+	•	Повторная отправка start с тем же проектом, пока pending|running — возвращать 409 { retryAfter: 5 }.
+	•	idempotency-key (опционально): принимать Idempotency-Key в заголовке; если задача в прогрессе — отдавать тот же jobId.
+
+2) Фронтенд
+
+2.1 Кнопки/UX (файлы)
+	•	client/src/components/project/scene-editor.tsx
+	•	Заменить «Пересчитать анализ» → «Сделать версию для сравнения» (POST /reanalyze/start).
+	•	Добавить кнопку «Открыть сравнение (ДО/ПОСЛЕ)» (GET /compare/latest и открыть модалку).
+	•	Добавить CompareModal (новый компонент) c пропсами из /compare/latest:
+	•	Слева «ДО», справа «ПОСЛЕ»: сцены (номер, текст, score), общий балл, predicted metrics.
+	•	Плашки дельт (зелёные/красные).
+	•	Кнопки снизу: «Оставить ДО», «Выбрать ПОСЛЕ», второстепенные: «Вернуться к редактированию», «Перейти к озвучке».
+	•	После выбора — POST /compare/choose, инвалидация script-history и закрытие модалки.
+
+2.2 Поллинг статуса
+	•	После POST /reanalyze/start запускать поллинг GET /reanalyze/status?jobId=…:
+	•	Интервал 2s, максимум 60s.
+	•	По done → тост «Готово, откройте сравнение», активировать кнопку «Открыть сравнение».
+	•	По error/таймауту — красный тост с текстом сервера.
+	•	В текущей реализацией у вас был тост «это займёт до 1 минуты» → оставить, но теперь заменить «красный тост» на понятное сообщение от сервера.
+
+2.3 Данные и id-сопоставление
+	•	В модалке и сцен-редакторе использовать sceneNumber как ключ (а не DB id), чтобы применение рекомендаций и сравнение совпадало по порядку сцен.
+	•	При сохранении candidate-версии на сервере убедиться, что scenes[n].sceneNumber === n+1.
+
+3) Тест-кейсы (acceptance)
+	1.	Старт пересчёта
+Нажать «Сделать версию для сравнения» → 202 + jobId, тост «запущено».
+	2.	Поллинг
+Через ≤60s статус done → появляется активная «Открыть сравнение», тост «готово».
+	3.	Модалка
+Открыть сравнение → видим:
+	•	общий балл ДО/ПОСЛЕ и дельту,
+	•	таблицу сцен (№, score ДО/ПОСЛЕ, текст),
+	•	predicted metrics ДО/ПОСЛЕ.
+	4.	Выбор ПОСЛЕ
+Нажать «Выбрать ПОСЛЕ» → 200, currentVersion меняется на candidate, модалка закрывается, сцены в редакторе обновились.
+	5.	Выбор ДО
+Нажать «Оставить ДО» → 200, candidate помечен rejected, модалка закрывается, ничего не меняется.
+	6.	Таймаут/ошибка
+Форсировать ошибку в job → статус error и тост с текстом ошибки, без падения UI.
+	7.	Регрессия
+Применение одиночной рекомендации / «Улучшить всё» продолжает работать и корректно обновляет текущую версию.
+
+⸻
+
+Быстрые правки, без которых сейчас падает
+	•	Убрать все вызовы несуществующих методов (storage.getScriptHistory) — заменить на getCurrentScriptVersion / listScriptVersions.
+	•	В серверном сравнении не лезть в несуществующие поля (использовать overallScore + predictedMetrics).
+	•	На клиенте убрать старый «заглушечный» хэндлер «Пересчитать анализ в разработке» — подключить к новым эндпоинтам + поллинг.
+
+⸻
+
+Если нужно, могу выдать скелеты TS-сигнатур функций storage.* и тип ответа /compare/latest, чтобы у реплита не было вопросов по полям.
