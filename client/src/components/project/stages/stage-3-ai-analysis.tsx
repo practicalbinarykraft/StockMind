@@ -308,7 +308,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       })
     },
     onError: (error: any) => {
-      const is404 = error?.message?.includes('404') || error?.status === 404;
+      // apiRequest throws Error with message format: "404: text" or "500: text"
+      const statusMatch = error?.message?.match(/^(\d{3}):/);
+      const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : null;
+      const is404 = statusCode === 404 || error?.status === 404;
+      
       toast({
         title: 'Ошибка анализа',
         description: is404 
