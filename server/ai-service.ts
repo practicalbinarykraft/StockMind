@@ -1,5 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+// Universal JSON extractor - handles markdown blocks, multiple JSONs, multi-block responses
+function extractJson<T = any>(blocks: { type: string; text?: string }[]): T {
+  const text = blocks.filter(b => b.type === 'text').map(b => b.text ?? '').join('\n');
+  
+  // First try to find fenced json block
+  const fence = text.match(/```json\s*([\s\S]*?)```/i);
+  const candidate = fence ? fence[1] : text;
+  
+  // Find all JSON-like structures and try parsing from longest to shortest
+  const matches = candidate.match(/\{[\s\S]*?\}/g) || [];
+  let lastError: unknown = null;
+  
+  for (const m of matches.sort((a, b) => b.length - a.length)) {
+    try {
+      return JSON.parse(m);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  
+  throw new Error(`Could not parse AI JSON. Last error: ${(lastError as Error)?.message || 'unknown'}`);
+}
+
 export interface NewsScoreResult {
   score: number;
   comment: string;
@@ -68,17 +91,7 @@ Respond in JSON format:
     messages: [{ role: "user", content: prompt }],
   });
 
-  const textContent = message.content.find((c) => c.type === "text");
-  if (!textContent || textContent.type !== "text") {
-    throw new Error("No text response from AI");
-  }
-
-  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Could not parse AI response");
-  }
-
-  const result = JSON.parse(jsonMatch[0]);
+  const result = extractJson<NewsScoreResult>(message.content as any);
   return {
     score: Math.min(100, Math.max(0, result.score)),
     comment: result.comment || "Оценка контента",
@@ -102,8 +115,10 @@ export async function scoreInstagramReel(
   const anthropic = new Anthropic({ apiKey });
 
   const captionText = caption ? `\nCaption: "${caption}"` : '';
+  // Fix views=0 issue - check for null/undefined explicitly
+  const hasViews = engagementMetrics?.views !== null && engagementMetrics?.views !== undefined;
   const metricsText = engagementMetrics 
-    ? `\nEngagement: ${engagementMetrics.likes} likes, ${engagementMetrics.comments} comments${engagementMetrics.views ? `, ${engagementMetrics.views} views` : ''}`
+    ? `\nEngagement: ${engagementMetrics.likes} likes, ${engagementMetrics.comments} comments${hasViews ? `, ${engagementMetrics.views} views` : ''}`
     : '';
 
   const prompt = `You are analyzing an Instagram Reel for its viral potential and content quality.
@@ -138,17 +153,7 @@ Respond in JSON format:
     messages: [{ role: "user", content: prompt }],
   });
 
-  const textContent = message.content.find((c) => c.type === "text");
-  if (!textContent || textContent.type !== "text") {
-    throw new Error("No text response from AI");
-  }
-
-  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Could not parse AI response");
-  }
-
-  const result = JSON.parse(jsonMatch[0]);
+  const result = extractJson<ReelScoreResult>(message.content as any);
   return {
     score: Math.min(100, Math.max(0, result.score)),
     comment: result.comment || "Оценка контента Reels",
@@ -192,17 +197,7 @@ Respond ONLY with JSON format (no markdown, no backticks):
     messages: [{ role: "user", content: prompt }],
   });
 
-  const textContent = message.content.find((c) => c.type === "text");
-  if (!textContent || textContent.type !== "text") {
-    throw new Error("No text response from AI");
-  }
-
-  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Could not parse AI response");
-  }
-
-  const result = JSON.parse(jsonMatch[0]);
+  const result = extractJson<{ score: number }>(message.content as any);
   return {
     score: Math.min(100, Math.max(0, result.score)),
   };
@@ -215,7 +210,9 @@ export async function analyzeScript(
 ): Promise<ScriptAnalysis> {
   const anthropic = new Anthropic({ apiKey });
 
-  const prompt = `You are a professional video script analyzer with a team of AI agents (Hook Expert, Structure Analyst, Emotional Analyst, CTA Expert). Analyze this content for ${format} format video.
+  const prompt = `IMPORTANT: Answer STRICTLY in Russian. Output ONLY valid JSON (no markdown, no comments, no explanations).
+
+You are a professional video script analyzer with a team of AI agents (Hook Expert, Structure Analyst, Emotional Analyst, CTA Expert). Analyze this content for ${format} format video.
 
 Content: "${content}"
 
@@ -276,26 +273,7 @@ Respond in JSON format:
     throw new Error("No text response from AI");
   }
 
-  // Clean markdown code blocks if present
-  let responseText = textContent.text;
-  
-  // Remove ```json ... ``` blocks
-  responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-  
-  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    console.error('[AI Service] Could not find JSON in response:', responseText.substring(0, 500));
-    throw new Error("Could not parse AI response");
-  }
-
-  try {
-    const result = JSON.parse(jsonMatch[0]);
-    return result;
-  } catch (error: any) {
-    console.error('[AI Service] JSON parse error:', error.message);
-    console.error('[AI Service] Failed JSON:', jsonMatch[0].substring(0, 1000));
-    throw new Error(`Failed to parse AI response: ${error.message}`);
-  }
+  return extractJson<ScriptAnalysis>(message.content as any);
 }
 
 export async function generateAiPrompt(
