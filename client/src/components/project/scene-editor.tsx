@@ -42,9 +42,7 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/projects/${projectId}/scene-recommendations`);
       const json = await res.json();
-      const result = json?.data ?? json ?? [];
-      console.log('[SceneEditor] Recommendations loaded:', result.length, result);
-      return result;
+      return json?.data ?? json ?? [];
     },
   });
 

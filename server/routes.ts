@@ -2965,7 +2965,7 @@ ${content}`;
   app.post("/api/projects/:id/apply-scene-recommendation", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { sceneId, recommendationId } = req.body;
+      const { recommendationId } = req.body;
       const userId = getUserId(req);
       
       const project = await storage.getProjectById(id);
@@ -2986,6 +2986,9 @@ ${content}`;
       if (!recommendation) {
         return res.status(404).json({ message: 'Recommendation not found' });
       }
+      
+      // Get sceneId from recommendation (not from request body!)
+      const sceneId = recommendation.sceneId;
       
       // Clone current scenes and apply recommendation
       const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
@@ -3028,10 +3031,35 @@ ${content}`;
       // Mark recommendation as applied
       await storage.markRecommendationApplied(recommendationId);
       
+      // ✅ CRITICAL FIX: Copy all unapplied recommendations to new version
+      // Without this, recommendations disappear after applying just one!
+      const unappliedRecs = recommendations.filter(r => r.id !== recommendationId && !r.appliedAt);
+      if (unappliedRecs.length > 0) {
+        const newRecs = unappliedRecs.map(r => ({
+          scriptVersionId: newVersion.id,
+          sceneId: r.sceneId,
+          priority: r.priority,
+          area: r.area,
+          currentText: r.currentText,
+          suggestedText: r.suggestedText,
+          reasoning: r.reasoning,
+          expectedImpact: r.expectedImpact,
+          scoreDelta: r.scoreDelta,
+          confidence: r.confidence,
+          sourceAgent: r.sourceAgent,
+        }));
+        await storage.createSceneRecommendations(newRecs);
+      }
+      
       return res.json({
         success: true,
-        newVersion,
-        affectedScene: targetScene,
+        data: {
+          affectedScene: {
+            sceneNumber: sceneId,
+            text: targetScene.text,
+          },
+          needsReanalysis: true,
+        },
       });
     } catch (error: any) {
       console.error('[Apply Scene Recommendation] Error:', error);
