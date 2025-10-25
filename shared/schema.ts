@@ -400,6 +400,12 @@ export const scriptVersions = pgTable("script_versions", {
   isCurrent: boolean("is_current").default(false).notNull(),
   parentVersionId: varchar("parent_version_id").references((): any => scriptVersions.id),
   
+  // Reanalyze comparison fields
+  isCandidate: boolean("is_candidate").default(false).notNull(), // Candidate version from reanalyze
+  baseVersionId: varchar("base_version_id").references((): any => scriptVersions.id), // Base version for comparison
+  metrics: jsonb("metrics"), // { overallScore, hookScore, structureScore, emotionalScore, ctaScore, predicted: {...}, perScene: [...] }
+  review: text("review"), // Final review/summary for this version
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("script_versions_project_idx").on(table.projectId, table.versionNumber),

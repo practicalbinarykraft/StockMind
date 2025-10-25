@@ -2993,15 +2993,9 @@ ${content}`;
       
       // Clone current scenes and apply recommendation
       const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
-      
-      // DEBUG: Log scene structure
-      console.log('[Apply Rec] Looking for sceneNumber:', sceneNumber);
-      console.log('[Apply Rec] Available scenes:', scenes.map((s: any) => ({ sceneNumber: s.sceneNumber, id: s.id })));
-      
       const targetScene = scenes.find((s: any) => s.sceneNumber === sceneNumber);
       
       if (!targetScene) {
-        console.error('[Apply Rec] Scene not found! sceneNumber:', sceneNumber, 'available:', scenes.map((s: any) => s.sceneNumber));
         return res.status(404).json({ message: 'Scene not found' });
       }
       
