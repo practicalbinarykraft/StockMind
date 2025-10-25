@@ -41,7 +41,9 @@ export function SourcePreviewModal({
       return await res.json();
     },
     onSuccess: (data) => {
-      setTranslatedContent(data.translatedContent);
+      // Safe unwrapping for new API format: { success: true, data: { translatedContent: "..." } }
+      const content = data?.data?.translatedContent ?? data?.translatedContent;
+      setTranslatedContent(content);
       setShowTranslation(true);
       toast({
         title: "Перевод выполнен",

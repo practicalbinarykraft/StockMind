@@ -39,19 +39,28 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
   // Fetch recommendations
   const { data: recommendations = [] } = useQuery<SceneRecommendation[]>({
     queryKey: ['/api/projects', projectId, 'scene-recommendations'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/projects/${projectId}/scene-recommendations`);
+      const json = await res.json();
+      return json?.data ?? json ?? [];
+    },
   });
 
   // Apply single recommendation
   const applyRecommendationMutation = useMutation({
     mutationFn: async (recommendationId: number) => {
-      return apiRequest('POST', `/api/projects/${projectId}/apply-scene-recommendation`, { recommendationId });
+      const res = await apiRequest('POST', `/api/projects/${projectId}/apply-scene-recommendation`, { recommendationId });
+      return await res.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: (response: any) => {
+      // Unwrap new API format: { success: true, data: { affectedScene, needsReanalysis } }
+      const data = response?.data ?? response;
+      
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
       // Update local scene text
-      if (data.affectedScene && data.affectedScene.sceneNumber) {
+      if (data?.affectedScene?.sceneNumber && data?.affectedScene?.text) {
         setScenes(prev => prev.map((s, idx) => 
           idx + 1 === data.affectedScene.sceneNumber
             ? { ...s, text: data.affectedScene.text }
@@ -61,7 +70,7 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
 
       toast({
         title: 'Рекомендация применена',
-        description: data.needsReanalysis 
+        description: data?.needsReanalysis 
           ? 'Текст обновлен. Рекомендуем пересчитать анализ.'
           : 'Сцена обновлена',
       });
@@ -78,21 +87,21 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
   // Apply all recommendations
   const applyAllMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
+      const res = await apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
+      return await res.json();
     },
-    onSuccess: (response: any) => {
-      const data = response.data; // Unwrap new API format
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
-      // Update all scenes
-      if (data.updatedScenes) {
-        setScenes(data.updatedScenes);
+      // Update all scenes (data already unwrapped)
+      if (data?.data?.updatedScenes) {
+        setScenes(data.data.updatedScenes);
       }
 
       toast({
         title: 'Все рекомендации применены',
-        description: `Обновлено сцен: ${data.appliedCount}. Рекомендуем пересчитать анализ.`,
+        description: `Обновлено сцен: ${data?.data?.appliedCount || 0}. Рекомендуем пересчитать анализ.`,
       });
     },
     onError: (error: any) => {
@@ -106,16 +115,16 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
 
   // Edit scene text
   const editSceneMutation = useMutation({
-    mutationFn: async ({ sceneId, newText }: { sceneId: number; newText: string }) => {
-      return apiRequest('POST', `/api/projects/${projectId}/edit-scene`, { sceneId, newText });
+    mutationFn: async ({ sceneNumber, newText }: { sceneNumber: number; newText: string }) => {
+      const res = await apiRequest('POST', `/api/projects/${projectId}/edit-scene`, { sceneNumber, newText });
+      return await res.json();
     },
-    onSuccess: (response: any) => {
-      const data = response.data; // Unwrap new API format
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
       toast({
         title: 'Сцена обновлена',
-        description: data.needsReanalysis 
+        description: data?.data?.needsReanalysis 
           ? 'Изменения сохранены. Рекомендуем пересчитать анализ.'
           : 'Изменения сохранены',
       });
@@ -134,7 +143,7 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
     setScenes(prev => prev.map((s, idx) => idx + 1 === sceneNumber ? { ...s, text: newText } : s));
     
     // Save to backend
-    editSceneMutation.mutate({ sceneId: sceneNumber, newText });
+    editSceneMutation.mutate({ sceneNumber, newText });
   };
 
   const activeRecommendations = recommendations.filter(r => !r.appliedAt);

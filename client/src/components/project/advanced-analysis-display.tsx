@@ -25,6 +25,18 @@ interface AdvancedAnalysisDisplayProps {
 }
 
 export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnalysisDisplayProps) {
+  // Safe fallbacks for agent scores (breakdown doesn't have top-level .score fields)
+  const hookScore = analysis.breakdown?.hook?.score ?? 0;
+  const structureScore = (analysis as any).agentScores?.structure ?? 
+                         (analysis.breakdown as any).structure?.score ?? 
+                         0; // Fallback to 0 if backend doesn't provide agentScores
+  const emotionalScore = (analysis as any).agentScores?.emotional ?? 
+                         (analysis.breakdown as any).emotional?.score ?? 
+                         0;
+  const ctaScore = (analysis as any).agentScores?.cta ?? 
+                   (analysis.breakdown as any).cta?.score ?? 
+                   0;
+
   // Color coding for scores
   const getScoreColor = (score: number): string => {
     if (score >= 90) return "text-green-500"
@@ -95,8 +107,8 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
                 <Sparkles className="h-5 w-5" />
                 Анализ хука
               </span>
-              <Badge variant={analysis.breakdown.hook.score >= 70 ? "default" : "secondary"}>
-                {analysis.breakdown.hook.score}/100
+              <Badge variant={hookScore >= 70 ? "default" : "secondary"}>
+                {hookScore}/100
               </Badge>
             </CardTitle>
             <CardDescription>
@@ -129,8 +141,8 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
                 <Layers className="h-5 w-5" />
                 Структура
               </span>
-              <Badge variant={analysis.breakdown.structure.score >= 70 ? "default" : "secondary"}>
-                {analysis.breakdown.structure.score}/100
+              <Badge variant={structureScore >= 70 ? "default" : "secondary"}>
+                {structureScore}/100
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -182,8 +194,8 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
                 <Heart className="h-5 w-5" />
                 Эмоциональное воздействие
               </span>
-              <Badge variant={analysis.breakdown.emotional.score >= 70 ? "default" : "secondary"}>
-                {analysis.breakdown.emotional.score}/100
+              <Badge variant={emotionalScore >= 70 ? "default" : "secondary"}>
+                {emotionalScore}/100
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -234,8 +246,8 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
                 <Megaphone className="h-5 w-5" />
                 Призыв к действию
               </span>
-              <Badge variant={analysis.breakdown.cta.score >= 70 ? "default" : "secondary"}>
-                {analysis.breakdown.cta.score}/100
+              <Badge variant={ctaScore >= 70 ? "default" : "secondary"}>
+                {ctaScore}/100
               </Badge>
             </CardTitle>
           </CardHeader>
