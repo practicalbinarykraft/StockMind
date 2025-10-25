@@ -490,7 +490,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertInstagramSourceSchema.parse(req.body);
       const source = await storage.createInstagramSource(userId, validated);
       
-      // TODO: Future - trigger Apify parsing in background
+      // NOTE: Auto-parsing disabled for Instagram (unlike RSS) because:
+      // 1. Requires Apify API key (user may not have it configured yet)
+      // 2. Apify scraping takes 1-3 minutes (too long for auto-trigger)
+      // 3. User can manually trigger via /api/instagram/sources/:id/parse endpoint
+      // Future enhancement: Add optional auto-parse flag if Apify key is available
 
       res.json(source);
     } catch (error: any) {
