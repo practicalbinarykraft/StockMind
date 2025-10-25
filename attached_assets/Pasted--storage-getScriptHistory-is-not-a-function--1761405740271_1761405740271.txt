@@ -1,0 +1,121 @@
+
+
+🧩 ТЗ: Исправить ошибку storage.getScriptHistory is not a function при нажатии “Пересчитать анализ”
+
+🟥 Проблема
+
+При вызове API /api/projects/:id/reanalyze приложение падает с ошибкой:
+
+500: {"success":false,"error":"storage.getScriptHistory is not a function"}
+
+Фронтенд работает корректно — ошибка возникает на уровне backend.
+Значит, в server/routes.ts вызывается несуществующий метод storage.getScriptHistory.
+
+⸻
+
+🧠 Причина
+
+В новых версиях backend API модуль storage.ts не содержит метода getScriptHistory.
+Его либо переименовали, либо нужно заменить на существующий метод для получения текущей и предыдущих версий сценария.
+
+Скорее всего, в коде /api/projects/:id/reanalyze есть строка:
+
+const history = await storage.getScriptHistory(projectId)
+
+Но правильная функция — storage.listScriptVersions(projectId),
+или, если нужно только текущая версия — storage.getCurrentScriptVersion(projectId).
+
+⸻
+
+✅ Что нужно сделать
+
+1. В server/routes.ts
+
+Найти блок:
+
+app.post('/api/projects/:id/reanalyze', async (req, res) => {
+  const projectId = req.params.id
+  const history = await storage.getScriptHistory(projectId)
+  ...
+})
+
+И заменить его на:
+
+app.post('/api/projects/:id/reanalyze', async (req, res) => {
+  const projectId = req.params.id
+
+  // ✅ Получаем текущую версию сценария
+  const currentVersion = await storage.getCurrentScriptVersion(projectId)
+  if (!currentVersion) {
+    return res.status(404).json({ success: false, error: "No current script version found" })
+  }
+
+  // ⚙️ Запускаем пересчёт анализа
+  const result = await aiService.reanalyzeScript(currentVersion)
+
+  // 💾 Сохраняем кандидатную версию
+  const candidate = await storage.createScriptVersion({
+    projectId,
+    baseVersionId: currentVersion.id,
+    isCandidate: true,
+    scenes: result.scenes,
+    metrics: result.metrics,
+    review: result.review,
+  })
+
+  return res.json({ success: true, data: { candidateVersionId: candidate.id } })
+})
+
+
+⸻
+
+2. В server/storage.ts
+
+Проверить, что реализованы эти методы:
+
+export async function getCurrentScriptVersion(projectId: string) {
+  const result = await sql`
+    SELECT * FROM script_versions
+    WHERE project_id = ${projectId} AND is_current = true
+    LIMIT 1
+  `
+  return result[0] || null
+}
+
+export async function createScriptVersion(data: {
+  projectId: string
+  baseVersionId?: string
+  isCandidate?: boolean
+  scenes: any[]
+  metrics?: any
+  review?: string
+}) {
+  const result = await sql`
+    INSERT INTO script_versions (project_id, base_version_id, is_candidate, scenes, metrics, review)
+    VALUES (${data.projectId}, ${data.baseVersionId || null}, ${data.isCandidate || false}, ${JSON.stringify(data.scenes)}, ${JSON.stringify(data.metrics || null)}, ${data.review || null})
+    RETURNING *
+  `
+  return result[0]
+}
+
+
+⸻
+
+3. Проверка
+
+После исправлений:
+	1.	Открыть любой проект.
+	2.	Перейти в Stage 3 → нажать «Пересчитать анализ».
+	3.	✅ Должна появиться модалка сравнения До / После.
+	4.	В консоли не должно быть ошибок 500.
+	5.	В базе данных появляется новая строка в script_versions с is_candidate = true.
+
+⸻
+
+4. Acceptance Criteria
+	•	Ошибка storage.getScriptHistory is not a function больше не возникает.
+	•	API /api/projects/:id/reanalyze возвращает 200 { success: true, data: { candidateVersionId } }.
+	•	Пересчёт анализа корректно создаёт новую версию сценария.
+	•	Модалка сравнения открывается без падений.
+
+⸻

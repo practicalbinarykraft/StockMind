@@ -3,7 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replit-auth";
-import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema, instagramItems, instagramSources } from "@shared/schema";
+import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema, instagramItems, instagramSources, scriptVersions, sceneRecommendations } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -3224,7 +3224,7 @@ ${content}`;
       if (!project) return apiResponse.notFound(res, "Project not found");
 
       // Get current version
-      const scriptHistory = await storage.getScriptHistory(id);
+      const scriptHistory = await storage.listScriptVersions(id);
       const currentVersion = scriptHistory.find(v => v.isCurrent);
       if (!currentVersion) {
         return apiResponse.badRequest(res, "No current version found");
@@ -3271,17 +3271,18 @@ ${content}`;
         : [];
 
       // Build metrics object from analysis result
+      const predicted = analysisResult.predictedMetrics || {};
       const metrics = {
         overallScore: analysisResult.overallScore,
         hookScore: analysisResult.breakdown?.hook?.score || 0,
         structureScore: analysisResult.breakdown?.structure?.score || 0,
-        emotionalScore: analysisResult.breakdown?.emotional?.emotionalScore || 0,
-        ctaScore: analysisResult.breakdown?.cta?.ctaScore || 0,
-        predicted: analysisResult.predictedMetrics || {
-          retention: "н/д",
-          saves: "н/д",
-          shares: "н/д",
-          viralProbability: "low"
+        emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
+        ctaScore: analysisResult.breakdown?.cta?.score || 0,
+        predicted: {
+          retention: (predicted as any).estimatedRetention || (predicted as any).retention || "н/д",
+          saves: (predicted as any).estimatedSaves || (predicted as any).saves || "н/д",
+          shares: (predicted as any).estimatedShares || (predicted as any).shares || "н/д",
+          viralProbability: (predicted as any).viralProbability || "low"
         },
         perScene: perSceneScores
       };
@@ -3400,7 +3401,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
       if (!project) return apiResponse.notFound(res, "Project not found");
 
       // Get all versions
-      const scriptHistory = await storage.getScriptHistory(id);
+      const scriptHistory = await storage.listScriptVersions(id);
       
       // Find current and candidate
       const currentVersion = scriptHistory.find(v => v.isCurrent);
@@ -3411,13 +3412,15 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
       }
 
       // Calculate deltas
-      const beforeScore = currentVersion.metrics?.overallScore || currentVersion.analysisScore || 0;
-      const afterScore = candidateVersion.metrics?.overallScore || candidateVersion.analysisScore || 0;
+      const beforeMetrics = currentVersion.metrics as any || {};
+      const afterMetrics = candidateVersion.metrics as any || {};
+      const beforeScore = beforeMetrics.overallScore || currentVersion.analysisScore || 0;
+      const afterScore = afterMetrics.overallScore || candidateVersion.analysisScore || 0;
       const overallDelta = afterScore - beforeScore;
 
       // Per-scene deltas
-      const beforePerScene = currentVersion.metrics?.perScene || [];
-      const afterPerScene = candidateVersion.metrics?.perScene || [];
+      const beforePerScene = beforeMetrics.perScene || [];
+      const afterPerScene = afterMetrics.perScene || [];
       
       const perSceneDelta = afterPerScene.map((afterScene: any) => {
         const beforeScene = beforePerScene.find((s: any) => s.sceneNumber === afterScene.sceneNumber);
