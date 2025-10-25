@@ -3437,8 +3437,8 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
     }
   });
 
-  // GET /api/projects/:id/compare/latest - Get comparison data for modal
-  app.get("/api/projects/:id/compare/latest", isAuthenticated, async (req: any, res) => {
+  // GET /api/projects/:id/reanalyze/compare/latest - Get comparison data for modal
+  app.get("/api/projects/:id/reanalyze/compare/latest", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
@@ -3515,8 +3515,8 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
     }
   });
 
-  // POST /api/projects/:id/compare/choose - Choose which version to keep
-  app.post("/api/projects/:id/compare/choose", isAuthenticated, async (req: any, res) => {
+  // POST /api/projects/:id/reanalyze/compare/choose - Choose which version to keep
+  app.post("/api/projects/:id/reanalyze/compare/choose", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);

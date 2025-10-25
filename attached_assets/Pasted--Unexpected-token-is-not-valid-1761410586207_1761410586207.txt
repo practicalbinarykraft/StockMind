@@ -1,0 +1,106 @@
+ок, вижу: модалка открывается, но при загрузке данных падает с Unexpected token '<' ... is not valid JSON. Это классическая ситуация — фронт ждёт JSON, а получает HTML (обычно 404/500 страница от Vite/Replit или index.html из SPA).
+
+Вот короткое, точное ТЗ для реплита, чтобы закрыть баг начисто.
+
+ТЗ: “Compare (ДО/ПОСЛЕ)” — возвращать корректный JSON, не HTML
+
+0) Как воспроизвести (для реплита)
+	1.	Открыть проект → Stage 3 → “Открыть сравнение (ДО/ПОСЛЕ)”.
+	2.	Модалка открывается, идёт запрос к /api/projects/:id/reanalyze/compare/latest.
+	3.	В консоли браузера видно: попытка res.json() падает с Unexpected token '<'…, в Network — ответ с text/html и <!DOCTYPE…>.
+
+1) Бэкенд — привести эндпоинт к стабильному JSON
+
+Цель: любой ответ по /api/* всегда application/json, даже в ошибках. Никаких HTML.
+	•	Проверьте, что в server/routes.ts реально есть маршрут:
+	•	GET /api/projects/:projectId/reanalyze/compare/latest
+	•	POST /api/projects/:projectId/reanalyze/compare/choose
+	•	В compare/latest вернуть строго JSON:
+
+app.get('/api/projects/:projectId/reanalyze/compare/latest', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    // ...достаём base и candidate
+    if (!candidate) {
+      return res.status(404).json({ success: false, code: 'NO_CANDIDATE', message: 'No candidate version' });
+    }
+    return res.status(200).json({
+      success: true,
+      data: {
+        baseVersion,      // { id, scenes, metrics, ... }
+        candidateVersion, // { id, scenes, metrics, ... }
+        delta: metricsDelta
+      }
+    });
+  } catch (err:any) {
+    return res.status(500).json({ success: false, code: 'INTERNAL', message: err?.message || 'Server error' });
+  }
+});
+
+	•	В compare/choose тоже только JSON-ответы. На успехе:
+
+return res.status(200).json({ success: true, data: { kept: keep, currentVersionId }});
+
+	•	Важно: Убедитесь, что catch-all роут, который отдаёт index.html для SPA, стоит последним и не перехватывает /api/*. Для этого до него должен идти middleware:
+
+app.use('/api', (req, res) => res.status(404).json({ success:false, code:'API_NOT_FOUND', message: 'Unknown API route'}));
+
+(Если у вас роутинг иначе организован — идея та же: любой промах по /api возвращает JSON, не HTML.)
+	•	Если используется Vite proxy, проверьте vite.config.ts:
+
+server: {
+  proxy: {
+    '/api': { target: 'http://localhost:PORT', changeOrigin: true }
+  }
+}
+
+Без прокси фронт может получать index.html от dev-сервера.
+
+2) Фронтенд — безопасный парсинг и понятные ошибки
+
+В CompareModal используйте наш общий apiRequest. Если по архитектуре нужно напрямую fetch’ить — сделайте защиту от HTML:
+
+const res = await fetch(`/api/projects/${projectId}/reanalyze/compare/latest`, { method: 'GET' });
+const ct = res.headers.get('content-type') || '';
+if (!ct.includes('application/json')) {
+  const text = await res.text();
+  throw new Error(`Non-JSON response (${res.status}). Body starts with: ${text.slice(0,120)}`);
+}
+const json = await res.json();
+if (!res.ok || json?.success === false) {
+  throw new Error(json?.message || `HTTP ${res.status}`);
+}
+return json.data;
+
+Показывайте в модалке человекочитаемые состояния:
+	•	404 / NO_CANDIDATE → “Нет версии для сравнения. Сначала нажмите «Сделать версию для сравнения».”
+	•	Любая другая ошибка → “Не удалось загрузить сравнение. Код: XXX. Попробуйте снова.”
+
+После POST /compare/choose:
+
+await Promise.all([
+  queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "script-history"] }),
+  queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "scene-recommendations"] }),
+]);
+onClose();
+toast({ title: 'Версия выбрана', description: keep==='candidate' ? 'Применили ПОСЛЕ' : 'Оставили ДО' });
+
+3) Диагностика (временные логи)
+
+Оставить на время:
+	•	Сервер: логировать GET /compare/latest → что возвращаем (код/длина), Content-Type.
+	•	Клиент: в модалке log open, статус isLoading/isError, и короткий preview первых 80 символов body при non-JSON.
+
+4) Критерии приёмки
+	1.	В Network вкладке по GET /api/projects/:id/reanalyze/compare/latest всегда Content-Type: application/json и корректный JSON-body, ни одного ответа с text/html.
+	2.	При отсутствии кандидата — модалка показывает понятный текст (не падает).
+	3.	При успехе — отрисовывается “ДО/ПОСЛЕ” + дельты метрик; кнопки выбора работают, сценарий обновляется.
+	4.	Никаких uncaught ошибок в консоли.
+
+5) Частые причины этой ошибки (проверить)
+	•	Неверный путь (/projects/... вместо /api/projects/...).
+	•	Фоллбек SPA (index.html) перехватывает /api.
+	•	Vite proxy не сконфигурирован, фронт бьёт в dev-сервер и получает HTML.
+	•	В серверном роуте забыли res.json(...) и Express отдал HTML-ошибку по умолчанию.
+
+Сделайте, пожалуйста, эти правки. После этого модалка перестанет видеть HTML и корректно покажет сравнение.
