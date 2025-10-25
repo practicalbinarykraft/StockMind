@@ -1,0 +1,249 @@
+отлично, что скинул фронт. Я быстро пробежался по коду и нашёл реально блокирующие баги + пару логических несостыковок. Ниже — по файлам, что именно ломает поведение, почему, и как починить (с конкретными правками).
+
+⸻
+
+Stage3: stage-3-ai-analysis.tsx
+	1.	Зацикливание/нет перехода в SceneEditor после генерации
+
+Почему: UI правильно инвалидирует кэш, но SceneEditor не увидит рекомендации, потому что… см. следующий пункт.
+	2.	Ключевой баг с рекомендациями — SceneEditor их не грузит
+
+В SceneEditor (см. ниже) нет queryFn. Но ты здесь всё верно инвалидируешь:
+
+queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
+
+…а в SceneEditor нечему перезапрашивать.
+
+Оставляем как есть в Stage3, фиксим в SceneEditor.
+	3.	Смешение форматов ответов (Response vs JSON)
+
+Ты в этом файле всё ок делаешь: где apiRequest — там явно делаешь await res.json(). Так и оставь.
+Но знай: в других местах проекта это не так (ниже дам фиксы).
+	4.	Легаси-эндпоинты
+
+const res = await apiRequest("POST", "/api/ai/analyze-script", { ... })
+
+Если этого эндпоинта нет в бэке (у тебя сейчас единый /api/projects/:id/generate-script + адвансед-аналитика), держи ветку как «fallback», но добавь пользователю явное сообщение если 404:
+
+onError: (err:any) => {
+  const msg = err?.message?.includes("404")
+    ? "Legacy-анализ недоступен. Используйте Advanced Analyze."
+    : (err.message || "Не удалось проанализировать контент");
+  toast({ variant:"destructive", title:"Ошибка анализа", description: msg });
+}
+
+	5.	Язык сценария
+
+Ты передаёшь targetLocale при генерации — ок. Но в SceneEditor выводишь:
+
+scriptLanguage: currentVersion?.scriptLanguage || targetLanguage || 'ru'
+
+Если бэк не кладёт scriptLanguage в версию — UI будет показывать неистину.
+Решение: либо гарантировать поле на бэке, либо здесь показывать «Selected: RU/EN (not confirmed)» когда его нет.
+
+⸻
+
+SceneEditor: scene-editor.tsx (самые критичные)
+	1.	РЕКОМЕНДАЦИИ НЕ ЗАГРУЖАЮТСЯ (нет queryFn) — вот причина «Все рекомендации применены»
+
+Сейчас:
+
+const { data: recommendations = [] } = useQuery<SceneRecommendation[]>({
+  queryKey: ['/api/projects', projectId, 'scene-recommendations'],
+});
+
+Это ничего не делает. Нужно добавить queryFn и распаковку JSON:
+
+const { data: recommendations = [] } = useQuery<SceneRecommendation[]>({
+  queryKey: ['/api/projects', projectId, 'scene-recommendations'],
+  queryFn: async () => {
+    const res = await apiRequest('GET', `/api/projects/${projectId}/scene-recommendations`);
+    const json = await res.json();
+    return json?.data ?? json ?? [];
+  },
+});
+
+	2.	Все мутации возвращают Response, а ты читаешь как JSON-объект
+
+— applyRecommendationMutation, applyAllMutation, editSceneMutation делают return apiRequest(...), а в onSuccess ты обращаешься к data как к уже распарсенному объекту. Это всегда ломает локальные апдейты.
+
+Правка (везде одинаковая идея):
+
+const applyRecommendationMutation = useMutation({
+  mutationFn: async (recommendationId: number) => {
+    const res = await apiRequest('POST', `/api/projects/${projectId}/apply-scene-recommendation`, { recommendationId });
+    return await res.json();
+  },
+  onSuccess: (data) => {
+    // data уже JSON, можно пользоваться:
+    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+
+    if (data?.affectedScene?.sceneNumber && data?.affectedScene?.text) {
+      setScenes(prev => prev.map((s, idx) => 
+        idx + 1 === data.affectedScene.sceneNumber ? { ...s, text: data.affectedScene.text } : s
+      ));
+    }
+
+    toast({
+      title: 'Рекомендация применена',
+      description: data?.needsReanalysis
+        ? 'Текст обновлен. Рекомендуем пересчитать анализ.'
+        : 'Сцена обновлена',
+    });
+  },
+  onError: ...
+});
+
+И аналогично для Apply All:
+
+const applyAllMutation = useMutation({
+  mutationFn: async () => {
+    const res = await apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
+    return await res.json();
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries(...);
+    if (data?.data?.updatedScenes) {
+      setScenes(data.data.updatedScenes);
+    }
+    toast({ ... });
+  }
+});
+
+И для Edit Scene:
+
+const editSceneMutation = useMutation({
+  mutationFn: async ({ sceneId, newText }: { sceneId: number; newText: string }) => {
+    const res = await apiRequest('POST', `/api/projects/${projectId}/edit-scene`, { sceneId, newText });
+    return await res.json();
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+    toast({
+      title: 'Сцена обновлена',
+      description: data?.data?.needsReanalysis ? 'Изменения сохранены. Рекомендуем пересчитать анализ.' : 'Изменения сохранены',
+    });
+  }
+});
+
+	3.	sceneId vs sceneNumber
+
+Ты передаёшь в edit-scene → { sceneId: sceneNumber }. Убедись, что бэк ждёт номер сцены, а не DB id. Если бэк ждёт номер — так и называй поле, чтобы не путать:
+
+mutationFn: async ({ sceneNumber, newText }: { sceneNumber: number; newText: string }) => {
+  const res = await apiRequest('POST', `/api/projects/${projectId}/edit-scene`, { sceneNumber, newText });
+  return await res.json();
+}
+
+и соответствующие места в вызовах.
+
+⸻
+
+SceneCard: scene-card.tsx
+	1.	Блокировка ввода
+
+disabled={isEditing} — ты даёшь в проп isEditing глобальный флаг из родителя (pending любой мутации). При длинных операций вся карточка «замерзает» — ок, но UX хуже. Не баг, просто знай.
+	2.	Оптимистичное применение рекомендаций
+
+Сейчас всё ок: локально меняешь сцену после успешного ответа. Можно улучшить UX: показывать «временно применено» (optimistic update) и откатывать при ошибке — опционально.
+
+⸻
+
+SourcePreviewModal: source-preview-modal.tsx
+	1.	Перевод — ОК, но проверь ответ
+
+Ты делаешь:
+
+const res = await apiRequest("POST", `/api/projects/${projectId}/translate-content`, {...});
+return await res.json();
+
+и читаешь data.translatedContent. Убедись, что бэк реально отдаёт {"translatedContent": "..."} (а не {success:true,data:{translatedContent:"..."}}). Если второй вариант — распакуй:
+
+onSuccess: (data) => {
+  const content = data?.data?.translatedContent ?? data?.translatedContent;
+  setTranslatedContent(content);
+  ...
+}
+
+
+⸻
+
+SourceAnalysisCard: source-analysis-card.tsx
+
+Всё ок. Пустые блоки не рендеришь, score показываешь через ScoreBadge.
+
+⸻
+
+ProjectSidebar: project-sidebar.tsx
+
+В целом всё норм. Пара UX-нюансов:
+	•	бейдж языка берёшь из project.sourceData.language — если язык ещё не определён в бэке, будет пусто; это норм, но можно fallback на stepData или результат analyze-source.
+	•	«Stage X of 7» — совпадает с твоими шагами.
+
+⸻
+
+AdvancedAnalysisDisplay: ВАЖНО: несоответствие типов
+
+Сейчас ты используешь:
+	•	analysis.breakdown.hook.score — есть (ты вернул score в HookBreakdown).
+	•	analysis.breakdown.structure.score — нет поля в твоём типе (у тебя structureAnalysis.structureScore отдельно, а в breakdown — детальная структура без общего score).
+	•	analysis.breakdown.emotional.score — нет поля (есть emotionalScore отдельно).
+	•	analysis.breakdown.cta.score — нет поля (есть ctaScore отдельно).
+
+Отсюда NaN/пустые бейджи.
+
+Минимальный фикс на фронте (быстро и без бэка):
+
+Заменить обращения к ...breakdown.<agent>.score на явные поля итогов агентов, которые ты уже считаешь в агент-функциях и можешь положить в analysis:
+
+// вместо analysis.breakdown.structure.score
+// показывай, например:
+const structureScore = analysis.breakdown?.structure?.optimalLength?.score // если хотите прокси-метрику
+// НО лучше добавь в результат:
+analysis.agentScores?.structureScore
+
+Лучше так (универсально): добавь в AdvancedScoreResult поле agentScores и верни их из бэка:
+
+agentScores: {
+  hook: number;        // hookAnalysis.hookScore
+  structure: number;   // structureAnalysis.structureScore
+  emotional: number;   // emotionalAnalysis.emotionalScore
+  cta: number;         // ctaAnalysis.ctaScore
+}
+
+И в UI:
+
+<Badge variant={analysis.agentScores.structure >= 70 ? "default" : "secondary"}>
+  {analysis.agentScores.structure}/100
+</Badge>
+
+Если бэк править нельзя прямо сейчас — сделай безопасный fallback:
+
+const hookScore = analysis.breakdown?.hook?.score ?? analysis.agentScores?.hook;
+const structureScore = analysis.agentScores?.structure ??  /*fallback*/  (analysis.breakdown?.structure?.pacing?.score ?? 0);
+const emotionalScore = analysis.agentScores?.emotional ?? 0;
+const ctaScore = analysis.agentScores?.cta ?? 0;
+
+И подставь эти переменные туда, где сейчас обращение к отсутствующим полям.
+
+⸻
+
+ИТОГО — что обязательно поправить прямо сейчас
+	1.	SceneEditor:
+	•	добавить queryFn для загрузки рекомендаций;
+	•	распарсить JSON в onSuccess всех мутаций;
+	•	привести sceneId → sceneNumber (или наоборот) к контракту бэка.
+	2.	AdvancedAnalysisDisplay:
+	•	не читать analysis.breakdown.structure/emotional/cta.score — их нет;
+	•	либо добавить agentScores на бэке, либо сделать безопасные fallbacks на фронте.
+	3.	SourcePreviewModal:
+	•	унифицировать распаковку translatedContent (вдруг бэк завёрнут в data).
+
+После этих правок:
+	•	рекомендации появятся в редакторе,
+	•	«Все рекомендации применены» исчезнет, когда они реально есть,
+	•	карточки «Hook/Structure/Emotional/CTA» перестанут показывать undefined/NaN,
+	•	тексты сцен будут обновляться после применений/редактирований без «призраков».
+
+Хочешь — скину мини-патчами diff-кусочки для каждой правки, чтобы можно было вставить «как есть».
