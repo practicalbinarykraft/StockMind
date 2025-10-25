@@ -2020,6 +2020,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/projects/from-news/:itemId - Create project from news item
+  app.post("/api/projects/from-news/:itemId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const { itemId } = req.params;
+
+      // Get the news item
+      const items = await storage.getRssItems(userId);
+      const item = items.find(i => i.id === itemId);
+
+      if (!item) {
+        return res.status(404).json({ message: "News item not found or not authorized" });
+      }
+
+      // Check if already used in a project
+      if (item.usedInProject) {
+        return res.status(400).json({ 
+          message: "This news item is already used in another project",
+          projectId: item.usedInProject
+        });
+      }
+
+      // Generate concise project title from news title (max 60 chars)
+      const titleSource = item.title || 'News Article';
+      const title = titleSource.length > 60 
+        ? titleSource.substring(0, 57) + '...' 
+        : titleSource;
+
+      // Create project (start at Stage 2 - Content Input)
+      const project = await storage.createProject(userId, {
+        title,
+        sourceType: 'news',
+        sourceData: {
+          itemId: item.id,
+          title: item.title,
+          url: item.url,
+          content: item.content,
+          imageUrl: item.imageUrl,
+          publishedAt: item.publishedAt,
+          aiScore: item.aiScore,
+          aiComment: item.aiComment,
+        },
+        currentStage: 2,  // Skip Stage 1 (source already selected)
+        status: 'draft',
+      });
+
+      // Create Step 2 (Content Input) with news content
+      await storage.createProjectStep({
+        projectId: project.id,
+        stepNumber: 2,
+        data: {
+          title: item.title,
+          content: item.content,
+          url: item.url,
+          imageUrl: item.imageUrl,
+          publishedAt: item.publishedAt,
+          aiScore: item.aiScore,
+          aiComment: item.aiComment,
+        }
+      });
+
+      // Mark news item as used
+      await storage.updateRssItemAction(itemId, userId, 'selected', project.id);
+
+      return res.json(project);
+    } catch (error: any) {
+      console.error("Error creating project from news:", error);
+      res.status(500).json({ message: error.message || "Failed to create project from news item" });
+    }
+  });
+
   app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
@@ -3693,6 +3765,44 @@ ${content}`;
 
   // GET /api/projects/:id/script-history - Single source of truth for script versions and recommendations
   app.get("/api/projects/:id/script-history", isAuthenticated, getScriptHistoryHandler);
+
+  // GET /api/projects/:id/scene-recommendations - Get scene recommendations for current version
+  app.get("/api/projects/:id/scene-recommendations", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      
+      const project = await storage.getProjectById(id);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const currentVersion = await storage.getCurrentScriptVersion(id);
+      if (!currentVersion) {
+        return res.json([]);
+      }
+      
+      const recommendations = await storage.getSceneRecommendations(currentVersion.id);
+      
+      // Transform to match SceneEditor interface
+      const transformed = recommendations.map(r => ({
+        id: r.id,
+        sceneId: r.sceneId, // sceneId is already the scene number (1-indexed)
+        priority: r.priority,
+        area: r.area,
+        currentText: r.currentText,
+        suggestedText: r.suggestedText,
+        reasoning: r.reasoning,
+        expectedImpact: r.expectedImpact,
+        appliedAt: r.appliedAt,
+      }));
+      
+      return res.json(transformed);
+    } catch (error: any) {
+      console.error('[Scene Recommendations] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
 
   // POST /api/projects/:id/apply-scene-recommendation - Apply recommendation to single scene
   app.post("/api/projects/:id/apply-scene-recommendation", isAuthenticated, async (req: any, res) => {

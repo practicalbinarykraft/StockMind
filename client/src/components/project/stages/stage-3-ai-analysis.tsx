@@ -107,9 +107,6 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     scriptVersionsQuery.data?.currentVersion || 
     (scriptVersionsQuery.data?.versions && scriptVersionsQuery.data.versions.length > 0)
   )
-  
-  // Debug logging
-  console.log('[Stage 3] hasScript:', hasScript, 'data:', scriptVersionsQuery.data)
 
   // Get content from step data
   // - Custom scripts: stepData.text
@@ -237,7 +234,6 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       const endpoint = getAdvancedEndpoint()
       const body = getAdvancedRequestBody()
       
-      console.log('[Stage 3] Calling advanced analysis:', endpoint, body)
       const res = await apiRequest("POST", endpoint, body)
       return await res.json()
     },

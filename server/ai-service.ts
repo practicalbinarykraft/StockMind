@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-// Universal JSON extractor - handles markdown blocks, multiple JSONs, multi-block responses
+// Universal JSON extractor with proper brace balancing - handles nested objects/arrays
 function extractJson<T = any>(blocks: { type: string; text?: string }[]): T {
   const text = blocks.filter(b => b.type === 'text').map(b => b.text ?? '').join('\n');
   
@@ -8,19 +8,60 @@ function extractJson<T = any>(blocks: { type: string; text?: string }[]): T {
   const fence = text.match(/```json\s*([\s\S]*?)```/i);
   const candidate = fence ? fence[1] : text;
   
-  // Find all JSON-like structures and try parsing from longest to shortest
-  const matches = candidate.match(/\{[\s\S]*?\}/g) || [];
-  let lastError: unknown = null;
+  // Find all possible JSON start positions (both { and [)
+  const jsonCandidates: string[] = [];
   
-  for (const m of matches.sort((a, b) => b.length - a.length)) {
+  for (let i = 0; i < candidate.length; i++) {
+    const char = candidate[i];
+    if (char === '{' || char === '[') {
+      // Balance braces/brackets to find complete JSON
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      const closeChar = char === '{' ? '}' : ']';
+      
+      for (let j = i; j < candidate.length; j++) {
+        const c = candidate[j];
+        
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        
+        if (c === '\\') {
+          escape = true;
+          continue;
+        }
+        
+        if (c === '"') {
+          inString = !inString;
+          continue;
+        }
+        
+        if (inString) continue;
+        
+        if (c === char) depth++;
+        if (c === closeChar) depth--;
+        
+        if (depth === 0) {
+          jsonCandidates.push(candidate.substring(i, j + 1));
+          break;
+        }
+      }
+    }
+  }
+  
+  // Try parsing candidates from longest to shortest
+  let lastError: unknown = null;
+  for (const json of jsonCandidates.sort((a, b) => b.length - a.length)) {
     try {
-      return JSON.parse(m);
+      return JSON.parse(json);
     } catch (e) {
       lastError = e;
     }
   }
   
-  throw new Error(`Could not parse AI JSON. Last error: ${(lastError as Error)?.message || 'unknown'}`);
+  throw new Error(`Could not parse AI JSON. Last error: ${(lastError as Error)?.message || 'unknown'}. Text: ${candidate.substring(0, 200)}`);
 }
 
 export interface NewsScoreResult {
