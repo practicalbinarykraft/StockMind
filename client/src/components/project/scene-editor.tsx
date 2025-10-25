@@ -51,9 +51,9 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
       // Update local scene text
-      if (data.affectedScene) {
-        setScenes(prev => prev.map(s => 
-          s.id === data.affectedScene.id 
+      if (data.affectedScene && data.affectedScene.sceneNumber) {
+        setScenes(prev => prev.map((s, idx) => 
+          idx + 1 === data.affectedScene.sceneNumber
             ? { ...s, text: data.affectedScene.text }
             : s
         ));
@@ -127,12 +127,12 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
     },
   });
 
-  const handleTextChange = (sceneId: number, newText: string) => {
-    // Optimistic update
-    setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, text: newText } : s));
+  const handleTextChange = (sceneNumber: number, newText: string) => {
+    // Optimistic update - sceneNumber is 1-indexed, array is 0-indexed
+    setScenes(prev => prev.map((s, idx) => idx + 1 === sceneNumber ? { ...s, text: newText } : s));
     
     // Save to backend
-    editSceneMutation.mutate({ sceneId, newText });
+    editSceneMutation.mutate({ sceneId: sceneNumber, newText });
   };
 
   const activeRecommendations = recommendations.filter(r => !r.appliedAt);
@@ -143,16 +143,17 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
       {/* Left column: Scenes in single column */}
       <div className="flex-1 space-y-4">
         {scenes.map((scene, index) => {
-          const sceneRecommendations = recommendations.filter(r => r.sceneId === scene.id);
+          const sceneNumber = index + 1;
+          const sceneRecommendations = recommendations.filter(r => r.sceneId === sceneNumber);
           
           return (
             <SceneCard
-              key={scene.id}
-              sceneNumber={index + 1}
-              sceneId={scene.id}
+              key={sceneNumber}
+              sceneNumber={sceneNumber}
+              sceneId={sceneNumber}
               text={scene.text}
               recommendations={sceneRecommendations}
-              onTextChange={handleTextChange}
+              onTextChange={(_, newText) => handleTextChange(sceneNumber, newText)}
               onApplyRecommendation={(recId) => applyRecommendationMutation.mutateAsync(recId)}
               isEditing={editSceneMutation.isPending || applyRecommendationMutation.isPending}
               isApplyingAll={applyAllMutation.isPending}
