@@ -12,7 +12,10 @@ import {
   MessageCircle,
   BarChart3,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles,
+  Layers,
+  Megaphone
 } from "lucide-react"
 import type { AdvancedScoreResult } from "@shared/advanced-analysis-types"
 
@@ -62,17 +65,17 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
               </div>
               <div>
                 <CardTitle className="text-2xl">
-                  Overall Score: {analysis.overallScore}/100
+                  Общий балл: {analysis.overallScore}/100
                 </CardTitle>
                 <CardDescription className="flex items-center gap-2 mt-1">
                   <VerdictIcon className={`h-4 w-4 ${verdictConfig.color}`} />
                   <span className="capitalize font-medium">{analysis.verdict}</span>
                   <span className="text-muted-foreground">
-                    • Confidence: {Math.round(analysis.confidence * 100)}%
+                    • Уверенность: {Math.round(analysis.confidence * 100)}%
                   </span>
                   {analysisTime && (
                     <span className="text-muted-foreground">
-                      • Analyzed in {(analysisTime / 1000).toFixed(1)}s
+                      • Анализ за {(analysisTime / 1000).toFixed(1)}с
                     </span>
                   )}
                 </CardDescription>
@@ -88,13 +91,16 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>🎣 Hook Analysis</span>
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Анализ хука
+              </span>
               <Badge variant={analysis.breakdown.hook.score >= 70 ? "default" : "secondary"}>
                 {analysis.breakdown.hook.score}/100
               </Badge>
             </CardTitle>
             <CardDescription>
-              Type: {analysis.breakdown.hook.type}
+              Тип: {analysis.breakdown.hook.type}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -119,7 +125,10 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>📊 Structure</span>
+              <span className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Структура
+              </span>
               <Badge variant={analysis.breakdown.structure.score >= 70 ? "default" : "secondary"}>
                 {analysis.breakdown.structure.score}/100
               </Badge>
@@ -169,7 +178,10 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>❤️ Emotional Impact</span>
+              <span className="flex items-center gap-2">
+                <Heart className="h-5 w-5" />
+                Эмоциональное воздействие
+              </span>
               <Badge variant={analysis.breakdown.emotional.score >= 70 ? "default" : "secondary"}>
                 {analysis.breakdown.emotional.score}/100
               </Badge>
@@ -218,7 +230,10 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-lg">
-              <span>📢 Call-to-Action</span>
+              <span className="flex items-center gap-2">
+                <Megaphone className="h-5 w-5" />
+                Призыв к действию
+              </span>
               <Badge variant={analysis.breakdown.cta.score >= 70 ? "default" : "secondary"}>
                 {analysis.breakdown.cta.score}/100
               </Badge>
@@ -417,7 +432,7 @@ export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnal
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              Predicted Performance
+              Прогноз эффективности
             </CardTitle>
           </CardHeader>
           <CardContent>
