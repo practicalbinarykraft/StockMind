@@ -80,7 +80,8 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
     mutationFn: async () => {
       return apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
     },
-    onSuccess: (data: any) => {
+    onSuccess: (response: any) => {
+      const data = response.data; // Unwrap new API format
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
@@ -108,7 +109,8 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze }: S
     mutationFn: async ({ sceneId, newText }: { sceneId: number; newText: string }) => {
       return apiRequest('POST', `/api/projects/${projectId}/edit-scene`, { sceneId, newText });
     },
-    onSuccess: (data: any) => {
+    onSuccess: (response: any) => {
+      const data = response.data; // Unwrap new API format
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
       toast({

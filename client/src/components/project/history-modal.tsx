@@ -94,16 +94,26 @@ export function HistoryModal({ projectId, currentScenes, onClose, onRevert }: Hi
   const { toast } = useToast();
 
   // Fetch version history
-  const { data: versions = [], isLoading } = useQuery<ScriptVersion[]>({
+  const { data: historyData, isLoading } = useQuery({
     queryKey: ['/api/projects', projectId, 'script-history'],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/script-history`);
+      if (!res.ok) throw new Error('Failed to fetch history');
+      const response = await res.json();
+      // Unwrap new API format: { success: true, data: {...} }
+      return response.data || response;
+    },
   });
+  
+  const versions = (historyData?.versions || []) as ScriptVersion[];
 
   // Revert to version mutation
   const revertMutation = useMutation({
     mutationFn: async (versionId: number) => {
       return apiRequest('POST', `/api/projects/${projectId}/revert-to-version`, { versionId });
     },
-    onSuccess: (data: any) => {
+    onSuccess: (response: any) => {
+      const data = response.data; // Unwrap new API format
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
       

@@ -2178,7 +2178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newResult = await scoreNewsAdvanced(apiKey.encryptedKey, title, content);
         const newDuration = Date.now() - startNew;
         
-        res.json({
+        return apiResponse.ok(res, {
           comparison: {
             old: {
               result: oldResult,
@@ -2207,7 +2207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newResult = await scoreReelAdvanced(apiKey.encryptedKey, transcription, caption || null);
         const newDuration = Date.now() - startNew;
         
-        res.json({
+        return apiResponse.ok(res, {
           comparison: {
             old: {
               result: oldResult,
@@ -2226,14 +2226,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       } else {
-        return res.status(400).json({ message: "Type must be 'news' or 'reel'" });
+        return apiResponse.badRequest(res, "Type must be 'news' or 'reel'");
       }
     } catch (error: any) {
       console.error("Error in comparison:", error);
-      res.status(500).json({ 
-        message: error.message || "Failed to compare analysis systems",
-        error: error.toString()
-      });
+      return apiResponse.serverError(res, error.message || "Failed to compare analysis systems", error);
     }
   });
 
@@ -2420,13 +2417,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue anyway - caching failure shouldn't break the response
       }
 
-      res.json(responseData);
+      return apiResponse.ok(res, responseData);
     } catch (error: any) {
       console.error("Error in source analysis:", error);
-      res.status(500).json({ 
-        message: error.message || "Failed to analyze source",
-        error: error.toString()
-      });
+      return apiResponse.serverError(res, error.message || "Failed to analyze source", error);
     }
   });
 
@@ -3144,7 +3138,7 @@ ${content}`;
       const currentVersion = versions.find(v => v.isCurrent) || versions[0];
       
       if (!currentVersion) {
-        return res.json({
+        return apiResponse.ok(res, {
           currentVersion: null,
           versions: [],
           recommendations: [],
@@ -3155,7 +3149,7 @@ ${content}`;
       // Get recommendations for current version
       const recommendations = await storage.getSceneRecommendations(currentVersion.id);
       
-      return res.json({
+      return apiResponse.ok(res, {
         currentVersion,
         versions,
         recommendations,
@@ -3163,7 +3157,7 @@ ${content}`;
       });
     } catch (error: any) {
       console.error('[Script History] Error:', error);
-      return res.status(500).json({ message: error.message });
+      return apiResponse.serverError(res, error.message, error);
     }
   };
 
@@ -3515,14 +3509,13 @@ ${content}`;
         userId: userId,
       });
       
-      return res.json({
-        success: true,
+      return apiResponse.ok(res, {
         newVersion,
         message: `Reverted to version ${targetVersion.versionNumber}`,
       });
     } catch (error: any) {
       console.error('[Revert Version] Error:', error);
-      return res.status(500).json({ message: error.message });
+      return apiResponse.serverError(res, error.message, error);
     }
   });
 
@@ -3541,8 +3534,7 @@ ${content}`;
       // Check if version already exists
       const existingVersion = await storage.getCurrentScriptVersion(id);
       if (existingVersion) {
-        return res.json({
-          success: true,
+        return apiResponse.ok(res, {
           version: existingVersion,
           message: 'Version already exists',
         });
@@ -3573,14 +3565,13 @@ ${content}`;
         await storage.createSceneRecommendations(recommendations);
       }
       
-      return res.json({
-        success: true,
+      return apiResponse.ok(res, {
         version: newVersion,
         recommendationsCount: recommendationsData.length,
       });
     } catch (error: any) {
       console.error('[Create Initial Version] Error:', error);
-      return res.status(500).json({ message: error.message });
+      return apiResponse.serverError(res, error.message, error);
     }
   });
 

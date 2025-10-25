@@ -96,7 +96,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     queryFn: async () => {
       const res = await fetch(`/api/projects/${project.id}/script-history`)
       if (!res.ok) return { currentVersion: null, versions: [], recommendations: [] }
-      return await res.json()
+      const response = await res.json()
+      // Unwrap new API format: { success: true, data: {...} }
+      return response.data || response
     },
     enabled: Boolean(project.id), // Always enabled if we have project ID
     staleTime: 5000
@@ -122,7 +124,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     queryKey: ['/api/projects', project.id, 'analyze-source'],
     queryFn: async () => {
       const res = await apiRequest('POST', `/api/projects/${project.id}/analyze-source`, {})
-      return await res.json()
+      const response = await res.json()
+      // Unwrap new API format: { success: true, data: {...} }
+      return response.data || response
     },
     enabled: !hasScript && shouldAnalyze && Boolean(project.id),
     staleTime: Infinity
