@@ -1,8 +1,12 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/query-client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, ArrowRight, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 interface CompareData {
   base: {
@@ -44,24 +48,53 @@ interface CompareData {
 
 interface CompareModalProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  data: CompareData | null;
-  onChoose: (choice: 'base' | 'candidate') => void;
-  onBackToEdit: () => void;
-  onProceedToVoice: () => void;
-  isChoosing: boolean;
+  onClose: () => void;
+  projectId: string;
 }
 
-export function CompareModal({
-  open,
-  onOpenChange,
-  data,
-  onChoose,
-  onBackToEdit,
-  onProceedToVoice,
-  isChoosing
-}: CompareModalProps) {
-  if (!data) return null;
+export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
+  const { toast } = useToast();
+
+  useEffect(() => {
+    console.log('[CompareModal] open=', open);
+  }, [open]);
+
+  // Load comparison data when modal opens
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['/api/projects', projectId, 'reanalyze', 'compare', 'latest'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/projects/${projectId}/reanalyze/compare/latest`);
+      const json = await res.json();
+      return json.data ?? json;
+    },
+    enabled: open && !!projectId,
+    retry: false
+  });
+
+  // Choose version mutation
+  const chooseMutation = useMutation({
+    mutationFn: async (keep: 'base' | 'candidate') => {
+      const res = await apiRequest('POST', `/api/projects/${projectId}/reanalyze/compare/choose`, { keep });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed');
+      return json;
+    },
+    onSuccess: async () => {
+      toast({
+        title: "Выбор сохранен",
+      });
+      onClose();
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "script-history"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "scene-recommendations"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка сохранения",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
 
   const DeltaBadge = ({ delta }: { delta: number }) => {
     const isPositive = delta > 0;
@@ -125,97 +158,120 @@ export function CompareModal({
         <CardHeader>
           <CardTitle className="text-sm">Сцены ({version.scenes.length})</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 max-h-64 overflow-y-auto">
-          {version.scenes.map((scene) => {
-            const sceneDelta = data.deltas.scenes.find(d => d.sceneNumber === scene.sceneNumber);
-            return (
-              <div 
-                key={scene.sceneNumber} 
-                className="p-2 rounded border bg-card"
-                data-testid={`scene-${isPrimary ? 'base' : 'candidate'}-${scene.sceneNumber}`}
-              >
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Сцена {scene.sceneNumber}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-semibold">{scene.score}</span>
-                    {sceneDelta && !isPrimary && <DeltaBadge delta={sceneDelta.scoreDelta} />}
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {scene.text}
-                </p>
+        <CardContent className="space-y-2">
+          {version.scenes.map((scene, idx) => (
+            <div 
+              key={idx} 
+              className="text-xs p-2 rounded bg-muted/50"
+              data-testid={`text-scene-${isPrimary ? 'base' : 'candidate'}-${scene.sceneNumber}`}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-medium">Сцена {scene.sceneNumber}</span>
+                <Badge variant="outline" className="text-xs">
+                  {scene.score}
+                </Badge>
               </div>
-            );
-          })}
+              <p className="text-muted-foreground line-clamp-2">{scene.text}</p>
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent 
+        className="max-w-6xl max-h-[90vh] overflow-y-auto"
+        data-testid="modal-compare"
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Сравнение версий: ДО и ПОСЛЕ</span>
-            <DeltaBadge delta={data.deltas.overallScoreDelta} />
-          </DialogTitle>
-          <DialogDescription>
-            Выберите версию для продолжения работы
-          </DialogDescription>
+          <DialogTitle>Сравнение версий (ДО / ПОСЛЕ)</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-6 overflow-y-auto flex-1 py-4">
-          <VersionColumn version={data.base} title="ДО (текущая)" isPrimary={true} />
-          
-          <div className="flex items-center justify-center">
-            <ArrowRight className="h-8 w-8 text-muted-foreground" />
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Загружаем сравнение…</p>
           </div>
+        )}
 
-          <VersionColumn version={data.candidate} title="ПОСЛЕ (новая)" isPrimary={false} />
-        </div>
-
-        <DialogFooter className="flex sm:justify-between gap-2">
-          <div className="flex gap-2">
+        {/* Error state */}
+        {isError && (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+            <p className="text-center max-w-md">
+              {error?.message === 'No candidate version found' || (error as any)?.status === 404
+                ? 'Нет версии для сравнения. Сначала нажмите "Сделать версию для сравнения".'
+                : `Ошибка загрузки: ${error?.message || 'Неизвестная ошибка'}`}
+            </p>
             <Button
+              type="button"
               variant="outline"
-              onClick={() => onChoose('base')}
-              disabled={isChoosing}
-              data-testid="button-keep-base"
+              onClick={onClose}
+              data-testid="button-close-error"
             >
-              <X className="h-4 w-4 mr-1" />
-              Оставить ДО
-            </Button>
-            <Button
-              onClick={() => onChoose('candidate')}
-              disabled={isChoosing}
-              data-testid="button-choose-candidate"
-            >
-              Выбрать ПОСЛЕ
+              Закрыть
             </Button>
           </div>
+        )}
 
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={onBackToEdit}
-              disabled={isChoosing}
-              data-testid="button-back-to-edit"
-            >
-              Вернуться к редактированию
-            </Button>
-            <Button
-              variant="default"
-              onClick={onProceedToVoice}
-              disabled={isChoosing}
-              data-testid="button-proceed-voice"
-            >
-              Перейти к озвучке
-            </Button>
-          </div>
-        </DialogFooter>
+        {/* Success state - show comparison */}
+        {data && !isLoading && !isError && (
+          <>
+            {/* Overall Delta */}
+            <div className="flex items-center justify-center gap-3 p-4 bg-muted/50 rounded-lg">
+              <span className="text-sm text-muted-foreground">Изменение общего балла:</span>
+              <DeltaBadge delta={data.deltas.overallScoreDelta} />
+            </div>
+
+            {/* Side-by-side comparison */}
+            <div className="flex gap-6">
+              <VersionColumn 
+                version={data.base}
+                title="ДО (Базовая версия)"
+                isPrimary={true}
+              />
+
+              <div className="flex items-center">
+                <div className="h-px w-8 bg-border" />
+              </div>
+
+              <VersionColumn 
+                version={data.candidate}
+                title="ПОСЛЕ (Новая версия)"
+                isPrimary={false}
+              />
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => chooseMutation.mutate('base')}
+                disabled={chooseMutation.isPending}
+                data-testid="button-choose-base"
+                className="flex-1"
+              >
+                {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Оставить ДО
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => chooseMutation.mutate('candidate')}
+                disabled={chooseMutation.isPending}
+                data-testid="button-choose-candidate"
+                className="flex-1"
+              >
+                {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Выбрать ПОСЛЕ
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

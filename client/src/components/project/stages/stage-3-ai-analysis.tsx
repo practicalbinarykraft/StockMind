@@ -75,8 +75,7 @@ interface AIAnalysis {
 
 export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null)
-  const [showCompareModal, setShowCompareModal] = useState(false)
-  const [compareData, setCompareData] = useState<any>(null)
+  const [compareOpen, setCompareOpen] = useState(false)
   const [reanalyzeJobId, setReanalyzeJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<any>(null)
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedScoreResult | null>(null)
@@ -166,6 +165,20 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       };
     }
   }, [project.id]);
+
+  // Open compare modal handler
+  const handleOpenCompare = () => {
+    console.log('[Compare] Click - hasCandidate:', hasCandidate);
+    if (!hasCandidate) {
+      toast({
+        title: "Нет версии для сравнения",
+        description: "Сначала нажмите «Сделать версию для сравнения»",
+        variant: "destructive"
+      });
+      return;
+    }
+    setCompareOpen(true);
+  };
 
   // Reanalyze mutation - starts async job
   const reanalyzeMutation = useMutation({
@@ -260,52 +273,6 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     onError: (error: any) => {
       toast({
         title: "Ошибка запуска анализа",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Compare/choose mutations
-  const fetchCompareDataMutation = useMutation({
-    mutationFn: async () => {
-      console.log('[Compare] Загрузка данных сравнения...');
-      const res = await apiRequest('GET', `/api/projects/${project.id}/compare/latest`);
-      const json = await res.json();
-      console.log('[Compare] Получены данные:', json);
-      return json?.data ?? json;
-    },
-    onSuccess: (data: any) => {
-      console.log('[Compare] Открытие модалки с данными:', data);
-      setCompareData(data);
-      setShowCompareModal(true);
-    },
-    onError: (error: any) => {
-      console.error('[Compare] Ошибка:', error);
-      toast({
-        title: "Ошибка получения данных",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-
-  const chooseMutation = useMutation({
-    mutationFn: async (keep: 'base' | 'candidate') => {
-      const res = await apiRequest('POST', `/api/projects/${project.id}/compare/choose`, { keep });
-      return await res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Выбор сохранен",
-      });
-      setShowCompareModal(false);
-      setCompareData(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Ошибка выбора версии",
         description: error.message,
         variant: "destructive"
       });
@@ -1036,10 +1003,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 if (reanalyzeMutation.isPending) return;
                 reanalyzeMutation.mutate();
               }}
-              onOpenCompare={() => {
-                console.log('[Compare] Клик по кнопке, hasCandidate:', hasCandidate);
-                fetchCompareDataMutation.mutate();
-              }}
+              onOpenCompare={handleOpenCompare}
               hasCandidate={hasCandidate}
             />
           </div>
@@ -1204,9 +1168,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 projectId={project.id}
                 scenes={stepData.scenes}
                 onReanalyze={() => setReanalyzeDialogOpen(true)}
-                onOpenCompare={() => {
-                  fetchCompareDataMutation.mutate();
-                }}
+                onOpenCompare={handleOpenCompare}
                 hasCandidate={hasCandidate}
               />
             )}
@@ -1461,16 +1423,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
 
       {/* Compare Modal */}
       <CompareModal
-        open={showCompareModal}
-        onOpenChange={setShowCompareModal}
-        data={compareData}
-        onChoose={(choice) => chooseMutation.mutate(choice)}
-        onBackToEdit={() => setShowCompareModal(false)}
-        onProceedToVoice={() => {
-          setShowCompareModal(false);
-          // TODO: Navigate to voiceover stage
-        }}
-        isChoosing={chooseMutation.isPending}
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        projectId={project.id}
       />
     </div>
   )
