@@ -61,12 +61,26 @@ function matchCidrV4(ip: string, base: string, bits: number): boolean {
 
 // Expand IPv6 address to full form for reliable CIDR matching
 // Converts "2001::1" → "2001:0000:0000:0000:0000:0000:0000:0001"
+// CRITICAL: Handles IPv4-mapped notation "::ffff:192.0.2.1" → "0000:0000:0000:0000:0000:ffff:c000:0201"
 function expandIPv6(ip: string): string {
-  const parts = ip.toLowerCase().split(':');
+  let normalized = ip.toLowerCase();
+  
+  // Handle IPv4-mapped IPv6 (e.g., "::ffff:127.0.0.1" or "::ffff:192.0.2.1")
+  const ipv4MappedMatch = normalized.match(/^([:a-f0-9]*):([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)$/);
+  if (ipv4MappedMatch) {
+    const [, prefix, ipv4] = ipv4MappedMatch;
+    // Convert IPv4 dotted-quad to two hex hextets
+    const octets = ipv4.split('.').map(n => parseInt(n, 10));
+    const hex1 = ((octets[0] << 8) | octets[1]).toString(16).padStart(4, '0');
+    const hex2 = ((octets[2] << 8) | octets[3]).toString(16).padStart(4, '0');
+    normalized = `${prefix}:${hex1}:${hex2}`;
+  }
+  
+  const parts = normalized.split(':');
   
   // Handle compressed :: notation
-  if (ip.includes('::')) {
-    const [left, right] = ip.split('::');
+  if (normalized.includes('::')) {
+    const [left, right] = normalized.split('::');
     const leftParts = left ? left.split(':') : [];
     const rightParts = right ? right.split(':') : [];
     const missing = 8 - leftParts.length - rightParts.length;
