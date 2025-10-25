@@ -32,7 +32,7 @@ import {
   type InsertSceneRecommendation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
@@ -129,6 +129,18 @@ export interface IStorage {
   updateProject(id: string, userId: string, data: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: string, userId: string): Promise<void>;
   permanentlyDeleteProject(id: string, userId: string): Promise<void>;
+  createProjectFromInstagramAtomic(
+    userId: string, 
+    projectData: Omit<InsertProject, 'userId'>,
+    stepData: InsertProjectStep,
+    instagramItemId: string
+  ): Promise<Project>;
+  createProjectFromNewsAtomic(
+    userId: string,
+    projectData: Omit<InsertProject, 'userId'>,
+    stepData: InsertProjectStep,
+    newsItemId: string
+  ): Promise<Project>;
 
   // Project Steps
   getProjectSteps(projectId: string): Promise<ProjectStep[]>;
@@ -140,12 +152,14 @@ export interface IStorage {
   getCurrentScriptVersion(projectId: string): Promise<ScriptVersion | undefined>;
   createScriptVersion(data: InsertScriptVersion): Promise<ScriptVersion>;
   updateScriptVersionCurrent(projectId: string, versionId: string): Promise<void>;
+  createScriptVersionAtomic(data: InsertScriptVersion): Promise<ScriptVersion>;
 
   // Scene Recommendations
   getSceneRecommendations(scriptVersionId: string): Promise<SceneRecommendation[]>;
   createSceneRecommendations(data: InsertSceneRecommendation[]): Promise<SceneRecommendation[]>;
   updateSceneRecommendation(id: string, data: Partial<SceneRecommendation>): Promise<SceneRecommendation | undefined>;
   markRecommendationApplied(id: string): Promise<void>;
+  markRecommendationsAppliedBatch(ids: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -345,21 +359,17 @@ export class DatabaseStorage implements IStorage {
       // Create a map of sourceId -> sourceName for quick lookup
       const sourceNameMap = new Map(userSources.map(s => [s.id, s.name]));
       
-      // Get all items from all user sources
-      const allItems: Array<RssItem & { sourceName: string }> = [];
-      for (const sourceId of sourceIds) {
-        const sourceItems = await db
-          .select()
-          .from(rssItems)
-          .where(eq(rssItems.sourceId, sourceId));
-        
-        // Add source name to each item
-        const enrichedItems = sourceItems.map(item => ({
-          ...item,
-          sourceName: sourceNameMap.get(sourceId) || 'Unknown Source'
-        }));
-        allItems.push(...enrichedItems);
-      }
+      // Get all items from all user sources (single query to avoid N+1)
+      const sourceItems = await db
+        .select()
+        .from(rssItems)
+        .where(inArray(rssItems.sourceId, sourceIds));
+      
+      // Add source name to each item
+      const allItems: Array<RssItem & { sourceName: string }> = sourceItems.map(item => ({
+        ...item,
+        sourceName: sourceNameMap.get(item.sourceId) || 'Unknown Source'
+      }));
       
       // Sort by AI score descending (nulls last), then by publishedAt descending
       return allItems.sort((a, b) => {
@@ -702,6 +712,56 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(projects.id, id), eq(projects.userId, userId)));
   }
 
+  async createProjectFromInstagramAtomic(
+    userId: string,
+    projectData: Omit<InsertProject, 'userId'>,
+    stepData: InsertProjectStep,
+    instagramItemId: string
+  ): Promise<Project> {
+    return await db.transaction(async (tx) => {
+      const [project] = await tx
+        .insert(projects)
+        .values({ ...projectData, userId })
+        .returning();
+      
+      await tx
+        .insert(projectSteps)
+        .values({ ...stepData, projectId: project.id });
+      
+      await tx
+        .update(instagramItems)
+        .set({ usedInProject: project.id })
+        .where(eq(instagramItems.id, instagramItemId));
+      
+      return project;
+    });
+  }
+
+  async createProjectFromNewsAtomic(
+    userId: string,
+    projectData: Omit<InsertProject, 'userId'>,
+    stepData: InsertProjectStep,
+    newsItemId: string
+  ): Promise<Project> {
+    return await db.transaction(async (tx) => {
+      const [project] = await tx
+        .insert(projects)
+        .values({ ...projectData, userId })
+        .returning();
+      
+      await tx
+        .insert(projectSteps)
+        .values({ ...stepData, projectId: project.id });
+      
+      await tx
+        .update(rssItems)
+        .set({ usedInProject: project.id, userAction: 'selected' })
+        .where(eq(rssItems.id, newsItemId));
+      
+      return project;
+    });
+  }
+
   // Project Steps
   async getProjectSteps(projectId: string): Promise<ProjectStep[]> {
     // Get all steps first
@@ -794,6 +854,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(scriptVersions.id, versionId));
   }
 
+  async createScriptVersionAtomic(data: InsertScriptVersion): Promise<ScriptVersion> {
+    return await db.transaction(async (tx) => {
+      await tx
+        .update(scriptVersions)
+        .set({ isCurrent: false })
+        .where(eq(scriptVersions.projectId, data.projectId));
+      
+      const [newVersion] = await tx
+        .insert(scriptVersions)
+        .values(data)
+        .returning();
+      
+      return newVersion;
+    });
+  }
+
   // Scene Recommendations
   async getSceneRecommendations(scriptVersionId: string): Promise<SceneRecommendation[]> {
     return await db
@@ -829,6 +905,19 @@ export class DatabaseStorage implements IStorage {
       .update(sceneRecommendations)
       .set({ applied: true, appliedAt: new Date() })
       .where(eq(sceneRecommendations.id, id));
+  }
+
+  async markRecommendationsAppliedBatch(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    
+    await db.transaction(async (tx) => {
+      for (const id of ids) {
+        await tx
+          .update(sceneRecommendations)
+          .set({ applied: true, appliedAt: new Date() })
+          .where(eq(sceneRecommendations.id, id));
+      }
+    });
   }
 
   // Additional utility methods for new features

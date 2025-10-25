@@ -1372,57 +1372,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? titleSource.substring(0, 47) + '...' 
         : titleSource;
 
-      // Create project (start at Stage 2 - Content Input)
-      const project = await storage.createProject(userId, {
-        title,
-        sourceType: 'instagram',
-        sourceData: {
-          itemId: item.id,
-          externalId: item.externalId,
-          shortCode: item.shortCode,
-          url: item.url,
-          caption: item.caption,
-          ownerUsername: item.ownerUsername,
-          transcription: item.transcriptionText,
-          language: item.language,
-          aiScore: item.aiScore,
-          aiComment: item.aiComment,
-          freshnessScore: item.freshnessScore,
-          viralityScore: item.viralityScore,
-          qualityScore: item.qualityScore,
-          engagement: {
-            likes: item.likesCount,
-            comments: item.commentsCount,
-            views: item.videoViewCount,
-          }
+      // Create project atomically (with transaction to prevent data inconsistency)
+      const project = await storage.createProjectFromInstagramAtomic(
+        userId,
+        {
+          title,
+          sourceType: 'instagram',
+          sourceData: {
+            itemId: item.id,
+            externalId: item.externalId,
+            shortCode: item.shortCode,
+            url: item.url,
+            caption: item.caption,
+            ownerUsername: item.ownerUsername,
+            transcription: item.transcriptionText,
+            language: item.language,
+            aiScore: item.aiScore,
+            aiComment: item.aiComment,
+            freshnessScore: item.freshnessScore,
+            viralityScore: item.viralityScore,
+            qualityScore: item.qualityScore,
+            engagement: {
+              likes: item.likesCount,
+              comments: item.commentsCount,
+              views: item.videoViewCount,
+            }
+          },
+          currentStage: 2,
+          status: 'draft',
         },
-        currentStage: 2,  // Skip Stage 1 (source already selected)
-        status: 'draft',
-      });
-
-      // Create Step 2 (Content Input) with transcription
-      await storage.createProjectStep({
-        projectId: project.id,
-        stepNumber: 2,
-        data: {
-          id: item.id,  // CRITICAL: needed for marking as used and progression
-          contentType: 'instagram',
-          transcriptionText: item.transcriptionText,  // Match API field names
-          caption: item.caption,
-          language: item.language,
-          aiScore: item.aiScore,
-          aiComment: item.aiComment,
-          freshnessScore: item.freshnessScore,
-          viralityScore: item.viralityScore,
-          qualityScore: item.qualityScore,
-          thumbnailUrl: item.thumbnailUrl,
-          url: item.url,
-          ownerUsername: item.ownerUsername,
+        {
+          projectId: '',
+          stepNumber: 2,
+          data: {
+            id: item.id,
+            contentType: 'instagram',
+            transcriptionText: item.transcriptionText,
+            caption: item.caption,
+            language: item.language,
+            aiScore: item.aiScore,
+            aiComment: item.aiComment,
+            freshnessScore: item.freshnessScore,
+            viralityScore: item.viralityScore,
+            qualityScore: item.qualityScore,
+            thumbnailUrl: item.thumbnailUrl,
+            url: item.url,
+            ownerUsername: item.ownerUsername,
+          },
         },
-      });
-
-      // Update Instagram item to mark as used
-      await storage.updateInstagramItemAction(itemId, 'selected', project.id);
+        itemId
+      );
 
       console.log(`[Project] Created from Instagram Reel: ${project.id} (item: ${itemId})`);
       res.json(project);
@@ -1461,41 +1460,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? titleSource.substring(0, 57) + '...' 
         : titleSource;
 
-      // Create project (start at Stage 2 - Content Input)
-      const project = await storage.createProject(userId, {
-        title,
-        sourceType: 'news',
-        sourceData: {
-          itemId: item.id,
-          title: item.title,
-          url: item.url,
-          content: item.content,
-          imageUrl: item.imageUrl,
-          publishedAt: item.publishedAt,
-          aiScore: item.aiScore,
-          aiComment: item.aiComment,
+      // Create project atomically (with transaction to prevent data inconsistency)
+      const project = await storage.createProjectFromNewsAtomic(
+        userId,
+        {
+          title,
+          sourceType: 'news',
+          sourceData: {
+            itemId: item.id,
+            title: item.title,
+            url: item.url,
+            content: item.content,
+            imageUrl: item.imageUrl,
+            publishedAt: item.publishedAt,
+            aiScore: item.aiScore,
+            aiComment: item.aiComment,
+          },
+          currentStage: 2,
+          status: 'draft',
         },
-        currentStage: 2,  // Skip Stage 1 (source already selected)
-        status: 'draft',
-      });
-
-      // Create Step 2 (Content Input) with news content
-      await storage.createProjectStep({
-        projectId: project.id,
-        stepNumber: 2,
-        data: {
-          title: item.title,
-          content: item.content,
-          url: item.url,
-          imageUrl: item.imageUrl,
-          publishedAt: item.publishedAt,
-          aiScore: item.aiScore,
-          aiComment: item.aiComment,
-        }
-      });
-
-      // Mark news item as used
-      await storage.updateRssItemAction(itemId, userId, 'selected', project.id);
+        {
+          projectId: '',
+          stepNumber: 2,
+          data: {
+            title: item.title,
+            content: item.content,
+            url: item.url,
+            imageUrl: item.imageUrl,
+            publishedAt: item.publishedAt,
+            aiScore: item.aiScore,
+            aiComment: item.aiComment,
+          }
+        },
+        itemId
+      );
 
       return res.json(project);
     } catch (error: any) {
@@ -2979,13 +2977,8 @@ ${content}`;
       };
     }
     
-    // Unmark old current version
-    if (currentVersion) {
-      await storage.updateScriptVersionCurrent(projectId, ''); // This will unmark all
-    }
-    
-    // Create new version
-    const newVersion = await storage.createScriptVersion({
+    // Create new version atomically (with transaction to prevent race conditions)
+    const newVersion = await storage.createScriptVersionAtomic({
       projectId,
       versionNumber: nextVersion,
       fullScript,
@@ -3399,10 +3392,9 @@ ${content}`;
         userId: userId,
       });
       
-      // Mark all as applied
-      for (const rec of unappliedRecommendations) {
-        await storage.markRecommendationApplied(rec.id);
-      }
+      // Mark all as applied (batch transaction to prevent partial updates)
+      const recommendationIds = unappliedRecommendations.map(r => r.id);
+      await storage.markRecommendationsAppliedBatch(recommendationIds);
       
       return res.json({
         success: true,
