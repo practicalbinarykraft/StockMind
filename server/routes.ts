@@ -23,7 +23,7 @@ import fs from "fs";
 const rssParser = new Parser();
 
 import { fetchAndExtract } from './lib/fetchAndExtract';
-import { clampIdemKey } from './lib/idempotency';
+import { clampIdemKey, makeIdemKey } from './lib/idempotency';
 import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
 
 // ============================================================================
@@ -3267,7 +3267,7 @@ ${content}`;
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const { id } = req.params;
-      const { formatId, targetLocale = 'ru', idempotencyKey } = req.body;
+      const { formatId, targetLocale = 'ru', idempotencyKey: rawIdempotencyKey } = req.body;
       
       if (!formatId) {
         return res.status(400).json({ message: "formatId is required" });
@@ -3279,37 +3279,35 @@ ${content}`;
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Check if script already exists (basic idempotency)
-      const existingVersion = await storage.getCurrentScriptVersion(id);
-      if (existingVersion) {
-        console.log(`[Generate Script] Script already exists for project ${id}`);
+      // Validate and generate idempotency key
+      const validatedKey = clampIdemKey(rawIdempotencyKey);
+      const idempotencyKey = validatedKey || makeIdemKey();
+      
+      console.log(`[Generate Script] Using idempotency key: ${idempotencyKey} (${validatedKey ? 'provided' : 'generated'})`);
+
+      // Check if this exact request was already processed using idempotency key
+      const existingVersions = await storage.findVersionByIdemKey(id, idempotencyKey);
+      if (existingVersions.length > 0) {
+        const existingVersion = existingVersions[0];
+        console.log(`[Generate Script] Found existing version for idempotency key ${idempotencyKey}`);
         return res.json({
           success: true,
           version: existingVersion,
-          message: 'Script already exists',
+          message: 'Returning existing version (idempotent request)',
           idempotent: true,
         });
       }
-      
-      // Advanced idempotency: check if this exact request was already processed
-      if (idempotencyKey) {
-        const versions = await storage.getScriptVersions(id);
-        const idempotentVersion = versions.find((v: any) => 
-          v.provenance && 
-          typeof v.provenance === 'object' && 
-          'idempotencyKey' in v.provenance &&
-          v.provenance.idempotencyKey === idempotencyKey
-        );
-        
-        if (idempotentVersion) {
-          console.log(`[Generate Script] Found idempotent version for key ${idempotencyKey}`);
-          return res.json({
-            success: true,
-            version: idempotentVersion,
-            message: 'Returning existing version (idempotent request)',
-            idempotent: true,
-          });
-        }
+
+      // Fallback: Check if script already exists (prevents duplicate generations when no key provided)
+      const currentVersion = await storage.getCurrentScriptVersion(id);
+      if (currentVersion) {
+        console.log(`[Generate Script] Script already exists for project ${id}, returning current version`);
+        return res.json({
+          success: true,
+          version: currentVersion,
+          message: 'Script already exists',
+          idempotent: true,
+        });
       }
 
       // Get Anthropic API key
@@ -3380,7 +3378,7 @@ ${content}`;
           formatId: formatId,
           targetLocale: targetLocale,
           userId: userId,
-          idempotencyKey: idempotencyKey || `${id}:${formatId}:${Date.now()}`,
+          idempotencyKey: idempotencyKey,
           ts: new Date().toISOString(),
         },
         userId: userId,
