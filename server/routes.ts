@@ -28,6 +28,7 @@ import { extractScoreDelta, priorityToConfidence } from './lib/reco-utils';
 import { testApiKeyByProvider } from './lib/api-key-tester';
 import { apiResponse } from './lib/api-response';
 import { ProjectService } from './services/project-service';
+import { ScriptVersionService } from './services/script-version-service';
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -285,6 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize services
   const projectService = new ProjectService(storage);
+  const scriptVersionService = new ScriptVersionService(storage);
 
   // ============================================================================
   // AUTH ROUTES
@@ -3185,97 +3187,19 @@ ${content}`;
       const { id } = req.params;
       const userId = getUserId(req);
       
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      
       const project = await storage.getProjectById(id);
       if (!project || project.userId !== userId) {
         return res.status(403).json({ message: 'Forbidden' });
       }
       
-      const currentVersion = await storage.getCurrentScriptVersion(id);
-      if (!currentVersion) {
-        return res.status(404).json({ message: 'No script version found' });
-      }
-      
-      // Get unapplied recommendations
-      const allRecommendations = await storage.getSceneRecommendations(currentVersion.id);
-      const unappliedRecommendations = allRecommendations.filter(r => !r.applied);
-      
-      if (unappliedRecommendations.length === 0) {
-        return res.json({
-          success: true,
-          message: 'No recommendations to apply',
-          newVersion: currentVersion,
-        });
-      }
-      
-      // Sort recommendations by priority, score delta, confidence, and sceneId (for determinism)
-      unappliedRecommendations.sort((a, b) => {
-        // Priority order: critical > high > medium > low
-        const priorityOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
-        const aPriority = priorityOrder[a.priority] || 2;
-        const bPriority = priorityOrder[b.priority] || 2;
-        
-        if (aPriority !== bPriority) return bPriority - aPriority;
-        
-        // Then by score delta (higher first)
-        const aScore = a.scoreDelta || 0;
-        const bScore = b.scoreDelta || 0;
-        if (aScore !== bScore) return bScore - aScore;
-        
-        // Then by confidence (higher first)
-        const aConf = a.confidence || 0.5;
-        const bConf = b.confidence || 0.5;
-        if (aConf !== bConf) return bConf - aConf;
-        
-        // Finally by sceneId (for deterministic ordering)
-        return a.sceneId - b.sceneId;
-      });
-      
-      // Clone scenes and apply all recommendations
-      const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
-      const affectedSceneIds: number[] = [];
-      
-      for (const rec of unappliedRecommendations) {
-        const scene = scenes.find((s: any) => s.id === rec.sceneId);
-        if (scene) {
-          scene.text = rec.suggestedText;
-          scene.recommendationApplied = true;
-          scene.lastModified = new Date().toISOString();
-          affectedSceneIds.push(rec.sceneId);
-        }
-      }
-      
-      // Create new version with provenance
-      const newVersion = await createNewScriptVersion({
+      const result = await scriptVersionService.applyAllRecommendations({
         projectId: id,
-        scenes,
-        createdBy: 'ai',
-        changes: {
-          type: 'bulk_apply',
-          affectedScenes: affectedSceneIds,
-          count: unappliedRecommendations.length,
-          description: `Applied ${unappliedRecommendations.length} AI recommendations`,
-        },
-        parentVersionId: currentVersion.id,
-        analysisResult: currentVersion.analysisResult,
-        analysisScore: currentVersion.analysisScore ?? undefined,
-        provenance: {
-          source: 'bulk_apply',
-          agent: 'architect', // Aggregator that orchestrated all agent recommendations
-          userId: userId,
-          ts: new Date().toISOString(),
-        },
-        userId: userId,
+        userId,
       });
       
-      // Mark all as applied (batch transaction to prevent partial updates)
-      const recommendationIds = unappliedRecommendations.map(r => r.id);
-      await storage.markRecommendationsAppliedBatch(recommendationIds);
-      
-      return apiResponse.ok(res, {
-        newVersion,
-        appliedCount: unappliedRecommendations.length,
-        affectedScenes: affectedSceneIds,
-      });
+      return apiResponse.ok(res, result);
     } catch (error: any) {
       console.error('[Apply All Recommendations] Error:', error);
       return apiResponse.serverError(res, error.message, error);
@@ -3289,59 +3213,25 @@ ${content}`;
       const { sceneId, newText } = req.body;
       const userId = getUserId(req);
       
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      
       const project = await storage.getProjectById(id);
       if (!project || project.userId !== userId) {
         return res.status(403).json({ message: 'Forbidden' });
       }
       
-      const currentVersion = await storage.getCurrentScriptVersion(id);
-      if (!currentVersion) {
-        return res.status(404).json({ message: 'No script version found' });
-      }
-      
-      // Clone and update
-      const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
-      const scene = scenes.find((s: any) => s.id === sceneId);
-      
-      if (!scene) {
-        return res.status(404).json({ message: 'Scene not found' });
-      }
-      
-      const oldText = scene.text;
-      scene.text = newText;
-      scene.manuallyEdited = true;
-      scene.lastModified = new Date().toISOString();
-      
-      // Create new version with provenance
-      const newVersion = await createNewScriptVersion({
+      const result = await scriptVersionService.applySceneEdit({
         projectId: id,
-        scenes,
-        createdBy: 'user',
-        changes: {
-          type: 'manual_edit',
-          affectedScenes: [sceneId],
-          sceneId,
-          before: oldText,
-          after: newText,
-        },
-        parentVersionId: currentVersion.id,
-        analysisResult: currentVersion.analysisResult,
-        analysisScore: currentVersion.analysisScore ?? undefined,
-        provenance: {
-          source: 'manual_edit',
-          userId: userId,
-          ts: new Date().toISOString(),
-        },
-        userId: userId,
+        sceneId,
+        newText,
+        userId,
       });
       
-      return apiResponse.ok(res, {
-        newVersion,
-        needsReanalysis: true,
-      });
+      return apiResponse.ok(res, result);
     } catch (error: any) {
       console.error('[Edit Scene] Error:', error);
-      return apiResponse.serverError(res, error.message, error);
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({ message: error.message });
     }
   });
 
@@ -3352,50 +3242,24 @@ ${content}`;
       const { versionId } = req.body;
       const userId = getUserId(req);
       
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      
       const project = await storage.getProjectById(id);
       if (!project || project.userId !== userId) {
         return res.status(403).json({ message: 'Forbidden' });
       }
       
-      // Get all versions to find target
-      const versions = await storage.getScriptVersions(id);
-      const targetVersion = versions.find(v => v.id === versionId);
-      
-      if (!targetVersion) {
-        return res.status(404).json({ message: 'Version not found' });
-      }
-      
-      const currentVersion = await storage.getCurrentScriptVersion(id);
-      
-      // Create new version from old one (non-destructive!) with provenance
-      const newVersion = await createNewScriptVersion({
+      const result = await scriptVersionService.revertToVersion({
         projectId: id,
-        scenes: targetVersion.scenes as any[],
-        createdBy: 'user',
-        changes: {
-          type: 'revert',
-          revertedFrom: currentVersion?.id,
-          revertedToVersion: targetVersion.versionNumber,
-        },
-        parentVersionId: currentVersion?.id,
-        analysisResult: targetVersion.analysisResult as any,
-        analysisScore: targetVersion.analysisScore ?? undefined,
-        provenance: {
-          source: 'revert',
-          userId: userId,
-          revertedToVersion: targetVersion.versionNumber,
-          ts: new Date().toISOString(),
-        },
-        userId: userId,
+        versionId,
+        userId,
       });
       
-      return apiResponse.ok(res, {
-        newVersion,
-        message: `Reverted to version ${targetVersion.versionNumber}`,
-      });
+      return apiResponse.ok(res, result);
     } catch (error: any) {
       console.error('[Revert Version] Error:', error);
-      return apiResponse.serverError(res, error.message, error);
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({ message: error.message });
     }
   });
 
