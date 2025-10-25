@@ -3218,6 +3218,7 @@ ${content}`;
       if (!userId) return apiResponse.unauthorized(res);
 
       const { id: projectId } = req.params;
+      const { idempotencyKey } = req.body;
 
       // Validate project exists
       const project = await storage.getProject(projectId, userId);
@@ -3235,15 +3236,18 @@ ${content}`;
         return apiResponse.notFound(res, "Anthropic API key not configured");
       }
 
-      // Create job (throws ALREADY_RUNNING if job exists)
+      // Create job (throws ALREADY_RUNNING if job exists, returns existing if idempotency key matches)
       let job;
       try {
-        job = jobManager.createJob(projectId);
+        job = jobManager.createJob(projectId, idempotencyKey);
       } catch (err: any) {
-        if (err.message === 'ALREADY_RUNNING') {
+        if (err.code === 'ALREADY_RUNNING') {
+          // Return 409 with existing job info for resuming polling
           return res.status(409).json({
             success: false,
             error: "Reanalysis already in progress",
+            jobId: err.existingJob.jobId,
+            status: err.existingJob.status,
             retryAfter: 5
           });
         }

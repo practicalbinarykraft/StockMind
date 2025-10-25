@@ -15,6 +15,7 @@ import { SourceSummaryBar } from "../source-summary-bar"
 import { SourceAnalysisCard } from "../source-analysis-card"
 import { RecommendedFormatBox } from "../recommended-format-box"
 import { CompareModal } from "../compare-modal"
+import { ReanalysisProgressCard } from "../reanalysis-progress-card"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -77,6 +78,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [showCompareModal, setShowCompareModal] = useState(false)
   const [compareData, setCompareData] = useState<any>(null)
   const [reanalyzeJobId, setReanalyzeJobId] = useState<string | null>(null)
+  const [jobStatus, setJobStatus] = useState<any>(null)
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedScoreResult | null>(null)
   const [analysisMode, setAnalysisMode] = useState<'simple' | 'advanced'>('advanced') // Default to advanced
   const [selectedFormat, setSelectedFormat] = useState<string>("news")
@@ -91,41 +93,42 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [targetLanguage, setTargetLanguage] = useState<'ru' | 'en'>('ru') // Default to Russian
   const { toast} = useToast()
 
-  // Reanalyze mutation - starts async job
-  const reanalyzeMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', `/api/projects/${project.id}/reanalyze/start`);
-      const json = await res.json();
-      const data = json?.data ?? json;
-      return data;
-    },
-    onSuccess: (data: any) => {
-      const jobId = data.jobId;
-      setReanalyzeJobId(jobId);
+  // Restore polling after page reload
+  useEffect(() => {
+    const savedJobId = localStorage.getItem('reanalyzeJobId');
+    const savedProjectId = localStorage.getItem('reanalyzeProjectId');
+    
+    if (savedJobId && savedProjectId === project.id && !reanalyzeJobId) {
+      console.log('[Reanalyze] Восстанавливаем поллинг для job:', savedJobId);
+      setReanalyzeJobId(savedJobId);
+      setJobStatus({ status: 'running', progress: 50 });
       
-      toast({
-        title: "Анализ запущен",
-        description: "Займет до 1 минуты. Мы уведомим когда будет готово",
-      });
-
-      // Start polling
+      // Resume polling
       const interval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/projects/${project.id}/reanalyze/status?jobId=${jobId}`);
+          const res = await fetch(`/api/projects/${project.id}/reanalyze/status?jobId=${savedJobId}`);
           const json = await res.json();
           const status = json?.data ?? json;
+          
+          setJobStatus(status);
 
           if (status.status === 'done') {
             clearInterval(interval);
             setReanalyzeJobId(null);
+            setJobStatus(null);
+            localStorage.removeItem('reanalyzeJobId');
+            localStorage.removeItem('reanalyzeProjectId');
+            
             toast({
               title: "Версия для сравнения готова",
-              description: "Откройте сравнение ДО/ПОСЛЕ",
             });
             queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
           } else if (status.status === 'error') {
             clearInterval(interval);
             setReanalyzeJobId(null);
+            localStorage.removeItem('reanalyzeJobId');
+            localStorage.removeItem('reanalyzeProjectId');
+            
             toast({
               title: "Ошибка анализа",
               description: status.error || "Произошла ошибка",
@@ -133,12 +136,102 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             });
           }
         } catch (err) {
-          console.error('Polling error:', err);
+          console.error('[Reanalyze] Polling error:', err);
+        }
+      }, 2000);
+
+      // Auto-clear after 70s
+      setTimeout(() => {
+        clearInterval(interval);
+        localStorage.removeItem('reanalyzeJobId');
+        localStorage.removeItem('reanalyzeProjectId');
+      }, 70000);
+    }
+  }, [project.id]);
+
+  // Reanalyze mutation - starts async job
+  const reanalyzeMutation = useMutation({
+    mutationFn: async () => {
+      const idempotencyKey = `reanalyze-${project.id}-${Date.now()}`;
+      const res = await apiRequest('POST', `/api/projects/${project.id}/reanalyze/start`, {
+        idempotencyKey
+      });
+      
+      // Handle 409 - job already running
+      if (res.status === 409) {
+        const json = await res.json();
+        // Return the existing job info so we can resume polling
+        return { jobId: json.jobId, alreadyRunning: true };
+      }
+      
+      const json = await res.json();
+      const data = json?.data ?? json;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      const jobId = data.jobId;
+      setReanalyzeJobId(jobId);
+      setJobStatus({ status: 'queued', progress: 0 });
+      
+      if (data.alreadyRunning) {
+        toast({
+          title: "Анализ уже идёт",
+          description: "Продолжаем отслеживать прогресс",
+        });
+      } else {
+        toast({
+          title: "Запустили анализ",
+          description: "Это займет до ~1 мин",
+        });
+      }
+
+      // Save jobId to localStorage for recovery
+      localStorage.setItem('reanalyzeJobId', jobId);
+      localStorage.setItem('reanalyzeProjectId', project.id);
+
+      // Start polling
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/projects/${project.id}/reanalyze/status?jobId=${jobId}`);
+          const json = await res.json();
+          const status = json?.data ?? json;
+          
+          setJobStatus(status);
+
+          if (status.status === 'done') {
+            clearInterval(interval);
+            setReanalyzeJobId(null);
+            setJobStatus(null);
+            localStorage.removeItem('reanalyzeJobId');
+            localStorage.removeItem('reanalyzeProjectId');
+            
+            toast({
+              title: "Версия для сравнения готова",
+            });
+            queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+          } else if (status.status === 'error') {
+            clearInterval(interval);
+            setReanalyzeJobId(null);
+            localStorage.removeItem('reanalyzeJobId');
+            localStorage.removeItem('reanalyzeProjectId');
+            
+            toast({
+              title: "Ошибка анализа",
+              description: status.error || "Произошла ошибка",
+              variant: "destructive"
+            });
+          }
+        } catch (err) {
+          console.error('[Reanalyze] Polling error:', err);
         }
       }, 2000); // Poll every 2s
 
-      // Auto-clear after 60s
-      setTimeout(() => clearInterval(interval), 60000);
+      // Auto-clear after 70s
+      setTimeout(() => {
+        clearInterval(interval);
+        localStorage.removeItem('reanalyzeJobId');
+        localStorage.removeItem('reanalyzeProjectId');
+      }, 70000);
     },
     onError: (error: any) => {
       toast({
@@ -152,15 +245,19 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   // Compare/choose mutations
   const fetchCompareDataMutation = useMutation({
     mutationFn: async () => {
+      console.log('[Compare] Загрузка данных сравнения...');
       const res = await apiRequest('GET', `/api/projects/${project.id}/compare/latest`);
       const json = await res.json();
+      console.log('[Compare] Получены данные:', json);
       return json?.data ?? json;
     },
     onSuccess: (data: any) => {
+      console.log('[Compare] Открытие модалки с данными:', data);
       setCompareData(data);
       setShowCompareModal(true);
     },
     onError: (error: any) => {
+      console.error('[Compare] Ошибка:', error);
       toast({
         title: "Ошибка получения данных",
         description: error.message,
@@ -215,9 +312,23 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   )
 
   // Check if there's a candidate version for comparison
-  const hasCandidate = Boolean(
-    scriptVersionsQuery.data?.versions?.some((v: any) => v.isCandidate)
-  )
+  // API returns camelCase (isCandidate) after Drizzle ORM transformation
+  const versions = scriptVersionsQuery.data?.versions || [];
+  const hasCandidate = versions.some((v: any) => 
+    v.isCandidate === true || v.is_candidate === true
+  );
+  
+  console.log('[hasCandidate] Candidate check:', {
+    hasCandidate,
+    versionsCount: versions.length,
+    versions: versions.map((v: any) => ({
+      id: v.id,
+      versionNumber: v.versionNumber,
+      isCurrent: v.isCurrent,
+      isCandidate: v.isCandidate,
+      is_candidate: v.is_candidate
+    }))
+  });
 
   // Get content from step data
   // - Custom scripts: stepData.text
@@ -881,6 +992,18 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         <div className="space-y-4">
           <SourceSummaryBar source={editorSourceData} projectId={project.id} />
           
+          {/* Reanalysis Progress Card */}
+          {jobStatus && (
+            <ReanalysisProgressCard
+              status={jobStatus.status}
+              step={jobStatus.step}
+              progress={jobStatus.progress}
+              error={jobStatus.error}
+              canRetry={jobStatus.canRetry}
+              onRetry={() => reanalyzeMutation.mutate()}
+            />
+          )}
+          
           <div data-testid="scene-editor">
             <SceneEditor
               projectId={project.id}
@@ -890,6 +1013,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 reanalyzeMutation.mutate();
               }}
               onOpenCompare={() => {
+                console.log('[Compare] Клик по кнопке, hasCandidate:', hasCandidate);
                 fetchCompareDataMutation.mutate();
               }}
               hasCandidate={hasCandidate}

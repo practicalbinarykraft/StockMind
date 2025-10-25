@@ -231,7 +231,10 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze, onO
             
             {onOpenCompare && hasCandidate && (
               <Button
-                onClick={onOpenCompare}
+                onClick={() => {
+                  console.log('[Compare] Открытие сравнения');
+                  onOpenCompare();
+                }}
                 className="w-full gap-2"
                 data-testid="button-open-compare"
               >
