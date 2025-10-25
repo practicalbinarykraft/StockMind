@@ -10,39 +10,33 @@ import { useEffect } from "react";
 
 interface CompareData {
   base: {
-    versionId: string;
-    overallScore: number;
-    metrics: {
-      estimatedRetention: string;
-      estimatedSaves: string;
-      estimatedShares: string;
+    id: string;
+    overall: number;
+    breakdown: {
+      hook: number;
+      structure: number;
+      emotional: number;
+      cta: number;
     };
-    scenes: Array<{
-      sceneNumber: number;
-      text: string;
-      score: number;
-    }>;
+    review: string;
   };
   candidate: {
-    versionId: string;
-    overallScore: number;
-    metrics: {
-      estimatedRetention: string;
-      estimatedSaves: string;
-      estimatedShares: string;
+    id: string;
+    overall: number;
+    breakdown: {
+      hook: number;
+      structure: number;
+      emotional: number;
+      cta: number;
     };
-    scenes: Array<{
-      sceneNumber: number;
-      text: string;
-      score: number;
-    }>;
+    review: string;
   };
-  deltas: {
-    overallScoreDelta: number;
-    scenes: Array<{
-      sceneNumber: number;
-      scoreDelta: number;
-    }>;
+  delta: {
+    overall: number;
+    hook: number;
+    structure: number;
+    emotional: number;
+    cta: number;
   };
 }
 
@@ -129,51 +123,41 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
         <div className="text-4xl font-bold" data-testid={`text-score-${isPrimary ? 'base' : 'candidate'}`}>
-          {version.overallScore}
+          {version.overall}
           <span className="text-lg text-muted-foreground">/100</span>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Прогнозные метрики</CardTitle>
+          <CardTitle className="text-sm">Оценки по зонам</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between" data-testid={`text-retention-${isPrimary ? 'base' : 'candidate'}`}>
-            <span className="text-muted-foreground">Удержание:</span>
-            <span className="font-medium">{version.metrics.estimatedRetention}</span>
+          <div className="flex justify-between" data-testid={`text-hook-${isPrimary ? 'base' : 'candidate'}`}>
+            <span className="text-muted-foreground">Хук:</span>
+            <span className="font-medium">{version.breakdown.hook}</span>
           </div>
-          <div className="flex justify-between" data-testid={`text-saves-${isPrimary ? 'base' : 'candidate'}`}>
-            <span className="text-muted-foreground">Сохранения:</span>
-            <span className="font-medium">{version.metrics.estimatedSaves}</span>
+          <div className="flex justify-between" data-testid={`text-structure-${isPrimary ? 'base' : 'candidate'}`}>
+            <span className="text-muted-foreground">Структура:</span>
+            <span className="font-medium">{version.breakdown.structure}</span>
           </div>
-          <div className="flex justify-between" data-testid={`text-shares-${isPrimary ? 'base' : 'candidate'}`}>
-            <span className="text-muted-foreground">Репосты:</span>
-            <span className="font-medium">{version.metrics.estimatedShares}</span>
+          <div className="flex justify-between" data-testid={`text-emotional-${isPrimary ? 'base' : 'candidate'}`}>
+            <span className="text-muted-foreground">Эмоции:</span>
+            <span className="font-medium">{version.breakdown.emotional}</span>
+          </div>
+          <div className="flex justify-between" data-testid={`text-cta-${isPrimary ? 'base' : 'candidate'}`}>
+            <span className="text-muted-foreground">CTA:</span>
+            <span className="font-medium">{version.breakdown.cta}</span>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Сцены ({version.scenes.length})</CardTitle>
+          <CardTitle className="text-sm">Рецензия AI архитектора</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {version.scenes.map((scene, idx) => (
-            <div 
-              key={idx} 
-              className="text-xs p-2 rounded bg-muted/50"
-              data-testid={`text-scene-${isPrimary ? 'base' : 'candidate'}-${scene.sceneNumber}`}
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span className="font-medium">Сцена {scene.sceneNumber}</span>
-                <Badge variant="outline" className="text-xs">
-                  {scene.score}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground line-clamp-2">{scene.text}</p>
-            </div>
-          ))}
+        <CardContent className="text-xs text-muted-foreground whitespace-pre-wrap">
+          {version.review}
         </CardContent>
       </Card>
     </div>
@@ -223,8 +207,33 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
             {/* Overall Delta */}
             <div className="flex items-center justify-center gap-3 p-4 bg-muted/50 rounded-lg">
               <span className="text-sm text-muted-foreground">Изменение общего балла:</span>
-              <DeltaBadge delta={data.deltas.overallScoreDelta} />
+              <DeltaBadge delta={data.delta.overall} />
             </div>
+
+            {/* Breakdown deltas */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Изменения по зонам</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1">Хук</div>
+                  <DeltaBadge delta={data.delta.hook} />
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1">Структура</div>
+                  <DeltaBadge delta={data.delta.structure} />
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1">Эмоции</div>
+                  <DeltaBadge delta={data.delta.emotional} />
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1">CTA</div>
+                  <DeltaBadge delta={data.delta.cta} />
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Side-by-side comparison */}
             <div className="flex gap-6">

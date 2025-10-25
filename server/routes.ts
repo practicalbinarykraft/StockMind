@@ -3464,49 +3464,45 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
       const baseScore = baseMetrics.overallScore || currentVersion.analysisScore || 0;
       const candidateScore = candidateMetrics.overallScore || candidateVersion.analysisScore || 0;
 
-      // Calculate deltas
-      const overallScoreDelta = candidateScore - baseScore;
+      // Extract breakdown scores
+      const baseBreakdown = {
+        hook: baseMetrics.hookScore || 0,
+        structure: baseMetrics.structureScore || 0,
+        emotional: baseMetrics.emotionalScore || 0,
+        cta: baseMetrics.ctaScore || 0
+      };
 
-      const basePerScene = baseMetrics.perScene || [];
-      const candidatePerScene = candidateMetrics.perScene || [];
-      
-      const perSceneDelta = candidatePerScene.map((candidateScene: any) => {
-        const baseScene = basePerScene.find((s: any) => s.sceneNumber === candidateScene.sceneNumber);
-        return {
-          sceneNumber: candidateScene.sceneNumber,
-          scoreDelta: candidateScene.score - (baseScene?.score || 0)
-        };
-      });
+      const candidateBreakdown = {
+        hook: candidateMetrics.hookScore || 0,
+        structure: candidateMetrics.structureScore || 0,
+        emotional: candidateMetrics.emotionalScore || 0,
+        cta: candidateMetrics.ctaScore || 0
+      };
+
+      // Calculate deltas
+      const delta = {
+        overall: candidateScore - baseScore,
+        hook: candidateBreakdown.hook - baseBreakdown.hook,
+        structure: candidateBreakdown.structure - baseBreakdown.structure,
+        emotional: candidateBreakdown.emotional - baseBreakdown.emotional,
+        cta: candidateBreakdown.cta - baseBreakdown.cta
+      };
 
       // Format response
-      const formatVersion = (version: any, metrics: any, score: number) => {
+      const formatVersion = (version: any, metrics: any, breakdown: any) => {
         const predicted = metrics.predicted || {};
         return {
-          versionId: version.id,
-          overallScore: score,
-          metrics: {
-            estimatedRetention: predicted.retention || "н/д",
-            estimatedSaves: predicted.saves || "н/д",
-            estimatedShares: predicted.shares || "н/д"
-          },
-          scenes: (version.scenes || []).map((scene: any, idx: number) => {
-            const sceneScore = metrics.perScene?.[idx] || {};
-            return {
-              sceneNumber: scene.sceneNumber,
-              text: scene.text,
-              score: sceneScore.score || 0
-            };
-          })
+          id: version.id,
+          overall: metrics.overallScore || version.analysisScore || 0,
+          breakdown,
+          review: version.review || "Рецензия не доступна"
         };
       };
 
       return apiResponse.ok(res, {
-        base: formatVersion(currentVersion, baseMetrics, baseScore),
-        candidate: formatVersion(candidateVersion, candidateMetrics, candidateScore),
-        deltas: {
-          overallScoreDelta,
-          scenes: perSceneDelta
-        }
+        base: formatVersion(currentVersion, baseMetrics, baseBreakdown),
+        candidate: formatVersion(candidateVersion, candidateMetrics, candidateBreakdown),
+        delta
       });
 
     } catch (error: any) {
