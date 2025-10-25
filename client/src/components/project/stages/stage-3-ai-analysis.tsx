@@ -158,7 +158,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         targetLocale: targetLanguage, // Use selected language
         idempotencyKey
       })
-      return await res.json()
+      const response = await res.json()
+      // Return as-is (already in correct format with success: true)
+      return response
     },
     onSuccess: async (data) => {
       // Invalidate and immediately refetch to trigger UI switch
@@ -177,9 +179,10 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         }
       }, 300)
 
+      const scenesCount = data.version?.scenes?.length || 0
       toast({
         title: "Сценарий создан",
-        description: `Создано ${data.version.scenes.length} сцен • Формат: ${data.formatName || 'Hook & Story'}. Редактор сцен загружается...`,
+        description: `Создано ${scenesCount} сцен • Формат: ${data.formatName || 'Hook & Story'}. Редактор сцен загружается...`,
       })
     },
     onError: (error: any) => {
