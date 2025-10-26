@@ -29,6 +29,7 @@ interface SceneCardProps {
   onApplyRecommendation: (recommendation: SceneRecommendation) => Promise<void>;
   isEditing: boolean;
   isApplyingAll?: boolean; // True when Apply All is running
+  isModified?: boolean; // True when scene text has been manually edited
 }
 
 type AreaKey = 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
@@ -85,6 +86,7 @@ export function SceneCard({
   onApplyRecommendation,
   isEditing,
   isApplyingAll = false,
+  isModified = false,
 }: SceneCardProps) {
   const [localText, setLocalText] = useState(text);
   const [applyingRec, setApplyingRec] = useState<number | string | null>(null);
@@ -119,6 +121,11 @@ export function SceneCard({
             {sceneNumber}
           </div>
           <h3 className="text-sm font-medium">Сцена {sceneNumber}</h3>
+          {isModified && (
+            <Badge variant="outline" className="gap-1 border-amber-600/30 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              Изменено
+            </Badge>
+          )}
         </div>
         {activeRecommendations.length > 0 && (
           <Badge variant="secondary" className="gap-1">

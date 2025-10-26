@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -92,7 +92,21 @@ export function SceneEditor({
   const [showHistory, setShowHistory] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [hasAppliedRecommendations, setHasAppliedRecommendations] = useState(false);
+  const [dirtySceneIds, setDirtySceneIds] = useState<Set<number>>(new Set());
+  const initialTextsRef = useRef<Map<number, string>>(new Map());
   const { toast } = useToast();
+
+  // Initialize baseline texts on mount and when initialScenes change
+  useEffect(() => {
+    const m = new Map<number, string>();
+    initialScenes.forEach((s: any, idx) => {
+      const sceneNumber = s.sceneNumber !== undefined ? s.sceneNumber : (idx + 1);
+      m.set(sceneNumber, (s.text ?? '').trim());
+    });
+    initialTextsRef.current = m;
+    setDirtySceneIds(new Set());
+    setHasAppliedRecommendations(false);
+  }, [initialScenes]);
 
   // Check if there are unsaved changes
   const hasChanges = useMemo(() => {
@@ -100,8 +114,8 @@ export function SceneEditor({
     return scenes.some((s, idx) => s.text !== initialScenes[idx].text);
   }, [scenes, initialScenes]);
   
-  // Enable save button if there are changes OR recommendations were applied
-  const canSave = hasChanges || hasAppliedRecommendations;
+  // Enable save button if there are changes OR recommendations were applied OR manual edits made
+  const canSave = hasChanges || hasAppliedRecommendations || dirtySceneIds.size > 0;
 
   // Analyze script mutation
   const analyzeScriptMutation = useMutation({
@@ -437,30 +451,8 @@ export function SceneEditor({
     },
   });
 
-  // Edit scene text
-  const editSceneMutation = useMutation({
-    mutationFn: async ({ sceneNumber, newText }: { sceneNumber: number; newText: string }) => {
-      const res = await apiRequest('POST', `/api/projects/${projectId}/edit-scene`, { sceneNumber, newText });
-      return await res.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
-      
-      toast({
-        title: 'Сцена обновлена',
-        description: data?.data?.needsReanalysis 
-          ? 'Изменения сохранены. Рекомендуем пересчитать анализ.'
-          : 'Изменения сохранены',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось сохранить изменения',
-        variant: 'destructive',
-      });
-    },
-  });
+  // Note: Scene text changes are now only saved when user clicks "Save new version"
+  // This allows for batch editing and proper version management
 
   const handleTextChange = (sceneNumber: number, newText: string) => {
     // Optimistic update using stable sceneNumber matching
@@ -468,8 +460,26 @@ export function SceneEditor({
       s.sceneNumber === sceneNumber ? { ...s, text: newText } : s
     ));
     
-    // Save to backend
-    editSceneMutation.mutate({ sceneNumber, newText });
+    // Compare with baseline to determine if scene is modified
+    const baseline = (initialTextsRef.current.get(sceneNumber) ?? '').trim();
+    const current = (newText ?? '').trim();
+    const isModified = current !== baseline;
+    
+    // Update dirty scenes set
+    setDirtySceneIds(prev => {
+      const next = new Set(prev);
+      if (isModified) {
+        next.add(sceneNumber);
+      } else {
+        next.delete(sceneNumber);
+      }
+      return next;
+    });
+    
+    // Mark that we have manual edits to enable save button
+    if (isModified) {
+      setHasAppliedRecommendations(true);
+    }
   };
 
   const activeRecommendations = recommendations.filter(r => !r.appliedAt);
@@ -494,8 +504,9 @@ export function SceneEditor({
               recommendations={sceneRecommendations}
               onTextChange={(_, newText) => handleTextChange(sceneNumber, newText)}
               onApplyRecommendation={(rec) => applyRecommendationMutation.mutateAsync(rec)}
-              isEditing={editSceneMutation.isPending || applyRecommendationMutation.isPending}
+              isEditing={applyRecommendationMutation.isPending}
               isApplyingAll={applyAllMutation.isPending}
+              isModified={dirtySceneIds.has(sceneNumber)}
             />
           );
         })}
@@ -598,8 +609,9 @@ export function SceneEditor({
                   onClick={() => {
                     const fullScript = scenes.map(s => s.text).join('\n\n');
                     onReanalyze(scenes, fullScript);
-                    // Reset flag after save initiated
+                    // Reset flags after save initiated - new baseline will be set
                     setHasAppliedRecommendations(false);
+                    setDirtySceneIds(new Set());
                   }}
                   disabled={!canSave}
                   className="w-full gap-2"
@@ -607,7 +619,10 @@ export function SceneEditor({
                   size="sm"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Сохранить новую версию
+                  {dirtySceneIds.size > 0 
+                    ? `Сохранить новую версию (изменено: ${dirtySceneIds.size})`
+                    : 'Сохранить новую версию'
+                  }
                 </Button>
               )}
               
