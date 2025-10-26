@@ -62,9 +62,10 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const { data: newsItems, isLoading: newsLoading, refetch: refetchNews } = useQuery<EnrichedRssItem[]>({
     queryKey: ["/api/news"],
     enabled: sourceChoice === "news",
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Auto-refresh scores every 30s if there are items without scores
-      const hasItemsWithoutScore = data?.some(item => {
+      const data = query.state.data;
+      const hasItemsWithoutScore = data && Array.isArray(data) && data.some(item => {
         const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null;
         return score === null;
       });
