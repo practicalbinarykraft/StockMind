@@ -83,6 +83,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   const [analysisMode, setAnalysisMode] = useState<'simple' | 'advanced'>('advanced') // Default to advanced
   const [selectedFormat, setSelectedFormat] = useState<string>("news")
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({})
+  const [recoveryModalOpen, setRecoveryModalOpen] = useState(false)
+  const [recoveryError, setRecoveryError] = useState<any>(null)
+  const [failedFormatId, setFailedFormatId] = useState<string | null>(null)
   const [editedScenes, setEditedScenes] = useState<Record<number, string>>({})
   const [isEditing, setIsEditing] = useState<number | null>(null)
   const [reanalyzeDialogOpen, setReanalyzeDialogOpen] = useState(false)
@@ -400,7 +403,44 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         description: `Создано ${scenesCount} сцен • Формат: ${data.formatName || 'Hook & Story'}. Редактор сцен загружается...`,
       })
     },
-    onError: (error: any) => {
+    onError: async (error: any, formatId: string) => {
+      console.error('[Generate Script Error]:', error);
+      
+      // Try to parse JSON from error message (format: "422: {json}")
+      let errorData: any = null;
+      try {
+        const match = error.message?.match(/^\d+:\s*(\{[\s\S]*\})$/);
+        if (match) {
+          errorData = JSON.parse(match[1]);
+        }
+      } catch (e) {
+        console.warn('[Generate Script] Could not parse error JSON:', e);
+      }
+      
+      // Check if this is a NO_SCENES error (422)
+      const isNoScenesError = 
+        errorData?.code === 'NO_SCENES' ||
+        error.message?.includes('NO_SCENES') ||
+        error.message?.includes('не смог создать сцен') ||
+        error.message?.includes('422');
+      
+      if (isNoScenesError) {
+        console.log('[Generate Script] NO_SCENES error detected, showing Recovery modal');
+        // Show Recovery modal with structured data
+        setRecoveryError({
+          message: errorData?.message || error.message || 'AI не смог создать сценарий',
+          suggestions: errorData?.suggestions || [
+            'Попробуйте другой формат видео',
+            'Повторите попытку',
+          ],
+          code: 'NO_SCENES',
+        });
+        setFailedFormatId(formatId);
+        setRecoveryModalOpen(true);
+        return;
+      }
+      
+      // Default error handling for other errors
       toast({
         title: "Ошибка генерации",
         description: error.message || "Не удалось создать скрипт",
@@ -1449,6 +1489,81 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         onClose={() => setCompareOpen(false)}
         projectId={project.id}
       />
+
+      {/* Recovery Modal for NO_SCENES error */}
+      <Dialog open={recoveryModalOpen} onOpenChange={setRecoveryModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Не удалось создать сценарий
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {recoveryError?.message || 'AI не смог создать сцены после нескольких попыток'}
+            </p>
+            
+            {recoveryError?.suggestions && recoveryError.suggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Попробуйте:</p>
+                <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                  {recoveryError.suggestions.map((suggestion: string, idx: number) => (
+                    <li key={idx}>{suggestion}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => {
+                  setRecoveryModalOpen(false);
+                  if (failedFormatId) {
+                    generateMutation.mutate(failedFormatId);
+                  }
+                }}
+                disabled={generateMutation.isPending}
+                data-testid="button-retry-generation"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Повторить попытку
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRecoveryModalOpen(false);
+                  // Scroll to format selection
+                  const formatSection = document.querySelector('[data-testid="format-selection"]');
+                  if (formatSection) {
+                    formatSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                data-testid="button-choose-different-format"
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                Выбрать другой формат
+              </Button>
+              
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setRecoveryModalOpen(false);
+                  toast({
+                    title: "Функция в разработке",
+                    description: "Создание черновика из статьи будет доступно в следующей версии",
+                  });
+                }}
+                data-testid="button-create-draft"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Создать черновик из статьи
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
