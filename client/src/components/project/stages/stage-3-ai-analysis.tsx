@@ -988,6 +988,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           projectId={project.id}
           reanalyzeJobId={reanalyzeJobId}
           jobStatus={jobStatus}
+          onNavigateToVoice={handleProceed}
         />
       </div>
     )
@@ -1106,6 +1107,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           projectId={project.id}
           reanalyzeJobId={reanalyzeJobId}
           jobStatus={jobStatus}
+          onNavigateToVoice={handleProceed}
         />
       </div>
     )

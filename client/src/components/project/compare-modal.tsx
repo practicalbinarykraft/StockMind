@@ -62,9 +62,10 @@ interface CompareModalProps {
   projectId: string;
   reanalyzeJobId?: string | null;
   jobStatus?: JobStatus | null;
+  onNavigateToVoice?: () => void;
 }
 
-export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStatus }: CompareModalProps) {
+export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStatus, onNavigateToVoice }: CompareModalProps) {
   const { toast } = useToast();
   
   // Determine if job is currently running
@@ -353,29 +354,57 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
             </TabsContent>
 
             {/* Action buttons - outside tabs */}
-            <div className="flex gap-3 pt-4 border-t mt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => chooseMutation.mutate('base')}
-                disabled={chooseMutation.isPending}
-                data-testid="button-choose-base"
-                className="flex-1"
-              >
-                {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Оставить текущую
-              </Button>
+            <div className="space-y-3 pt-4 border-t mt-4">
+              {/* Version choice buttons */}
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => chooseMutation.mutate('base')}
+                  disabled={chooseMutation.isPending}
+                  data-testid="button-choose-base"
+                  className="flex-1"
+                >
+                  {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Оставить текущую
+                </Button>
 
-              <Button
-                type="button"
-                onClick={() => chooseMutation.mutate('candidate')}
-                disabled={chooseMutation.isPending}
-                data-testid="button-choose-candidate"
-                className="flex-1"
-              >
-                {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Принять новую версию
-              </Button>
+                <Button
+                  type="button"
+                  onClick={() => chooseMutation.mutate('candidate')}
+                  disabled={chooseMutation.isPending}
+                  data-testid="button-choose-candidate"
+                  className="flex-1"
+                >
+                  {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Принять новую версию
+                </Button>
+              </div>
+
+              {/* Navigation buttons (only shown if onNavigateToVoice provided) */}
+              {onNavigateToVoice && (
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    data-testid="button-back-to-editing"
+                    className="flex-1"
+                  >
+                    Вернуться к редактированию
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={onNavigateToVoice}
+                    data-testid="button-navigate-to-voice"
+                    className="flex-1"
+                  >
+                    Перейти к озвучке
+                  </Button>
+                </div>
+              )}
             </div>
           </Tabs>
         )}
