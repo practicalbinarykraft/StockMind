@@ -66,14 +66,14 @@ export function SceneEditor({
       localStorage.removeItem('reanalyzeProjectId');
       
       toast({
-        title: 'Черновик отменён',
+        title: 'Версия отменена',
         description: 'Версия для сравнения удалена',
       });
     },
     onError: (error: any) => {
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось отменить черновик',
+        description: error.message || 'Не удалось отменить версию',
         variant: 'destructive',
       });
     },
@@ -261,7 +261,7 @@ export function SceneEditor({
             {/* Candidate draft status panel */}
             <div className="border rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Черновик для сравнения</span>
+                <span className="text-sm font-medium">Новая версия</span>
                 {reanalyzeJobId && jobStatus?.status === 'running' && (
                   <Badge variant="secondary" className="gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -288,13 +288,13 @@ export function SceneEditor({
                   size="sm"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Создать черновик для сравнения
+                  Сохранить новую версию
                 </Button>
               )}
               
               {reanalyzeJobId && jobStatus?.status === 'running' && (
                 <div className="text-xs text-muted-foreground">
-                  Готовим черновик… ~10–60 сек
+                  Создаём версию… ~10–60 сек
                 </div>
               )}
               
@@ -310,7 +310,7 @@ export function SceneEditor({
                     size="sm"
                   >
                     <CheckCircle2 className="h-4 w-4" />
-                    Сравнение: Текущая vs Черновик
+                    Сравнение: Текущая vs Новая
                   </Button>
                   
                   <Button
@@ -322,7 +322,7 @@ export function SceneEditor({
                     data-testid="button-cancel-candidate"
                   >
                     <XCircle className="h-4 w-4" />
-                    Отменить черновик
+                    Отменить версию
                   </Button>
                 </>
               )}

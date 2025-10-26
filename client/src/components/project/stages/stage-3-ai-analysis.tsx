@@ -135,7 +135,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             localStorage.removeItem('reanalyzeProjectId');
             
             toast({
-              title: "Черновик готов",
+              title: "Новая версия готова",
               description: "Теперь можно открыть сравнение",
               action: (
                 <ToastAction altText="Открыть сравнение" onClick={() => setCompareOpen(true)}>
@@ -176,8 +176,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     console.log('[Compare] Click - hasCandidate:', hasCandidate);
     if (!hasCandidate) {
       toast({
-        title: "Нет черновика для сравнения",
-        description: "Сначала создайте черновик",
+        title: "Нет версии для сравнения",
+        description: "Сначала сохраните новую версию",
         variant: "destructive"
       });
       return;
@@ -211,13 +211,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       
       if (data.alreadyRunning) {
         toast({
-          title: "Черновик уже создаётся",
+          title: "Версия уже создаётся",
           description: "Продолжаем отслеживать прогресс",
         });
       } else {
         toast({
-          title: "Создаём черновик для сравнения",
-          description: "Готовим черновик… ~10–60 сек",
+          title: "Создаём новую версию",
+          description: "Создаём версию… ~10–60 сек",
         });
       }
 
@@ -247,7 +247,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             localStorage.removeItem('reanalyzeProjectId');
             
             toast({
-              title: "Черновик готов",
+              title: "Новая версия готова",
               description: "Теперь можно открыть сравнение",
               action: (
                 <ToastAction altText="Открыть сравнение" onClick={() => setCompareOpen(true)}>
@@ -1552,13 +1552,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                   setRecoveryModalOpen(false);
                   toast({
                     title: "Функция в разработке",
-                    description: "Создание черновика из статьи будет доступно в следующей версии",
+                    description: "Создание версии из статьи будет доступно в следующей версии",
                   });
                 }}
                 data-testid="button-create-draft"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Создать черновик из статьи
+                Создать версию из статьи
               </Button>
             </div>
           </div>

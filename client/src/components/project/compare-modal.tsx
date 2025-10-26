@@ -84,8 +84,8 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
     onSuccess: async (data: any) => {
       const wasCandidate = data.keep === 'candidate';
       toast({
-        title: wasCandidate ? "Черновик принят" : "Текущая версия сохранена",
-        description: wasCandidate ? "Создана новая версия и назначена текущей" : "Черновик отклонён",
+        title: wasCandidate ? "Новая версия принята" : "Текущая версия сохранена",
+        description: wasCandidate ? "Создана новая версия и назначена текущей" : "Версия отклонена",
       });
       onClose();
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "script-history"] });
@@ -181,7 +181,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
         data-testid="modal-compare"
       >
         <DialogHeader>
-          <DialogTitle>Сравнение версий: Текущая ↔ Черновик</DialogTitle>
+          <DialogTitle>Сравнение версий: Текущая ↔ Новая</DialogTitle>
         </DialogHeader>
 
         {/* Loading state */}
@@ -198,7 +198,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
             <AlertCircle className="h-8 w-8 text-destructive" />
             <p className="text-center max-w-md">
               {error?.message === 'No candidate version found' || (error as any)?.status === 404
-                ? 'Нет версии для сравнения. Сначала нажмите "Сделать версию для сравнения".'
+                ? 'Нет версии для сравнения. Сначала нажмите "Сохранить новую версию".'
                 : `Ошибка загрузки: ${error?.message || 'Неизвестная ошибка'}`}
             </p>
             <Button
@@ -348,7 +348,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
                 className="flex-1"
               >
                 {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Принять черновик
+                Принять новую версию
               </Button>
             </div>
           </Tabs>
