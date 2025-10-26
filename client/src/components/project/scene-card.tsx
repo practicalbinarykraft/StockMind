@@ -9,7 +9,7 @@ interface SceneRecommendation {
   id: number | string; // number for fresh (temp), string (UUID) for persisted
   sceneId: number;
   priority: 'critical' | 'high' | 'medium' | 'low';
-  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
+  area: string; // Accept any string, will normalize to known areas
   currentText: string;
   suggestedText: string;
   reasoning: string;
@@ -31,6 +31,8 @@ interface SceneCardProps {
   isApplyingAll?: boolean; // True when Apply All is running
 }
 
+type AreaKey = 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
+
 const priorityConfig: Record<string, { color: string; label: string }> = {
   critical: { color: 'bg-red-600/15 text-red-700 dark:text-red-300 border-red-600/30', label: 'Критический' },
   high: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: 'Высокий' },
@@ -38,14 +40,41 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
   low: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Низкий' },
 };
 
-const areaConfig: Record<string, { icon: any; label: string; color: string }> = {
+const areaConfig: Record<AreaKey, { icon: any; label: string; color: string }> = {
   hook: { icon: Sparkles, label: 'Хук', color: 'text-purple-500' },
   structure: { icon: Lightbulb, label: 'Структура', color: 'text-blue-500' },
-  emotional: { icon: TrendingUp, label: 'Эмоции', color: 'text-pink-500' },
-  cta: { icon: CheckCircle2, label: 'CTA', color: 'text-green-500' },
+  emotional: { icon: Heart, label: 'Эмоции', color: 'text-pink-500' },
+  cta: { icon: Target, label: 'CTA', color: 'text-green-500' },
   pacing: { icon: Layers, label: 'Темп', color: 'text-orange-500' },
   general: { icon: Lightbulb, label: 'Общее', color: 'text-gray-500' },
 };
+
+// Normalize area values with safe fallback
+const AREA_ALIASES: Record<string, AreaKey> = {
+  emotion: 'emotional',
+  emotions: 'emotional',
+  tempo: 'pacing',
+  speed: 'pacing',
+  overall: 'general',
+};
+
+function normalizeArea(area?: string): AreaKey {
+  if (!area) return 'general';
+  const key = area.toLowerCase().trim();
+  
+  // Check if it's a valid known area
+  if (['hook', 'structure', 'emotional', 'cta', 'pacing', 'general'].includes(key)) {
+    return key as AreaKey;
+  }
+  
+  // Check aliases
+  if (AREA_ALIASES[key]) {
+    return AREA_ALIASES[key];
+  }
+  
+  // Fallback to general for unknown areas
+  return 'general';
+}
 
 export function SceneCard({
   sceneNumber,
@@ -58,7 +87,7 @@ export function SceneCard({
   isApplyingAll = false,
 }: SceneCardProps) {
   const [localText, setLocalText] = useState(text);
-  const [applyingRec, setApplyingRec] = useState<number | null>(null);
+  const [applyingRec, setApplyingRec] = useState<number | string | null>(null);
 
   // Sync local text when parent text changes (e.g., after applying recommendations)
   useEffect(() => {
@@ -117,7 +146,10 @@ export function SceneCard({
               Рекомендации AI
             </div>
             {activeRecommendations.map((rec) => {
-              const AreaIcon = areaConfig[rec.area].icon;
+              const areaKey = normalizeArea(rec.area);
+              const AreaIcon = areaConfig[areaKey].icon;
+              const areaLabel = areaConfig[areaKey].label;
+              const areaColor = areaConfig[areaKey].color;
               const priorityStyle = priorityConfig[rec.priority];
 
               return (
@@ -128,8 +160,8 @@ export function SceneCard({
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1.5">
-                      <AreaIcon className={`h-3.5 w-3.5 ${areaConfig[rec.area].color}`} />
-                      <span className="text-xs font-medium">{areaConfig[rec.area].label}</span>
+                      <AreaIcon className={`h-3.5 w-3.5 ${areaColor}`} />
+                      <span className="text-xs font-medium">{areaLabel}</span>
                     </div>
                     <Badge variant="outline" className={`${priorityStyle.color} text-xs`}>
                       {priorityStyle.label}

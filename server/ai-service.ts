@@ -477,6 +477,38 @@ Respond with ONLY the prompt text, nothing else.`;
 }
 
 /**
+ * Normalize area values to ensure frontend compatibility
+ */
+function normalizeArea(area?: string): 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general' {
+  if (!area) return 'general';
+  
+  const key = area.toLowerCase().trim();
+  
+  // Map common variations to canonical names
+  const aliases: Record<string, 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general'> = {
+    emotion: 'emotional',
+    emotions: 'emotional',
+    clarity: 'structure',
+    tempo: 'pacing',
+    speed: 'pacing',
+    overall: 'general',
+  };
+  
+  // Check if it's already a valid area
+  if (['hook', 'structure', 'emotional', 'cta', 'pacing', 'general'].includes(key)) {
+    return key as any;
+  }
+  
+  // Check aliases
+  if (aliases[key]) {
+    return aliases[key];
+  }
+  
+  // Fallback to general for unknown areas
+  return 'general';
+}
+
+/**
  * Generate per-scene recommendations with specific text improvements
  * This is the "magic" feature that shows concrete suggestions for each scene
  */
@@ -535,7 +567,7 @@ Return JSON with this EXACT structure:
         
         return {
           sceneNumber: scene.sceneNumber,
-          area: result.area || 'general',
+          area: normalizeArea(result.area), // Normalize to ensure frontend compatibility
           priority: result.priority || 'medium',
           current: scene.text,
           suggested: result.suggestedText || scene.text,

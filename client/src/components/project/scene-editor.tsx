@@ -19,7 +19,7 @@ interface SceneRecommendation {
   id: number | string; // number for fresh (temp), string (UUID) for persisted
   sceneId: number;
   priority: 'critical' | 'high' | 'medium' | 'low';
-  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
+  area: string; // Accept any string, will normalize to known areas
   currentText: string;
   suggestedText: string;
   reasoning: string;
@@ -190,7 +190,7 @@ export function SceneEditor({
   const applyRecommendationMutation = useMutation({
     mutationFn: async (recommendation: SceneRecommendation) => {
       // For fresh recommendations (negative ID), apply directly without backend
-      if (recommendation.id && recommendation.id < 0) {
+      if (recommendation.id && typeof recommendation.id === 'number' && recommendation.id < 0) {
         return {
           fresh: true,
           sceneId: recommendation.sceneId, // sceneId is 1-indexed scene number (1, 2, 3...)
