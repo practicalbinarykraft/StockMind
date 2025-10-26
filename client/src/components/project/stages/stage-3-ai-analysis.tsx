@@ -217,6 +217,12 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     v.isCandidate === true || v.is_candidate === true
   );
 
+  // Extract current and candidate version IDs for new compare endpoint
+  const currentVersion = scriptVersionsQuery.data?.currentVersion;
+  const candidateVersion = versions.find((v: any) => 
+    v.isCandidate === true || v.is_candidate === true
+  );
+
   // Open compare modal handler - opens immediately, shows loading if job running
   const handleOpenCompare = () => {
     console.log('[Compare] Click - hasCandidate:', hasCandidate, 'jobRunning:', !!reanalyzeJobId);
@@ -1508,6 +1514,10 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         open={compareOpen}
         onClose={() => setCompareOpen(false)}
         projectId={project.id}
+        reanalyzeJobId={reanalyzeJobId}
+        jobStatus={jobStatus}
+        baseVersionId={hasCandidate ? currentVersion?.id : undefined}
+        targetVersionId={hasCandidate ? candidateVersion?.id : undefined}
       />
 
       {/* Recovery Modal for NO_SCENES error */}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, TrendingDown, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ interface Scene {
 }
 
 interface CompareData {
+  status?: 'done' | 'running';
   base: {
     id: string;
     overall: number;
@@ -40,11 +42,11 @@ interface CompareData {
     scenes: Scene[];
   };
   delta: {
-    overall: number;
-    hook: number;
-    structure: number;
-    emotional: number;
-    cta: number;
+    overall: number | null;
+    hook: number | null;
+    structure: number | null;
+    emotional: number | null;
+    cta: number | null;
   };
 }
 
@@ -63,23 +65,34 @@ interface CompareModalProps {
   reanalyzeJobId?: string | null;
   jobStatus?: JobStatus | null;
   onNavigateToVoice?: () => void;
+  baseVersionId?: string;
+  targetVersionId?: string;
 }
 
-export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStatus, onNavigateToVoice }: CompareModalProps) {
+export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStatus, onNavigateToVoice, baseVersionId, targetVersionId }: CompareModalProps) {
   const { toast } = useToast();
   
   // Determine if job is currently running
   const isJobRunning = !!(reanalyzeJobId && jobStatus && jobStatus.status !== 'done' && jobStatus.status !== 'error');
 
+  // Use new endpoint if both version IDs are provided, otherwise fall back to legacy endpoint
+  const useNewEndpoint = !!(baseVersionId && targetVersionId);
+  
   useEffect(() => {
-    console.log('[CompareModal] open=', open, 'jobRunning=', isJobRunning);
-  }, [open, isJobRunning]);
+    console.log('[CompareModal] open=', open, 'jobRunning=', isJobRunning, 'useNewEndpoint=', useNewEndpoint);
+  }, [open, isJobRunning, useNewEndpoint]);
 
   // Load comparison data when modal opens AND job is not running
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['/api/projects', projectId, 'reanalyze', 'compare', 'latest'],
+    queryKey: useNewEndpoint 
+      ? ['/api/projects', projectId, 'compare', baseVersionId, targetVersionId]
+      : ['/api/projects', projectId, 'reanalyze', 'compare', 'latest'],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/projects/${projectId}/reanalyze/compare/latest`);
+      const endpoint = useNewEndpoint
+        ? `/api/projects/${projectId}/compare?baseVersionId=${baseVersionId}&targetVersionId=${targetVersionId}`
+        : `/api/projects/${projectId}/reanalyze/compare/latest`;
+      
+      const res = await apiRequest('GET', endpoint);
       const json = await res.json();
       return json.data ?? json;
     },
@@ -115,7 +128,12 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
     }
   });
 
-  const DeltaBadge = ({ delta }: { delta: number }) => {
+  const DeltaBadge = ({ delta }: { delta: number | null }) => {
+    // If analysis not complete, don't show delta
+    if (delta === null) {
+      return <Badge variant="outline" className="gap-1 text-muted-foreground">—</Badge>;
+    }
+    
     const isPositive = delta > 0;
     const isNeutral = delta === 0;
     
@@ -138,19 +156,25 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
   const VersionColumn = ({ 
     version, 
     title, 
-    isPrimary 
+    isPrimary,
+    isRunning 
   }: { 
     version: CompareData['base'] | CompareData['candidate']; 
     title: string;
     isPrimary: boolean;
+    isRunning?: boolean;
   }) => (
     <div className="flex-1 space-y-4">
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        <div className="text-4xl font-bold" data-testid={`text-score-${isPrimary ? 'base' : 'candidate'}`}>
-          {version.overall}
-          <span className="text-lg text-muted-foreground">/100</span>
-        </div>
+        {isRunning ? (
+          <Skeleton className="h-12 w-32 mx-auto" data-testid={`skeleton-score-${isPrimary ? 'base' : 'candidate'}`} />
+        ) : (
+          <div className="text-4xl font-bold" data-testid={`text-score-${isPrimary ? 'base' : 'candidate'}`}>
+            {version.overall}
+            <span className="text-lg text-muted-foreground">/100</span>
+          </div>
+        )}
       </div>
 
       <Card>
@@ -160,19 +184,19 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between" data-testid={`text-hook-${isPrimary ? 'base' : 'candidate'}`}>
             <span className="text-muted-foreground">Хук:</span>
-            <span className="font-medium">{version.breakdown.hook}</span>
+            {isRunning ? <Skeleton className="h-5 w-12" /> : <span className="font-medium">{version.breakdown.hook}</span>}
           </div>
           <div className="flex justify-between" data-testid={`text-structure-${isPrimary ? 'base' : 'candidate'}`}>
             <span className="text-muted-foreground">Структура:</span>
-            <span className="font-medium">{version.breakdown.structure}</span>
+            {isRunning ? <Skeleton className="h-5 w-12" /> : <span className="font-medium">{version.breakdown.structure}</span>}
           </div>
           <div className="flex justify-between" data-testid={`text-emotional-${isPrimary ? 'base' : 'candidate'}`}>
             <span className="text-muted-foreground">Эмоции:</span>
-            <span className="font-medium">{version.breakdown.emotional}</span>
+            {isRunning ? <Skeleton className="h-5 w-12" /> : <span className="font-medium">{version.breakdown.emotional}</span>}
           </div>
           <div className="flex justify-between" data-testid={`text-cta-${isPrimary ? 'base' : 'candidate'}`}>
             <span className="text-muted-foreground">CTA:</span>
-            <span className="font-medium">{version.breakdown.cta}</span>
+            {isRunning ? <Skeleton className="h-5 w-12" /> : <span className="font-medium">{version.breakdown.cta}</span>}
           </div>
         </CardContent>
       </Card>
@@ -182,7 +206,15 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
           <CardTitle className="text-sm">Рецензия AI архитектора</CardTitle>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground whitespace-pre-wrap">
-          {version.review}
+          {isRunning ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : (
+            version.review
+          )}
         </CardContent>
       </Card>
     </div>
@@ -286,6 +318,7 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
                   version={data.base}
                   title="ДО (Базовая версия)"
                   isPrimary={true}
+                  isRunning={data.status === 'running'}
                 />
 
                 <div className="flex items-center">
@@ -296,6 +329,7 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
                   version={data.candidate}
                   title="ПОСЛЕ (Новая версия)"
                   isPrimary={false}
+                  isRunning={data.status === 'running'}
                 />
               </div>
             </TabsContent>

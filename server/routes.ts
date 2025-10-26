@@ -4157,6 +4157,105 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
     }
   });
 
+  // GET /api/projects/:id/compare - Compare two specific versions by ID
+  app.get("/api/projects/:id/compare", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId } = req.params;
+      const { baseVersionId, targetVersionId } = req.query;
+
+      if (!baseVersionId || !targetVersionId) {
+        return apiResponse.badRequest(res, "baseVersionId and targetVersionId are required");
+      }
+
+      // Validate project
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get specific versions
+      const baseVersion = await storage.getScriptVersionById(baseVersionId as string);
+      const targetVersion = await storage.getScriptVersionById(targetVersionId as string);
+
+      if (!baseVersion || !targetVersion) {
+        return apiResponse.notFound(res, "Version not found");
+      }
+
+      // Check if versions belong to this project
+      if (baseVersion.projectId !== projectId || targetVersion.projectId !== projectId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Check target version analysis status
+      const targetMetrics = targetVersion.metrics as any;
+      const analysisStatus = targetMetrics ? 'done' : 'running';
+
+      // Extract base metrics
+      const baseMetrics = baseVersion.metrics as any || {};
+      const baseScore = baseMetrics.overallScore || baseVersion.analysisScore || 0;
+      const baseBreakdown = {
+        hook: baseMetrics.hookScore || 0,
+        structure: baseMetrics.structureScore || 0,
+        emotional: baseMetrics.emotionalScore || 0,
+        cta: baseMetrics.ctaScore || 0
+      };
+
+      // Extract target metrics (may be null if analysis not done)
+      const targetScore = targetMetrics?.overallScore || targetVersion.analysisScore || 0;
+      const targetBreakdown = {
+        hook: targetMetrics?.hookScore || 0,
+        structure: targetMetrics?.structureScore || 0,
+        emotional: targetMetrics?.emotionalScore || 0,
+        cta: targetMetrics?.ctaScore || 0
+      };
+
+      // Calculate deltas ONLY if analysis is done (avoid confusing negative deltas)
+      const delta = analysisStatus === 'done' ? {
+        overall: targetScore - baseScore,
+        hook: targetBreakdown.hook - baseBreakdown.hook,
+        structure: targetBreakdown.structure - baseBreakdown.structure,
+        emotional: targetBreakdown.emotional - baseBreakdown.emotional,
+        cta: targetBreakdown.cta - baseBreakdown.cta
+      } : {
+        overall: null,
+        hook: null,
+        structure: null,
+        emotional: null,
+        cta: null
+      };
+
+      // Format scenes
+      const formatScenes = (scenes: any[]) => (scenes || []).map((scene: any) => ({
+        id: scene.sceneNumber,
+        text: scene.text
+      }));
+
+      return apiResponse.ok(res, {
+        status: analysisStatus,
+        base: {
+          id: baseVersion.id,
+          overall: baseScore,
+          breakdown: baseBreakdown,
+          review: baseVersion.review || "Рецензия не доступна",
+          scenes: formatScenes(baseVersion.scenes as any[])
+        },
+        candidate: {
+          id: targetVersion.id,
+          overall: targetScore,
+          breakdown: targetBreakdown,
+          review: targetVersion.review || (analysisStatus === 'running' ? "Идёт анализ..." : "Рецензия не доступна"),
+          scenes: formatScenes(targetVersion.scenes as any[])
+        },
+        delta
+      });
+
+    } catch (error: any) {
+      console.error("[Compare Versions] Error:", error);
+      return apiResponse.serverError(res, error.message);
+    }
+  });
+
   // GET /api/projects/:id/reanalyze/compare/latest - Get comparison data for modal
   app.get("/api/projects/:id/reanalyze/compare/latest", isAuthenticated, async (req: any, res) => {
     try {

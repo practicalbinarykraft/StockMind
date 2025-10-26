@@ -151,6 +151,7 @@ export interface IStorage {
   getScriptVersions(projectId: string): Promise<ScriptVersion[]>;
   listScriptVersions(projectId: string): Promise<ScriptVersion[]>;
   getCurrentScriptVersion(projectId: string): Promise<ScriptVersion | undefined>;
+  getScriptVersionById(id: string): Promise<ScriptVersion | undefined>;
   getLatestCandidateVersion(projectId: string): Promise<ScriptVersion | undefined>;
   createScriptVersion(data: InsertScriptVersion): Promise<ScriptVersion>;
   updateScriptVersionCurrent(projectId: string, versionId: string): Promise<void>;
@@ -832,6 +833,15 @@ export class DatabaseStorage implements IStorage {
         eq(scriptVersions.projectId, projectId),
         eq(scriptVersions.isCurrent, true)
       ))
+      .limit(1);
+    return version;
+  }
+
+  async getScriptVersionById(id: string): Promise<ScriptVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(scriptVersions)
+      .where(eq(scriptVersions.id, id))
       .limit(1);
     return version;
   }
