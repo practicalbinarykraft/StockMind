@@ -114,10 +114,17 @@ export function SceneEditor({
       const data = response?.data ?? response;
       setAnalysisResult(data);
       
+      const recommendationsCount = data.recommendations?.length || 0;
+      
       toast({
         title: data.cached ? 'Анализ (кеш)' : 'Анализ завершен',
-        description: `Общий балл: ${data.analysis.overallScore}/100`,
+        description: recommendationsCount > 0 
+          ? `Общий балл: ${data.analysis.overallScore}/100. Рекомендации загружены: ${recommendationsCount} сцен`
+          : `Общий балл: ${data.analysis.overallScore}/100`,
       });
+      
+      // Invalidate recommendations to refetch from DB
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
     },
     onError: (error: any) => {
       toast({
