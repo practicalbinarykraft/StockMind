@@ -131,8 +131,8 @@ export function SceneEditor({
     },
   });
 
-  // Fetch recommendations
-  const { data: recommendations = [] } = useQuery<SceneRecommendation[]>({
+  // Fetch recommendations from DB (persisted)
+  const { data: persistedRecommendations = [] } = useQuery<SceneRecommendation[]>({
     queryKey: ['/api/projects', projectId, 'scene-recommendations'],
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/projects/${projectId}/scene-recommendations`);
@@ -140,6 +140,17 @@ export function SceneEditor({
       return json?.data ?? json ?? [];
     },
   });
+
+  // Use recommendations from analysisResult if available (fresh analysis), otherwise use persisted
+  // Add temporary IDs to fresh recommendations (using negative numbers to avoid conflicts with DB IDs)
+  const freshRecommendations = analysisResult?.recommendations 
+    ? analysisResult.recommendations.map((r: any, idx: number) => ({
+        ...r,
+        id: r.id || -(idx + 1) // Temporary negative ID if not from DB
+      }))
+    : null;
+  
+  const recommendations = freshRecommendations || persistedRecommendations;
 
   // Apply single recommendation
   const applyRecommendationMutation = useMutation({
@@ -458,6 +469,19 @@ export function SceneEditor({
                   <div className="text-sm">
                     <span className="font-medium">{analysisResult.recommendations.length} рекомендаций</span>
                     <span className="text-muted-foreground"> найдено</span>
+                  </div>
+                </>
+              )}
+
+              {/* Architect Review */}
+              {analysisResult.review && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Рецензия AI архитектора</div>
+                    <div className="text-xs text-muted-foreground whitespace-pre-line rounded-md bg-muted/50 p-3">
+                      {analysisResult.review}
+                    </div>
                   </div>
                 </>
               )}
