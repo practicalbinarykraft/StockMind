@@ -33,6 +33,7 @@ interface SceneRecommendation {
 interface SceneEditorProps {
   projectId: string;
   scenes: Scene[];
+  activeVersionId?: string; // ID of the version we're editing (candidate or current)
   onReanalyze?: (scenes: Scene[], fullScript: string) => void;
   onOpenCompare?: () => void;
   hasCandidate?: boolean;
@@ -60,7 +61,8 @@ interface AnalysisResult {
 
 export function SceneEditor({ 
   projectId, 
-  scenes: initialScenes, 
+  scenes: initialScenes,
+  activeVersionId,
   onReanalyze, 
   onOpenCompare, 
   hasCandidate,
@@ -141,8 +143,8 @@ export function SceneEditor({
           : `Общий балл: ${data.analysis.overallScore}/100`,
       });
       
-      // Invalidate recommendations to refetch from DB
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
+      // Invalidate recommendations to refetch from DB (exact: false to match all activeVersionId variants)
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'], exact: false });
     },
     onError: (error: any) => {
       toast({
@@ -160,10 +162,10 @@ export function SceneEditor({
       return await res.json();
     },
     onSuccess: () => {
-      // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'reanalyze'] });
+      // Invalidate all related queries (exact: false to match all activeVersionId variants)
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'reanalyze'], exact: false });
       
       // Clear localStorage
       localStorage.removeItem('reanalyzeJobId');
@@ -183,14 +185,16 @@ export function SceneEditor({
     },
   });
 
-  // Fetch recommendations from DB (persisted)
+  // Fetch recommendations from DB (persisted) for the ACTIVE version (candidate or current)
+  // This ensures recommendations match the scenes we're displaying
   const { data: persistedRecommendations = [] } = useQuery<SceneRecommendation[]>({
-    queryKey: ['/api/projects', projectId, 'scene-recommendations'],
+    queryKey: ['/api/projects', projectId, 'scene-recommendations', activeVersionId],
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/projects/${projectId}/scene-recommendations`);
       const json = await res.json();
       return json?.data ?? json ?? [];
     },
+    enabled: Boolean(activeVersionId), // Only fetch if we have a version ID
   });
 
   // Use recommendations from analysisResult if available (fresh analysis), otherwise use persisted
@@ -258,8 +262,8 @@ export function SceneEditor({
       // Handle persisted recommendations (backend response)
       const data = response?.data ?? response;
       
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'], exact: false });
       
       // Update local scene text - match by sceneNumber property
       if (data?.affectedScene?.sceneNumber && data?.affectedScene?.text) {
@@ -352,8 +356,8 @@ export function SceneEditor({
       
       // For mixed scenarios or persisted-only, refetch to ensure consistency
       if (persistedCount > 0) {
-        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'], exact: false });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'], exact: false });
         
         try {
           // Refetch current version from backend to ensure database consistency

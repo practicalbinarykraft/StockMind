@@ -159,7 +159,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 </ToastAction>
               )
             });
-            queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'], exact: false });
           } else if (status.status === 'error') {
             clearInterval(interval);
             setReanalyzeJobId(null);
@@ -263,8 +263,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       
       // 🔥 CRITICAL: Invalidate cache IMMEDIATELY after candidate created
       // Don't wait for analysis to complete - user should see their edits right away
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'] });
+      // exact: false to match all activeVersionId variants
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'], exact: false });
       
       if (data.alreadyRunning) {
         toast({
@@ -317,7 +318,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 </ToastAction>
               )
             });
-            queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'], exact: false });
           } else if (status.status === 'error') {
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
             if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
@@ -356,8 +357,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       return response.data || response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'], exact: false });
       setCompareOpen(false);
       toast({
         title: "Версия принята",
@@ -381,8 +382,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       return response.data || response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'], exact: false });
       setCompareOpen(false);
       toast({
         title: "Версия отклонена",
@@ -452,10 +453,10 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       return response
     },
     onSuccess: async (data) => {
-      // Invalidate and immediately refetch to trigger UI switch
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      // Invalidate and immediately refetch to trigger UI switch (exact: false to match all variants)
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"], exact: false })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"], exact: false })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id], exact: false })
       
       // Force immediate refetch to update hasScript state
       await scriptVersionsQuery.refetch()
@@ -596,8 +597,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           analysisResult: data,
           analysisScore: data.overallScore
         }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"] })
-          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"] })
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "script-history"], exact: false })
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "scene-recommendations"], exact: false })
         }).catch(err => {
           console.error("Failed to create initial version:", err)
         })
@@ -777,14 +778,31 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   })
 
   const handleProceed = async () => {
-    // Check if analysis exists (either simple or advanced)
-    if (!advancedAnalysis && !analysis) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please complete the analysis first",
-      })
-      return
+    // For STAGE3_MAGIC_UI: check activeVersion (candidate or current) metrics
+    // For old UI: check global advancedAnalysis/analysis states
+    if (STAGE3_MAGIC_UI && hasScript) {
+      const current = scriptVersionsQuery.data?.currentVersion;
+      const candidate = candidateVersion;
+      const activeVersion = candidate ?? current;
+      
+      // Soft warning if analysis pending, but allow proceeding
+      if (activeVersion && !activeVersion.metrics && reanalyzeJobId) {
+        toast({
+          title: "Анализ ещё выполняется",
+          description: "Можно продолжить озвучку сейчас, анализ завершится в фоне.",
+        });
+        // Continue anyway - don't block
+      }
+    } else {
+      // Old UI logic: check global states
+      if (!advancedAnalysis && !analysis) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please complete the analysis first",
+        });
+        return;
+      }
     }
 
     try {
@@ -1204,6 +1222,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             <SceneEditor
               projectId={project.id}
               scenes={versionToRender.scenes}
+              activeVersionId={versionToRender.id}
               onReanalyze={(scenes, fullScript) => {
                 if (reanalyzeMutation.isPending) return;
                 reanalyzeMutation.mutate({ scenes, fullScript });

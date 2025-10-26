@@ -11,6 +11,7 @@ import type {
   CTABreakdown,
   ContentInput
 } from "@shared/advanced-analysis-types";
+import { safeParseLLM } from "./lib/safe-parse-llm";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -37,13 +38,13 @@ async function callClaude(
     throw new Error("No text response from AI");
   }
 
-  // Extract JSON from response
+  // Extract JSON from response using safe parser (handles malformed JSON from Claude)
   const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error("Could not parse AI response as JSON");
   }
 
-  return JSON.parse(jsonMatch[0]);
+  return safeParseLLM(jsonMatch[0], 'Claude API response');
 }
 
 function estimateWordCount(text: string): number {
