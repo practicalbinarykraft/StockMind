@@ -42,7 +42,7 @@ export default function ProjectWorkflow() {
     return null
   }
 
-  const { data: project, isLoading: projectLoading } = useQuery<Project>({
+  const { data: project, isLoading: projectLoading, error: projectError } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId,
   })
@@ -53,6 +53,12 @@ export default function ProjectWorkflow() {
     staleTime: 0,  // Force fresh data
     gcTime: 0,     // Clear cache immediately
   })
+
+  // Handle 401 Unauthorized - redirect to login
+  if (projectError && projectError.message.includes('401')) {
+    window.location.href = "/api/login"
+    return null
+  }
 
   if (projectLoading) {
     return (
@@ -73,7 +79,8 @@ export default function ProjectWorkflow() {
     )
   }
 
-  if (!project) {
+  // Handle 404 or other errors - show not found message
+  if (!project || projectError) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
