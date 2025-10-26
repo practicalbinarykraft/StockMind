@@ -217,17 +217,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     v.isCandidate === true || v.is_candidate === true
   );
 
-  // Open compare modal handler
+  // Open compare modal handler - opens immediately, shows loading if job running
   const handleOpenCompare = () => {
-    console.log('[Compare] Click - hasCandidate:', hasCandidate);
-    if (!hasCandidate) {
-      toast({
-        title: "Нет версии для сравнения",
-        description: "Сначала сохраните новую версию",
-        variant: "destructive"
-      });
-      return;
-    }
+    console.log('[Compare] Click - hasCandidate:', hasCandidate, 'jobRunning:', !!reanalyzeJobId);
     setCompareOpen(true);
   };
 
@@ -278,6 +270,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       // Save jobId to localStorage for recovery
       localStorage.setItem('reanalyzeJobId', jobId);
       localStorage.setItem('reanalyzeProjectId', project.id);
+      
+      // Auto-open compare modal to show progress
+      setCompareOpen(true);
 
       // Clear any existing polling timers
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
@@ -991,6 +986,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           open={compareOpen}
           onClose={() => setCompareOpen(false)}
           projectId={project.id}
+          reanalyzeJobId={reanalyzeJobId}
+          jobStatus={jobStatus}
         />
       </div>
     )
@@ -1107,6 +1104,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
           open={compareOpen}
           onClose={() => setCompareOpen(false)}
           projectId={project.id}
+          reanalyzeJobId={reanalyzeJobId}
+          jobStatus={jobStatus}
         />
       </div>
     )

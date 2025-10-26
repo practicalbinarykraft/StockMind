@@ -48,20 +48,33 @@ interface CompareData {
   };
 }
 
+interface JobStatus {
+  status: 'queued' | 'running' | 'done' | 'error';
+  progress?: number;
+  step?: string;
+  error?: string;
+  canRetry?: boolean;
+}
+
 interface CompareModalProps {
   open: boolean;
   onClose: () => void;
   projectId: string;
+  reanalyzeJobId?: string | null;
+  jobStatus?: JobStatus | null;
 }
 
-export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
+export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStatus }: CompareModalProps) {
   const { toast } = useToast();
+  
+  // Determine if job is currently running
+  const isJobRunning = !!(reanalyzeJobId && jobStatus && jobStatus.status !== 'done' && jobStatus.status !== 'error');
 
   useEffect(() => {
-    console.log('[CompareModal] open=', open);
-  }, [open]);
+    console.log('[CompareModal] open=', open, 'jobRunning=', isJobRunning);
+  }, [open, isJobRunning]);
 
-  // Load comparison data when modal opens
+  // Load comparison data when modal opens AND job is not running
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['/api/projects', projectId, 'reanalyze', 'compare', 'latest'],
     queryFn: async () => {
@@ -69,7 +82,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
       const json = await res.json();
       return json.data ?? json;
     },
-    enabled: open && !!projectId,
+    enabled: open && !!projectId && !isJobRunning,
     retry: false
   });
 
@@ -184,8 +197,21 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
           <DialogTitle>Сравнение версий: Текущая ↔ Новая</DialogTitle>
         </DialogHeader>
 
+        {/* Job running state */}
+        {isJobRunning && (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-medium mb-2">Создаём новую версию и анализируем</p>
+              <p className="text-sm text-muted-foreground">
+                {jobStatus?.step || 'Обработка'}... {jobStatus?.progress ? `${jobStatus.progress}%` : ''}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Loading state */}
-        {isLoading && (
+        {!isJobRunning && isLoading && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-muted-foreground">Загружаем сравнение…</p>
@@ -193,7 +219,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
         )}
 
         {/* Error state */}
-        {isError && (
+        {!isJobRunning && isError && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <AlertCircle className="h-8 w-8 text-destructive" />
             <p className="text-center max-w-md">
@@ -213,7 +239,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
         )}
 
         {/* Success state - show comparison */}
-        {data && !isLoading && !isError && (
+        {!isJobRunning && data && !isLoading && !isError && (
           <Tabs defaultValue="metrics" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="metrics" data-testid="tab-metrics">Метрики</TabsTrigger>
