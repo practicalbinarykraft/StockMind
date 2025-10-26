@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SceneCard } from './scene-card';
 import { HistoryModal } from './history-modal';
-import { Sparkles, History, CheckCircle2, RefreshCw, XCircle, Loader2 } from 'lucide-react';
+import { Sparkles, History, CheckCircle2, RefreshCw, XCircle, Loader2, BarChart3 } from 'lucide-react';
 import { queryClient, apiRequest } from '@/lib/query-client';
+import { Separator } from '@/components/ui/separator';
 
 interface Scene {
   id: number;
@@ -36,6 +37,24 @@ interface SceneEditorProps {
   jobStatus?: any;
 }
 
+interface AnalysisResult {
+  analysis: {
+    overallScore: number;
+    breakdown: {
+      hook: { score: number };
+      structure: { score: number };
+      emotional: { score: number };
+      cta: { score: number };
+    };
+    verdict: string;
+    strengths: string[];
+    weaknesses: string[];
+  };
+  recommendations: any[];
+  review: string;
+  cached: boolean;
+}
+
 export function SceneEditor({ 
   projectId, 
   scenes: initialScenes, 
@@ -47,7 +66,34 @@ export function SceneEditor({
 }: SceneEditorProps) {
   const [scenes, setScenes] = useState(initialScenes);
   const [showHistory, setShowHistory] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
+
+  // Analyze script mutation
+  const analyzeScriptMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/projects/${projectId}/analysis/run`, { 
+        scenes: scenes.map((s, idx) => ({ sceneNumber: idx + 1, text: s.text }))
+      });
+      return await res.json();
+    },
+    onSuccess: (response: any) => {
+      const data = response?.data ?? response;
+      setAnalysisResult(data);
+      
+      toast({
+        title: data.cached ? 'Анализ (кеш)' : 'Анализ завершен',
+        description: `Общий балл: ${data.analysis.overallScore}/100`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Ошибка анализа',
+        description: error.message || 'Не удалось проанализировать сценарий',
+        variant: 'destructive',
+      });
+    },
+  });
 
   // Cancel candidate mutation
   const cancelCandidateMutation = useMutation({
@@ -228,6 +274,25 @@ export function SceneEditor({
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Button
+              onClick={() => analyzeScriptMutation.mutate()}
+              disabled={analyzeScriptMutation.isPending}
+              className="w-full gap-2"
+              data-testid="button-analyze-script"
+            >
+              {analyzeScriptMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Анализируем...
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="h-4 w-4" />
+                  Анализ сценария
+                </>
+              )}
+            </Button>
+            
             {hasRecommendations && (
               <Button
                 onClick={() => applyAllMutation.mutate()}
@@ -329,6 +394,66 @@ export function SceneEditor({
             </div>
           </CardContent>
         </Card>
+
+        {/* Analysis results */}
+        {analysisResult && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Результаты анализа</h2>
+                {analysisResult.cached && (
+                  <Badge variant="secondary" className="text-xs">Кеш</Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Overall score */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Общий балл</span>
+                  <span className="text-2xl font-bold">{analysisResult.analysis.overallScore}/100</span>
+                </div>
+                <div className="text-xs text-muted-foreground">{analysisResult.analysis.verdict}</div>
+              </div>
+
+              <Separator />
+
+              {/* Breakdown scores */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Детали</div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Хук:</span>
+                    <span className="font-medium">{analysisResult.analysis.breakdown.hook.score}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Структура:</span>
+                    <span className="font-medium">{analysisResult.analysis.breakdown.structure.score}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Эмоции:</span>
+                    <span className="font-medium">{analysisResult.analysis.breakdown.emotional.score}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">CTA:</span>
+                    <span className="font-medium">{analysisResult.analysis.breakdown.cta.score}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommendations count */}
+              {analysisResult.recommendations.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="text-sm">
+                    <span className="font-medium">{analysisResult.recommendations.length} рекомендаций</span>
+                    <span className="text-muted-foreground"> найдено</span>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* History modal */}
