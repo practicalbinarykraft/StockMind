@@ -91,6 +91,7 @@ export function SceneEditor({
   
   const [showHistory, setShowHistory] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [hasAppliedRecommendations, setHasAppliedRecommendations] = useState(false);
   const { toast } = useToast();
 
   // Check if there are unsaved changes
@@ -98,6 +99,9 @@ export function SceneEditor({
     if (scenes.length !== initialScenes.length) return true;
     return scenes.some((s, idx) => s.text !== initialScenes[idx].text);
   }, [scenes, initialScenes]);
+  
+  // Enable save button if there are changes OR recommendations were applied
+  const canSave = hasChanges || hasAppliedRecommendations;
 
   // Analyze script mutation
   const analyzeScriptMutation = useMutation({
@@ -227,6 +231,9 @@ export function SceneEditor({
           });
         }
         
+        // Mark that recommendations were applied to enable save button
+        setHasAppliedRecommendations(true);
+        
         toast({
           title: 'Рекомендация применена',
           description: 'Текст обновлён. Сохраните новую версию для повторного анализа.',
@@ -250,11 +257,14 @@ export function SceneEditor({
         }));
       }
 
+      // Mark that recommendations were applied to enable save button
+      setHasAppliedRecommendations(true);
+      
       toast({
         title: 'Рекомендация применена',
         description: data?.needsReanalysis 
-          ? 'Текст обновлен. Рекомендуем пересчитать анализ.'
-          : 'Сцена обновлена',
+          ? 'Текст обновлен. Сохраните новую версию для повторного анализа.'
+          : 'Сцена обновлена. Сохраните новую версию для повторного анализа.',
       });
     },
     onError: (error: any) => {
@@ -403,6 +413,12 @@ export function SceneEditor({
       }
 
       const totalCount = freshCount + persistedCount;
+      
+      // Mark that recommendations were applied to enable save button
+      if (totalCount > 0) {
+        setHasAppliedRecommendations(true);
+      }
+      
       toast({
         title: totalCount > 0 ? `Применено рекомендаций: ${totalCount}` : 'Нет выгодных рекомендаций',
         description: totalCount > 0
@@ -582,8 +598,10 @@ export function SceneEditor({
                   onClick={() => {
                     const fullScript = scenes.map(s => s.text).join('\n\n');
                     onReanalyze(scenes, fullScript);
+                    // Reset flag after save initiated
+                    setHasAppliedRecommendations(false);
                   }}
-                  disabled={!hasChanges}
+                  disabled={!canSave}
                   className="w-full gap-2"
                   data-testid="button-reanalyze"
                   size="sm"
