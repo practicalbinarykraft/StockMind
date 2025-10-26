@@ -18,13 +18,16 @@ interface Scene {
 interface SceneRecommendation {
   id: number;
   sceneId: number;
-  priority: 'high' | 'medium' | 'low';
-  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'general';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
   currentText: string;
   suggestedText: string;
   reasoning: string;
   expectedImpact: string;
   appliedAt?: string;
+  sourceAgent?: string;
+  scoreDelta?: number;
+  confidence?: number;
 }
 
 interface SceneEditorProps {
@@ -64,7 +67,28 @@ export function SceneEditor({
   reanalyzeJobId,
   jobStatus 
 }: SceneEditorProps) {
-  const [scenes, setScenes] = useState(initialScenes);
+  // Normalize scenes to ensure they always have sceneNumber property
+  // This eliminates the need for index-based fallbacks throughout the component
+  const normalizeScenes = (scenes: any[]) => {
+    return scenes.map((scene, idx) => ({
+      ...scene,
+      sceneNumber: scene.sceneNumber !== undefined ? scene.sceneNumber : (idx + 1)
+    }));
+  };
+  
+  const [scenesState, setScenesState] = useState(() => normalizeScenes(initialScenes));
+  
+  // Wrapper that auto-normalizes scenes before setting state
+  const setScenes = (newScenes: any[] | ((prev: any[]) => any[])) => {
+    setScenesState(prev => {
+      const resolved = typeof newScenes === 'function' ? newScenes(prev) : newScenes;
+      return normalizeScenes(resolved);
+    });
+  };
+  
+  // Use normalized scenes
+  const scenes = scenesState;
+  
   const [showHistory, setShowHistory] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
@@ -79,7 +103,10 @@ export function SceneEditor({
   const analyzeScriptMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', `/api/projects/${projectId}/analysis/run`, { 
-        scenes: scenes.map((s, idx) => ({ sceneNumber: idx + 1, text: s.text }))
+        scenes: scenes.map(s => ({ 
+          sceneNumber: s.sceneNumber, // Use stabilized sceneNumber (guaranteed by normalization)
+          text: s.text 
+        }))
       });
       return await res.json();
     },
@@ -154,24 +181,66 @@ export function SceneEditor({
 
   // Apply single recommendation
   const applyRecommendationMutation = useMutation({
-    mutationFn: async (recommendationId: number) => {
-      const res = await apiRequest('POST', `/api/projects/${projectId}/apply-scene-recommendation`, { recommendationId });
+    mutationFn: async (recommendation: SceneRecommendation) => {
+      // For fresh recommendations (negative ID), apply directly without backend
+      if (recommendation.id && recommendation.id < 0) {
+        return {
+          fresh: true,
+          sceneId: recommendation.sceneId, // sceneId is 1-indexed scene number (1, 2, 3...)
+          suggestedText: recommendation.suggestedText
+        };
+      }
+      
+      // For persisted recommendations, use backend API
+      const res = await apiRequest('POST', `/api/projects/${projectId}/apply-scene-recommendation`, { 
+        recommendationId: recommendation.id 
+      });
       return await res.json();
     },
     onSuccess: (response: any) => {
-      // Unwrap new API format: { success: true, data: { affectedScene, needsReanalysis } }
+      // Handle fresh recommendations (direct apply)
+      if (response?.fresh) {
+        // NOTE: Match by scene.sceneNumber property (stable), not array index
+        // Only update scenes that have sceneNumber defined
+        setScenes(prev => prev.map((s, idx) => {
+          const currentSceneNumber = s.sceneNumber !== undefined ? s.sceneNumber : (idx + 1);
+          return currentSceneNumber === response.sceneId
+            ? { ...s, text: response.suggestedText }
+            : s;
+        }));
+        
+        // Remove only the applied recommendation from analysisResult
+        // Filter by both sceneId AND suggestedText for precise matching
+        if (analysisResult) {
+          setAnalysisResult({
+            ...analysisResult,
+            recommendations: analysisResult.recommendations.filter(
+              (r: any) => !(r.sceneId === response.sceneId && r.suggestedText === response.suggestedText)
+            )
+          });
+        }
+        
+        toast({
+          title: 'Рекомендация применена',
+          description: 'Текст обновлён. Сохраните новую версию для повторного анализа.',
+        });
+        return;
+      }
+      
+      // Handle persisted recommendations (backend response)
       const data = response?.data ?? response;
       
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
       
-      // Update local scene text
+      // Update local scene text - match by sceneNumber property
       if (data?.affectedScene?.sceneNumber && data?.affectedScene?.text) {
-        setScenes(prev => prev.map((s, idx) => 
-          idx + 1 === data.affectedScene.sceneNumber
+        setScenes(prev => prev.map((s, idx) => {
+          const currentSceneNumber = s.sceneNumber !== undefined ? s.sceneNumber : (idx + 1);
+          return currentSceneNumber === data.affectedScene.sceneNumber
             ? { ...s, text: data.affectedScene.text }
-            : s
-        ));
+            : s;
+        }));
       }
 
       toast({
@@ -193,21 +262,125 @@ export function SceneEditor({
   // Apply all recommendations
   const applyAllMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
-      return await res.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+      // Separate fresh and persisted recommendations
+      const freshRecs = activeRecommendations.filter(r => r.id && r.id < 0);
+      const persistedRecs = activeRecommendations.filter(r => !r.id || r.id > 0);
       
-      // Update all scenes (data already unwrapped)
-      if (data?.data?.updatedScenes) {
-        setScenes(data.data.updatedScenes);
+      // Apply fresh recommendations locally (always create new array to ensure React detects changes)
+      const freshUpdatedScenes = freshRecs.length > 0
+        ? scenes.map((scene, idx) => {
+            // Use scene.sceneNumber if available, otherwise derive from index
+            // NOTE: sceneNumber is 1-indexed (1, 2, 3...), scene array is 0-indexed
+            const sceneNumber = scene.sceneNumber || (idx + 1);
+            const sceneRec = freshRecs.find(r => r.sceneId === sceneNumber);
+            
+            if (sceneRec) {
+              return { ...scene, sceneNumber, text: sceneRec.suggestedText };
+            }
+            return { ...scene, sceneNumber };
+          })
+        : null;
+      
+      // Apply persisted recommendations via backend
+      let persistedResult = null;
+      
+      if (persistedRecs.length > 0) {
+        const res = await apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
+        persistedResult = await res.json();
+      }
+      
+      return {
+        freshCount: freshRecs.length,
+        persistedCount: persistedRecs.length,
+        freshUpdatedScenes,
+        persistedResult
+      };
+    },
+    onSuccess: async (response: any) => {
+      const { freshCount, persistedCount, freshUpdatedScenes, persistedResult } = response;
+      
+      // For mixed scenarios or persisted-only, refetch to ensure consistency
+      if (persistedCount > 0) {
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+        
+        try {
+          // Refetch current version from backend to ensure database consistency
+          const historyRes = await apiRequest('GET', `/api/projects/${projectId}/script-history`);
+          const historyData = await historyRes.json();
+          const currentVersion = historyData?.data?.currentVersion || historyData?.currentVersion;
+          
+          if (currentVersion?.scenes) {
+            // Apply fresh changes on top of refetched scenes for mixed scenarios
+            if (freshCount > 0 && freshUpdatedScenes) {
+              // Build map of fresh changes by sceneNumber for stable matching
+              // NOTE: Using scene.sceneNumber property, not array index
+              const freshBySceneNumber = new Map<number, string>();
+              
+              // Build set of original scene numbers that were modified
+              const originalSceneMap = new Map<number, string>();
+              scenes.forEach((scene: any) => {
+                if (scene.sceneNumber) {
+                  originalSceneMap.set(scene.sceneNumber, scene.text);
+                }
+              });
+              
+              freshUpdatedScenes.forEach((scene: any) => {
+                if (scene.sceneNumber) {
+                  const originalText = originalSceneMap.get(scene.sceneNumber);
+                  // Check if this scene was actually modified
+                  if (scene.text !== originalText) {
+                    freshBySceneNumber.set(scene.sceneNumber, scene.text);
+                  }
+                }
+              });
+              
+              // Merge: use DB scenes as base, overlay fresh text changes by sceneNumber
+              const mergedScenes = currentVersion.scenes.map((dbScene: any) => {
+                const freshText = dbScene.sceneNumber ? freshBySceneNumber.get(dbScene.sceneNumber) : null;
+                
+                if (freshText) {
+                  return { ...dbScene, text: freshText };
+                }
+                return dbScene;
+              });
+              setScenes(mergedScenes);
+            } else {
+              // Persisted-only: use DB scenes directly
+              setScenes(currentVersion.scenes);
+            }
+          } else if (persistedResult?.data?.updatedScenes) {
+            // Fallback 1: Use API response if refetch structure unexpected
+            setScenes(persistedResult.data.updatedScenes);
+          }
+        } catch (error) {
+          // Fallback 2: Network/parse error - use API response or fresh updates
+          console.error('Failed to refetch scenes:', error);
+          if (persistedResult?.data?.updatedScenes) {
+            setScenes(persistedResult.data.updatedScenes);
+          } else if (freshUpdatedScenes) {
+            setScenes(freshUpdatedScenes);
+          }
+        }
+      } else if (freshUpdatedScenes) {
+        // Fresh-only: just update local state
+        setScenes(freshUpdatedScenes);
+      }
+      
+      // Clear fresh recommendations from analysisResult
+      if (freshCount > 0 && analysisResult) {
+        setAnalysisResult({
+          ...analysisResult,
+          recommendations: [] // Clear all since we applied all fresh
+        });
       }
 
+      const totalCount = freshCount + persistedCount;
       toast({
         title: 'Все рекомендации применены',
-        description: `Обновлено сцен: ${data?.data?.appliedCount || 0}. Рекомендуем пересчитать анализ.`,
+        description: freshCount > 0 
+          ? `Обновлено сцен: ${totalCount}. Сохраните новую версию для повторного анализа.`
+          : `Обновлено сцен: ${totalCount}. Рекомендуем пересчитать анализ.`,
       });
     },
     onError: (error: any) => {
@@ -245,8 +418,10 @@ export function SceneEditor({
   });
 
   const handleTextChange = (sceneNumber: number, newText: string) => {
-    // Optimistic update - sceneNumber is 1-indexed, array is 0-indexed
-    setScenes(prev => prev.map((s, idx) => idx + 1 === sceneNumber ? { ...s, text: newText } : s));
+    // Optimistic update using stable sceneNumber matching
+    setScenes(prev => prev.map(s => 
+      s.sceneNumber === sceneNumber ? { ...s, text: newText } : s
+    ));
     
     // Save to backend
     editSceneMutation.mutate({ sceneNumber, newText });
@@ -260,18 +435,20 @@ export function SceneEditor({
       {/* Left column: Scenes in single column */}
       <div className="flex-1 space-y-4">
         {scenes.map((scene, index) => {
-          const sceneNumber = index + 1;
+          // Use scene.sceneNumber if available, otherwise derive from index as fallback
+          // IMPORTANT: We should ensure scenes always have sceneNumber property
+          const sceneNumber = scene.sceneNumber !== undefined ? scene.sceneNumber : (index + 1);
           const sceneRecommendations = recommendations.filter(r => r.sceneId === sceneNumber);
           
           return (
             <SceneCard
-              key={sceneNumber}
+              key={scene.id || sceneNumber}
               sceneNumber={sceneNumber}
               sceneId={sceneNumber}
               text={scene.text}
               recommendations={sceneRecommendations}
               onTextChange={(_, newText) => handleTextChange(sceneNumber, newText)}
-              onApplyRecommendation={(recId) => applyRecommendationMutation.mutateAsync(recId)}
+              onApplyRecommendation={(rec) => applyRecommendationMutation.mutateAsync(rec)}
               isEditing={editSceneMutation.isPending || applyRecommendationMutation.isPending}
               isApplyingAll={applyAllMutation.isPending}
             />

@@ -8,8 +8,8 @@ import { CheckCircle2, Sparkles, TrendingUp, Lightbulb, Layers, Heart, Target, B
 interface SceneRecommendation {
   id: number;
   sceneId: number;
-  priority: 'high' | 'medium' | 'low';
-  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'general';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
   currentText: string;
   suggestedText: string;
   reasoning: string;
@@ -26,22 +26,24 @@ interface SceneCardProps {
   text: string;
   recommendations: SceneRecommendation[];
   onTextChange: (sceneId: number, newText: string) => void;
-  onApplyRecommendation: (recommendationId: number) => Promise<void>;
+  onApplyRecommendation: (recommendation: SceneRecommendation) => Promise<void>;
   isEditing: boolean;
   isApplyingAll?: boolean; // True when Apply All is running
 }
 
-const priorityConfig = {
+const priorityConfig: Record<string, { color: string; label: string }> = {
+  critical: { color: 'bg-red-600/15 text-red-700 dark:text-red-300 border-red-600/30', label: 'Критический' },
   high: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: 'Высокий' },
   medium: { color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20', label: 'Средний' },
   low: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Низкий' },
 };
 
-const areaConfig = {
+const areaConfig: Record<string, { icon: any; label: string; color: string }> = {
   hook: { icon: Sparkles, label: 'Хук', color: 'text-purple-500' },
   structure: { icon: Lightbulb, label: 'Структура', color: 'text-blue-500' },
   emotional: { icon: TrendingUp, label: 'Эмоции', color: 'text-pink-500' },
   cta: { icon: CheckCircle2, label: 'CTA', color: 'text-green-500' },
+  pacing: { icon: Layers, label: 'Темп', color: 'text-orange-500' },
   general: { icon: Lightbulb, label: 'Общее', color: 'text-gray-500' },
 };
 
@@ -69,10 +71,10 @@ export function SceneCard({
     }
   };
 
-  const handleApply = async (recId: number) => {
-    setApplyingRec(recId);
+  const handleApply = async (rec: SceneRecommendation) => {
+    setApplyingRec(rec.id);
     try {
-      await onApplyRecommendation(recId);
+      await onApplyRecommendation(rec);
     } finally {
       setApplyingRec(null);
     }
@@ -205,7 +207,7 @@ export function SceneCard({
 
                   <Button
                     size="sm"
-                    onClick={() => handleApply(rec.id)}
+                    onClick={() => handleApply(rec)}
                     disabled={applyingRec !== null || isEditing || isApplyingAll}
                     className="w-full gap-1.5"
                     data-testid={`button-apply-recommendation-${rec.id}`}
