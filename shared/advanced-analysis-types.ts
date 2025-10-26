@@ -268,3 +268,23 @@ export interface PerformanceMetrics {
   avgWatchTime?: number;
   retention?: number;
 }
+
+// ============================================
+// SCENE-LEVEL RECOMMENDATIONS
+// ============================================
+
+export interface SceneRecommendation {
+  id?: number;
+  sceneId: number; // Scene number (1-indexed)
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
+  currentText: string;
+  suggestedText: string;
+  reasoning: string;
+  expectedImpact: string; // e.g., "+14 points"
+  scoreDelta?: number; // Extracted from expectedImpact
+  confidence?: number; // 0-1
+  applied?: boolean;
+  appliedAt?: string;
+  sourceAgent?: string; // Which AI agent generated this
+}
