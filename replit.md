@@ -26,6 +26,8 @@ The user interface adheres to a professional, production-tool aesthetic inspired
 -   **API Endpoint Structure**: Endpoints follow a pattern of input validation, data fetching, external service calls, and atomic database updates, returning structured responses.
 -   **Frontend Data Fetching**: Utilizes React Query for efficient data management, caching, and state synchronization.
 -   **Drizzle Schema Pattern**: Enforces type safety and consistency across frontend and backend.
+-   **Candidate Version Model**: Implements "candidate → compare → accept" workflow where edits create a candidate version (`is_candidate=true`) that is analyzed, compared with current version, then explicitly accepted (becomes `is_current=true`) or rejected. Editor displays candidate when available (`candidate ?? current`), cache invalidates immediately after candidate creation (not waiting for analysis), and UI banner provides Compare/Accept/Reject actions.
+-   **Score Calculation Fix (Oct 26, 2025)**: Fixed critical bug where `structureScore`, `emotionalScore`, `ctaScore` were incorrectly extracted from nested `breakdown` paths instead of top-level `analysisResult` fields matching Claude API response structure. Fixed in 3 locations in `routes.ts` (lines ~3487, ~3772, ~3980).
 -   **Version Comparison**: Explicit version IDs in comparison endpoint prevent stale data; delta computation short-circuits to null during running analyses to avoid misleading values; UI shows skeleton states for metrics and em dashes for deltas until analysis completes.
 
 ### Feature Specifications
