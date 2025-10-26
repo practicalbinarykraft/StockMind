@@ -266,12 +266,20 @@ export function SceneEditor({
     },
   });
 
-  // Apply all recommendations
+  // Apply all PROFITABLE recommendations (high/medium priority + delta >= 6)
   const applyAllMutation = useMutation({
     mutationFn: async () => {
-      // Separate fresh and persisted recommendations
-      const freshRecs = activeRecommendations.filter(r => r.id && r.id < 0);
-      const persistedRecs = activeRecommendations.filter(r => !r.id || r.id > 0);
+      // Filter for profitable recommendations only
+      const PROFITABLE_THRESHOLD = 6;
+      const profitableFilter = (r: any) => {
+        const hasPriority = r.priority === 'high' || r.priority === 'medium';
+        const hasDelta = (r.scoreDelta ?? 0) >= PROFITABLE_THRESHOLD;
+        return hasPriority && hasDelta;
+      };
+      
+      // Separate fresh and persisted recommendations (filtered)
+      const freshRecs = activeRecommendations.filter(r => r.id && r.id < 0).filter(profitableFilter);
+      const persistedRecs = activeRecommendations.filter(r => !r.id || r.id > 0).filter(profitableFilter);
       
       // Apply fresh recommendations locally (always create new array to ensure React detects changes)
       const freshUpdatedScenes = freshRecs.length > 0
@@ -384,10 +392,12 @@ export function SceneEditor({
 
       const totalCount = freshCount + persistedCount;
       toast({
-        title: 'Все рекомендации применены',
-        description: freshCount > 0 
-          ? `Обновлено сцен: ${totalCount}. Сохраните новую версию для повторного анализа.`
-          : `Обновлено сцен: ${totalCount}. Рекомендуем пересчитать анализ.`,
+        title: totalCount > 0 ? `Применено рекомендаций: ${totalCount}` : 'Нет выгодных рекомендаций',
+        description: totalCount > 0
+          ? (freshCount > 0 
+            ? 'Сцены обновлены. Сохраните новую версию для повторного анализа.'
+            : 'Сцены обновлены. Рекомендуем пересчитать анализ.')
+          : 'Все рекомендации либо низкого приоритета, либо с малым приростом (<6 баллов)',
       });
     },
     onError: (error: any) => {
@@ -473,6 +483,11 @@ export function SceneEditor({
                 ? `${activeRecommendations.length} активных рекомендаций`
                 : 'Все рекомендации применены'}
             </p>
+            {hasRecommendations && (
+              <p className="text-xs text-muted-foreground pt-1">
+                Выгодные: приоритет high/medium с приростом ≥6 баллов
+              </p>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
             <Button
@@ -499,16 +514,20 @@ export function SceneEditor({
                 onClick={() => applyAllMutation.mutate()}
                 disabled={applyAllMutation.isPending || applyRecommendationMutation.isPending}
                 className="w-full gap-2"
+                variant="default"
                 data-testid="button-apply-all"
               >
                 {applyAllMutation.isPending ? (
-                  <>Применяем...</>
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Применяем...
+                  </>
                 ) : applyRecommendationMutation.isPending ? (
                   <>Применяем...</>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Улучшить всё ({activeRecommendations.length})
+                    Применить всё (выгодные)
                   </>
                 )}
               </Button>
