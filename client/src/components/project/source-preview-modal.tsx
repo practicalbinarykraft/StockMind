@@ -29,6 +29,7 @@ export function SourcePreviewModal({
   projectId,
 }: SourcePreviewModalProps) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const { toast } = useToast();
 
@@ -36,6 +37,7 @@ export function SourcePreviewModal({
     mutationFn: async () => {
       const res = await apiRequest("POST", `/api/projects/${projectId}/translate-content`, {
         content,
+        title,
         targetLanguage: "ru"
       });
       return await res.json();
@@ -43,11 +45,13 @@ export function SourcePreviewModal({
     onSuccess: (data) => {
       // Safe unwrapping for new API format: { success: true, data: { translatedContent: "..." } }
       const content = data?.data?.translatedContent ?? data?.translatedContent;
+      const title = data?.data?.translatedTitle ?? data?.translatedTitle;
       setTranslatedContent(content);
+      setTranslatedTitle(title);
       setShowTranslation(true);
       toast({
         title: "Перевод выполнен",
-        description: `Контент успешно переведен на русский язык`,
+        description: `Заголовок и контент переведены на русский язык`,
       });
     },
     onError: (error: any) => {
@@ -74,13 +78,14 @@ export function SourcePreviewModal({
   };
 
   const displayContent = showTranslation && translatedContent ? translatedContent : content;
+  const displayTitle = showTranslation && translatedTitle ? translatedTitle : title;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh]" data-testid="modal-source-preview">
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="flex-1">{title}</DialogTitle>
+            <DialogTitle className="flex-1">{displayTitle}</DialogTitle>
             <div className="flex items-center gap-2">
               {showTranslation && (
                 <Badge variant="secondary" className="gap-1">

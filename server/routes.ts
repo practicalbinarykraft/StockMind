@@ -2349,10 +2349,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const { id } = req.params;
-      const { content, targetLanguage = 'ru' } = req.body;
+      const { content, title, targetLanguage = 'ru' } = req.body;
       
-      if (!content) {
-        return res.status(400).json({ message: "Content is required" });
+      if (!content && !title) {
+        return res.status(400).json({ message: "Content or title is required" });
       }
 
       // Get project to verify ownership
@@ -2369,44 +2369,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[Translation] Translating ${content.length} characters to ${targetLanguage}...`);
-      const startTime = Date.now();
-
       const Anthropic = (await import('@anthropic-ai/sdk')).default;
       const anthropic = new Anthropic({ apiKey: apiKey.encryptedKey });
 
-      const prompt = `Translate the following text to ${targetLanguage === 'ru' ? 'Russian' : targetLanguage}. 
+      const results: any = {
+        targetLanguage,
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      // Translate title if provided
+      if (title) {
+        console.log(`[Translation] Translating title (${title.length} chars) to ${targetLanguage}...`);
+        const titleStartTime = Date.now();
+
+        const titlePrompt = `Translate the following title to ${targetLanguage === 'ru' ? 'Russian' : targetLanguage}. 
+Only output the translated title, nothing else.
+
+Title:
+${title}`;
+
+        const titleMessage = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{ role: "user", content: titlePrompt }],
+        });
+
+        const titleTextContent = titleMessage.content.find((c: any) => c.type === "text");
+        if (!titleTextContent || titleTextContent.type !== "text") {
+          throw new Error("No text response from AI for title");
+        }
+
+        results.translatedTitle = titleTextContent.text.trim();
+        results.metadata.titleTranslationTime = Date.now() - titleStartTime;
+        console.log(`[Translation] Title translated in ${results.metadata.titleTranslationTime}ms`);
+      }
+
+      // Translate content if provided
+      if (content) {
+        console.log(`[Translation] Translating content (${content.length} chars) to ${targetLanguage}...`);
+        const contentStartTime = Date.now();
+
+        const contentPrompt = `Translate the following text to ${targetLanguage === 'ru' ? 'Russian' : targetLanguage}. 
 Keep the original formatting and structure. Only output the translated text, nothing else.
 
 Text to translate:
 ${content}`;
 
-      const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: prompt }],
-      });
+        const contentMessage = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: contentPrompt }],
+        });
 
-      const textContent = message.content.find((c: any) => c.type === "text");
-      if (!textContent || textContent.type !== "text") {
-        throw new Error("No text response from AI");
+        const contentTextContent = contentMessage.content.find((c: any) => c.type === "text");
+        if (!contentTextContent || contentTextContent.type !== "text") {
+          throw new Error("No text response from AI for content");
+        }
+
+        results.translatedContent = contentTextContent.text.trim();
+        results.originalLength = content.length;
+        results.translatedLength = results.translatedContent.length;
+        results.metadata.contentTranslationTime = Date.now() - contentStartTime;
+        console.log(`[Translation] Content translated in ${results.metadata.contentTranslationTime}ms`);
       }
 
-      const translatedContent = textContent.text.trim();
+      console.log(`[Translation] Completed translation request`);
 
-      const duration = Date.now() - startTime;
-      console.log(`[Translation] Completed in ${duration}ms`);
-
-      res.json({
-        translatedContent,
-        targetLanguage,
-        originalLength: content.length,
-        translatedLength: translatedContent.length,
-        metadata: {
-          translationTime: duration,
-          timestamp: new Date().toISOString(),
-        },
-      });
+      res.json(results);
     } catch (error: any) {
       console.error("Error translating content:", error);
       res.status(500).json({ 
