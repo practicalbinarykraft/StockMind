@@ -160,7 +160,15 @@ class ReanalysisJobManager {
         }
         
         const delayMs = this.RETRY_DELAYS_MS[attempt] || this.RETRY_DELAYS_MS[this.RETRY_DELAYS_MS.length - 1];
-        console.log(`[JobManager] Retry attempt ${attempt + 1}/${this.MAX_RETRIES} after ${delayMs}ms...`);
+        
+        // Structured logging: retry attempt
+        console.log(`[reanalyze.retry]`, {
+          attempt: attempt + 1,
+          maxRetries: this.MAX_RETRIES,
+          delayMs,
+          errorStatus: lastError?.status || lastError?.response?.status,
+          timestamp: new Date().toISOString()
+        });
         
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, delayMs));

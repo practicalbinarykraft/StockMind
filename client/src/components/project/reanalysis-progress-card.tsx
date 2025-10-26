@@ -69,8 +69,8 @@ export function ReanalysisProgressCard({
         ) : (
           <>
             <div>
-              <div className="text-sm font-medium mb-1">
-                {status === 'queued' ? 'Задача в очереди...' : `Шаг: ${step ? stepLabels[step] || step : 'Инициализация'}`}
+              <div className="text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">
+                {status === 'queued' ? 'Задача в очереди...' : `${step ? stepLabels[step] || step : 'Инициализация'}`}
               </div>
               <Progress value={progress} className="h-2" />
               <div className="text-xs text-muted-foreground mt-1">

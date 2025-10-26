@@ -19,6 +19,7 @@ import { ReanalysisProgressCard } from "../reanalysis-progress-card"
 import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -133,6 +134,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             toast({
               title: "Черновик готов",
               description: "Теперь можно открыть сравнение",
+              action: (
+                <ToastAction altText="Открыть сравнение" onClick={() => setCompareOpen(true)}>
+                  Открыть
+                </ToastAction>
+              )
             });
             queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
           } else if (status.status === 'error') {
@@ -240,6 +246,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             toast({
               title: "Черновик готов",
               description: "Теперь можно открыть сравнение",
+              action: (
+                <ToastAction altText="Открыть сравнение" onClick={() => setCompareOpen(true)}>
+                  Открыть
+                </ToastAction>
+              )
             });
             queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
           } else if (status.status === 'error') {

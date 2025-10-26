@@ -3254,7 +3254,13 @@ ${content}`;
         throw err;
       }
 
-      console.log(`[Reanalyze] Job ${job.jobId} created for project ${projectId}`);
+      // Structured logging: job start
+      console.log(`[reanalyze.start]`, {
+        jobId: job.jobId,
+        projectId,
+        idempotencyKey: idempotencyKey || null,
+        timestamp: new Date().toISOString()
+      });
 
       // Start async processing
       setImmediate(async () => {
@@ -3389,11 +3395,50 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
 
           jobManager.updateJobProgress(job.jobId, 'saving', 100);
           jobManager.updateJobStatus(job.jobId, 'done', candidateVersion.id);
-          console.log(`[Reanalyze] Job ${job.jobId} completed - candidate ${candidateVersion.id}`);
+          
+          // Structured logging: job done
+          const durationMs = Date.now() - job.startedAt.getTime();
+          console.log(`[reanalyze.done]`, {
+            jobId: job.jobId,
+            projectId,
+            candidateVersionId: candidateVersion.id,
+            durationMs,
+            timestamp: new Date().toISOString()
+          });
 
         } catch (error: any) {
-          console.error(`[Reanalyze] Job ${job.jobId} failed:`, error);
-          jobManager.updateJobStatus(job.jobId, 'error', undefined, error.message || 'Reanalysis failed');
+          // Structured logging for debugging
+          const errorStatus = error?.status || error?.response?.status;
+          const isRateLimit = errorStatus === 429;
+          const isServerError = errorStatus >= 500 && errorStatus < 600;
+          
+          console.error(`[Reanalyze] Job ${job.jobId} failed:`, {
+            errorMessage: error.message,
+            errorStatus,
+            isRateLimit,
+            isServerError,
+            errorType: error.constructor?.name
+          });
+          
+          // User-friendly error messages
+          let userMessage = error.message || 'Ошибка пересчёта';
+          if (isRateLimit || isServerError) {
+            userMessage = 'Временная ошибка сервиса. Повторите позже или отмените черновик.';
+          }
+          
+          jobManager.updateJobStatus(job.jobId, 'error', undefined, userMessage);
+          
+          // Structured logging: job failed
+          const durationMs = Date.now() - job.startedAt.getTime();
+          console.log(`[reanalyze.failed]`, {
+            jobId: job.jobId,
+            projectId,
+            errorCode: errorStatus || 'unknown',
+            errorMessage: error.message,
+            userMessage,
+            durationMs,
+            timestamp: new Date().toISOString()
+          });
         }
       });
 
