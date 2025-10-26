@@ -30,6 +30,7 @@ interface Stage2Props {
 interface EnrichedRssItem extends RssItem {
   freshnessLabel: 'hot' | 'trending' | 'recent' | 'old'
   sourceName: string
+  score?: number | null // Unified score field from backend
 }
 
 export function Stage2ContentInput({ project, stepData }: Stage2Props) {
@@ -61,7 +62,14 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const { data: newsItems, isLoading: newsLoading, refetch: refetchNews } = useQuery<EnrichedRssItem[]>({
     queryKey: ["/api/news"],
     enabled: sourceChoice === "news",
-    refetchInterval: 15 * 60 * 1000, // Auto-refresh every 15 minutes
+    refetchInterval: (data) => {
+      // Auto-refresh scores every 30s if there are items without scores
+      const hasItemsWithoutScore = data?.some(item => {
+        const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null;
+        return score === null;
+      });
+      return hasItemsWithoutScore ? 30 * 1000 : 15 * 60 * 1000; // 30s vs 15min
+    },
   })
 
   // Instagram Reel data - can be from stepData directly or fetched by ID
@@ -356,9 +364,25 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
               <badge.icon className="h-3 w-3" />
               {badge.label}
             </Badge>
-            {item.aiScore !== null && (
-              <ScoreBadge score={item.aiScore} size="sm" />
-            )}
+            {(() => {
+              // Unified score with fallbacks
+              const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null;
+              
+              if (score !== null && score !== undefined) {
+                return <ScoreBadge score={score} size="sm" />;
+              } else {
+                // Show skeleton badge for articles without score
+                return (
+                  <div 
+                    className="inline-flex items-center justify-center rounded-full font-semibold bg-muted text-muted-foreground text-xs px-2 py-0.5"
+                    title="Анализ релевантности... Оценка появится автоматически"
+                    data-testid={`badge-score-loading-${item.id}`}
+                  >
+                    <Skeleton className="h-3 w-6" />
+                  </div>
+                );
+              }
+            })()}
           </div>
 
           {/* Title */}
