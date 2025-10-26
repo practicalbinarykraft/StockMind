@@ -16,7 +16,7 @@ import { SourceAnalysisCard } from "../source-analysis-card"
 import { RecommendedFormatBox } from "../recommended-format-box"
 import { CompareModal } from "../compare-modal"
 import { ReanalysisProgressCard } from "../reanalysis-progress-card"
-import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages } from "lucide-react"
+import { Sparkles, FileText, Edit2, Loader2, AlertCircle, DollarSign, Zap, Languages, GitCompareArrows, CheckCircle, X, Info } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
@@ -261,6 +261,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       setReanalyzeJobId(jobId);
       setJobStatus({ status: 'queued', progress: 0 });
       
+      // 🔥 CRITICAL: Invalidate cache IMMEDIATELY after candidate created
+      // Don't wait for analysis to complete - user should see their edits right away
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'] });
+      
       if (data.alreadyRunning) {
         toast({
           title: "Версия уже создаётся",
@@ -337,6 +342,56 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     onError: (error: any) => {
       toast({
         title: "Ошибка запуска анализа",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Accept candidate version mutation
+  const acceptMutation = useMutation({
+    mutationFn: async (versionId: string) => {
+      const res = await apiRequest('PUT', `/api/projects/${project.id}/versions/${versionId}/accept`, {});
+      const response = await res.json();
+      return response.data || response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'] });
+      setCompareOpen(false);
+      toast({
+        title: "Версия принята",
+        description: "Новая версия теперь текущая",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка принятия",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Reject (delete) candidate version mutation
+  const rejectMutation = useMutation({
+    mutationFn: async (versionId: string) => {
+      const res = await apiRequest('DELETE', `/api/projects/${project.id}/versions/${versionId}`, {});
+      const response = await res.json();
+      return response.data || response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'scene-recommendations'] });
+      setCompareOpen(false);
+      toast({
+        title: "Версия отклонена",
+        description: "Кандидат удалён",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка удаления",
         description: error.message,
         variant: "destructive"
       });
@@ -1002,12 +1057,16 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
   if (STAGE3_MAGIC_UI && hasScript) {
-    const currentVersion = scriptVersionsQuery.data?.currentVersion
+    const current = scriptVersionsQuery.data?.currentVersion
+    const candidate = candidateVersion
+    
+    // Show candidate if it exists (user just saved it), otherwise show current
+    const versionToRender = candidate ?? current
     
     // Extend sourceData with script language for Scene Editor mode
     const editorSourceData = {
       ...sourceData,
-      scriptLanguage: currentVersion?.scriptLanguage || targetLanguage || 'ru'
+      scriptLanguage: versionToRender?.scriptLanguage || targetLanguage || 'ru'
     }
     
     if (scriptVersionsQuery.isLoading) {
@@ -1025,7 +1084,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       )
     }
 
-    if (!currentVersion) {
+    if (!versionToRender) {
       return (
         <div className="p-8 max-w-6xl mx-auto">
           <Alert variant="destructive">
@@ -1069,10 +1128,82 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             />
           )}
           
+          {/* Candidate Version Banner */}
+          {hasCandidate && candidate && (
+            <Card className="border-primary/50 bg-primary/5" data-testid="banner-candidate">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Info className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        Новая версия v{candidate.versionNumber} сохранена
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {reanalyzeJobId ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Анализ выполняется...
+                          </span>
+                        ) : (
+                          candidate.metrics ? "Анализ завершён" : "Ожидание анализа"
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenCompare}
+                      disabled={!candidate.metrics || reanalyzeJobId !== null}
+                      data-testid="button-compare-banner"
+                    >
+                      <GitCompareArrows className="h-4 w-4 mr-2" />
+                      Сравнить
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => acceptMutation.mutate(candidate.id)}
+                      disabled={acceptMutation.isPending || !candidate.metrics || reanalyzeJobId !== null}
+                      data-testid="button-accept-banner"
+                    >
+                      {acceptMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Принимаем...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Принять
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => rejectMutation.mutate(candidate.id)}
+                      disabled={rejectMutation.isPending}
+                      data-testid="button-reject-banner"
+                    >
+                      {rejectMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
           <div data-testid="scene-editor">
             <SceneEditor
               projectId={project.id}
-              scenes={currentVersion.scenes}
+              scenes={versionToRender.scenes}
               onReanalyze={(scenes, fullScript) => {
                 if (reanalyzeMutation.isPending) return;
                 reanalyzeMutation.mutate({ scenes, fullScript });

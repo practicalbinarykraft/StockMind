@@ -3865,6 +3865,123 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
     }
   });
 
+  // PUT /api/projects/:id/versions/:versionId/accept - Accept candidate version
+  app.put("/api/projects/:id/versions/:versionId/accept", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId, versionId } = req.params;
+
+      // Validate project exists
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get the version to accept
+      const versions = await storage.getScriptVersions(projectId);
+      const versionToAccept = versions.find(v => v.id === versionId);
+      
+      if (!versionToAccept) {
+        return apiResponse.notFound(res, "Version not found");
+      }
+
+      if (!versionToAccept.isCandidate) {
+        return apiResponse.badRequest(res, "Can only accept candidate versions");
+      }
+
+      // Transaction: set all is_current=false, then set this one to current
+      await db.transaction(async (tx) => {
+        // Clear all current flags
+        await tx.update(scriptVersions)
+          .set({ isCurrent: false })
+          .where(eq(scriptVersions.projectId, projectId));
+
+        // Set this version as current (no longer candidate)
+        await tx.update(scriptVersions)
+          .set({ 
+            isCurrent: true,
+            isCandidate: false,
+          })
+          .where(eq(scriptVersions.id, versionId));
+      });
+
+      console.log(`[Accept Version] Accepted candidate ${versionId} as current version`);
+
+      // Return updated versions list
+      const updatedVersions = await storage.getScriptVersions(projectId);
+      const currentVersion = updatedVersions.find(v => v.isCurrent);
+      const recommendations = currentVersion 
+        ? await storage.getSceneRecommendations(currentVersion.id)
+        : [];
+
+      return apiResponse.ok(res, {
+        currentVersion,
+        versions: updatedVersions,
+        recommendations,
+        message: "Version accepted successfully"
+      });
+
+    } catch (error: any) {
+      console.error("[Accept Version] Error:", error);
+      return apiResponse.serverError(res, error.message || "Failed to accept version");
+    }
+  });
+
+  // DELETE /api/projects/:id/versions/:versionId - Delete/reject candidate version
+  app.delete("/api/projects/:id/versions/:versionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId, versionId } = req.params;
+
+      // Validate project exists
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get the version to delete
+      const versions = await storage.getScriptVersions(projectId);
+      const versionToDelete = versions.find(v => v.id === versionId);
+      
+      if (!versionToDelete) {
+        return apiResponse.notFound(res, "Version not found");
+      }
+
+      if (versionToDelete.isCurrent) {
+        return apiResponse.badRequest(res, "Cannot delete current version");
+      }
+
+      // Delete version and its recommendations
+      await db.transaction(async (tx) => {
+        await tx.delete(sceneRecommendations)
+          .where(eq(sceneRecommendations.scriptVersionId, versionId));
+        
+        await tx.delete(scriptVersions)
+          .where(eq(scriptVersions.id, versionId));
+      });
+
+      console.log(`[Delete Version] Deleted version ${versionId}`);
+
+      // Return updated versions list
+      const updatedVersions = await storage.getScriptVersions(projectId);
+      const currentVersion = updatedVersions.find(v => v.isCurrent);
+      const recommendations = currentVersion 
+        ? await storage.getSceneRecommendations(currentVersion.id)
+        : [];
+
+      return apiResponse.ok(res, {
+        currentVersion,
+        versions: updatedVersions,
+        recommendations,
+        message: "Version deleted successfully"
+      });
+
+    } catch (error: any) {
+      console.error("[Delete Version] Error:", error);
+      return apiResponse.serverError(res, error.message || "Failed to delete version");
+    }
+  });
+
   // ============================================================================
   // REANALYZE ROUTES (Asynchronous Iterative Improvement Workflow)
   // ============================================================================
