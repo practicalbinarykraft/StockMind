@@ -99,6 +99,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   // Store polling timers for cleanup
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Store last submitted scenes/fullScript for retries
+  const lastSubmittedPayload = useRef<{ scenes: any[]; fullScript: string } | null>(null);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -112,6 +115,17 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   useEffect(() => {
     const savedJobId = localStorage.getItem('reanalyzeJobId');
     const savedProjectId = localStorage.getItem('reanalyzeProjectId');
+    const savedPayload = localStorage.getItem('reanalyzePayload');
+    const savedPayloadProjectId = localStorage.getItem('reanalyzePayloadProjectId');
+    
+    // Restore payload if it matches current project
+    if (savedPayload && savedPayloadProjectId === project.id) {
+      try {
+        lastSubmittedPayload.current = JSON.parse(savedPayload);
+      } catch (err) {
+        console.error('[Reanalyze] Failed to restore payload:', err);
+      }
+    }
     
     if (savedJobId && savedProjectId === project.id && !reanalyzeJobId) {
       console.log('[Reanalyze] Восстанавливаем поллинг для job:', savedJobId);
@@ -133,6 +147,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             setJobStatus(null);
             localStorage.removeItem('reanalyzeJobId');
             localStorage.removeItem('reanalyzeProjectId');
+            localStorage.removeItem('reanalyzePayload');
+            localStorage.removeItem('reanalyzePayloadProjectId');
             
             toast({
               title: "Новая версия готова",
@@ -171,6 +187,36 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     }
   }, [project.id]);
 
+  // Feature flag check
+  const STAGE3_MAGIC_UI = import.meta.env.VITE_STAGE3_MAGIC_UI === 'true'
+  
+  // Query to check if script exists (using /script-history as single source of truth)
+  const scriptVersionsQuery = useQuery({
+    queryKey: ['/api/projects', project.id, 'script-history'],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/script-history`)
+      if (!res.ok) return { currentVersion: null, versions: [], recommendations: [] }
+      const response = await res.json()
+      // Unwrap new API format: { success: true, data: {...} }
+      return response.data || response
+    },
+    enabled: Boolean(project.id), // Always enabled if we have project ID
+    staleTime: 5000
+  })
+  
+  // Detect if script exists - check both currentVersion and versions array
+  const hasScript = Boolean(
+    scriptVersionsQuery.data?.currentVersion || 
+    (scriptVersionsQuery.data?.versions && scriptVersionsQuery.data.versions.length > 0)
+  )
+
+  // Check if there's a candidate version for comparison
+  // API returns camelCase (isCandidate) after Drizzle ORM transformation
+  const versions = scriptVersionsQuery.data?.versions || [];
+  const hasCandidate = versions.some((v: any) => 
+    v.isCandidate === true || v.is_candidate === true
+  );
+
   // Open compare modal handler
   const handleOpenCompare = () => {
     console.log('[Compare] Click - hasCandidate:', hasCandidate);
@@ -185,11 +231,19 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     setCompareOpen(true);
   };
 
-  // Reanalyze mutation - starts async job
+  // Reanalyze mutation - starts async job (saves new version + auto-analyze)
   const reanalyzeMutation = useMutation({
-    mutationFn: async () => {
-      const idempotencyKey = `reanalyze-${project.id}-${Date.now()}`;
-      const res = await apiRequest('POST', `/api/projects/${project.id}/reanalyze/start`, {
+    mutationFn: async ({ scenes, fullScript }: { scenes: any[]; fullScript: string }) => {
+      // Save payload for retries (both in-memory and localStorage)
+      lastSubmittedPayload.current = { scenes, fullScript };
+      localStorage.setItem('reanalyzePayload', JSON.stringify({ scenes, fullScript }));
+      localStorage.setItem('reanalyzePayloadProjectId', project.id);
+      
+      const idempotencyKey = `version-${project.id}-${Date.now()}`;
+      
+      const res = await apiRequest('POST', `/api/projects/${project.id}/versions`, {
+        scenes,
+        fullScript,
         idempotencyKey
       });
       
@@ -245,6 +299,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             setJobStatus(null);
             localStorage.removeItem('reanalyzeJobId');
             localStorage.removeItem('reanalyzeProjectId');
+            localStorage.removeItem('reanalyzePayload');
+            localStorage.removeItem('reanalyzePayloadProjectId');
             
             toast({
               title: "Новая версия готова",
@@ -286,47 +342,6 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     }
   });
 
-  // Feature flag check
-  const STAGE3_MAGIC_UI = import.meta.env.VITE_STAGE3_MAGIC_UI === 'true'
-  
-  // Query to check if script exists (using /script-history as single source of truth)
-  const scriptVersionsQuery = useQuery({
-    queryKey: ['/api/projects', project.id, 'script-history'],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${project.id}/script-history`)
-      if (!res.ok) return { currentVersion: null, versions: [], recommendations: [] }
-      const response = await res.json()
-      // Unwrap new API format: { success: true, data: {...} }
-      return response.data || response
-    },
-    enabled: Boolean(project.id), // Always enabled if we have project ID
-    staleTime: 5000
-  })
-  
-  // Detect if script exists - check both currentVersion and versions array
-  const hasScript = Boolean(
-    scriptVersionsQuery.data?.currentVersion || 
-    (scriptVersionsQuery.data?.versions && scriptVersionsQuery.data.versions.length > 0)
-  )
-
-  // Check if there's a candidate version for comparison
-  // API returns camelCase (isCandidate) after Drizzle ORM transformation
-  const versions = scriptVersionsQuery.data?.versions || [];
-  const hasCandidate = versions.some((v: any) => 
-    v.isCandidate === true || v.is_candidate === true
-  );
-  
-  console.log('[hasCandidate] Candidate check:', {
-    hasCandidate,
-    versionsCount: versions.length,
-    versions: versions.map((v: any) => ({
-      id: v.id,
-      versionNumber: v.versionNumber,
-      isCurrent: v.isCurrent,
-      isCandidate: v.isCandidate,
-      is_candidate: v.is_candidate
-    }))
-  });
 
   // Get content from step data
   // - Custom scripts: stepData.text
@@ -1042,7 +1057,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               progress={jobStatus.progress}
               error={jobStatus.error}
               canRetry={jobStatus.canRetry}
-              onRetry={() => reanalyzeMutation.mutate()}
+              onRetry={() => {
+                if (lastSubmittedPayload.current) {
+                  reanalyzeMutation.mutate(lastSubmittedPayload.current);
+                }
+              }}
             />
           )}
           
@@ -1050,9 +1069,9 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             <SceneEditor
               projectId={project.id}
               scenes={currentVersion.scenes}
-              onReanalyze={() => {
+              onReanalyze={(scenes, fullScript) => {
                 if (reanalyzeMutation.isPending) return;
-                reanalyzeMutation.mutate();
+                reanalyzeMutation.mutate({ scenes, fullScript });
               }}
               onOpenCompare={handleOpenCompare}
               hasCandidate={hasCandidate}
@@ -1227,7 +1246,7 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               <SceneEditor
                 projectId={project.id}
                 scenes={stepData.scenes}
-                onReanalyze={() => setReanalyzeDialogOpen(true)}
+                onReanalyze={(scenes, fullScript) => setReanalyzeDialogOpen(true)}
                 onOpenCompare={handleOpenCompare}
                 hasCandidate={hasCandidate}
                 reanalyzeJobId={reanalyzeJobId}

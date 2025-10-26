@@ -30,7 +30,7 @@ interface SceneRecommendation {
 interface SceneEditorProps {
   projectId: string;
   scenes: Scene[];
-  onReanalyze?: () => void;
+  onReanalyze?: (scenes: Scene[], fullScript: string) => void;
   onOpenCompare?: () => void;
   hasCandidate?: boolean;
   reanalyzeJobId?: string | null;
@@ -353,7 +353,10 @@ export function SceneEditor({
               {onReanalyze && !hasCandidate && !reanalyzeJobId && (
                 <Button
                   variant="outline"
-                  onClick={onReanalyze}
+                  onClick={() => {
+                    const fullScript = scenes.map(s => s.text).join('\n\n');
+                    onReanalyze(scenes, fullScript);
+                  }}
                   disabled={!hasChanges}
                   className="w-full gap-2"
                   data-testid="button-reanalyze"
