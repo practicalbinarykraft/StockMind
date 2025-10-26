@@ -1037,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const items = await storage.getRssItems(userId);
       
-      // Add freshness label based on publishedAt
+      // Add freshness label and normalize score field
       const enrichedItems = items.map(item => {
         let freshnessLabel = 'old';
         if (item.publishedAt) {
@@ -1047,9 +1047,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (hoursAgo < 24) freshnessLabel = 'recent';
         }
         
+        // Normalize score field: aiScore → score (with fallbacks)
+        const score = item.aiScore ?? item.freshnessScore ?? item.viralityScore ?? null;
+        
         return {
           ...item,
           freshnessLabel,
+          score, // Unified score field
         };
       });
       
@@ -1066,6 +1070,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching news items:", error);
       res.status(500).json({ message: "Failed to fetch news items" });
+    }
+  });
+
+  // Get score for a specific news item (lazy loading)
+  app.get("/api/news/score/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const { id } = req.params;
+      
+      const items = await storage.getRssItems(userId);
+      const item = items.find(i => i.id === id);
+      
+      if (!item) {
+        return res.status(404).json({ message: "News item not found" });
+      }
+      
+      // Return unified score field
+      const score = item.aiScore ?? item.freshnessScore ?? item.viralityScore ?? null;
+      
+      res.json({ 
+        id: item.id,
+        score,
+        aiScore: item.aiScore,
+        freshnessScore: item.freshnessScore,
+        viralityScore: item.viralityScore,
+        aiComment: item.aiComment,
+      });
+    } catch (error) {
+      console.error("Error fetching news item score:", error);
+      res.status(500).json({ message: "Failed to fetch score" });
     }
   });
 
