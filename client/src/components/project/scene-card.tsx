@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Sparkles, TrendingUp, Lightbulb, Layers, Heart, Target, Bot } from 'lucide-react';
 
 interface SceneRecommendation {
-  id: number;
+  id: number | string; // number for fresh (temp), string (UUID) for persisted
   sceneId: number;
   priority: 'critical' | 'high' | 'medium' | 'low';
   area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';

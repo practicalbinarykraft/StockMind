@@ -229,15 +229,16 @@ export class ScriptVersionService {
   }
 
   /**
-   * Apply all unapplied recommendations
+   * Apply all unapplied recommendations (or specific ones if recommendationIds provided)
    * 
    * Sorts by priority, score delta, confidence, then applies all
    */
   async applyAllRecommendations(params: {
     projectId: string;
     userId: string;
+    recommendationIds?: string[]; // Optional: only apply these specific recommendations (UUIDs)
   }) {
-    const { projectId, userId } = params;
+    const { projectId, userId, recommendationIds } = params;
     
     const currentVersion = await this.storage.getCurrentScriptVersion(projectId);
     if (!currentVersion) {
@@ -248,7 +249,14 @@ export class ScriptVersionService {
     
     // Get unapplied recommendations
     const allRecommendations = await this.storage.getSceneRecommendations(currentVersion.id);
-    const unappliedRecommendations = allRecommendations.filter(r => !r.applied);
+    let unappliedRecommendations = allRecommendations.filter(r => !r.applied);
+    
+    // If specific IDs provided, filter to only those
+    if (recommendationIds && recommendationIds.length > 0) {
+      unappliedRecommendations = unappliedRecommendations.filter(r => 
+        r.id && recommendationIds.includes(r.id)
+      );
+    }
     
     if (unappliedRecommendations.length === 0) {
       return {
@@ -318,8 +326,8 @@ export class ScriptVersionService {
     });
     
     // Mark all recommendations as applied (batch transaction to prevent partial updates)
-    const recommendationIds = unappliedRecommendations.map(r => r.id);
-    await this.storage.markRecommendationsAppliedBatch(recommendationIds);
+    const appliedRecIds = unappliedRecommendations.map(r => r.id);
+    await this.storage.markRecommendationsAppliedBatch(appliedRecIds);
     
     return {
       success: true,

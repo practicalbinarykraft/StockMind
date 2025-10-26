@@ -3213,10 +3213,11 @@ ${content}`;
     }
   });
 
-  // POST /api/projects/:id/apply-all-recommendations - Apply all recommendations
+  // POST /api/projects/:id/apply-all-recommendations - Apply all (or specific) recommendations
   app.post("/api/projects/:id/apply-all-recommendations", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const { recommendationIds } = req.body; // Optional: array of UUIDs to apply
       const userId = getUserId(req);
       
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -3229,6 +3230,7 @@ ${content}`;
       const result = await scriptVersionService.applyAllRecommendations({
         projectId: id,
         userId,
+        recommendationIds, // Pass filtered IDs if provided
       });
       
       return apiResponse.ok(res, result);

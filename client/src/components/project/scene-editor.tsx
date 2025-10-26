@@ -16,7 +16,7 @@ interface Scene {
 }
 
 interface SceneRecommendation {
-  id: number;
+  id: number | string; // number for fresh (temp), string (UUID) for persisted
   sceneId: number;
   priority: 'critical' | 'high' | 'medium' | 'low';
   area: 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
@@ -278,8 +278,12 @@ export function SceneEditor({
       };
       
       // Separate fresh and persisted recommendations (filtered)
-      const freshRecs = activeRecommendations.filter(r => r.id && r.id < 0).filter(profitableFilter);
-      const persistedRecs = activeRecommendations.filter(r => !r.id || r.id > 0).filter(profitableFilter);
+      // Fresh: negative number IDs (temp), Persisted: positive numbers or string UUIDs
+      const isFresh = (r: any) => typeof r.id === 'number' && r.id < 0;
+      const isPersisted = (r: any) => !r.id || typeof r.id === 'string' || (typeof r.id === 'number' && r.id > 0);
+      
+      const freshRecs = activeRecommendations.filter(isFresh).filter(profitableFilter);
+      const persistedRecs = activeRecommendations.filter(isPersisted).filter(profitableFilter);
       
       // Apply fresh recommendations locally (always create new array to ensure React detects changes)
       const freshUpdatedScenes = freshRecs.length > 0
@@ -296,11 +300,19 @@ export function SceneEditor({
           })
         : null;
       
-      // Apply persisted recommendations via backend
+      // Apply persisted recommendations via backend (send filtered IDs)
       let persistedResult = null;
       
       if (persistedRecs.length > 0) {
-        const res = await apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {});
+        // Extract IDs and ensure they're strings (UUIDs) for backend
+        const recommendationIds = persistedRecs
+          .map(r => r.id)
+          .filter(Boolean)
+          .map(id => String(id)); // Convert to string in case of number IDs
+        
+        const res = await apiRequest('POST', `/api/projects/${projectId}/apply-all-recommendations`, {
+          recommendationIds,
+        });
         persistedResult = await res.json();
       }
       
