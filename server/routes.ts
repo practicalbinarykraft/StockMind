@@ -2680,15 +2680,45 @@ ${content}`;
         return res.status(400).json({ message: "Unsupported source type" });
       }
 
-      // Generate script with scenes using analyzeScript
-      const analysisResult = await analyzeScript(apiKey.encryptedKey, formatId, content);
+      // Generate script with scenes using analyzeScript (with auto-repair)
+      let analysisResult;
+      try {
+        analysisResult = await analyzeScript(apiKey.encryptedKey, formatId, content);
+        console.log('[Generate Script] AI returned:', JSON.stringify(analysisResult, null, 2));
+      } catch (error: any) {
+        // Handle NO_SCENES error with structured response
+        if (error.code === 'NO_SCENES') {
+          console.error('[Generate Script] AI failed to generate scenes after repair attempts');
+          return res.status(422).json({
+            success: false,
+            code: 'NO_SCENES',
+            message: error.details?.message || 'AI не смог создать сценарий',
+            suggestions: error.details?.suggestions || [
+              'Попробуйте другой формат видео',
+              'Повторите попытку',
+            ],
+            metadata: {
+              formatId,
+              contentLength: content.length,
+              timestamp: new Date().toISOString(),
+            },
+          });
+        }
+        // Re-throw other errors
+        throw error;
+      }
 
-      console.log('[Generate Script] AI returned:', JSON.stringify(analysisResult, null, 2));
-
+      // Additional safety check (should not happen after repair logic)
       if (!analysisResult.scenes || analysisResult.scenes.length === 0) {
-        console.error('[Generate Script] Missing scenes! Result:', analysisResult);
-        return res.status(500).json({ 
-          message: "AI analysis did not generate scenes" 
+        console.error('[Generate Script] Unexpected: scenes empty after successful analyzeScript');
+        return res.status(422).json({ 
+          success: false,
+          code: 'NO_SCENES',
+          message: "AI не создал сцены для сценария",
+          suggestions: [
+            'Попробуйте другой формат',
+            'Повторите попытку',
+          ],
         });
       }
 

@@ -114,6 +114,84 @@ export interface ScriptAnalysis {
   overallComment: string;
 }
 
+// Normalize LLM response - handle different field names for scenes
+function normalizeScenes(rawResponse: any): SceneAnalysis[] {
+  // Try different possible field names
+  const scenesArray = 
+    rawResponse.scenes || 
+    rawResponse.sceneList || 
+    rawResponse.script || 
+    rawResponse.sections || 
+    [];
+  
+  if (!Array.isArray(scenesArray)) {
+    console.warn('[normalizeScenes] scenes is not an array:', scenesArray);
+    return [];
+  }
+  
+  // Normalize scene structure
+  return scenesArray.map((scene: any, index: number) => ({
+    sceneNumber: scene.sceneNumber ?? scene.number ?? scene.id ?? (index + 1),
+    text: scene.text ?? scene.content ?? scene.description ?? '',
+    score: scene.score ?? 50,
+    variants: Array.isArray(scene.variants) ? scene.variants : [],
+  })).filter(scene => scene.text.length > 0);
+}
+
+// Repair failed script analysis with minimal viable scenes
+async function repairScriptAnalysis(
+  apiKey: string,
+  format: string,
+  content: string,
+  attemptNumber: number
+): Promise<ScriptAnalysis> {
+  console.log(`[Repair Attempt ${attemptNumber}] Trying to generate scenes...`);
+  
+  const sanitizedContent = content.substring(0, 3000).replaceAll('"', '\\"');
+  
+  const repairPrompt = SECURITY_PREFIX + `CRITICAL: Your previous response did not contain valid scenes array. This is attempt ${attemptNumber}/2.
+
+You MUST return a valid JSON with a "scenes" array containing 3-5 scenes.
+
+Content: "${sanitizedContent}"
+Format: ${format}
+
+Create 3-5 SHORT scenes (1-2 sentences each) for a ${format} video.
+
+MANDATORY JSON structure - DO NOT deviate:
+{
+  "format": "${format}",
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "text": "<short compelling scene text in Russian>",
+      "score": <number 0-100>,
+      "variants": ["<variant 1>", "<variant 2>", "<variant 3>"]
+    }
+  ],
+  "overallScore": <number 0-100>,
+  "overallComment": "<brief comment in Russian>"
+}
+
+Return ONLY valid JSON. The "scenes" field is REQUIRED and MUST be an array with at least 3 items.`;
+
+  const result = await callClaudeJson<any>(apiKey, repairPrompt, {
+    maxTokens: MAX_TOKENS_LONG,
+    temperature: 0.7,
+  });
+  
+  // Normalize and validate
+  const normalizedScenes = normalizeScenes(result);
+  
+  return {
+    format: result.format || format,
+    scenes: normalizedScenes,
+    recommendations: result.recommendations || [],
+    overallScore: result.overallScore ?? 50,
+    overallComment: result.overallComment || "Сценарий создан",
+  };
+}
+
 export async function scoreNewsItem(
   apiKey: string,
   title: string,
@@ -306,9 +384,57 @@ Respond in JSON format:
   "overallComment": "<1-2 sentence analysis in Russian>"
 }`;
 
-  return await callClaudeJson<ScriptAnalysis>(apiKey, prompt, {
+  console.log(`[analyzeScript] Generating script for format: ${format}`);
+  const rawResult = await callClaudeJson<any>(apiKey, prompt, {
     maxTokens: MAX_TOKENS_LONG
   });
+
+  console.log(`[analyzeScript] Raw LLM response keys:`, Object.keys(rawResult));
+  
+  // Normalize scenes from different possible field names
+  const normalizedScenes = normalizeScenes(rawResult);
+  
+  // If no scenes after normalization, attempt repair (up to 2 attempts)
+  if (normalizedScenes.length === 0) {
+    console.warn(`[analyzeScript] No scenes found after normalization. Attempting repair...`);
+    
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const repaired = await repairScriptAnalysis(apiKey, format, content, attempt);
+        if (repaired.scenes.length >= 3) {
+          console.log(`[analyzeScript] Repair successful on attempt ${attempt}: ${repaired.scenes.length} scenes`);
+          return repaired;
+        }
+        console.warn(`[analyzeScript] Repair attempt ${attempt} generated only ${repaired.scenes.length} scenes (minimum 3 required)`);
+      } catch (error) {
+        console.error(`[analyzeScript] Repair attempt ${attempt} failed:`, error);
+      }
+    }
+    
+    // All repair attempts failed
+    const error: any = new Error('NO_SCENES');
+    error.code = 'NO_SCENES';
+    error.details = {
+      message: 'AI не смог создать сценарий после нескольких попыток',
+      rawResponse: rawResult,
+      suggestions: [
+        'Попробуйте другой формат видео',
+        'Упростите исходный контент',
+        'Повторите попытку через несколько секунд'
+      ]
+    };
+    throw error;
+  }
+
+  console.log(`[analyzeScript] Successfully generated ${normalizedScenes.length} scenes`);
+  
+  return {
+    format: rawResult.format || format,
+    scenes: normalizedScenes,
+    recommendations: rawResult.recommendations || [],
+    overallScore: rawResult.overallScore ?? 50,
+    overallComment: rawResult.overallComment || "Анализ завершён",
+  };
 }
 
 export async function generateAiPrompt(
