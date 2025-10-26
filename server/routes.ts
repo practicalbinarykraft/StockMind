@@ -3563,6 +3563,40 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
     }
   });
 
+  // DELETE /api/projects/:id/reanalyze/candidate - Cancel/reject candidate draft
+  app.delete("/api/projects/:id/reanalyze/candidate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId } = req.params;
+
+      // Validate project
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get candidate version
+      const candidateVersion = await storage.getLatestCandidateVersion(projectId);
+      
+      if (!candidateVersion) {
+        return apiResponse.badRequest(res, "No candidate version found");
+      }
+
+      // Reject candidate (sets isCandidate=false, isRejected=true)
+      await storage.rejectCandidate(projectId, candidateVersion.id);
+      console.log(`[Cancel Candidate] Rejected candidate ${candidateVersion.id} for project ${projectId}`);
+
+      return apiResponse.ok(res, {
+        success: true,
+        message: "Candidate draft cancelled"
+      });
+
+    } catch (error: any) {
+      console.error("[Cancel Candidate] Error:", error);
+      return apiResponse.serverError(res, error.message);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -79,15 +79,18 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
       const res = await apiRequest('POST', `/api/projects/${projectId}/reanalyze/compare/choose`, { keep });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Failed');
-      return json;
+      return { ...json, keep };
     },
-    onSuccess: async () => {
+    onSuccess: async (data: any) => {
+      const wasCandidate = data.keep === 'candidate';
       toast({
-        title: "Выбор сохранен",
+        title: wasCandidate ? "Черновик принят" : "Текущая версия сохранена",
+        description: wasCandidate ? "Создана новая версия и назначена текущей" : "Черновик отклонён",
       });
       onClose();
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "script-history"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "scene-recommendations"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "reanalyze"] });
     },
     onError: (error: any) => {
       toast({
@@ -178,7 +181,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
         data-testid="modal-compare"
       >
         <DialogHeader>
-          <DialogTitle>Сравнение версий (ДО / ПОСЛЕ)</DialogTitle>
+          <DialogTitle>Сравнение версий: Текущая ↔ Черновик</DialogTitle>
         </DialogHeader>
 
         {/* Loading state */}
@@ -334,7 +337,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
                 className="flex-1"
               >
                 {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Оставить ДО
+                Оставить текущую
               </Button>
 
               <Button
@@ -345,7 +348,7 @@ export function CompareModal({ open, onClose, projectId }: CompareModalProps) {
                 className="flex-1"
               >
                 {chooseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Выбрать ПОСЛЕ
+                Принять черновик
               </Button>
             </div>
           </Tabs>

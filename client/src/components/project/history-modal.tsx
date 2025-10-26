@@ -147,10 +147,13 @@ export function HistoryModal({ projectId, currentScenes, onClose, onRevert }: Hi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            История версий
+            Все версии (история)
           </DialogTitle>
           <DialogDescription>
-            Просмотр и восстановление предыдущих версий сценария
+            Это архив всех сохранённых версий (v1, v2… vN). Здесь можно:<br />
+            • Просматривать сцены версии<br />
+            • Смотреть локальные правки «до/после» внутри выбранной версии<br />
+            • Восстанавливать любую версию
           </DialogDescription>
         </DialogHeader>
 

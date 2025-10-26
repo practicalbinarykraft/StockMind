@@ -402,6 +402,7 @@ export const scriptVersions = pgTable("script_versions", {
   
   // Reanalyze comparison fields
   isCandidate: boolean("is_candidate").default(false).notNull(), // Candidate version from reanalyze
+  isRejected: boolean("is_rejected").default(false).notNull(), // Candidate was rejected/cancelled
   baseVersionId: varchar("base_version_id").references((): any => scriptVersions.id), // Base version for comparison
   metrics: jsonb("metrics"), // { overallScore, hookScore, structureScore, emotionalScore, ctaScore, predicted: {...}, perScene: [...] }
   review: text("review"), // Final review/summary for this version

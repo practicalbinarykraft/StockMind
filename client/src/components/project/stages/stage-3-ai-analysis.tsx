@@ -131,7 +131,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             localStorage.removeItem('reanalyzeProjectId');
             
             toast({
-              title: "Версия для сравнения готова",
+              title: "Черновик готов",
+              description: "Теперь можно открыть сравнение",
             });
             queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
           } else if (status.status === 'error') {
@@ -171,8 +172,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     console.log('[Compare] Click - hasCandidate:', hasCandidate);
     if (!hasCandidate) {
       toast({
-        title: "Нет версии для сравнения",
-        description: "Сначала нажмите «Сделать версию для сравнения»",
+        title: "Нет черновика для сравнения",
+        description: "Сначала создайте черновик",
         variant: "destructive"
       });
       return;
@@ -206,13 +207,13 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
       
       if (data.alreadyRunning) {
         toast({
-          title: "Анализ уже идёт",
+          title: "Черновик уже создаётся",
           description: "Продолжаем отслеживать прогресс",
         });
       } else {
         toast({
-          title: "Запустили анализ",
-          description: "Это займет до ~1 мин",
+          title: "Создаём черновик для сравнения",
+          description: "Готовим черновик… ~10–60 сек",
         });
       }
 
@@ -242,7 +243,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
             localStorage.removeItem('reanalyzeProjectId');
             
             toast({
-              title: "Версия для сравнения готова",
+              title: "Черновик готов",
+              description: "Теперь можно открыть сравнение",
             });
             queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'script-history'] });
           } else if (status.status === 'error') {
@@ -1012,6 +1014,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
               }}
               onOpenCompare={handleOpenCompare}
               hasCandidate={hasCandidate}
+              reanalyzeJobId={reanalyzeJobId}
+              jobStatus={jobStatus}
             />
           </div>
 
@@ -1184,6 +1188,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
                 onReanalyze={() => setReanalyzeDialogOpen(true)}
                 onOpenCompare={handleOpenCompare}
                 hasCandidate={hasCandidate}
+                reanalyzeJobId={reanalyzeJobId}
+                jobStatus={jobStatus}
               />
             )}
 

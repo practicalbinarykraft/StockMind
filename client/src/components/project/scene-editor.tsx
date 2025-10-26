@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { SceneCard } from './scene-card';
 import { HistoryModal } from './history-modal';
-import { Sparkles, History, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Sparkles, History, CheckCircle2, RefreshCw, XCircle, Loader2 } from 'lucide-react';
 import { queryClient, apiRequest } from '@/lib/query-client';
 
 interface Scene {
@@ -31,12 +32,52 @@ interface SceneEditorProps {
   onReanalyze?: () => void;
   onOpenCompare?: () => void;
   hasCandidate?: boolean;
+  reanalyzeJobId?: string | null;
+  jobStatus?: any;
 }
 
-export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze, onOpenCompare, hasCandidate }: SceneEditorProps) {
+export function SceneEditor({ 
+  projectId, 
+  scenes: initialScenes, 
+  onReanalyze, 
+  onOpenCompare, 
+  hasCandidate,
+  reanalyzeJobId,
+  jobStatus 
+}: SceneEditorProps) {
   const [scenes, setScenes] = useState(initialScenes);
   const [showHistory, setShowHistory] = useState(false);
   const { toast } = useToast();
+
+  // Cancel candidate mutation
+  const cancelCandidateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('DELETE', `/api/projects/${projectId}/reanalyze/candidate`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'reanalyze'] });
+      
+      // Clear localStorage
+      localStorage.removeItem('reanalyzeJobId');
+      localStorage.removeItem('reanalyzeProjectId');
+      
+      toast({
+        title: 'Черновик отменён',
+        description: 'Версия для сравнения удалена',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось отменить черновик',
+        variant: 'destructive',
+      });
+    },
+  });
 
   // Fetch recommendations
   const { data: recommendations = [] } = useQuery<SceneRecommendation[]>({
@@ -214,34 +255,78 @@ export function SceneEditor({ projectId, scenes: initialScenes, onReanalyze, onO
               data-testid="button-show-history"
             >
               <History className="h-4 w-4" />
-              История изменений
+              Все версии (история)
             </Button>
             
-            {onReanalyze && (
-              <Button
-                variant="outline"
-                onClick={onReanalyze}
-                className="w-full gap-2"
-                data-testid="button-reanalyze"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Сделать версию для сравнения
-              </Button>
-            )}
-            
-            {onOpenCompare && hasCandidate && (
-              <Button
-                onClick={() => {
-                  console.log('[Compare] Открытие сравнения');
-                  onOpenCompare();
-                }}
-                className="w-full gap-2"
-                data-testid="button-open-compare"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Открыть сравнение (ДО/ПОСЛЕ)
-              </Button>
-            )}
+            {/* Candidate draft status panel */}
+            <div className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Черновик для сравнения</span>
+                {reanalyzeJobId && jobStatus?.status === 'running' && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Создаётся
+                  </Badge>
+                )}
+                {hasCandidate && !reanalyzeJobId && (
+                  <Badge variant="default" className="gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Готов
+                  </Badge>
+                )}
+                {!hasCandidate && !reanalyzeJobId && (
+                  <Badge variant="outline">Отсутствует</Badge>
+                )}
+              </div>
+              
+              {onReanalyze && !hasCandidate && !reanalyzeJobId && (
+                <Button
+                  variant="outline"
+                  onClick={onReanalyze}
+                  className="w-full gap-2"
+                  data-testid="button-reanalyze"
+                  size="sm"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Создать черновик для сравнения
+                </Button>
+              )}
+              
+              {reanalyzeJobId && jobStatus?.status === 'running' && (
+                <div className="text-xs text-muted-foreground">
+                  Готовим черновик… ~10–60 сек
+                </div>
+              )}
+              
+              {onOpenCompare && hasCandidate && (
+                <>
+                  <Button
+                    onClick={() => {
+                      console.log('[Compare] Открытие сравнения');
+                      onOpenCompare();
+                    }}
+                    className="w-full gap-2"
+                    data-testid="button-open-compare"
+                    size="sm"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Сравнение: Текущая vs Черновик
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => cancelCandidateMutation.mutate()}
+                    disabled={cancelCandidateMutation.isPending}
+                    className="w-full gap-2 text-muted-foreground hover:text-destructive"
+                    data-testid="button-cancel-candidate"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Отменить черновик
+                  </Button>
+                </>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

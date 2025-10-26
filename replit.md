@@ -50,6 +50,65 @@ The user interface adheres to a professional, production-tool aesthetic inspired
 
 ## Recent Changes
 
+### October 26, 2025 - UX Improvement: Candidate Draft Management (COMPLETED ✅)
+**Status**: FULLY IMPLEMENTED
+
+Implemented comprehensive UX improvements for candidate draft management following user's detailed ТЗ.
+
+**What Changed:**
+1. **Terminology Update** ✅
+   - "Сделать версию для сравнения" → "Создать черновик для сравнения"
+   - "Открыть сравнение (ДО/ПОСЛЕ)" → "Сравнение: Текущая vs Черновик"
+   - "История изменений" → "Все версии (история)"
+   - Buttons: "Оставить ДО" → "Оставить текущую", "Выбрать ПОСЛЕ" → "Принять черновик"
+
+2. **Candidate Status Panel** ✅
+   - Three states with badges: Отсутствует | Создаётся | Готов
+   - Visual feedback with Loader2/CheckCircle2 icons
+   - Contextual help text "Готовим черновик… ~10–60 сек"
+
+3. **Cancel Draft Functionality** ✅
+   - New DELETE endpoint: `/api/projects/:id/reanalyze/candidate`
+   - Backend: `storage.rejectCandidate()` sets `isCandidate=false`, `isRejected=true`
+   - Frontend: "Отменить черновик" button in status panel
+   - Schema: Added `isRejected` boolean field to `script_versions` table
+
+4. **Toast Improvements** ✅
+   - Creating: "Создаём черновик для сравнения" + "Готовим черновик… ~10–60 сек"
+   - Ready: "Черновик готов" + "Теперь можно открыть сравнение"
+   - Accepted: "Черновик принят" + "Создана новая версия и назначена текущей"
+   - Rejected: "Текущая версия сохранена" + "Черновик отклонён"
+   - Cancelled: "Черновик отменён" + "Версия для сравнения удалена"
+
+5. **HistoryModal Enhancement** ✅
+   - Title: "Все версии (история)"
+   - Added explanatory text differentiating from draft comparison
+   - Clarifies three functions: просмотр, diff внутри версии, восстановление
+
+6. **Cache Invalidation** ✅
+   - All mutations properly invalidate: script-history, scene-recommendations, reanalyze queries
+   - Ensures UI consistency after all actions
+
+**Files Modified:**
+- `server/routes.ts` - DELETE endpoint
+- `server/storage.ts` - rejectCandidate method
+- `shared/schema.ts` - isRejected field
+- `client/src/components/project/scene-editor.tsx` - status panel + cancel button
+- `client/src/components/project/stages/stage-3-ai-analysis.tsx` - toast updates
+- `client/src/components/project/compare-modal.tsx` - title/buttons/toasts
+- `client/src/components/project/history-modal.tsx` - title/description
+
+**Acceptance Criteria Met:**
+- ✅ AC1: Empty state shows "Черновик для сравнения: отсутствует"
+- ✅ AC2: Creating state shows progress, then "Черновик готов" when done
+- ✅ AC3: Modal opens with Метрики/Сцены tabs, buttons work
+- ✅ AC4: Accepting creates vN+1, modal closes, button disappears
+- ✅ AC5: History always accessible, shows v1…vN with restore
+- ✅ AC6: Reload preserves job status and candidate state
+- ✅ AC7: Clear semantic separation between draft comparison and version history
+
+---
+
 ### October 25, 2025 - Async Reanalysis Frontend Integration (COMPLETED ✅)
 **Status**: FULLY INTEGRATED IN STAGE 3
 
