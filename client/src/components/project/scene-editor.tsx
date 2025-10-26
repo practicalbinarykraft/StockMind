@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -68,6 +68,12 @@ export function SceneEditor({
   const [showHistory, setShowHistory] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
+
+  // Check if there are unsaved changes
+  const hasChanges = useMemo(() => {
+    if (scenes.length !== initialScenes.length) return true;
+    return scenes.some((s, idx) => s.text !== initialScenes[idx].text);
+  }, [scenes, initialScenes]);
 
   // Analyze script mutation
   const analyzeScriptMutation = useMutation({
@@ -348,6 +354,7 @@ export function SceneEditor({
                 <Button
                   variant="outline"
                   onClick={onReanalyze}
+                  disabled={!hasChanges}
                   className="w-full gap-2"
                   data-testid="button-reanalyze"
                   size="sm"
