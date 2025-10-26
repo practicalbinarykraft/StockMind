@@ -8,7 +8,7 @@ import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import Parser from "rss-parser";
-import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText, scoreInstagramReel } from "./ai-service";
+import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText, scoreInstagramReel, generateSceneRecommendations } from "./ai-service";
 import { scoreNewsAdvanced, scoreReelAdvanced, scoreCustomScriptAdvanced } from "./ai-service-advanced";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
@@ -3502,8 +3502,40 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
 • Сохранения: ${metrics.predicted.saves}
 • Репосты: ${metrics.predicted.shares}`;
 
-      // Extract recommendations
-      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, scenes.length);
+      // Generate per-scene recommendations ("magic" feature)
+      console.log(`[Analysis Run] Generating per-scene recommendations...`);
+      let sceneRecommendationsData: any[] = [];
+      
+      try {
+        const aiRecommendations = await generateSceneRecommendations(
+          apiKey.encryptedKey,
+          scenes.map((s: any) => ({ sceneNumber: s.sceneNumber, text: s.text })),
+          {
+            format: 'short-form',
+            language: 'ru',
+            goal: 'maximize retention and saves'
+          }
+        );
+        
+        // Transform AI recommendations to database format
+        sceneRecommendationsData = aiRecommendations.map(rec => ({
+          sceneId: rec.sceneNumber,
+          priority: rec.priority,
+          area: rec.area,
+          currentText: rec.current,
+          suggestedText: rec.suggested,
+          reasoning: rec.reasoning,
+          expectedImpact: rec.expectedImpact,
+          sourceAgent: rec.area,
+          scoreDelta: rec.delta || 10,
+          confidence: rec.priority === 'high' ? 0.9 : rec.priority === 'medium' ? 0.7 : 0.5,
+        }));
+        
+        console.log(`[Analysis Run] Generated ${sceneRecommendationsData.length} scene recommendations`);
+      } catch (error: any) {
+        console.error(`[Analysis Run] Failed to generate scene recommendations:`, error.message);
+        // Continue without recommendations rather than failing the whole analysis
+      }
 
       // Build response
       const responseData = {
@@ -3516,7 +3548,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
           predictedMetrics: metrics.predicted,
           perSceneScores
         },
-        recommendations: recommendationsData,
+        recommendations: sceneRecommendationsData,
         review,
         cached: false
       };
@@ -3546,8 +3578,8 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
         await db.delete(sceneRecommendations)
           .where(eq(sceneRecommendations.scriptVersionId, currentVersion.id));
         
-        if (recommendationsData.length > 0) {
-          const recommendations = recommendationsData.map(rec => ({
+        if (sceneRecommendationsData.length > 0) {
+          const recommendations = sceneRecommendationsData.map(rec => ({
             ...rec,
             scriptVersionId: currentVersion.id,
           }));

@@ -551,7 +551,8 @@ Return JSON with this EXACT structure:
     });
     
     const batchResults = await Promise.all(batchPromises);
-    allRecommendations.push(...batchResults.filter((r): r is SceneRecommendation => r !== null));
+    const validResults = batchResults.filter(r => r !== null) as SceneRecommendation[];
+    allRecommendations.push(...validResults);
     
     // Small delay between batches to avoid rate limits
     if (i + BATCH_SIZE < scenes.length) {
