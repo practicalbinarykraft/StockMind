@@ -3487,9 +3487,9 @@ ${content}`;
       const metrics = {
         overallScore: analysisResult.overallScore,
         hookScore: analysisResult.breakdown?.hook?.score || 0,
-        structureScore: analysisResult.breakdown?.structure?.score || 0,
-        emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
-        ctaScore: analysisResult.breakdown?.cta?.score || 0,
+        structureScore: analysisResult.structureScore || 0,
+        emotionalScore: analysisResult.emotionalScore || 0,
+        ctaScore: analysisResult.ctaScore || 0,
         predicted: {
           retention: (predicted as any).estimatedRetention || "н/д",
           saves: (predicted as any).estimatedSaves || "н/д",
@@ -3772,9 +3772,9 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
           const metrics = {
             overallScore: analysisResult.overallScore,
             hookScore: analysisResult.breakdown?.hook?.score || 0,
-            structureScore: analysisResult.breakdown?.structure?.score || 0,
-            emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
-            ctaScore: analysisResult.breakdown?.cta?.score || 0,
+            structureScore: analysisResult.structureScore || 0,
+            emotionalScore: analysisResult.emotionalScore || 0,
+            ctaScore: analysisResult.ctaScore || 0,
             predicted: {
               retention: (predicted as any).estimatedRetention || "н/д",
               saves: (predicted as any).estimatedSaves || "н/д",
@@ -3980,9 +3980,9 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
           const metrics = {
             overallScore: analysisResult.overallScore,
             hookScore: analysisResult.breakdown?.hook?.score || 0,
-            structureScore: analysisResult.breakdown?.structure?.score || 0,
-            emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
-            ctaScore: analysisResult.breakdown?.cta?.score || 0,
+            structureScore: analysisResult.structureScore || 0,
+            emotionalScore: analysisResult.emotionalScore || 0,
+            ctaScore: analysisResult.ctaScore || 0,
             predicted: {
               retention: (predicted as any).estimatedRetention || "н/д",
               saves: (predicted as any).estimatedSaves || "н/д",

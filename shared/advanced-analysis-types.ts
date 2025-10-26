@@ -10,6 +10,11 @@ export interface AdvancedScoreResult {
   verdict: 'viral' | 'strong' | 'moderate' | 'weak';
   confidence: number;  // 0-1
   
+  // Agent scores (top-level for easy access)
+  structureScore?: number;  // 0-100
+  emotionalScore?: number;  // 0-100
+  ctaScore?: number;  // 0-100
+  
   // Detailed breakdown
   breakdown: {
     hook: HookBreakdown;
