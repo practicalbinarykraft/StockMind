@@ -32,6 +32,54 @@ import { ScriptVersionService } from './services/script-version-service';
 import { jobManager } from './lib/reanalysis-job-manager';
 
 // ============================================================================
+// IN-MEMORY CACHE FOR TEMPORARY ANALYSES
+// ============================================================================
+
+interface CachedAnalysis {
+  scenesHash: string;
+  timestamp: number;
+  result: {
+    analysis: any;
+    recommendations: any[];
+    review: string;
+  };
+}
+
+// Simple LRU cache with max 50 entries, 1 hour TTL
+const temporaryAnalysisCache = new Map<string, CachedAnalysis>();
+const MAX_CACHE_SIZE = 50;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function getCachedTemporaryAnalysis(scenesHash: string): CachedAnalysis['result'] | null {
+  const cached = temporaryAnalysisCache.get(scenesHash);
+  if (!cached) return null;
+  
+  // Check TTL
+  if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
+    temporaryAnalysisCache.delete(scenesHash);
+    return null;
+  }
+  
+  return cached.result;
+}
+
+function setCachedTemporaryAnalysis(scenesHash: string, result: CachedAnalysis['result']) {
+  // Evict oldest entry if cache is full
+  if (temporaryAnalysisCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = temporaryAnalysisCache.keys().next().value;
+    if (firstKey) {
+      temporaryAnalysisCache.delete(firstKey);
+    }
+  }
+  
+  temporaryAnalysisCache.set(scenesHash, {
+    scenesHash,
+    timestamp: Date.now(),
+    result
+  });
+}
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
@@ -3300,6 +3348,478 @@ ${content}`;
     } catch (error: any) {
       console.error('[Create Initial Version] Error:', error);
       return apiResponse.serverError(res, error.message, error);
+    }
+  });
+
+  // ============================================================================
+  // ANALYSIS ROUTES (Script Analysis without Version Creation)
+  // ============================================================================
+
+  // POST /api/projects/:id/analysis/run - Analyze current version (idempotent, cached)
+  // Supports optional 'scenes' in body for analyzing unsaved edits (uses in-memory cache)
+  app.post("/api/projects/:id/analysis/run", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId } = req.params;
+      const { scenes: requestScenes } = req.body; // Optional: analyze unsaved edits
+
+      // Validate project exists
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get current version
+      const currentVersion = await storage.getCurrentScriptVersion(projectId);
+      if (!currentVersion) {
+        return apiResponse.badRequest(res, "No current version found");
+      }
+
+      // Check for API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return apiResponse.notFound(res, "Anthropic API key not configured");
+      }
+
+      // Use provided scenes or fall back to DB version
+      const scenes = requestScenes || (currentVersion.scenes as any || []);
+      const fullScript = requestScenes 
+        ? scenes.map((s: any) => s.text).join('\n\n')
+        : currentVersion.fullScript;
+      const isTemporaryEdit = !!requestScenes;
+      
+      // Compute content hash for cache validation
+      const crypto = await import('crypto');
+      const scenesHash = crypto.createHash('sha256')
+        .update(JSON.stringify(scenes.map((s: any) => ({ sceneNumber: s.sceneNumber, text: s.text }))))
+        .digest('hex');
+      
+      // Check cache (in-memory for temporary edits, DB for persisted version)
+      if (isTemporaryEdit) {
+        // Check in-memory cache for temporary edits
+        const cachedResult = getCachedTemporaryAnalysis(scenesHash);
+        if (cachedResult) {
+          console.log(`[Analysis Run] Using in-memory cache for temporary edit (hash: ${scenesHash.slice(0, 8)})`);
+          return apiResponse.ok(res, {
+            ...cachedResult,
+            cached: true
+          });
+        }
+      } else {
+        // Check DB cache for persisted version
+        const existingAnalysis = currentVersion.analysisResult as any;
+        const existingMetrics = currentVersion.metrics as any;
+        
+        if (existingAnalysis && existingMetrics && existingAnalysis.scenesHash === scenesHash) {
+          console.log(`[Analysis Run] Using DB cache for version ${currentVersion.id} (hash match)`);
+          
+          const recommendations = await storage.getSceneRecommendations(currentVersion.id);
+          
+          return apiResponse.ok(res, {
+            analysis: {
+              overallScore: existingMetrics.overallScore || currentVersion.analysisScore || 0,
+              breakdown: {
+                hook: { score: existingMetrics.hookScore || 0 },
+                structure: { score: existingMetrics.structureScore || 0 },
+                emotional: { score: existingMetrics.emotionalScore || 0 },
+                cta: { score: existingMetrics.ctaScore || 0 },
+              },
+              verdict: existingAnalysis.verdict || 'н/д',
+              strengths: existingAnalysis.strengths || [],
+              weaknesses: existingAnalysis.weaknesses || [],
+              predictedMetrics: existingMetrics.predicted || {},
+              perSceneScores: existingMetrics.perScene || []
+            },
+            recommendations: recommendations.filter(r => !r.applied),
+            review: currentVersion.review || '',
+            cached: true
+          });
+        }
+      }
+
+      // Run fresh analysis
+      console.log(`[Analysis Run] Running fresh analysis - ${scenes.length} scenes (temporary: ${isTemporaryEdit})`);
+      
+      // Run advanced analysis
+      const analysisResult = await scoreCustomScriptAdvanced(
+        apiKey.encryptedKey,
+        fullScript,
+        'short-form'
+      );
+
+      // Per-scene analysis
+      const perSceneScores = scenes && Array.isArray(scenes)
+        ? await Promise.all(
+            scenes.map(async (scene: any) => {
+              try {
+                const sceneAnalysis = await scoreCustomScriptAdvanced(
+                  apiKey.encryptedKey,
+                  scene.text,
+                  'short-form'
+                );
+                return {
+                  sceneNumber: scene.sceneNumber,
+                  score: sceneAnalysis.overallScore
+                };
+              } catch (err) {
+                console.error(`[Analysis Run] Scene ${scene.sceneNumber} failed:`, err);
+                return {
+                  sceneNumber: scene.sceneNumber,
+                  score: 0
+                };
+              }
+            })
+          )
+        : [];
+
+      // Build metrics
+      const predicted = analysisResult.predictedMetrics || {};
+      const metrics = {
+        overallScore: analysisResult.overallScore,
+        hookScore: analysisResult.breakdown?.hook?.score || 0,
+        structureScore: analysisResult.breakdown?.structure?.score || 0,
+        emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
+        ctaScore: analysisResult.breakdown?.cta?.score || 0,
+        predicted: {
+          retention: (predicted as any).estimatedRetention || "н/д",
+          saves: (predicted as any).estimatedSaves || "н/д",
+          shares: (predicted as any).estimatedShares || "н/д",
+          viralProbability: (predicted as any).viralProbability || "low"
+        },
+        perScene: perSceneScores
+      };
+
+      const review = `Общая оценка: ${analysisResult.overallScore}/100 (${analysisResult.verdict})
+
+Сильные стороны:
+${analysisResult.strengths?.map((s: string) => `• ${s}`).join('\n') || '• Не указано'}
+
+Слабые стороны:
+${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• Не указано'}
+
+Прогноз:
+• Удержание: ${metrics.predicted.retention}
+• Сохранения: ${metrics.predicted.saves}
+• Репосты: ${metrics.predicted.shares}`;
+
+      // Extract recommendations
+      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, scenes.length);
+
+      // Build response
+      const responseData = {
+        analysis: {
+          overallScore: analysisResult.overallScore,
+          breakdown: analysisResult.breakdown || {},
+          verdict: analysisResult.verdict || 'н/д',
+          strengths: analysisResult.strengths || [],
+          weaknesses: analysisResult.weaknesses || [],
+          predictedMetrics: metrics.predicted,
+          perSceneScores
+        },
+        recommendations: recommendationsData,
+        review,
+        cached: false
+      };
+
+      // Cache based on type
+      if (isTemporaryEdit) {
+        // Save to in-memory cache for temporary edits
+        setCachedTemporaryAnalysis(scenesHash, responseData);
+        console.log(`[Analysis Run] Cached temporary analysis in memory (hash: ${scenesHash.slice(0, 8)})`);
+      } else {
+        // Save to DB for persisted version
+        const enhancedAnalysisResult = {
+          ...analysisResult,
+          scenesHash
+        };
+
+        await db.update(scriptVersions)
+          .set({
+            analysisResult: enhancedAnalysisResult,
+            analysisScore: analysisResult.overallScore,
+            metrics,
+            review
+          })
+          .where(eq(scriptVersions.id, currentVersion.id));
+
+        // Delete old recommendations for this version
+        await db.delete(sceneRecommendations)
+          .where(eq(sceneRecommendations.scriptVersionId, currentVersion.id));
+        
+        if (recommendationsData.length > 0) {
+          const recommendations = recommendationsData.map(rec => ({
+            ...rec,
+            scriptVersionId: currentVersion.id,
+          }));
+          
+          await storage.createSceneRecommendations(recommendations);
+        }
+
+        console.log(`[Analysis Run] Cached analysis in DB for version ${currentVersion.id} - score: ${analysisResult.overallScore}`);
+      }
+
+      return apiResponse.ok(res, responseData);
+
+    } catch (error: any) {
+      console.error("[Analysis Run] Error:", error);
+      return apiResponse.serverError(res, error.message || "Failed to analyze script");
+    }
+  });
+
+  // POST /api/projects/:id/versions - Save new version with edited scenes (creates candidate + auto-analyze)
+  app.post("/api/projects/:id/versions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id: projectId } = req.params;
+      const { scenes, fullScript, idempotencyKey } = req.body;
+
+      if (!scenes || !Array.isArray(scenes) || !fullScript) {
+        return apiResponse.badRequest(res, "scenes and fullScript are required");
+      }
+
+      // Validate project exists
+      const project = await storage.getProject(projectId, userId);
+      if (!project) return apiResponse.notFound(res, "Project not found");
+
+      // Get current version
+      const currentVersion = await storage.getCurrentScriptVersion(projectId);
+      if (!currentVersion) {
+        return apiResponse.badRequest(res, "No current version found");
+      }
+
+      // Check for API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return apiResponse.notFound(res, "Anthropic API key not configured");
+      }
+
+      // Create job (throws ALREADY_RUNNING if job exists)
+      let job;
+      try {
+        job = jobManager.createJob(projectId, idempotencyKey);
+      } catch (err: any) {
+        if (err.code === 'ALREADY_RUNNING') {
+          return res.status(409).json({
+            success: false,
+            error: "Version creation already in progress",
+            jobId: err.existingJob.jobId,
+            status: err.existingJob.status,
+            retryAfter: 5
+          });
+        }
+        throw err;
+      }
+
+      console.log(`[Create Version]`, {
+        jobId: job.jobId,
+        projectId,
+        scenesCount: scenes.length,
+        timestamp: new Date().toISOString()
+      });
+
+      // Start async processing: create candidate version + analyze it
+      setImmediate(async () => {
+        try {
+          jobManager.updateJobStatus(job.jobId, 'running');
+          
+          // First, create the candidate version with the edited scenes
+          jobManager.updateJobProgress(job.jobId, 'saving', 10);
+          
+          const candidateVersionId = await db.transaction(async (tx) => {
+            // Remove existing candidate
+            const existing = await tx
+              .select()
+              .from(scriptVersions)
+              .where(and(
+                eq(scriptVersions.projectId, projectId),
+                eq(scriptVersions.isCandidate, true)
+              ))
+              .limit(1);
+
+            if (existing.length > 0) {
+              await tx.delete(scriptVersions).where(eq(scriptVersions.id, existing[0].id));
+              await tx.delete(sceneRecommendations).where(eq(sceneRecommendations.scriptVersionId, existing[0].id));
+            }
+
+            // Get next version number
+            const maxResult = await tx
+              .select({ max: sql<number>`COALESCE(MAX(${scriptVersions.versionNumber}), 0)` })
+              .from(scriptVersions)
+              .where(eq(scriptVersions.projectId, projectId));
+            
+            const nextVersion = (maxResult[0]?.max || 0) + 1;
+
+            // Create candidate with edited scenes
+            const [candidate] = await tx.insert(scriptVersions).values({
+              projectId,
+              versionNumber: nextVersion,
+              createdBy: 'user', // User edited the scenes
+              fullScript,
+              scenes,
+              isCandidate: true,
+              isCurrent: false,
+              baseVersionId: currentVersion.id,
+              parentVersionId: currentVersion.id,
+            }).returning();
+
+            console.log(`[Create Version] Created candidate version ${candidate.id}`);
+            return candidate.id;
+          });
+
+          // Now analyze the candidate version
+          jobManager.updateJobProgress(job.jobId, 'hook', 20);
+          
+          const candidateVersion = await storage.getScriptVersions(projectId)
+            .then(versions => versions.find(v => v.id === candidateVersionId));
+          
+          if (!candidateVersion) {
+            throw new Error('Failed to retrieve created candidate version');
+          }
+
+          console.log(`[Create Version] Analyzing candidate ${candidateVersionId} - ${scenes.length} scenes`);
+          
+          // Run advanced analysis
+          jobManager.updateJobProgress(job.jobId, 'structure', 30);
+          const analysisResult = await jobManager.retryWithBackoff(async () => {
+            return await scoreCustomScriptAdvanced(
+              apiKey.encryptedKey,
+              fullScript,
+              'short-form'
+            );
+          });
+
+          // Per-scene analysis
+          jobManager.updateJobProgress(job.jobId, 'emotional', 50);
+          const perSceneScores = scenes && Array.isArray(scenes)
+            ? await Promise.all(
+                scenes.map(async (scene: any, index: number) => {
+                  try {
+                    const sceneAnalysis = await jobManager.retryWithBackoff(async () => {
+                      return await scoreCustomScriptAdvanced(
+                        apiKey.encryptedKey,
+                        scene.text,
+                        'short-form'
+                      );
+                    });
+                    
+                    const sceneProgress = 50 + Math.floor((index + 1) / scenes.length * 20);
+                    jobManager.updateJobProgress(job.jobId, 'emotional', sceneProgress);
+                    
+                    return {
+                      sceneNumber: scene.sceneNumber,
+                      score: sceneAnalysis.overallScore
+                    };
+                  } catch (err) {
+                    console.error(`[Create Version] Scene ${scene.sceneNumber} analysis failed:`, err);
+                    return {
+                      sceneNumber: scene.sceneNumber,
+                      score: 0
+                    };
+                  }
+                })
+              )
+            : [];
+
+          jobManager.updateJobProgress(job.jobId, 'cta', 70);
+
+          // Build metrics
+          jobManager.updateJobProgress(job.jobId, 'synthesis', 80);
+          const predicted = analysisResult.predictedMetrics || {};
+          const metrics = {
+            overallScore: analysisResult.overallScore,
+            hookScore: analysisResult.breakdown?.hook?.score || 0,
+            structureScore: analysisResult.breakdown?.structure?.score || 0,
+            emotionalScore: analysisResult.breakdown?.emotional?.score || 0,
+            ctaScore: analysisResult.breakdown?.cta?.score || 0,
+            predicted: {
+              retention: (predicted as any).estimatedRetention || "н/д",
+              saves: (predicted as any).estimatedSaves || "н/д",
+              shares: (predicted as any).estimatedShares || "н/д",
+              viralProbability: (predicted as any).viralProbability || "low"
+            },
+            perScene: perSceneScores
+          };
+
+          const review = `Общая оценка: ${analysisResult.overallScore}/100 (${analysisResult.verdict})
+
+Сильные стороны:
+${analysisResult.strengths?.map((s: string) => `• ${s}`).join('\n') || '• Не указано'}
+
+Слабые стороны:
+${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• Не указано'}
+
+Прогноз:
+• Удержание: ${metrics.predicted.retention}
+• Сохранения: ${metrics.predicted.saves}
+• Репосты: ${metrics.predicted.shares}`;
+
+          // Update candidate with analysis results
+          jobManager.updateJobProgress(job.jobId, 'saving', 90);
+          await db.update(scriptVersions)
+            .set({
+              metrics,
+              review,
+              analysisResult,
+              analysisScore: analysisResult.overallScore
+            })
+            .where(eq(scriptVersions.id, candidateVersionId));
+
+          jobManager.updateJobProgress(job.jobId, 'saving', 100);
+          jobManager.updateJobStatus(job.jobId, 'done', candidateVersionId);
+          
+          const durationMs = Date.now() - job.startedAt.getTime();
+          console.log(`[Create Version] Done`, {
+            jobId: job.jobId,
+            projectId,
+            candidateVersionId,
+            durationMs,
+            timestamp: new Date().toISOString()
+          });
+
+        } catch (error: any) {
+          const errorStatus = error?.status || error?.response?.status;
+          const isRateLimit = errorStatus === 429;
+          const isServerError = errorStatus >= 500 && errorStatus < 600;
+          
+          console.error(`[Create Version] Job ${job.jobId} failed:`, {
+            errorMessage: error.message,
+            errorStatus,
+            isRateLimit,
+            isServerError,
+          });
+          
+          let userMessage = error.message || 'Ошибка создания версии';
+          if (isRateLimit || isServerError) {
+            userMessage = 'Временная ошибка сервиса. Повторите позже.';
+          }
+          
+          jobManager.updateJobStatus(job.jobId, 'error', undefined, userMessage);
+          
+          const durationMs = Date.now() - job.startedAt.getTime();
+          console.log(`[Create Version] Failed`, {
+            jobId: job.jobId,
+            projectId,
+            errorCode: errorStatus || 'unknown',
+            errorMessage: error.message,
+            userMessage,
+            durationMs,
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+
+      // Return immediately with 202
+      res.status(202);
+      return apiResponse.ok(res, {
+        jobId: job.jobId,
+        message: "Version creation started"
+      });
+
+    } catch (error: any) {
+      console.error("[Create Version] Error:", error);
+      return apiResponse.serverError(res, error.message || "Failed to create version");
     }
   });
 
