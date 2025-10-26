@@ -13,12 +13,12 @@ interface ReanalysisProgressCardProps {
 }
 
 const stepLabels: Record<string, string> = {
-  hook: 'Hook (Зацепка)',
-  structure: 'Structure (Структура)',
-  emotional: 'Emotional (Эмоции)',
-  cta: 'CTA (Призыв к действию)',
-  synthesis: 'Синтез',
-  saving: 'Сохранение'
+  hook: 'Анализируем: Хук',
+  structure: 'Анализируем: Структура',
+  emotional: 'Анализируем: Эмоции',
+  cta: 'Анализируем: CTA',
+  synthesis: 'Формируем оценку',
+  saving: 'Сохраняем результаты'
 };
 
 export function ReanalysisProgressCard({

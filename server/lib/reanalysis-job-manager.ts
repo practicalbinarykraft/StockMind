@@ -21,8 +21,12 @@ export interface ReanalysisJob {
 
 class ReanalysisJobManager {
   private jobs: Map<string, ReanalysisJob> = new Map();
-  private readonly JOB_TIMEOUT_MS = 70000; // 70 seconds
+  private readonly JOB_TIMEOUT_MS = 120000; // 120 seconds (2 minutes)
   private idempotencyMap: Map<string, string> = new Map(); // idempotencyKey -> jobId
+  
+  // Retry configuration
+  private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAYS_MS = [1000, 3000, 7000]; // Exponential backoff: 1s, 3s, 7s
 
   createJob(projectId: string, idempotencyKey?: string): ReanalysisJob {
     // Check idempotency - return existing job if same key
@@ -70,7 +74,7 @@ class ReanalysisJobManager {
       if (currentJob && (currentJob.status === 'queued' || currentJob.status === 'running')) {
         console.log(`[JobManager] Job ${jobId} timed out`);
         currentJob.status = 'error';
-        currentJob.error = 'Не удалось завершить за 70 секунд. Попробуйте снова';
+        currentJob.error = 'Пересчёт занял слишком долго (>2 минут). Попробуйте снова или отмените черновик.';
         currentJob.canRetry = true;
         currentJob.completedAt = new Date();
       }
@@ -124,6 +128,46 @@ class ReanalysisJobManager {
 
     job.baseVersionId = baseVersionId;
     job.scenesCount = scenesCount;
+  }
+
+  /**
+   * Executes an async function with retry logic and exponential backoff
+   * @param fn Function to execute
+   * @param retryOn Function to determine if error should trigger retry (default: check for 429/5xx)
+   * @returns Result of fn
+   */
+  async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    retryOn?: (error: any) => boolean
+  ): Promise<T> {
+    const shouldRetry = retryOn || ((error: any) => {
+      // Retry on rate limits (429) or server errors (5xx)
+      const status = error?.status || error?.response?.status;
+      return status === 429 || (status >= 500 && status < 600);
+    });
+
+    let lastError: any;
+    
+    for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry if this is the last attempt or error is not retryable
+        if (attempt >= this.MAX_RETRIES || !shouldRetry(error)) {
+          throw error;
+        }
+        
+        const delayMs = this.RETRY_DELAYS_MS[attempt] || this.RETRY_DELAYS_MS[this.RETRY_DELAYS_MS.length - 1];
+        console.log(`[JobManager] Retry attempt ${attempt + 1}/${this.MAX_RETRIES} after ${delayMs}ms...`);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    
+    throw lastError;
   }
 
   // Clean up old jobs (called periodically)

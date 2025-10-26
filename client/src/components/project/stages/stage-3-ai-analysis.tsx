@@ -152,17 +152,12 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         }
       }, 2000);
 
-      // Auto-clear after 70s
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        localStorage.removeItem('reanalyzeJobId');
-        localStorage.removeItem('reanalyzeProjectId');
-      }, 70000);
+      // No hard timeout - poll until job reaches final status (done/error)
+      // The server has a 120-second timeout that will set status to 'error' if exceeded
 
       // Cleanup on unmount
       return () => {
         clearInterval(interval);
-        clearTimeout(timeout);
       };
     }
   }, [project.id]);
@@ -265,12 +260,8 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         }
       }, 2000); // Poll every 2s
 
-      // Auto-clear after 70s
-      pollingTimeoutRef.current = setTimeout(() => {
-        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-        localStorage.removeItem('reanalyzeJobId');
-        localStorage.removeItem('reanalyzeProjectId');
-      }, 70000);
+      // No hard timeout - poll until job reaches final status (done/error)
+      // The server has a 120-second timeout that will set status to 'error' if exceeded
     },
     onError: (error: any) => {
       toast({

@@ -3260,27 +3260,39 @@ ${content}`;
       setImmediate(async () => {
         try {
           jobManager.updateJobStatus(job.jobId, 'running');
+          jobManager.updateJobProgress(job.jobId, 'hook', 0);
           
           const scenes = currentVersion.scenes as any || [];
           console.log(`[Reanalyze] Job ${job.jobId} running - analyzing ${scenes.length} scenes`);
           
-          // Run advanced analysis
-          const analysisResult = await scoreCustomScriptAdvanced(
-            apiKey.encryptedKey,
-            currentVersion.fullScript,
-            'short-form'
-          );
+          // Run advanced analysis with retry logic
+          jobManager.updateJobProgress(job.jobId, 'structure', 20);
+          const analysisResult = await jobManager.retryWithBackoff(async () => {
+            return await scoreCustomScriptAdvanced(
+              apiKey.encryptedKey,
+              currentVersion.fullScript,
+              'short-form'
+            );
+          });
 
-          // Per-scene analysis
+          // Per-scene analysis with progress reporting
+          jobManager.updateJobProgress(job.jobId, 'emotional', 50);
           const perSceneScores = scenes && Array.isArray(scenes)
             ? await Promise.all(
-                scenes.map(async (scene: any) => {
+                scenes.map(async (scene: any, index: number) => {
                   try {
-                    const sceneAnalysis = await scoreCustomScriptAdvanced(
-                      apiKey.encryptedKey,
-                      scene.text,
-                      'short-form'
-                    );
+                    const sceneAnalysis = await jobManager.retryWithBackoff(async () => {
+                      return await scoreCustomScriptAdvanced(
+                        apiKey.encryptedKey,
+                        scene.text,
+                        'short-form'
+                      );
+                    });
+                    
+                    // Update progress based on scenes processed
+                    const sceneProgress = 50 + Math.floor((index + 1) / scenes.length * 20);
+                    jobManager.updateJobProgress(job.jobId, 'emotional', sceneProgress);
+                    
                     return {
                       sceneNumber: scene.sceneNumber,
                       score: sceneAnalysis.overallScore
@@ -3296,7 +3308,10 @@ ${content}`;
               )
             : [];
 
+          jobManager.updateJobProgress(job.jobId, 'cta', 70);
+
           // Build metrics
+          jobManager.updateJobProgress(job.jobId, 'synthesis', 80);
           const predicted = analysisResult.predictedMetrics || {};
           const metrics = {
             overallScore: analysisResult.overallScore,
@@ -3327,6 +3342,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
 • Репосты: ${metrics.predicted.shares}`;
 
           // Create candidate version
+          jobManager.updateJobProgress(job.jobId, 'saving', 90);
           const candidateVersion = await db.transaction(async (tx) => {
             // Remove existing candidate
             const existing = await tx
@@ -3371,6 +3387,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
             return candidate;
           });
 
+          jobManager.updateJobProgress(job.jobId, 'saving', 100);
           jobManager.updateJobStatus(job.jobId, 'done', candidateVersion.id);
           console.log(`[Reanalyze] Job ${job.jobId} completed - candidate ${candidateVersion.id}`);
 
