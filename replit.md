@@ -26,6 +26,7 @@ The user interface adheres to a professional, production-tool aesthetic inspired
 -   **API Endpoint Structure**: Endpoints follow a pattern of input validation, data fetching, external service calls, and atomic database updates, returning structured responses.
 -   **Frontend Data Fetching**: Utilizes React Query for efficient data management, caching, and state synchronization.
 -   **Drizzle Schema Pattern**: Enforces type safety and consistency across frontend and backend.
+-   **Version Comparison**: Explicit version IDs in comparison endpoint prevent stale data; delta computation short-circuits to null during running analyses to avoid misleading values; UI shows skeleton states for metrics and em dashes for deltas until analysis completes.
 
 ### Feature Specifications
 -   **Workflow**: A 7-stage automated pipeline for video production.
