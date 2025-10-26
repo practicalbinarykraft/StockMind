@@ -1403,10 +1403,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { id } = req.params;
-      const project = await storage.getProject(id, userId);
+      
+      // First check if project exists at all
+      const project = await storage.getProjectById(id);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+      
+      // Check if user has access to this project
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
       res.json(project);
     } catch (error) {
       console.error("Error fetching project:", error);

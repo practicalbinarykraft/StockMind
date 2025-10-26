@@ -2,13 +2,14 @@ import { useParams, useLocation } from "wouter"
 import { useQuery } from "@tanstack/react-query"
 import type { Project, ProjectStep } from "@shared/schema"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Menu } from "lucide-react"
+import { ArrowLeft, Menu, Home } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ProjectSidebar } from "@/components/project/project-sidebar"
 import { StageContent } from "@/components/project/stage-content"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { useState, useEffect } from "react"
+import { ApiError } from "@/lib/query-client"
 
 export default function ProjectWorkflow() {
   const params = useParams()
@@ -54,10 +55,72 @@ export default function ProjectWorkflow() {
     gcTime: 0,     // Clear cache immediately
   })
 
-  // Handle 401 Unauthorized - redirect to login
-  if (projectError && projectError.message.includes('401')) {
-    window.location.href = "/api/login"
-    return null
+  // Handle errors with proper status codes
+  if (projectError) {
+    const error = projectError as ApiError;
+    const status = error.status || 0;
+
+    // 401 - Unauthorized (session expired) - redirect to login
+    if (status === 401) {
+      const currentPath = window.location.pathname + window.location.search;
+      const next = encodeURIComponent(currentPath);
+      window.location.href = `/api/login?next=${next}`;
+      return null;
+    }
+
+    // 403 - Forbidden (project belongs to another user)
+    if (status === 403) {
+      return (
+        <div className="flex h-screen items-center justify-center">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-bold mb-2">Нет доступа к проекту</h2>
+            <p className="text-muted-foreground mb-6">
+              Этот проект принадлежит другому пользователю.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => setLocation("/")} variant="outline">
+                <Home className="h-4 w-4 mr-2" />
+                На главную
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 404 - Not Found (project doesn't exist)
+    if (status === 404) {
+      return (
+        <div className="flex h-screen items-center justify-center">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-bold mb-2">Проект не найден</h2>
+            <p className="text-muted-foreground mb-6">
+              Возможно, он был удалён или ID указан неверно.
+            </p>
+            <Button onClick={() => setLocation("/")}>
+              <Home className="h-4 w-4 mr-2" />
+              На главную
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Other errors
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold mb-2">Ошибка загрузки</h2>
+          <p className="text-muted-foreground mb-6">
+            {error.message || "Не удалось загрузить проект"}
+          </p>
+          <Button onClick={() => setLocation("/")}>
+            <Home className="h-4 w-4 mr-2" />
+            На главную
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (projectLoading) {
@@ -79,18 +142,17 @@ export default function ProjectWorkflow() {
     )
   }
 
-  // Handle 404 or other errors - show not found message
-  if (!project || projectError) {
+  if (!project) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Project not found</h2>
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold mb-2">Проект не найден</h2>
           <p className="text-muted-foreground mb-6">
-            This project doesn't exist or you don't have access to it.
+            Не удалось загрузить данные проекта.
           </p>
           <Button onClick={() => setLocation("/")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
+            <Home className="h-4 w-4 mr-2" />
+            На главную
           </Button>
         </div>
       </div>
