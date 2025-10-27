@@ -29,13 +29,20 @@ The user interface adheres to a professional, production-tool aesthetic inspired
 -   **Candidate Version Model**: Implements "candidate → compare → accept" workflow where edits create a candidate version (`is_candidate=true`) that is analyzed, compared with current version, then explicitly accepted (becomes `is_current=true`) or rejected. Editor displays candidate when available (`candidate ?? current`), cache invalidates immediately after candidate creation (not waiting for analysis), and UI banner provides Compare/Accept/Reject actions.
 -   **Score Calculation Fix (Oct 26, 2025)**: Fixed critical bug where `structureScore`, `emotionalScore`, `ctaScore` were incorrectly extracted from nested `breakdown` paths instead of top-level `analysisResult` fields matching Claude API response structure. Fixed in 3 locations in `routes.ts` (lines ~3487, ~3772, ~3980).
 -   **Version Comparison**: Explicit version IDs in comparison endpoint prevent stale data; delta computation short-circuits to null during running analyses to avoid misleading values; UI shows skeleton states for metrics and em dashes for deltas until analysis completes.
+-   **Instagram Analytics Architecture**: 
+    - **Security**: Dual encryption system - legacy API keys use `storage.ts encryptApiKey/decryptApiKey` (AES-256-CBC with random IV), Instagram tokens use `server/encryption.ts` (scrypt-derived key derivation with fixed IV). OAuth callback, sync service, and all routes consistently use encryption.ts for Instagram tokens.
+    - **Sync Service**: Intelligent scheduling (hourly for first 48h post-publish → daily thereafter), exponential backoff (1min → 2min → 5min → 10min → 30min on errors), per-media tracking of nextSyncAt timestamps.
+    - **Database Schema**: Composite unique constraint `(igAccountId, igMediaId)` prevents cross-user overwrites, all routes validate ownership before mutations.
+    - **Token Management**: Long-Lived Tokens (60-day expiry) with automatic refresh 14 days before expiration, token status badges (valid/expiring_soon/expired) in UI.
+    - **Frontend Components**: AccountConnection (OAuth flow), MediaList (Reels browser with sync controls), VersionComparison (predicted vs actual metrics with delta badges), AIRecommendations (context-aware advice based on performance gaps).
 
 ### Feature Specifications
--   **Workflow**: A 7-stage automated pipeline for video production.
+-   **Workflow**: An 8-stage automated pipeline for video production and performance analytics.
 -   **Content Sources**: Supports RSS feeds (with Readability integration) and Instagram Reels (via Apify scraping).
 -   **Script Versioning**: Non-destructive editing with parent-child relationships, allowing history tracking and reverts.
 -   **AI Recommendations**: Scene-specific AI suggestions for improving virality, with options to apply individual or all recommendations.
 -   **API Key Management**: Secure storage of external API keys, encrypted with AES-256.
+-   **Instagram Analytics (Stage 8)**: Full-featured performance tracking system connecting AI predictions with real Instagram metrics, featuring OAuth2 integration, automatic sync scheduling, and AI-powered recommendations.
 
 ## External Dependencies
 
