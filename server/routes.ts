@@ -4511,6 +4511,9 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
       const baseMetrics = currentVersion.metrics as any || {};
       const candidateMetrics = candidateVersion.metrics as any || {};
       
+      // Check candidate analysis status - metrics presence indicates completion
+      const analysisStatus = candidateMetrics.overallScore ? 'done' : 'running';
+      
       const baseScore = baseMetrics.overallScore || currentVersion.analysisScore || 0;
       const candidateScore = candidateMetrics.overallScore || candidateVersion.analysisScore || 0;
 
@@ -4529,18 +4532,23 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
         cta: candidateMetrics.ctaScore || 0
       };
 
-      // Calculate deltas
-      const delta = {
+      // Calculate deltas ONLY if analysis is done (avoid confusing negative deltas)
+      const delta = analysisStatus === 'done' ? {
         overall: candidateScore - baseScore,
         hook: candidateBreakdown.hook - baseBreakdown.hook,
         structure: candidateBreakdown.structure - baseBreakdown.structure,
         emotional: candidateBreakdown.emotional - baseBreakdown.emotional,
         cta: candidateBreakdown.cta - baseBreakdown.cta
+      } : {
+        overall: null,
+        hook: null,
+        structure: null,
+        emotional: null,
+        cta: null
       };
 
       // Format response
-      const formatVersion = (version: any, metrics: any, breakdown: any) => {
-        const predicted = metrics.predicted || {};
+      const formatVersion = (version: any, metrics: any, breakdown: any, isCandidate: boolean) => {
         const scenes = (version.scenes || []).map((scene: any) => ({
           id: scene.sceneNumber,
           text: scene.text
@@ -4550,14 +4558,15 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
           id: version.id,
           overall: metrics.overallScore || version.analysisScore || 0,
           breakdown,
-          review: version.review || "Рецензия не доступна",
+          review: version.review || (isCandidate && analysisStatus === 'running' ? "Идёт анализ..." : "Рецензия не доступна"),
           scenes
         };
       };
 
       return apiResponse.ok(res, {
-        base: formatVersion(currentVersion, baseMetrics, baseBreakdown),
-        candidate: formatVersion(candidateVersion, candidateMetrics, candidateBreakdown),
+        status: analysisStatus,
+        base: formatVersion(currentVersion, baseMetrics, baseBreakdown, false),
+        candidate: formatVersion(candidateVersion, candidateMetrics, candidateBreakdown, true),
         delta
       });
 
