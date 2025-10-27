@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import { ArticlePreviewModal } from "@/components/shared/article-preview-modal"
 
 interface Stage2Props {
   project: Project
@@ -342,15 +343,25 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     const badge = getBadgeConfig(item.freshnessLabel)
     const isDismissed = item.userAction === 'dismissed'
     const isUsed = item.userAction === 'selected'
+    const [previewOpen, setPreviewOpen] = useState(false)
 
     return (
-      <Card
-        className={`relative cursor-pointer hover-elevate active-elevate-2 transition-all ${
-          isDismissed ? 'opacity-50' : ''
-        } ${isUsed ? 'border-green-500 dark:border-green-600' : ''}`}
-        onClick={() => !isDismissed && !isUsed && handleNewsSelect(item)}
-        data-testid={`card-news-${item.id}`}
-      >
+      <>
+        {previewOpen && (
+          <ArticlePreviewModal
+            isOpen={previewOpen}
+            article={item}
+            projectId={project.id}
+            onClose={() => setPreviewOpen(false)}
+          />
+        )}
+        <Card
+          className={`relative cursor-pointer hover-elevate active-elevate-2 transition-all ${
+            isDismissed ? 'opacity-50' : ''
+          } ${isUsed ? 'border-green-500 dark:border-green-600' : ''}`}
+          onClick={() => !isDismissed && !isUsed && handleNewsSelect(item)}
+          data-testid={`card-news-${item.id}`}
+        >
         {/* Thumbnail */}
         {item.imageUrl && (
           <div className="relative h-40 overflow-hidden rounded-t-md">
@@ -410,27 +421,42 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
 
           {/* Actions */}
           {!isDismissed && !isUsed && (
-            <div className="flex gap-2">
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleNewsSelect(item)
+                  }}
+                  data-testid={`button-select-${item.id}`}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Select
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => handleDismiss(e, item.id)}
+                  disabled={dismissMutation.isPending}
+                  data-testid={`button-dismiss-${item.id}`}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 size="sm"
-                className="flex-1"
+                variant="secondary"
+                className="w-full"
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleNewsSelect(item)
+                  setPreviewOpen(true)
                 }}
-                data-testid={`button-select-${item.id}`}
+                data-testid={`button-preview-${item.id}`}
               >
-                <Check className="h-4 w-4 mr-1" />
-                Select
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => handleDismiss(e, item.id)}
-                disabled={dismissMutation.isPending}
-                data-testid={`button-dismiss-${item.id}`}
-              >
-                <ThumbsDown className="h-4 w-4" />
+                <Eye className="h-4 w-4 mr-1" />
+                Предпросмотр
               </Button>
             </div>
           )}
@@ -442,7 +468,8 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
             </Badge>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </>
     )
   }
 
