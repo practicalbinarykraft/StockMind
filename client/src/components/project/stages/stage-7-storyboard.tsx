@@ -42,8 +42,26 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
   const [brollScenes, setBrollScenes] = useState<BRollScene[]>([])
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
 
-  // Extract data from previous steps
-  const scenes = step3Data?.scenes || []
+  // Fetch script history to get active version (candidate ?? current)
+  const { data: scriptData } = useQuery({
+    queryKey: ["/api/projects", project.id, "script-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/script-history`)
+      if (!res.ok) throw new Error("Failed to fetch script history")
+      const body = await res.json()
+      return body.data ?? body
+    }
+  })
+
+  // Determine active version: use candidate if exists, otherwise current
+  const currentVersion = scriptData?.currentVersion
+  const candidateVersion = scriptData?.versions?.find((v: any) => 
+    v.isCandidate === true || v.is_candidate === true
+  )
+  const activeVersion = candidateVersion ?? currentVersion
+
+  // Use active version scenes, fallback to step3Data for backwards compatibility
+  const scenes = activeVersion?.scenes || step3Data?.scenes || []
   const finalScript = step4Data?.finalScript || ""
   const audioUrl = step4Data?.audioUrl
   const selectedVoice = step4Data?.selectedVoice
@@ -78,7 +96,8 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
   useEffect(() => {
     if (step7Data?.brollScenes) {
       setBrollScenes(step7Data.brollScenes)
-    } else {
+    } else if (scenesWithTimecodes.length > 0) {
+      // Only initialize when scenes are loaded
       setBrollScenes(scenesWithTimecodes.map((scene: any, index: number) => ({
         sceneId: `scene-${index}`,
         shotInstructions: "",
@@ -86,7 +105,7 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
         status: 'idle' as const
       })))
     }
-  }, [step7Data])
+  }, [step7Data, scenesWithTimecodes.length])
 
   // Load selected scene data
   useEffect(() => {
@@ -112,8 +131,9 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
       
       // Update brollScenes
       const updated = [...brollScenes]
+      const currentScene = updated[selectedSceneIndex] || { sceneId: `scene-${selectedSceneIndex}`, status: 'idle' as const }
       updated[selectedSceneIndex] = {
-        ...updated[selectedSceneIndex],
+        ...currentScene,
         shotInstructions,
         aiPrompt: data.aiPrompt
       }
@@ -136,17 +156,21 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
   // Generate B-Roll mutation
   const generateBRollMutation = useMutation({
     mutationFn: async () => {
-      const sceneId = brollScenes[selectedSceneIndex].sceneId
+      const currentScene = brollScenes[selectedSceneIndex]
+      if (!currentScene) {
+        throw new Error("Scene not initialized")
+      }
       const res = await apiRequest("POST", `/api/projects/${project.id}/broll/generate`, {
-        sceneId,
+        sceneId: currentScene.sceneId,
         aiPrompt
       })
       return await res.json()
     },
     onSuccess: (data) => {
       const updated = [...brollScenes]
+      const currentScene = updated[selectedSceneIndex] || { sceneId: `scene-${selectedSceneIndex}`, status: 'idle' as const }
       updated[selectedSceneIndex] = {
-        ...updated[selectedSceneIndex],
+        ...currentScene,
         taskId: data.taskId,
         status: 'generating',
         progress: 0
@@ -183,8 +207,9 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
         // Use functional update to avoid stale closure
         setBrollScenes(prev => {
           const updated = [...prev]
+          const currentScene = updated[sceneIndex] || { sceneId: `scene-${sceneIndex}`, status: 'idle' as const }
           updated[sceneIndex] = {
-            ...updated[sceneIndex],
+            ...currentScene,
             status: status.status,
             progress: status.progress,
             videoUrl: status.videoUrl,
