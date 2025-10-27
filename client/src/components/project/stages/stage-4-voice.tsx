@@ -36,7 +36,8 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     queryFn: async () => {
       const res = await fetch(`/api/projects/${project.id}/script-history`)
       if (!res.ok) throw new Error("Failed to fetch script history")
-      return await res.json()
+      const body = await res.json()
+      return body.data ?? body
     }
   })
 
@@ -97,9 +98,30 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     return { myVoices: my, publicVoices: pub }
   }, [voices])
 
-  // Set default script from Stage 3 analysis data
+  // Update script when activeVersion changes (e.g., candidate accepted/rejected)
   useEffect(() => {
-    if (analysisData && !finalScript && !hasRestoredRef.current) {
+    // Don't update if Stage 4 data was restored (user may have edited the script)
+    // For legacy compatibility: missing versionId is treated as "compatible" 
+    if (hasRestoredRef.current) {
+      // If stage4Data has a versionId, only skip if it matches
+      if (stage4Data?.versionId !== undefined) {
+        if (stage4Data.versionId === activeVersion?.id) return
+      } else {
+        // Legacy data without versionId - assume it's for the current version
+        return
+      }
+    }
+    
+    // Update finalScript when active version changes
+    if (activeVersion?.scenes) {
+      const versionScript = activeVersion.scenes.map((s: any) => s.text).join(" ")
+      setFinalScript(versionScript)
+    }
+  }, [activeVersion?.id, activeVersion?.scenes, stage4Data?.versionId, hasRestoredRef.current])
+
+  // Set default script from Stage 3 analysis data (backwards compatibility)
+  useEffect(() => {
+    if (analysisData && !finalScript && !hasRestoredRef.current && !activeVersion) {
       const defaultScript = analysisData.scenes?.map((s: any) => s.text).join(" ") || 
                            analysisData.text ||
                            ""
@@ -109,13 +131,27 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
 
   // Restore state from Stage 4 saved data when it becomes available
   useEffect(() => {
-    // Only restore once when stage4Data arrives and has a mode
-    if (stage4Data && stage4Data.mode && !hasRestoredRef.current) {
+    // Wait for activeVersion to load before restoring
+    // (prevents race condition where /steps arrives before /script-history)
+    const isActiveVersionReady = activeVersion !== undefined || 
+                                  (scriptData !== undefined && !activeVersion)
+    
+    // Only restore once when stage4Data arrives, has a mode, AND activeVersion is ready
+    if (stage4Data && stage4Data.mode && !hasRestoredRef.current && isActiveVersionReady) {
       hasRestoredRef.current = true
       setMode(stage4Data.mode)
       
       if (stage4Data.mode === "generate") {
-        if (stage4Data.finalScript) setFinalScript(stage4Data.finalScript)
+        // Restore finalScript with version check
+        // Missing versionId (legacy) is treated as compatible with current version
+        const shouldRestoreScript = stage4Data.finalScript && (
+          !stage4Data.versionId || // Legacy data without versionId
+          stage4Data.versionId === activeVersion?.id // Exact match
+        )
+        
+        if (shouldRestoreScript) {
+          setFinalScript(stage4Data.finalScript)
+        }
         if (stage4Data.selectedVoice) setSelectedVoice(stage4Data.selectedVoice)
         if (stage4Data.audioUrl) setServerAudioUrl(stage4Data.audioUrl)
       } else if (stage4Data.mode === "upload") {
@@ -125,7 +161,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         }
       }
     }
-  }, [stage4Data])
+  }, [stage4Data, activeVersion?.id, scriptData])
 
   // Set default voice when voices load (only if no voice already selected or saved)
   useEffect(() => {
@@ -191,6 +227,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             finalScript,
             selectedVoice,
             audioUrl: uploadData.audioUrl,
+            versionId: activeVersion?.id, // Track which script version was voiced
           }
 
           await apiRequest("POST", `/api/projects/${project.id}/steps`, {
@@ -362,6 +399,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             finalScript,
             selectedVoice,
             audioUrl: serverAudioUrl, // Save URL instead of base64 audioData
+            versionId: activeVersion?.id, // Track which script version was voiced
           }
         : {
             mode: "upload",
@@ -369,6 +407,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             audioUrl: serverAudioUrl || stage4Data?.audioUrl,
             filename: uploadedFile?.name || stage4Data?.filename,
             filesize: uploadedFile?.size || stage4Data?.filesize,
+            versionId: activeVersion?.id, // Track which script version was voiced
           }
 
       return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
