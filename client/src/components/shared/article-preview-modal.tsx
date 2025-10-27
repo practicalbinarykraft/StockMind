@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMutation } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Newspaper, Calendar } from "lucide-react";
+import { Globe, Newspaper, Calendar, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import type { RssItem } from "@shared/schema";
@@ -24,8 +25,27 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
   const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   
-  // Use fullContent if available (extracted via Readability), otherwise fall back to summary
-  const articleContent = article.fullContent || article.content || "";
+  // Automatically fetch full content when modal opens if not already available
+  const { data: fullContentData, isLoading: isLoadingFullContent, error: fullContentError } = useQuery<{
+    success: boolean;
+    content?: string;
+    cached?: boolean;
+    error?: string;
+    fallback?: string;
+  }>({
+    queryKey: ['/api/news', article.id, 'full-content'],
+    queryFn: async () => {
+      const res = await apiRequest("POST", `/api/news/${article.id}/fetch-full-content`);
+      return await res.json();
+    },
+    enabled: isOpen && !article.fullContent, // Only fetch if modal is open and fullContent not already available
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours - matches backend cache
+    retry: 1,
+  });
+  
+  // Determine the content to display: fetched fullContent > article.fullContent > article.content (summary)
+  const articleContent = fullContentData?.content || article.fullContent || article.content || "";
+  const isUsingFallback = !fullContentData?.content && !article.fullContent;
 
   const translateMutation = useMutation({
     mutationFn: async () => {
@@ -77,7 +97,7 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
               variant={displayLang === "translated" ? "default" : "secondary"}
               size="sm"
               onClick={handleTranslate}
-              disabled={translateMutation.isPending}
+              disabled={translateMutation.isPending || isLoadingFullContent}
               className="shrink-0"
               data-testid="button-translate-article"
             >
@@ -137,18 +157,56 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
 
         {/* Article Content */}
         <div className="flex-1 overflow-y-auto pr-2" data-testid="div-article-content">
-          {translateMutation.isPending ? (
+          {/* Loading full content */}
+          {isLoadingFullContent && (
             <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <span>Загрузка полного текста статьи...</span>
+              </div>
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-5/6" />
             </div>
-          ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="whitespace-pre-wrap">{displayContent}</p>
+          )}
+          
+          {/* Translation in progress */}
+          {!isLoadingFullContent && translateMutation.isPending && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <span>Перевод статьи...</span>
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
             </div>
+          )}
+          
+          {/* Content loaded */}
+          {!isLoadingFullContent && !translateMutation.isPending && (
+            <>
+              {/* Warning if fetch failed or returned error */}
+              {(fullContentError || (fullContentData?.success === false && isUsingFallback)) && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {fullContentError 
+                      ? `Ошибка загрузки полного текста: ${(fullContentError as Error).message}. Показан краткий анонс из RSS.`
+                      : `Не удалось извлечь полный текст статьи. Показан краткий анонс из RSS.${fullContentData?.error ? ` (${fullContentData.error})` : ''}`
+                    }
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <p className="whitespace-pre-wrap">{displayContent}</p>
+              </div>
+            </>
           )}
         </div>
 
