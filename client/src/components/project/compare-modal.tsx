@@ -82,7 +82,7 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
     console.log('[CompareModal] open=', open, 'jobRunning=', isJobRunning, 'useNewEndpoint=', useNewEndpoint);
   }, [open, isJobRunning, useNewEndpoint]);
 
-  // Load comparison data when modal opens AND job is not running
+  // Load comparison data when modal opens (with polling if analysis running)
   const { data, isLoading, isError, error } = useQuery({
     queryKey: useNewEndpoint 
       ? ['/api/projects', projectId, 'compare', baseVersionId, targetVersionId]
@@ -96,8 +96,13 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
       const json = await res.json();
       return json.data ?? json;
     },
-    enabled: open && !!projectId && !isJobRunning,
-    retry: false
+    enabled: open && !!projectId,
+    retry: false,
+    // Poll every 2 seconds if analysis is running
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'running' ? 2000 : false;
+    }
   });
 
   // Choose version mutation
@@ -230,21 +235,8 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
           <DialogTitle>Сравнение версий: Текущая ↔ Новая</DialogTitle>
         </DialogHeader>
 
-        {/* Job running state */}
-        {isJobRunning && (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <div className="text-center">
-              <p className="font-medium mb-2">Создаём новую версию и анализируем</p>
-              <p className="text-sm text-muted-foreground">
-                {jobStatus?.step || 'Обработка'}... {jobStatus?.progress ? `${jobStatus.progress}%` : ''}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Loading state */}
-        {!isJobRunning && isLoading && (
+        {/* Loading state (initial load) */}
+        {isLoading && !data && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-muted-foreground">Загружаем сравнение…</p>
@@ -252,7 +244,7 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
         )}
 
         {/* Error state */}
-        {!isJobRunning && isError && (
+        {isError && !data && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <AlertCircle className="h-8 w-8 text-destructive" />
             <p className="text-center max-w-md">
@@ -271,13 +263,25 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
           </div>
         )}
 
-        {/* Success state - show comparison */}
-        {!isJobRunning && data && !isLoading && !isError && (
-          <Tabs defaultValue="metrics" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="metrics" data-testid="tab-metrics">Метрики</TabsTrigger>
-              <TabsTrigger value="scenes" data-testid="tab-scenes">Сцены</TabsTrigger>
-            </TabsList>
+        {/* Comparison view (shows skeleton if analysis running) */}
+        {data && (
+          <div className="space-y-4">
+            {/* Analysis running banner */}
+            {data.status === 'running' && (
+              <div className="flex items-center gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Анализируем новую версию...</p>
+                  <p className="text-xs text-muted-foreground">Метрики будут доступны через несколько секунд</p>
+                </div>
+              </div>
+            )}
+
+            <Tabs defaultValue="metrics" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="metrics" data-testid="tab-metrics">Метрики</TabsTrigger>
+                <TabsTrigger value="scenes" data-testid="tab-scenes">Сцены</TabsTrigger>
+              </TabsList>
 
             {/* Tab 1: Metrics */}
             <TabsContent value="metrics" className="space-y-4">
@@ -386,16 +390,17 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
                 </div>
               </div>
             </TabsContent>
+          </Tabs>
 
-            {/* Action buttons - outside tabs */}
-            <div className="space-y-3 pt-4 border-t mt-4">
+          {/* Action buttons - outside tabs */}
+          <div className="space-y-3 pt-4 border-t mt-4">
               {/* Version choice buttons */}
               <div className="flex gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => chooseMutation.mutate('base')}
-                  disabled={chooseMutation.isPending}
+                  disabled={chooseMutation.isPending || data.status === 'running'}
                   data-testid="button-choose-base"
                   className="flex-1"
                 >
@@ -406,7 +411,7 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
                 <Button
                   type="button"
                   onClick={() => chooseMutation.mutate('candidate')}
-                  disabled={chooseMutation.isPending}
+                  disabled={chooseMutation.isPending || data.status === 'running'}
                   data-testid="button-choose-candidate"
                   className="flex-1"
                 >
@@ -439,8 +444,8 @@ export function CompareModal({ open, onClose, projectId, reanalyzeJobId, jobStat
                   </Button>
                 </div>
               )}
-            </div>
-          </Tabs>
+          </div>
+        </div>
         )}
       </DialogContent>
     </Dialog>
