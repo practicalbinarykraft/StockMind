@@ -30,8 +30,28 @@ interface Voice {
 export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const { toast } = useToast()
 
-  // stepData contains data from Stage 3 (analysis)
-  const analysisData = stepData
+  // Fetch script history to get active version (candidate ?? current)
+  const { data: scriptData } = useQuery({
+    queryKey: ["/api/projects", project.id, "script-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/script-history`)
+      if (!res.ok) throw new Error("Failed to fetch script history")
+      return await res.json()
+    }
+  })
+
+  // Determine active version: use candidate if exists (and not yet accepted), otherwise current
+  const currentVersion = scriptData?.currentVersion
+  const candidateVersion = scriptData?.versions?.find((v: any) => 
+    v.isCandidate === true || v.is_candidate === true
+  )
+  const activeVersion = candidateVersion ?? currentVersion
+
+  // Use active version scenes, fallback to stepData for backwards compatibility
+  const analysisData = activeVersion ? {
+    scenes: activeVersion.scenes,
+    text: activeVersion.scenes?.map((s: any) => s.text).join(" ") || ""
+  } : stepData
   
   const [mode, setMode] = useState<"generate" | "upload">("generate")
   const [finalScript, setFinalScript] = useState("")
