@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,22 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
   const [displayLang, setDisplayLang] = useState<"original" | "translated">("original");
   const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  
+  // Reset translation state when article changes (always) or modal closes
+  useEffect(() => {
+    setDisplayLang("original");
+    setTranslatedTitle(null);
+    setTranslatedContent(null);
+  }, [article.id]); // Reset whenever article changes
+  
+  // Also reset when modal closes (to clean up state)
+  useEffect(() => {
+    if (!isOpen) {
+      setDisplayLang("original");
+      setTranslatedTitle(null);
+      setTranslatedContent(null);
+    }
+  }, [isOpen]);
   
   // Automatically fetch full content when modal opens if not already available
   const { data: fullContentData, isLoading: isLoadingFullContent, error: fullContentError } = useQuery<{
@@ -57,18 +73,34 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
       return await res.json();
     },
     onSuccess: (data) => {
+      console.log("Translation success:", { 
+        hasTitle: !!data.translatedTitle, 
+        hasContent: !!data.translatedContent,
+        titleLength: data.translatedTitle?.length,
+        contentLength: data.translatedContent?.length
+      });
+      
       setTranslatedTitle(data.translatedTitle);
       setTranslatedContent(data.translatedContent);
       setDisplayLang("translated");
+      
       toast({
         title: "Статья переведена",
         description: "Перевод выполнен успешно",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      console.error("Translation error:", error);
+      
+      // Check if it's a credit balance error
+      const errorMessage = error.message || error.toString();
+      const isCreditError = errorMessage.includes("credit balance") || errorMessage.includes("Plans & Billing");
+      
       toast({
-        title: "Ошибка перевода",
-        description: error.message,
+        title: isCreditError ? "Недостаточно кредитов Anthropic" : "Ошибка перевода",
+        description: isCreditError 
+          ? "Пополните баланс Anthropic API в Settings → API Keys"
+          : errorMessage,
         variant: "destructive",
       });
     },
