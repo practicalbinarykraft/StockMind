@@ -2398,6 +2398,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Translate news article
+  app.post("/api/news/:id/translate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { id } = req.params;
+      const { targetLanguage = 'ru' } = req.body;
+      
+      // Get the news item
+      const newsItem = await storage.getRssItemById(id);
+      if (!newsItem) {
+        return res.status(404).json({ message: "News item not found" });
+      }
+
+      // Verify ownership (news must belong to user's source)
+      const sources = await storage.getRssSources(userId);
+      const source = sources.find(s => s.id === newsItem.sourceId);
+      if (!source) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get content to translate (preferring fullContent over content)
+      const contentToTranslate = newsItem.fullContent || newsItem.content;
+      if (!newsItem.title && !contentToTranslate) {
+        return res.status(400).json({ message: "No content to translate" });
+      }
+
+      // Get Anthropic API key
+      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      if (!apiKey) {
+        return res.status(404).json({ 
+          message: "Anthropic API key not configured. Please add it in Settings." 
+        });
+      }
+
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+      const anthropic = new Anthropic({ apiKey: apiKey.encryptedKey });
+
+      const results: any = {
+        articleId: id,
+        targetLanguage,
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      // Translate title
+      if (newsItem.title) {
+        console.log(`[News Translation] Translating title (${newsItem.title.length} chars) to ${targetLanguage}...`);
+        const titleStartTime = Date.now();
+
+        const titlePrompt = `Translate the following news title to ${targetLanguage === 'ru' ? 'Russian' : targetLanguage}. 
+Only output the translated title, nothing else.
+
+Title:
+${newsItem.title}`;
+
+        const titleMessage = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{ role: "user", content: titlePrompt }],
+        });
+
+        const titleTextContent = titleMessage.content.find((c: any) => c.type === "text");
+        if (!titleTextContent || titleTextContent.type !== "text") {
+          throw new Error("No text response from AI for title");
+        }
+
+        results.translatedTitle = titleTextContent.text.trim();
+        results.metadata.titleTranslationTime = Date.now() - titleStartTime;
+        console.log(`[News Translation] Title translated in ${results.metadata.titleTranslationTime}ms`);
+      }
+
+      // Translate content
+      if (contentToTranslate) {
+        console.log(`[News Translation] Translating content (${contentToTranslate.length} chars) to ${targetLanguage}...`);
+        const contentStartTime = Date.now();
+
+        const contentPrompt = `Translate the following news article to ${targetLanguage === 'ru' ? 'Russian' : targetLanguage}. 
+Keep the original formatting and structure. Only output the translated text, nothing else.
+
+Text to translate:
+${contentToTranslate}`;
+
+        const contentMessage = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: contentPrompt }],
+        });
+
+        const contentTextContent = contentMessage.content.find((c: any) => c.type === "text");
+        if (!contentTextContent || contentTextContent.type !== "text") {
+          throw new Error("No text response from AI for content");
+        }
+
+        results.translatedContent = contentTextContent.text.trim();
+        results.originalLength = contentToTranslate.length;
+        results.translatedLength = results.translatedContent.length;
+        results.metadata.contentTranslationTime = Date.now() - contentStartTime;
+        console.log(`[News Translation] Content translated in ${results.metadata.contentTranslationTime}ms`);
+      }
+
+      console.log(`[News Translation] Completed translation request for article ${id}`);
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error translating news article:", error);
+      res.status(500).json({ 
+        message: error.message || "Failed to translate article",
+        error: error.toString()
+      });
+    }
+  });
+
   // Translate content to target language
   app.post("/api/projects/:id/translate-content", isAuthenticated, async (req: any, res) => {
     try {

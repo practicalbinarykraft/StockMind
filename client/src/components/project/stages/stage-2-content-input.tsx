@@ -351,7 +351,6 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
           <ArticlePreviewModal
             isOpen={previewOpen}
             article={item}
-            projectId={project.id}
             onClose={() => setPreviewOpen(false)}
           />
         )}

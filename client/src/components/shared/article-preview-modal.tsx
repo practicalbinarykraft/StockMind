@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Newspaper, Calendar, AlertCircle } from "lucide-react";
@@ -15,31 +15,23 @@ import type { RssItem } from "@shared/schema";
 interface ArticlePreviewModalProps {
   isOpen: boolean;
   article: RssItem & { sourceName?: string };
-  projectId: string;
   onClose: () => void;
 }
 
-export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: ArticlePreviewModalProps) {
+interface TranslationCache {
+  articleId: string;
+  targetLanguage: string;
+  translatedTitle: string;
+  translatedContent: string;
+  metadata: {
+    timestamp: string;
+  };
+}
+
+export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreviewModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [displayLang, setDisplayLang] = useState<"original" | "translated">("original");
-  const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
-  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
-  
-  // Reset translation state when article changes (always) or modal closes
-  useEffect(() => {
-    setDisplayLang("original");
-    setTranslatedTitle(null);
-    setTranslatedContent(null);
-  }, [article.id]); // Reset whenever article changes
-  
-  // Also reset when modal closes (to clean up state)
-  useEffect(() => {
-    if (!isOpen) {
-      setDisplayLang("original");
-      setTranslatedTitle(null);
-      setTranslatedContent(null);
-    }
-  }, [isOpen]);
   
   // Automatically fetch full content when modal opens if not already available
   const { data: fullContentData, isLoading: isLoadingFullContent, error: fullContentError } = useQuery<{
@@ -54,25 +46,43 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
       const res = await apiRequest("POST", `/api/news/${article.id}/fetch-full-content`);
       return await res.json();
     },
-    enabled: isOpen && !article.fullContent, // Only fetch if modal is open and fullContent not already available
-    staleTime: 6 * 60 * 60 * 1000, // 6 hours - matches backend cache
+    enabled: isOpen && !article.fullContent,
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours
     retry: 1,
   });
   
-  // Determine the content to display: fetched fullContent > article.fullContent > article.content (summary)
+  // Check cached translation
+  const { data: cachedTranslation } = useQuery<TranslationCache>({
+    queryKey: ['/api/news', article.id, 'translation', 'ru'],
+    enabled: false, // We manually check the cache
+  });
+
+  // Reset to original when article changes
+  useEffect(() => {
+    // Check if we have cached translation for this article
+    const cached = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
+    
+    if (cached && cached.translatedTitle && cached.translatedContent) {
+      // We have a cached translation, show it
+      setDisplayLang("translated");
+    } else {
+      // No cached translation, show original
+      setDisplayLang("original");
+    }
+  }, [article.id, queryClient]);
+  
+  // Determine the content to display
   const articleContent = fullContentData?.content || article.fullContent || article.content || "";
   const isUsingFallback = !fullContentData?.content && !article.fullContent;
 
   const translateMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/projects/${projectId}/translate-content`, {
-        title: article.title,
-        content: articleContent,
+      const res = await apiRequest("POST", `/api/news/${article.id}/translate`, {
         targetLanguage: "ru",
       });
       return await res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: TranslationCache) => {
       console.log("Translation success:", { 
         hasTitle: !!data.translatedTitle, 
         hasContent: !!data.translatedContent,
@@ -80,8 +90,10 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
         contentLength: data.translatedContent?.length
       });
       
-      setTranslatedTitle(data.translatedTitle);
-      setTranslatedContent(data.translatedContent);
+      // Cache the translation in React Query
+      queryClient.setQueryData(['/api/news', article.id, 'translation', 'ru'], data);
+      
+      // Switch to translated view
       setDisplayLang("translated");
       
       toast({
@@ -106,18 +118,37 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
     },
   });
 
-  const handleTranslate = () => {
+  const handleTranslate = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (displayLang === "translated") {
+      // Show original
       setDisplayLang("original");
-    } else if (translatedTitle && translatedContent) {
-      setDisplayLang("translated");
     } else {
-      translateMutation.mutate();
+      // Check if we have cached translation
+      const cached = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
+      
+      if (cached && cached.translatedTitle && cached.translatedContent) {
+        // We have cached translation, just show it
+        setDisplayLang("translated");
+      } else {
+        // No cached translation, fetch new one
+        translateMutation.mutate();
+      }
     }
   };
 
-  const displayTitle = displayLang === "translated" && translatedTitle ? translatedTitle : article.title;
-  const displayContent = displayLang === "translated" && translatedContent ? translatedContent : articleContent;
+  // Get the translation from cache
+  const translation = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
+
+  const displayTitle = displayLang === "translated" && translation?.translatedTitle 
+    ? translation.translatedTitle 
+    : article.title;
+    
+  const displayContent = displayLang === "translated" && translation?.translatedContent 
+    ? translation.translatedContent 
+    : articleContent;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -126,6 +157,7 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
           <div className="flex items-start justify-between gap-4">
             <DialogTitle className="flex-1 pr-4">{displayTitle}</DialogTitle>
             <Button
+              type="button"
               variant={displayLang === "translated" ? "default" : "secondary"}
               size="sm"
               onClick={handleTranslate}
@@ -137,8 +169,8 @@ export function ArticlePreviewModal({ isOpen, article, projectId, onClose }: Art
               {translateMutation.isPending
                 ? "Перевод..."
                 : displayLang === "translated"
-                ? "Оригинал"
-                : "Перевести"}
+                ? "Показать оригинал"
+                : translation ? "Показать перевод" : "Перевести"}
             </Button>
           </div>
 
