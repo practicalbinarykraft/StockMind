@@ -183,12 +183,12 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border">
         <div className="text-xs text-sidebar-foreground/50">
-          Stage {currentStage} of 7
+          Stage {currentStage} of 8
         </div>
         <div className="mt-2 h-2 bg-sidebar-border rounded-full overflow-hidden">
           <div 
             className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${(currentStage / 7) * 100}%` }}
+            style={{ width: `${(currentStage / 8) * 100}%` }}
           />
         </div>
       </div>
