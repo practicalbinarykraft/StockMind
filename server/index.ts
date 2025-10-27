@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initInstagramMonitor } from "./cron/instagram-monitor";
+import { initIgAnalyticsSync } from "./cron/ig-analytics-sync";
 import { storage } from "./storage";
 
 const app = express();
@@ -41,8 +42,11 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Initialize Instagram monitoring cron job
+  // Initialize Instagram monitoring cron job (Apify scraping)
   initInstagramMonitor(storage);
+
+  // Initialize Instagram Analytics sync cron job (Graph API insights)
+  initIgAnalyticsSync(storage);
 
   // Serve uploaded files
   app.use('/uploads', express.static('uploads'));

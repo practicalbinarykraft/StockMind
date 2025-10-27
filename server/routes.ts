@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replit-auth";
+import igRouter from "./ig-routes";
 import { insertApiKeySchema, insertRssSourceSchema, insertInstagramSourceSchema, insertProjectSchema, insertProjectStepSchema, instagramItems, instagramSources, scriptVersions, sceneRecommendations } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -4655,6 +4656,12 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
       return apiResponse.serverError(res, error.message);
     }
   });
+
+  // ============================================================================
+  // INSTAGRAM ANALYTICS OAUTH ROUTES
+  // ============================================================================
+  
+  app.use('/api/ig', igRouter);
 
   const httpServer = createServer(app);
   return httpServer;
