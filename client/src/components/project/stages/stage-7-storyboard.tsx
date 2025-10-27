@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Film, CheckCircle2, ArrowLeft, AlertCircle, Sparkles, Play, Pause, Download, Loader2 } from "lucide-react"
+import { Film, CheckCircle2, ArrowLeft, AlertCircle, Sparkles, Play, Pause, Download, Loader2, Instagram } from "lucide-react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
@@ -274,6 +274,19 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
     mutationFn: async () => {
       return await apiRequest("PATCH", `/api/projects/${project.id}`, {
         currentStage: 6
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+    }
+  })
+
+  // Continue to Stage 8 mutation
+  const continueToStage8Mutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, {
+        currentStage: 8
       })
     },
     onSuccess: async () => {
@@ -626,7 +639,7 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
       )}
 
       {/* Bottom Actions */}
-      <div className="flex justify-end gap-3 mt-6">
+      <div className="flex justify-between gap-3 mt-6">
         <Button 
           variant="outline" 
           size="lg" 
@@ -638,16 +651,29 @@ export function Stage7Storyboard({ project, step3Data, step4Data, step5Data, ste
           <ArrowLeft className="h-4 w-4" />
           Назад к экспорту
         </Button>
-        <Button 
-          size="lg" 
-          className="gap-2" 
-          onClick={() => completeProjectMutation.mutate()}
-          disabled={completeProjectMutation.isPending}
-          data-testid="button-complete-project"
-        >
-          <CheckCircle2 className="h-4 w-4" />
-          Завершить проект
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline"
+            size="lg" 
+            className="gap-2" 
+            onClick={() => continueToStage8Mutation.mutate()}
+            disabled={continueToStage8Mutation.isPending}
+            data-testid="button-continue-to-stage8"
+          >
+            <Instagram className="h-4 w-4" />
+            Перейти к Performance Analytics
+          </Button>
+          <Button 
+            size="lg" 
+            className="gap-2" 
+            onClick={() => completeProjectMutation.mutate()}
+            disabled={completeProjectMutation.isPending}
+            data-testid="button-complete-project"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Завершить проект
+          </Button>
+        </div>
       </div>
     </div>
   )
