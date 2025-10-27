@@ -29,6 +29,7 @@ const STAGES = [
   { number: 5, title: "Avatar Selection", icon: Users },
   { number: 6, title: "Final Export", icon: Download },
   { number: 7, title: "Storyboard", icon: Film, optional: true },
+  { number: 8, title: "Performance Analytics", icon: Instagram, optional: true },
 ]
 
 interface ProjectSidebarProps {

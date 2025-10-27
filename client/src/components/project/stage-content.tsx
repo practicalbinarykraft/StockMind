@@ -6,6 +6,7 @@ import { Stage4VoiceGeneration } from "./stages/stage-4-voice"
 import { Stage5AvatarSelection } from "./stages/stage-5-avatar"
 import { Stage6FinalExport } from "./stages/stage-6-export"
 import { Stage7Storyboard } from "./stages/stage-7-storyboard"
+import { Stage8Performance } from "./stages/stage-8-performance"
 
 interface StageContentProps {
   project: Project
@@ -54,6 +55,10 @@ export function StageContent({ project, steps }: StageContentProps) {
           step4Data={getStepData(4)}
           step5Data={getStepData(5)}
           step7Data={getStepData(7)}
+        />
+      case 8:
+        return <Stage8Performance 
+          projectId={project.id}
         />
       default:
         return <div className="p-8">Unknown stage</div>
