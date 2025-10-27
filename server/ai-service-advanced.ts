@@ -521,6 +521,11 @@ Respond ONLY in valid JSON format:
     overallScore: result.overallScore,
     verdict: result.verdict,
     confidence: result.confidence,
+    // Agent scores (top-level for easy access in routes.ts)
+    hookScore: hookAnalysis.hookScore,
+    structureScore: structureAnalysis.structureScore,
+    emotionalScore: emotionalAnalysis.emotionalScore,
+    ctaScore: ctaAnalysis.ctaScore,
     breakdown: {
       hook: hookAnalysis.breakdown,
       structure: structureAnalysis.breakdown,

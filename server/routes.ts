@@ -3600,7 +3600,7 @@ ${content}`;
       const predicted = analysisResult.predictedMetrics || {};
       const metrics = {
         overallScore: analysisResult.overallScore,
-        hookScore: analysisResult.breakdown?.hook?.score || 0,
+        hookScore: analysisResult.hookScore || 0,
         structureScore: analysisResult.structureScore || 0,
         emotionalScore: analysisResult.emotionalScore || 0,
         ctaScore: analysisResult.ctaScore || 0,
@@ -3885,7 +3885,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
           const predicted = analysisResult.predictedMetrics || {};
           const metrics = {
             overallScore: analysisResult.overallScore,
-            hookScore: analysisResult.breakdown?.hook?.score || 0,
+            hookScore: analysisResult.hookScore || 0,
             structureScore: analysisResult.structureScore || 0,
             emotionalScore: analysisResult.emotionalScore || 0,
             ctaScore: analysisResult.ctaScore || 0,
@@ -4210,7 +4210,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
           const predicted = analysisResult.predictedMetrics || {};
           const metrics = {
             overallScore: analysisResult.overallScore,
-            hookScore: analysisResult.breakdown?.hook?.score || 0,
+            hookScore: analysisResult.hookScore || 0,
             structureScore: analysisResult.structureScore || 0,
             emotionalScore: analysisResult.emotionalScore || 0,
             ctaScore: analysisResult.ctaScore || 0,

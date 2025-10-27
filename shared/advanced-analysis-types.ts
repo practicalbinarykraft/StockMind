@@ -11,6 +11,7 @@ export interface AdvancedScoreResult {
   confidence: number;  // 0-1
   
   // Agent scores (top-level for easy access)
+  hookScore?: number;  // 0-100
   structureScore?: number;  // 0-100
   emotionalScore?: number;  // 0-100
   ctaScore?: number;  // 0-100

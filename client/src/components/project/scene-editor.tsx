@@ -132,9 +132,26 @@ export function SceneEditor({
     },
     onSuccess: (response: any) => {
       const data = response?.data ?? response;
+      
+      console.log('[Analyze Script] Success:', {
+        hasRecommendations: !!data.recommendations,
+        recommendationsCount: data.recommendations?.length || 0,
+        cached: data.cached,
+        overallScore: data.analysis?.overallScore
+      });
+      
       setAnalysisResult(data);
       
       const recommendationsCount = data.recommendations?.length || 0;
+      
+      // If we have recommendations in the response, also set them in the cache
+      if (data.recommendations && data.recommendations.length > 0 && activeVersionId) {
+        console.log('[Analyze Script] Updating recommendations cache with', recommendationsCount, 'items');
+        queryClient.setQueryData(
+          ['/api/projects', projectId, 'scene-recommendations', activeVersionId],
+          data.recommendations
+        );
+      }
       
       toast({
         title: data.cached ? 'Анализ (кеш)' : 'Анализ завершен',
