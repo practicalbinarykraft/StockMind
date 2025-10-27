@@ -30,30 +30,37 @@ export default function ProjectWorkflow() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Redirect to login if not authenticated
-  if (!authLoading && !isAuthenticated) {
-    toast({
-      title: "Unauthorized",
-      description: "Redirecting to login...",
-      variant: "destructive",
-    })
-    setTimeout(() => {
-      window.location.href = "/api/login"
-    }, 500)
-    return null
-  }
-
+  // All hooks must be called unconditionally before any early returns
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
-    enabled: !!projectId,
+    enabled: !!projectId && !authLoading && isAuthenticated,
   })
 
   const { data: steps } = useQuery<ProjectStep[]>({
     queryKey: ["/api/projects", projectId, "steps"],
-    enabled: !!projectId,
+    enabled: !!projectId && !authLoading && isAuthenticated,
     staleTime: 0,  // Force fresh data
     gcTime: 0,     // Clear cache immediately
   })
+
+  // Redirect to login if not authenticated (after all hooks)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "Redirecting to login...",
+        variant: "destructive",
+      })
+      setTimeout(() => {
+        window.location.href = "/api/login"
+      }, 500)
+    }
+  }, [authLoading, isAuthenticated, toast])
+
+  // Show nothing while redirecting
+  if (!authLoading && !isAuthenticated) {
+    return null
+  }
 
   // Handle errors with proper status codes
   if (projectError) {
