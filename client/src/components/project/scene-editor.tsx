@@ -95,10 +95,11 @@ export function SceneEditor({
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [hasAppliedRecommendations, setHasAppliedRecommendations] = useState(false);
   const [dirtySceneIds, setDirtySceneIds] = useState<Set<number>>(new Set());
+  const [baseVersionId, setBaseVersionId] = useState(activeVersionId);
   const initialTextsRef = useRef<Map<number, string>>(new Map());
   const { toast } = useToast();
 
-  // Initialize baseline texts on mount and when initialScenes change
+  // Initialize baseline texts on mount
   useEffect(() => {
     const m = new Map<number, string>();
     initialScenes.forEach((s: any, idx) => {
@@ -106,9 +107,17 @@ export function SceneEditor({
       m.set(sceneNumber, (s.text ?? '').trim());
     });
     initialTextsRef.current = m;
-    setDirtySceneIds(new Set());
-    setHasAppliedRecommendations(false);
   }, [initialScenes]);
+
+  // Reset dirty flags ONLY when version changes (not on every initialScenes update)
+  useEffect(() => {
+    if (activeVersionId !== baseVersionId) {
+      console.log('[SceneEditor] Version changed, resetting flags:', { from: baseVersionId, to: activeVersionId });
+      setBaseVersionId(activeVersionId);
+      setDirtySceneIds(new Set());
+      setHasAppliedRecommendations(false);
+    }
+  }, [activeVersionId, baseVersionId]);
 
   // Check if there are unsaved changes
   const hasChanges = useMemo(() => {
@@ -246,11 +255,13 @@ export function SceneEditor({
     onSuccess: (response: any) => {
       // Handle fresh recommendations (direct apply)
       if (response?.fresh) {
+        const sceneId = response.sceneId;
+        
         // NOTE: Match by scene.sceneNumber property (stable), not array index
         // Only update scenes that have sceneNumber defined
         setScenes(prev => prev.map((s, idx) => {
           const currentSceneNumber = s.sceneNumber !== undefined ? s.sceneNumber : (idx + 1);
-          return currentSceneNumber === response.sceneId
+          return currentSceneNumber === sceneId
             ? { ...s, text: response.suggestedText }
             : s;
         }));
@@ -261,12 +272,17 @@ export function SceneEditor({
           setAnalysisResult({
             ...analysisResult,
             recommendations: analysisResult.recommendations.filter(
-              (r: any) => !(r.sceneId === response.sceneId && r.suggestedText === response.suggestedText)
+              (r: any) => !(r.sceneId === sceneId && r.suggestedText === response.suggestedText)
             )
           });
         }
         
-        // Mark that recommendations were applied to enable save button
+        // Mark scene as dirty and set flag for save button
+        setDirtySceneIds(prev => {
+          const next = new Set(prev);
+          next.add(sceneId);
+          return next;
+        });
         setHasAppliedRecommendations(true);
         
         toast({
@@ -279,17 +295,26 @@ export function SceneEditor({
       // Handle persisted recommendations (backend response)
       const data = response?.data ?? response;
       
+      // Only invalidate recommendations, NOT script-history (to avoid resetting dirty flags)
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'], exact: false });
       
       // Update local scene text - match by sceneNumber property
       if (data?.affectedScene?.sceneNumber && data?.affectedScene?.text) {
+        const sceneNumber = data.affectedScene.sceneNumber;
+        
         setScenes(prev => prev.map((s, idx) => {
           const currentSceneNumber = s.sceneNumber !== undefined ? s.sceneNumber : (idx + 1);
-          return currentSceneNumber === data.affectedScene.sceneNumber
+          return currentSceneNumber === sceneNumber
             ? { ...s, text: data.affectedScene.text }
             : s;
         }));
+        
+        // Mark scene as dirty
+        setDirtySceneIds(prev => {
+          const next = new Set(prev);
+          next.add(sceneNumber);
+          return next;
+        });
       }
 
       // Mark that recommendations were applied to enable save button
@@ -371,10 +396,13 @@ export function SceneEditor({
     onSuccess: async (response: any) => {
       const { freshCount, persistedCount, freshUpdatedScenes, persistedResult } = response;
       
+      // Collect modified scene IDs for dirtySceneIds
+      const modifiedSceneIds = new Set<number>();
+      
       // For mixed scenarios or persisted-only, refetch to ensure consistency
       if (persistedCount > 0) {
+        // Only invalidate recommendations, NOT script-history (to avoid resetting dirty flags)
         queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'], exact: false });
-        queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'], exact: false });
         
         try {
           // Refetch current version from backend to ensure database consistency
@@ -449,8 +477,30 @@ export function SceneEditor({
 
       const totalCount = freshCount + persistedCount;
       
-      // Mark that recommendations were applied to enable save button
+      // Mark scenes as dirty and set flag for save button
       if (totalCount > 0) {
+        // Mark all modified scenes as dirty
+        if (freshUpdatedScenes) {
+          freshUpdatedScenes.forEach((scene: any) => {
+            if (scene.sceneNumber) {
+              modifiedSceneIds.add(scene.sceneNumber);
+            }
+          });
+        }
+        if (persistedResult?.data?.affectedScenes) {
+          persistedResult.data.affectedScenes.forEach((scene: any) => {
+            if (scene.sceneNumber) {
+              modifiedSceneIds.add(scene.sceneNumber);
+            }
+          });
+        }
+        
+        // Update dirtySceneIds
+        setDirtySceneIds(prev => {
+          const next = new Set(prev);
+          modifiedSceneIds.forEach(id => next.add(id));
+          return next;
+        });
         setHasAppliedRecommendations(true);
       }
       

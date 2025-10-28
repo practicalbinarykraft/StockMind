@@ -1,0 +1,66 @@
+Коротко: он прав по сути — это похоже на гонку состояний. После применения рекомендаций локальные флаги «изменено» сбрасываются из-за useEffect, который реагирует на обновление initialScenes (после invalidateQueries). Из-за этого canSave остаётся false, и кнопка «Сохранить новую версию» не активируется.
+
+Но важно исправить это точечно, не ломая другие места. Вот как ответить реплиту и что именно попросить поправить.
+
+Что сказать реплиту
+
+Да, проблема в сбросе локального dirty-состояния. Не убирайте инвалидации глобально. Сбрасывайте флаги только при смене версии, а не при каждом приходе initialScenes. Инвалидацию script-history переносим на момент после успешного сохранения версии, а не при применении рекомендаций.
+
+Правка (минимальная и безопасная)
+	1.	Сбрасывать флаги только при смене версии
+
+// scene-editor.tsx
+const [hasAppliedRecommendations, setHasAppliedRecommendations] = useState(false);
+const [dirtySceneIds, setDirtySceneIds] = useState<Set<string>>(new Set());
+const [baseVersionId, setBaseVersionId] = useState(activeVersionId);
+
+// ⛔️ НЕ сбрасывать на каждое изменение initialScenes
+// ✅ Сбрасывать только если реально поменялась версия
+useEffect(() => {
+  if (activeVersionId !== baseVersionId) {
+    setBaseVersionId(activeVersionId);
+    setHasAppliedRecommendations(false);
+    setDirtySceneIds(new Set());
+  }
+}, [activeVersionId]); // ← вместо [initialScenes]
+
+	2.	Помечать сцену «грязной» при применении рекомендаций
+
+function applyRecommendation(sceneId: string, patch: Partial<Scene>) {
+  setScenes(prev => /* обновляем текст сцены */);
+  setDirtySceneIds(prev => {
+    const next = new Set(prev);
+    next.add(sceneId);
+    return next;
+  });
+  setHasAppliedRecommendations(true);
+}
+
+	3.	Корректно вычислять canSave
+
+const canSave =
+  dirtySceneIds.size > 0 ||
+  hasAppliedRecommendations ||
+  hasManualEdits; // если такой флаг уже есть
+
+	4.	Не дергать инвалидации при применении рекомендаций
+Сейчас (по логам) после applyRecommendation идёт invalidateQueries(['script-history' | 'scene-recommendations', ...]), что перезатирает локальное состояние.
+
+	•	Уберите эти инвалидации из applyRecommendation.
+	•	Делайте invalidateQueries только после успешного createVersion/acceptVersion мутации (и можно точечно: exact: false по ключу version-history).
+
+	5.	Видимость кнопки
+Проверьте условия отображения:
+
+	•	Кнопка «Сохранить новую версию» не должна прятаться, когда пользователь внёс локальные правки, даже если запущен reanalyzeJobId. Сохранение версии и анализ — разные действия.
+	•	Прятать кнопку только если уже существует активный кандидат для проекта (тогда показывать «Сравнить/Принять/Отменить»). Иначе — показывать.
+
+Чек-лист проверки
+	•	Применяю 1 рекомендацию → кнопка активна.
+	•	Редактирую текст вручную → кнопка активна.
+	•	Переключаюсь между версиями (vN → vN+1) → флаги сбрасываются, на той же версии — не сбрасываются.
+	•	Жму «Сохранить новую версию» → создаётся кандидат, только после успеха происходит invalidateQueries истории/рекомендаций.
+	•	Модал сравнения показывает корректные метрики DO/ПОСЛЕ.
+	•	Переход на «Озвучку» видит свежую кандидат-версию.
+
+Если надо — скажу, какие куски файла смотреть: client/src/components/project/scene-editor.tsx (эффекты/флаги/кнопка), client/src/components/project/stages/stage-3-ai-analysis.tsx (передача onReanalyze и activeVersionId), и место, где вызывается инвалидация после применения рекомендаций.
