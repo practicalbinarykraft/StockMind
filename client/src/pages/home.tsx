@@ -333,7 +333,7 @@ export default function Home() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredProjects.map((project: any) => {
-              const progress = ((project.currentStage - 1) / 6) * 100;
+              const progress = ((project.currentStage - 1) / 7) * 100;
               const getProgressColor = () => {
                 if (progress < 25) return "rgb(239 68 68)"; // red-500
                 if (progress < 75) return "rgb(234 179 8)"; // yellow-500
@@ -460,7 +460,7 @@ export default function Home() {
                     {/* Progress Bar */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Stage {project.currentStage}/7</span>
+                        <span className="text-muted-foreground">Stage {project.currentStage}/8</span>
                         <span className="font-medium">{Math.round(progress)}%</span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
