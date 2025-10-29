@@ -35,6 +35,7 @@ import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
 import { isUnauthorizedError } from "@/lib/auth-utils"
 import { useAuth } from "@/hooks/use-auth"
+import { AccountConnection } from "@/components/ig-analytics/account-connection"
 
 // Safe API Key type (without encryptedKey) - matches backend DTO
 type SafeApiKey = {
@@ -1222,6 +1223,9 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Instagram Analytics Section */}
+        <AccountConnection />
       </div>
 
       {/* Instagram Parse Settings Dialog */}

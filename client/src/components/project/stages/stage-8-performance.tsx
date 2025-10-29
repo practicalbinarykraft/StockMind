@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useLocation } from 'wouter';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Instagram, TrendingUp, Lightbulb, AlertCircle } from 'lucide-react';
-import { AccountConnection } from '@/components/ig-analytics/account-connection';
+import { Instagram, TrendingUp, Lightbulb, AlertCircle, Settings, Check, AlertTriangle } from 'lucide-react';
 import { MediaList } from '@/components/ig-analytics/media-list';
 import { VersionComparison } from '@/components/ig-analytics/version-comparison';
 import { AIRecommendations } from '@/components/ig-analytics/ai-recommendations';
@@ -22,6 +24,7 @@ interface Stage8PerformanceProps {
 
 export function Stage8Performance({ projectId }: Stage8PerformanceProps) {
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [, setLocation] = useLocation();
 
   // Fetch Instagram accounts
   const { data: accounts = [], isLoading: isLoadingAccounts } = useQuery<IgAccount[]>({
@@ -31,6 +34,34 @@ export function Stage8Performance({ projectId }: Stage8PerformanceProps) {
   const hasAccount = accounts.length > 0;
   const activeAccount = accounts.find(acc => acc.tokenStatus === 'valid') || accounts[0];
   const hasValidToken = activeAccount?.tokenStatus === 'valid';
+  
+  // Get token status badge
+  const getTokenStatusBadge = (account: IgAccount) => {
+    if (account.tokenStatus === 'expired') {
+      return (
+        <Badge variant="destructive" className="gap-1" data-testid="badge-token-expired">
+          <AlertCircle className="w-3 h-3" />
+          Токен истёк
+        </Badge>
+      );
+    }
+    
+    if (account.tokenStatus === 'expiring_soon') {
+      return (
+        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 dark:text-amber-400" data-testid="badge-token-expiring">
+          <AlertTriangle className="w-3 h-3" />
+          Скоро истечёт
+        </Badge>
+      );
+    }
+
+    return (
+      <Badge variant="outline" className="gap-1 border-green-600 text-green-700 dark:text-green-400" data-testid="badge-token-valid">
+        <Check className="w-3 h-3" />
+        Активен
+      </Badge>
+    );
+  };
 
   // Fetch performance data for overview tab
   const { data: performanceData } = useQuery<any>({
@@ -51,22 +82,80 @@ export function Stage8Performance({ projectId }: Stage8PerformanceProps) {
         </p>
       </div>
 
-      {/* Account Connection - Always visible */}
-      <AccountConnection />
+      {/* Instagram Account Status */}
+      {!hasAccount && !isLoadingAccounts ? (
+        <Alert data-testid="alert-no-account">
+          <Instagram className="h-4 w-4" />
+          <AlertTitle>Instagram аккаунт не подключен</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-3">
+              Для отслеживания статистики публикаций необходимо подключить Instagram Business аккаунт через Facebook OAuth
+            </p>
+            <Button 
+              size="sm" 
+              variant="default" 
+              className="gap-2"
+              onClick={() => setLocation('/settings')}
+              data-testid="button-go-to-settings"
+            >
+              <Settings className="w-4 h-4" />
+              Перейти в настройки
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : hasAccount ? (
+        <Card data-testid="card-account-status">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Instagram className="w-5 h-5" />
+              Подключённый аккаунт
+            </CardTitle>
+            <CardDescription>
+              Instagram Business аккаунт для синхронизации статистики
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 border rounded-md">
+              <div className="flex items-center gap-3">
+                <Instagram className="w-5 h-5 text-pink-600" />
+                <div>
+                  <div className="font-medium" data-testid="text-connected-username">
+                    @{activeAccount.igUsername}
+                  </div>
+                  <div className="text-sm text-muted-foreground" data-testid="text-connected-user-id">
+                    ID: {activeAccount.igUserId}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {getTokenStatusBadge(activeAccount)}
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => setLocation('/settings')}
+                  data-testid="button-manage-in-settings"
+                >
+                  <Settings className="w-4 h-4" />
+                  Управление
+                </Button>
+              </div>
+            </div>
+            {!hasValidToken && (
+              <Alert variant="destructive" className="mt-4" data-testid="alert-token-warning">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Токен истёк или требует обновления. Переавторизуйтесь в настройках для продолжения синхронизации данных.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Content tabs - Only show if account connected */}
       {hasAccount ? (
         <>
-          {/* Warning if token expired */}
-          {!hasValidToken && (
-            <Alert variant="destructive" data-testid="alert-token-invalid">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Токен Instagram истёк или требует обновления. Переавторизуйтесь для продолжения синхронизации данных.
-              </AlertDescription>
-            </Alert>
-          )}
-
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-4" data-testid="tabs-performance">
               <TabsTrigger value="overview" data-testid="tab-overview">
@@ -141,17 +230,7 @@ export function Stage8Performance({ projectId }: Stage8PerformanceProps) {
             </TabsContent>
           </Tabs>
         </>
-      ) : (
-        // No account connected - Show call to action
-        !isLoadingAccounts && (
-          <Alert data-testid="alert-connect-account">
-            <Instagram className="h-4 w-4" />
-            <AlertDescription>
-              Подключите Instagram Business аккаунт выше, чтобы начать отслеживать статистику публикаций
-            </AlertDescription>
-          </Alert>
-        )
-      )}
+      ) : null}
     </div>
   );
 }
