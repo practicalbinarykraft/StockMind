@@ -21,6 +21,9 @@ import {
   Settings,
 } from "lucide-react"
 import { useLocation } from "wouter"
+import { useMutation } from "@tanstack/react-query"
+import { apiRequest, queryClient } from "@/lib/query-client"
+import { useToast } from "@/hooks/use-toast"
 
 const STAGES = [
   { number: 1, title: "Source Selection", icon: Radio },
@@ -40,6 +43,7 @@ interface ProjectSidebarProps {
 
 export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
   const [, setLocation] = useLocation()
+  const { toast } = useToast()
   
   const currentStage = project.currentStage
 
@@ -47,6 +51,38 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
     if (stageNum < currentStage) return "completed"
     if (stageNum === currentStage) return "current"
     return "locked"
+  }
+
+  // Mutation to navigate to a different stage (5-8 only)
+  const navigateToStageMutation = useMutation({
+    mutationFn: async (stage: number) => {
+      return apiRequest("PATCH", `/api/projects/${project.id}/stage`, { stage })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка навигации",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Handle stage click
+  const handleStageClick = (stageNum: number) => {
+    // Only stages 5-8 are navigable
+    if (stageNum < 5) return
+    
+    // Can only navigate to completed stages or current stage
+    if (stageNum > currentStage) return
+    
+    // Don't navigate if already on this stage
+    if (stageNum === currentStage) return
+    
+    navigateToStageMutation.mutate(stageNum)
   }
 
   return (
@@ -93,6 +129,9 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
             const isActive = stage.number === currentStage
             const isCompleted = stage.number < currentStage
             const isLocked = stage.number > currentStage
+            
+            // Stages 5-8 are navigable if completed or current
+            const isNavigable = stage.number >= 5 && (isCompleted || isActive) && !isActive
 
             return (
               <div
@@ -100,8 +139,10 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-lg transition-colors",
                   isActive && "bg-sidebar-accent",
-                  !isActive && "hover-elevate cursor-default"
+                  !isActive && "hover-elevate",
+                  isNavigable ? "cursor-pointer" : "cursor-default"
                 )}
+                onClick={() => isNavigable && handleStageClick(stage.number)}
                 data-testid={`sidebar-stage-${stage.number}`}
               >
                 <div className="relative">

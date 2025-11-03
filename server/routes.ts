@@ -1494,6 +1494,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH /api/projects/:id/stage - Navigate to a completed stage (5-8 only)
+  app.patch("/api/projects/:id/stage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const { id } = req.params;
+      const { stage } = req.body;
+
+      // Validate stage number
+      if (typeof stage !== 'number' || stage < 5 || stage > 8) {
+        return res.status(400).json({ 
+          message: "Invalid stage. Only stages 5-8 can be navigated to." 
+        });
+      }
+
+      // Get current project
+      const currentProject = await storage.getProject(id, userId);
+      if (!currentProject) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Can only navigate to completed stages (stage must be <= currentStage)
+      if (stage > currentProject.currentStage) {
+        return res.status(400).json({ 
+          message: "Cannot navigate to a locked stage. Complete previous stages first." 
+        });
+      }
+
+      // Update the stage
+      const project = await storage.updateProject(id, userId, { currentStage: stage });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      res.json(project);
+    } catch (error) {
+      console.error("Error updating project stage:", error);
+      res.status(500).json({ message: "Failed to update project stage" });
+    }
+  });
+
   app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
