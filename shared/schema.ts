@@ -356,6 +356,7 @@ export const projectSteps = pgTable("project_steps", {
   stepNumber: integer("step_number").notNull(), // 1-7
   data: jsonb("data"), // Flexible storage for step-specific data
   completedAt: timestamp("completed_at"),
+  skipReason: text("skip_reason"), // Reason for skipping this step (e.g., "custom_voice", "custom_video")
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

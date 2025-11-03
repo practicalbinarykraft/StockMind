@@ -8,7 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward } from "lucide-react"
 
 interface Stage5Props {
   project: Project
@@ -34,6 +35,7 @@ interface VideoStatus {
 }
 
 export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Props) {
+  const { toast } = useToast()
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [previewingAvatar, setPreviewingAvatar] = useState<string | null>(null)
@@ -51,6 +53,22 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   console.log("Stage 5 received stepData (step 4):", stepData)
   console.log("Stage 5 received step5Data (step 5):", step5Data)
   console.log("Script extracted:", script)
+
+  // Fetch step data to check if already skipped
+  const { data: step5DataFromApi } = useQuery({
+    queryKey: ["/api/projects", project.id, "steps", 5],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/steps`)
+      if (!res.ok) throw new Error("Failed to fetch steps")
+      const steps = await res.json()
+      const step5 = steps.find((s: any) => s.stepNumber === 5)
+      return step5 ?? null
+    }
+  })
+  
+  // Check if step is already skipped or completed
+  const isStepSkipped = !!step5DataFromApi?.skipReason
+  const isStepCompleted = !!step5DataFromApi?.completedAt
 
   // Fetch avatars from HeyGen
   const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
@@ -294,6 +312,32 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     generateVideoMutation.mutate()
   }
 
+  // Skip step mutation
+  const skipStepMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/projects/${project.id}/steps/5/skip`, {
+        reason: "custom_video"
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      
+      toast({
+        title: "Этап пропущен",
+        description: "Переходим к следующему этапу...",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: error.message || "Не удалось пропустить этап",
+      })
+    }
+  })
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
@@ -305,6 +349,29 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
           Choose an avatar to present your video
         </p>
       </div>
+
+      {/* Skip Step Alert - Only show if not already skipped or completed */}
+      {!isStepSkipped && !isStepCompleted && (
+        <Alert className="mb-6" data-testid="alert-skip-stage5">
+          <FastForward className="h-4 w-4" />
+          <div className="flex-1">
+            <h5 className="font-semibold mb-1">Пропустить видео?</h5>
+            <AlertDescription className="mb-3">
+              Если у вас уже есть своё видео, вы можете пропустить этот этап
+            </AlertDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => skipStepMutation.mutate()}
+              disabled={skipStepMutation.isPending}
+              data-testid="button-skip-stage5"
+            >
+              <FastForward className="h-4 w-4 mr-2" />
+              {skipStepMutation.isPending ? "Пропускаем..." : "Пропустить - у меня своё видео"}
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       <div className="space-y-6">
         {/* Search */}

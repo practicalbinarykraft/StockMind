@@ -19,9 +19,10 @@ import {
   Instagram,
   FileCode,
   Settings,
+  FastForward,
 } from "lucide-react"
 import { useLocation } from "wouter"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -46,6 +47,23 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
   const { toast } = useToast()
   
   const currentStage = project.currentStage
+
+  // Fetch steps data to check which steps are skipped
+  const { data: stepsData } = useQuery({
+    queryKey: ["/api/projects", project.id, "steps"],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${project.id}/steps`)
+      if (!res.ok) throw new Error("Failed to fetch steps")
+      return await res.json()
+    }
+  })
+
+  // Helper function to check if a step is skipped
+  const isStepSkipped = (stepNumber: number) => {
+    if (!stepsData) return false
+    const step = stepsData.find((s: any) => s.stepNumber === stepNumber)
+    return !!step?.skipReason
+  }
 
   const getStageStatus = (stageNum: number) => {
     if (stageNum < currentStage) return "completed"
@@ -129,6 +147,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
             const isActive = stage.number === currentStage
             const isCompleted = stage.number < currentStage
             const isLocked = stage.number > currentStage
+            const isSkipped = isStepSkipped(stage.number)
             
             // Stages 5-8 are navigable if completed or current
             const isNavigable = stage.number >= 5 && (isCompleted || isActive) && !isActive
@@ -140,15 +159,23 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                   "flex items-center gap-3 p-3 rounded-lg transition-colors",
                   isActive && "bg-sidebar-accent",
                   !isActive && "hover-elevate",
-                  isNavigable ? "cursor-pointer" : "cursor-default"
+                  isNavigable ? "cursor-pointer" : "cursor-default",
+                  isSkipped && "opacity-70"
                 )}
                 onClick={() => isNavigable && handleStageClick(stage.number)}
                 data-testid={`sidebar-stage-${stage.number}`}
               >
                 <div className="relative">
                   {isCompleted ? (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-chart-2 text-white">
-                      <CheckCircle2 className="h-4 w-4" />
+                    <div className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full text-white",
+                      isSkipped ? "bg-muted-foreground" : "bg-chart-2"
+                    )}>
+                      {isSkipped ? (
+                        <FastForward className="h-4 w-4" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
                     </div>
                   ) : isActive ? (
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">

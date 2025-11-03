@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Mic, Play, Pause, Download, Loader2, AlertCircle, Volume2, Upload, Globe, User } from "lucide-react"
+import { Mic, Play, Pause, Download, Loader2, AlertCircle, Volume2, Upload, Globe, User, FastForward } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -71,7 +71,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const hasRestoredRef = useRef(false)
 
-  // Fetch Stage 4 saved data (for restoration)
+  // Fetch Stage 4 saved data (for restoration) and check if skipped
   const { data: stage4Data } = useQuery({
     queryKey: ["/api/projects", project.id, "steps", 4],
     queryFn: async () => {
@@ -79,9 +79,13 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       if (!res.ok) throw new Error("Failed to fetch steps")
       const steps = await res.json()
       const step4 = steps.find((s: any) => s.stepNumber === 4)
-      return step4?.data ?? null
+      return step4 ?? null
     }
   })
+  
+  // Check if step is already skipped or completed
+  const isStepSkipped = !!stage4Data?.skipReason
+  const isStepCompleted = !!stage4Data?.completedAt
 
   // Fetch available voices
   const { data: voices, isLoading: voicesLoading, error: voicesError } = useQuery<Voice[]>({
@@ -137,27 +141,28 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
                                   (scriptData !== undefined && !activeVersion)
     
     // Only restore once when stage4Data arrives, has a mode, AND activeVersion is ready
-    if (stage4Data && stage4Data.mode && !hasRestoredRef.current && isActiveVersionReady) {
+    const stepData = stage4Data?.data
+    if (stepData && stepData.mode && !hasRestoredRef.current && isActiveVersionReady) {
       hasRestoredRef.current = true
-      setMode(stage4Data.mode)
+      setMode(stepData.mode)
       
-      if (stage4Data.mode === "generate") {
+      if (stepData.mode === "generate") {
         // Restore finalScript with version check
         // Missing versionId (legacy) is treated as compatible with current version
-        const shouldRestoreScript = stage4Data.finalScript && (
-          !stage4Data.versionId || // Legacy data without versionId
-          stage4Data.versionId === activeVersion?.id // Exact match
+        const shouldRestoreScript = stepData.finalScript && (
+          !stepData.versionId || // Legacy data without versionId
+          stepData.versionId === activeVersion?.id // Exact match
         )
         
         if (shouldRestoreScript) {
-          setFinalScript(stage4Data.finalScript)
+          setFinalScript(stepData.finalScript)
         }
-        if (stage4Data.selectedVoice) setSelectedVoice(stage4Data.selectedVoice)
-        if (stage4Data.audioUrl) setServerAudioUrl(stage4Data.audioUrl)
-      } else if (stage4Data.mode === "upload") {
-        if (stage4Data.audioUrl) {
-          setServerAudioUrl(stage4Data.audioUrl)
-          setUploadedAudioUrl(stage4Data.audioUrl)
+        if (stepData.selectedVoice) setSelectedVoice(stepData.selectedVoice)
+        if (stepData.audioUrl) setServerAudioUrl(stepData.audioUrl)
+      } else if (stepData.mode === "upload") {
+        if (stepData.audioUrl) {
+          setServerAudioUrl(stepData.audioUrl)
+          setUploadedAudioUrl(stepData.audioUrl)
         }
       }
     }
@@ -165,10 +170,10 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
 
   // Set default voice when voices load (only if no voice already selected or saved)
   useEffect(() => {
-    if (voices && voices.length > 0 && !selectedVoice && !stage4Data?.selectedVoice) {
+    if (voices && voices.length > 0 && !selectedVoice && !stage4Data?.data?.selectedVoice) {
       setSelectedVoice(voices[0].voice_id)
     }
-  }, [voices, selectedVoice])
+  }, [voices, selectedVoice, stage4Data])
 
   // Generate audio mutation
   const generateMutation = useMutation({
@@ -337,7 +342,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
 
   const handleProceed = async () => {
     // Check if we have saved audio data (from auto-save or manual upload)
-    const hasSavedAudio = stage4Data?.audioUrl || serverAudioUrl
+    const hasSavedAudio = stage4Data?.data?.audioUrl || serverAudioUrl
     
     if (!hasSavedAudio) {
       toast({
@@ -350,7 +355,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
 
     try {
       // If audio not auto-saved yet (upload mode), save it now
-      if (!stage4Data?.audioUrl && serverAudioUrl) {
+      if (!stage4Data?.data?.audioUrl && serverAudioUrl) {
         await saveStepMutation.mutateAsync()
       }
       
@@ -404,9 +409,9 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         : {
             mode: "upload",
             // Use new serverAudioUrl if available, otherwise use saved audioUrl from stage4Data
-            audioUrl: serverAudioUrl || stage4Data?.audioUrl,
-            filename: uploadedFile?.name || stage4Data?.filename,
-            filesize: uploadedFile?.size || stage4Data?.filesize,
+            audioUrl: serverAudioUrl || stage4Data?.data?.audioUrl,
+            filename: uploadedFile?.name || stage4Data?.data?.filename,
+            filesize: uploadedFile?.size || stage4Data?.data?.filesize,
             versionId: activeVersion?.id, // Track which script version was voiced
           }
 
@@ -513,13 +518,39 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       // Download from server URL
       const a = document.createElement('a')
       a.href = uploadedAudioUrl
-      a.download = stage4Data?.filename || 'audio.mp3'
+      a.download = stage4Data?.data?.filename || 'audio.mp3'
       a.target = '_blank'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
     }
   }
+
+  // Skip step mutation
+  const skipStepMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/projects/${project.id}/steps/4/skip`, {
+        reason: "custom_voice"
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+      
+      toast({
+        title: "Этап пропущен",
+        description: "Переходим к следующему этапу...",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: error.message || "Не удалось пропустить этап",
+      })
+    }
+  })
 
   // Get selected voice details
   const selectedVoiceDetails = voices?.find(v => v.voice_id === selectedVoice)
@@ -535,6 +566,29 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           Generate AI voiceover or upload your own audio file
         </p>
       </div>
+
+      {/* Skip Step Alert - Only show if not already skipped or completed */}
+      {!isStepSkipped && !isStepCompleted && (
+        <Alert className="mb-6" data-testid="alert-skip-stage4">
+          <FastForward className="h-4 w-4" />
+          <div className="flex-1">
+            <h5 className="font-semibold mb-1">Пропустить озвучку?</h5>
+            <AlertDescription className="mb-3">
+              Если у вас уже есть своя озвучка, вы можете пропустить этот этап и сразу перейти к следующему
+            </AlertDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => skipStepMutation.mutate()}
+              disabled={skipStepMutation.isPending}
+              data-testid="button-skip-stage4"
+            >
+              <FastForward className="h-4 w-4 mr-2" />
+              {skipStepMutation.isPending ? "Пропускаем..." : "Пропустить - у меня своя озвучка"}
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as "generate" | "upload")}>
         <TabsList className="grid w-full grid-cols-2">
