@@ -12,7 +12,7 @@ import Parser from "rss-parser";
 import { scoreNewsItem, analyzeScript, generateAiPrompt, scoreText, scoreInstagramReel, generateSceneRecommendations } from "./ai-service";
 import { scoreNewsAdvanced, scoreReelAdvanced, scoreCustomScriptAdvanced } from "./ai-service-advanced";
 import { fetchVoices, generateSpeech } from "./elevenlabs-service";
-import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
+import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service"
 import { generateKieVideo, getKieVideoStatus } from "./kie-service";
 import { scrapeInstagramReels, testApifyApiKey } from "./apify-service";
 import { downloadInstagramMedia } from "./instagram-download";
