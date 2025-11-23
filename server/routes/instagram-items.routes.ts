@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replit-auth";
 import { getUserId } from "../utils/route-helpers";
-import { scoreInstagramReel } from "../ai-service";
+import { scoreInstagramReel } from "../ai-services";
 import { transcribeInstagramItemBackground } from "./helpers/background-tasks";
 
 /**

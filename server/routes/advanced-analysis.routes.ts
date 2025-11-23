@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replit-auth";
 import { getUserId } from "../utils/route-helpers";
-import { scoreNewsItem, scoreInstagramReel } from "../ai-service";
-import { scoreNewsAdvanced, scoreReelAdvanced, scoreCustomScriptAdvanced } from "../ai-service-advanced";
+import { scoreNewsItem, scoreInstagramReel } from "../ai-services";
+import { scoreNewsAdvanced, scoreReelAdvanced, scoreCustomScriptAdvanced } from "../ai-services";
 import { apiResponse } from "../lib/api-response";
 
 /**

@@ -1,6 +1,6 @@
 import Parser from "rss-parser";
 import { storage } from "../storage";
-import { scoreNewsItem } from "../ai-service";
+import { scoreNewsItem } from "../ai-services";
 
 const rssParser = new Parser();
 

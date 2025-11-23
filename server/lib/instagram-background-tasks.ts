@@ -1,7 +1,7 @@
 import { storage } from "../storage";
 import { downloadInstagramMedia } from "../instagram-download";
 import { transcribeInstagramVideo } from "../transcription-service";
-import { scoreInstagramReel } from "../ai-service";
+import { scoreInstagramReel } from "../ai-services";
 
 /**
  * Background download helper for Instagram media

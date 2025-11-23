@@ -5,7 +5,7 @@ import { isAuthenticated } from "../replit-auth";
 import { getUserId } from "../utils/route-helpers";
 import { scriptVersions, sceneRecommendations } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { scoreCustomScriptAdvanced } from "../ai-service-advanced";
+import { scoreCustomScriptAdvanced } from "../ai-services";
 import { apiResponse } from "../lib/api-response";
 import { jobManager } from "../lib/reanalysis-job-manager";
 

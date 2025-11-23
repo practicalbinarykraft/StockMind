@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replit-auth";
 import { getUserId } from "../utils/route-helpers";
-import { generateAiPrompt } from "../ai-service";
+import { generateAiPrompt } from "../ai-services";
 import { generateKieVideo, getKieVideoStatus } from "../kie-service";
 
 /**

@@ -1,5 +1,5 @@
 import { storage } from "../../storage";
-import { scoreInstagramReel, scoreNewsItem } from "../../ai-service";
+import { scoreInstagramReel, scoreNewsItem } from "../../ai-services";
 
 /**
  * Background transcription helper for Instagram Reels
