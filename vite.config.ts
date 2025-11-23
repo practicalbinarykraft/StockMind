@@ -30,6 +30,42 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Optimize bundle size
+    rollupOptions: {
+      output: {
+        // Code splitting strategy
+        manualChunks: {
+          // Vendor chunk - React ecosystem
+          'vendor-react': ['react', 'react-dom', 'react/jsx-runtime'],
+
+          // UI library chunk - Radix components
+          'vendor-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-scroll-area',
+            '@radix-ui/react-slot'
+          ],
+
+          // Data fetching chunk
+          'vendor-query': ['@tanstack/react-query'],
+
+          // Form handling chunk
+          'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+
+          // Routing chunk
+          'vendor-router': ['wouter'],
+
+          // Utils chunk
+          'vendor-utils': ['clsx', 'tailwind-merge', 'date-fns']
+        }
+      }
+    },
+    // Increase chunk size warning limit (we use code splitting now)
+    chunkSizeWarningLimit: 600
   },
   server: {
     fs: {
