@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { storage } from '../../storage';
-import { isAuthenticated } from '../../replit-auth';
+import { requireAuth } from "../../middleware/jwt-auth";
 import { getUserId, validateEnvVars, BASE_URL } from './oauth.routes';
 
 const router = Router();
@@ -21,7 +21,7 @@ const router = Router();
  * Returns all Instagram accounts connected by the authenticated user
  * with token status information (valid, expiring_soon, expired)
  */
-router.get('/accounts', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/accounts', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -77,7 +77,7 @@ router.get('/accounts', isAuthenticated, async (req: Request, res: Response) => 
  *
  * Returns the OAuth URL for the user to authorize the app
  */
-router.post('/accounts/connect', isAuthenticated, (req: Request, res: Response) => {
+router.post('/accounts/connect', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -132,7 +132,7 @@ router.post('/accounts/connect', isAuthenticated, (req: Request, res: Response) 
  * Removes the Instagram account and all associated data
  * from the authenticated user's account
  */
-router.delete('/accounts/:id', isAuthenticated, async (req: Request, res: Response) => {
+router.delete('/accounts/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {

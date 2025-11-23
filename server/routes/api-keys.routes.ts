@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { insertApiKeySchema } from "@shared/schema";
 import { testApiKeyByProvider } from "../lib/api-key-tester";
@@ -11,7 +11,7 @@ import { testApiKeyByProvider } from "../lib/api-key-tester";
  */
 export function registerApiKeysRoutes(app: Express) {
   // GET /api/settings/api-keys - Get all API keys for current user
-  app.get("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
+  app.get("/api/settings/api-keys", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -37,7 +37,7 @@ export function registerApiKeysRoutes(app: Express) {
   });
 
   // POST /api/settings/api-keys - Create new API key
-  app.post("/api/settings/api-keys", isAuthenticated, async (req: any, res) => {
+  app.post("/api/settings/api-keys", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -64,7 +64,7 @@ export function registerApiKeysRoutes(app: Express) {
   });
 
   // DELETE /api/settings/api-keys/:id - Delete API key
-  app.delete("/api/settings/api-keys/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/settings/api-keys/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -79,7 +79,7 @@ export function registerApiKeysRoutes(app: Express) {
   });
 
   // POST /api/settings/api-keys/:id/test - Test API key validity
-  app.post("/api/settings/api-keys/:id/test", isAuthenticated, async (req: any, res) => {
+  app.post("/api/settings/api-keys/:id/test", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

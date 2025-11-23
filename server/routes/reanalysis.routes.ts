@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { scriptVersions, sceneRecommendations } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -19,7 +19,7 @@ export function registerReanalysisRoutes(app: Express) {
    * Start async reanalysis job
    * Creates a candidate version with fresh analysis
    */
-  app.post("/api/projects/:id/reanalyze/start", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/reanalyze/start", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
@@ -259,7 +259,7 @@ ${analysisResult.weaknesses?.map((w: string) => `• ${w}`).join('\n') || '• �
    * GET /api/projects/:id/reanalyze/status
    * Check job status
    */
-  app.get("/api/projects/:id/reanalyze/status", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/reanalyze/status", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);

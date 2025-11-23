@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { ScriptVersionService } from "../services/script-version-service";
 import { apiResponse } from "../lib/api-response";
@@ -16,7 +16,7 @@ export function registerSceneEditingRoutes(app: Express) {
    * GET /api/projects/:id/scene-recommendations
    * Get scene recommendations for current version
    */
-  app.get("/api/projects/:id/scene-recommendations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/scene-recommendations", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = getUserId(req);
@@ -57,7 +57,7 @@ export function registerSceneEditingRoutes(app: Express) {
    * POST /api/projects/:id/apply-scene-recommendation
    * Apply recommendation to single scene
    */
-  app.post("/api/projects/:id/apply-scene-recommendation", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/apply-scene-recommendation", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { recommendationId } = req.body;
@@ -166,7 +166,7 @@ export function registerSceneEditingRoutes(app: Express) {
    * POST /api/projects/:id/apply-all-recommendations
    * Apply all (or specific) recommendations
    */
-  app.post("/api/projects/:id/apply-all-recommendations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/apply-all-recommendations", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { recommendationIds } = req.body; // Optional: array of UUIDs to apply
@@ -196,7 +196,7 @@ export function registerSceneEditingRoutes(app: Express) {
    * POST /api/projects/:id/edit-scene
    * Manual edit scene
    */
-  app.post("/api/projects/:id/edit-scene", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/edit-scene", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { sceneId, newText } = req.body;
@@ -228,7 +228,7 @@ export function registerSceneEditingRoutes(app: Express) {
    * POST /api/projects/:id/revert-to-version
    * Revert to previous version
    */
-  app.post("/api/projects/:id/revert-to-version", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/revert-to-version", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { versionId } = req.body;

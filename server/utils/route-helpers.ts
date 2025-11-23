@@ -1,9 +1,9 @@
 /**
  * Unified userId extraction from request
- * Supports both req.user.id and req.user?.claims?.sub authentication patterns
+ * Works with JWT authentication (userId attached directly to request)
  */
 export function getUserId(req: any): string | null {
-  return req.user?.id || req.user?.claims?.sub || null;
+  return req.userId || null;
 }
 
 /**

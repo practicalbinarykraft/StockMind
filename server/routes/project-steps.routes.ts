@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { insertProjectStepSchema, projectSteps } from "@shared/schema";
 import { db } from "../db";
@@ -16,7 +16,7 @@ export function registerProjectStepsRoutes(app: Express) {
    * Gets all steps for a project
    * Returns array of project steps with their completion status
    */
-  app.get("/api/projects/:id/steps", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/steps", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -45,7 +45,7 @@ export function registerProjectStepsRoutes(app: Express) {
    * Creates a new project step
    * Body: { stepNumber, data, skipReason?, completedAt? }
    */
-  app.post("/api/projects/:id/steps", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/steps", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -80,7 +80,7 @@ export function registerProjectStepsRoutes(app: Express) {
    * Stage 4: Voice Generation
    * Stage 5: Avatar Selection
    */
-  app.post("/api/projects/:id/steps/:stepNumber/skip", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/steps/:stepNumber/skip", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

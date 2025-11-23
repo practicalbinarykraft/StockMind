@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { storage } from '../../storage';
-import { isAuthenticated } from '../../replit-auth';
+import { requireAuth } from "../../middleware/jwt-auth";
 import { getUserId } from './oauth.routes';
 
 const router = Router();
@@ -13,7 +13,7 @@ const router = Router();
 /**
  * POST /bind - Bind Instagram post to script version
  */
-router.post('/bind', isAuthenticated, async (req: Request, res: Response) => {
+router.post('/bind', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -81,7 +81,7 @@ router.post('/bind', isAuthenticated, async (req: Request, res: Response) => {
 /**
  * DELETE /bind/:bindingId - Delete binding
  */
-router.delete('/bind/:bindingId', isAuthenticated, async (req: Request, res: Response) => {
+router.delete('/bind/:bindingId', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -113,7 +113,7 @@ router.delete('/bind/:bindingId', isAuthenticated, async (req: Request, res: Res
  * GET /projects/:projectId/performance
  * Get predicted vs actual performance comparison
  */
-router.get('/projects/:projectId/performance', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/projects/:projectId/performance', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {

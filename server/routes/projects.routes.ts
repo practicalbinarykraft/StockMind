@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { insertProjectSchema } from "@shared/schema";
 import { ProjectService } from "../services/project-service";
@@ -13,7 +13,7 @@ export function registerProjectsRoutes(app: Express) {
   const projectService = new ProjectService(storage);
 
   // GET /api/projects - Get all projects with enriched data
-  app.get("/api/projects", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -64,7 +64,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // GET /api/projects/:id - Get specific project by ID
-  app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -82,7 +82,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // POST /api/projects - Create new blank project
-  app.post("/api/projects", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -96,7 +96,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // POST /api/projects/from-instagram/:itemId - Create project from Instagram Reel
-  app.post("/api/projects/from-instagram/:itemId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/from-instagram/:itemId", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -116,7 +116,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // POST /api/projects/from-news/:itemId - Create project from news item
-  app.post("/api/projects/from-news/:itemId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/from-news/:itemId", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -136,7 +136,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // PATCH /api/projects/:id - Update project details
-  app.patch("/api/projects/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/projects/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -151,7 +151,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // PATCH /api/projects/:id/stage - Navigate to a completed stage (5-8 only)
-  app.patch("/api/projects/:id/stage", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/projects/:id/stage", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -188,7 +188,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // DELETE /api/projects/:id - Soft delete project
-  app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/projects/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -202,7 +202,7 @@ export function registerProjectsRoutes(app: Express) {
   });
 
   // DELETE /api/projects/:id/permanent - Permanent delete
-  app.delete("/api/projects/:id/permanent", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/projects/:id/permanent", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

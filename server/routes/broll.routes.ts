@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { generateAiPrompt } from "../ai-services";
 import { generateKieVideo, getKieVideoStatus } from "../kie-service";
@@ -17,7 +17,7 @@ export function registerBrollRoutes(app: Express) {
    * Body: { shotInstructions, sceneText? }
    * Returns: Generated AI prompt optimized for video generation
    */
-  app.post("/api/projects/:id/broll/generate-prompt", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/broll/generate-prompt", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -62,7 +62,7 @@ export function registerBrollRoutes(app: Express) {
    * Body: { sceneId, aiPrompt, model?, aspectRatio? }
    * Returns: Task ID for tracking generation status
    */
-  app.post("/api/projects/:id/broll/generate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/broll/generate", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -131,7 +131,7 @@ export function registerBrollRoutes(app: Express) {
    * Requires: Kie.ai API key
    * Returns: Generation status, progress, and video URL when completed
    */
-  app.get("/api/projects/:id/broll/status/:taskId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/broll/status/:taskId", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

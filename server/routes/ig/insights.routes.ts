@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { storage } from '../../storage';
-import { isAuthenticated } from '../../replit-auth';
+import { requireAuth } from "../../middleware/jwt-auth";
 import * as igGraphClient from '../../ig-graph-client';
 import * as encryption from '../../encryption';
 import { getUserId } from './oauth.routes';
@@ -23,7 +23,7 @@ const router = Router();
  * Returns all historical insights data for the media,
  * including the latest metrics and collection timestamps
  */
-router.get('/media/:igMediaId/insights', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/media/:igMediaId/insights', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -75,7 +75,7 @@ router.get('/media/:igMediaId/insights', isAuthenticated, async (req: Request, r
  * and saves them to the database. Updates sync status
  * and schedules next sync for 24 hours later.
  */
-router.post('/media/:igMediaId/sync', isAuthenticated, async (req: Request, res: Response) => {
+router.post('/media/:igMediaId/sync', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {

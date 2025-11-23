@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { scoreInstagramReel } from "../ai-services";
 import { transcribeInstagramItemBackground } from "./helpers/background-tasks";
@@ -15,7 +15,7 @@ import { transcribeInstagramItemBackground } from "./helpers/background-tasks";
  */
 export function registerInstagramItemsRoutes(app: Express) {
   // GET /api/instagram/items - Get all Instagram items for current user
-  app.get("/api/instagram/items", isAuthenticated, async (req: any, res) => {
+  app.get("/api/instagram/items", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -31,7 +31,7 @@ export function registerInstagramItemsRoutes(app: Express) {
   });
 
   // GET /api/instagram/items/:id - Get specific Instagram item by ID
-  app.get("/api/instagram/items/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/instagram/items/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -52,7 +52,7 @@ export function registerInstagramItemsRoutes(app: Express) {
   });
 
   // PATCH /api/instagram/items/:id/action - Update item action (selected, dismissed, seen)
-  app.patch("/api/instagram/items/:id/action", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/instagram/items/:id/action", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -77,7 +77,7 @@ export function registerInstagramItemsRoutes(app: Express) {
   });
 
   // POST /api/instagram/items/:id/transcribe - Start video transcription
-  app.post("/api/instagram/items/:id/transcribe", isAuthenticated, async (req: any, res) => {
+  app.post("/api/instagram/items/:id/transcribe", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -115,7 +115,7 @@ export function registerInstagramItemsRoutes(app: Express) {
   });
 
   // POST /api/instagram/items/:id/score - Score Instagram Reel with AI
-  app.post("/api/instagram/items/:id/score", isAuthenticated, async (req: any, res) => {
+  app.post("/api/instagram/items/:id/score", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

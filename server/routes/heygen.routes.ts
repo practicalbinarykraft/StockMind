@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "../heygen-service";
 
@@ -14,7 +14,7 @@ export function registerHeygenRoutes(app: Express) {
    * Fetches available avatars from HeyGen
    * Requires: HeyGen API key
    */
-  app.get("/api/heygen/avatars", isAuthenticated, async (req: any, res) => {
+  app.get("/api/heygen/avatars", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -44,7 +44,7 @@ export function registerHeygenRoutes(app: Express) {
    * Body: { avatarId, script, audioUrl?, voiceId?, dimension? }
    * Note: Requires either audioUrl (audio mode) or voiceId (text mode)
    */
-  app.post("/api/heygen/generate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/heygen/generate", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -100,7 +100,7 @@ export function registerHeygenRoutes(app: Express) {
    * Requires: HeyGen API key
    * Returns: Video status and URL when completed
    */
-  app.get("/api/heygen/status/:videoId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/heygen/status/:videoId", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

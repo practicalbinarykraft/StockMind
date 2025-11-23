@@ -29,7 +29,7 @@ export default function Landing() {
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Button 
                 size="lg"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/login'}
                 className="gap-2"
                 data-testid="button-get-started"
               >
@@ -165,7 +165,7 @@ export default function Landing() {
           <div className="mt-10">
             <Button 
               size="lg"
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/login'}
               className="gap-2"
               data-testid="button-cta-login"
             >

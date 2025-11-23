@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -46,7 +46,7 @@ export function registerAudioRoutes(app: Express) {
    * Uploads an audio file to the server
    * Accepts: MP3, WAV, M4A (max 25MB)
    */
-  app.post("/api/audio/upload", isAuthenticated, upload.single('audio'), async (req: any, res) => {
+  app.post("/api/audio/upload", requireAuth, upload.single('audio'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No audio file uploaded" });

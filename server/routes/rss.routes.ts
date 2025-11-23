@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { insertRssSourceSchema } from "@shared/schema";
 import { parseRssSource } from "../lib/rss-background-tasks";
@@ -11,7 +11,7 @@ import { parseRssSource } from "../lib/rss-background-tasks";
  */
 export function registerRssRoutes(app: Express) {
   // GET /api/settings/rss-sources - Get all RSS sources for current user
-  app.get("/api/settings/rss-sources", isAuthenticated, async (req: any, res) => {
+  app.get("/api/settings/rss-sources", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -25,7 +25,7 @@ export function registerRssRoutes(app: Express) {
   });
 
   // POST /api/settings/rss-sources - Create new RSS source
-  app.post("/api/settings/rss-sources", isAuthenticated, async (req: any, res) => {
+  app.post("/api/settings/rss-sources", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -46,7 +46,7 @@ export function registerRssRoutes(app: Express) {
   });
 
   // PATCH /api/settings/rss-sources/:id - Update RSS source
-  app.patch("/api/settings/rss-sources/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/settings/rss-sources/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -66,7 +66,7 @@ export function registerRssRoutes(app: Express) {
   });
 
   // DELETE /api/settings/rss-sources/:id - Delete RSS source
-  app.delete("/api/settings/rss-sources/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/settings/rss-sources/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId, normalizeInstagramUsername } from "../utils/route-helpers";
 import { insertInstagramSourceSchema } from "@shared/schema";
 import { scrapeInstagramReels, testApifyApiKey } from "../apify-service";
@@ -13,7 +13,7 @@ import { z } from "zod";
  */
 export function registerInstagramSourcesRoutes(app: Express) {
   // GET /api/settings/instagram-sources - Get all Instagram sources
-  app.get("/api/settings/instagram-sources", isAuthenticated, async (req: any, res) => {
+  app.get("/api/settings/instagram-sources", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -27,7 +27,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
   });
 
   // POST /api/settings/instagram-sources - Create new Instagram source
-  app.post("/api/settings/instagram-sources", isAuthenticated, async (req: any, res) => {
+  app.post("/api/settings/instagram-sources", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -53,7 +53,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
   });
 
   // DELETE /api/settings/instagram-sources/:id - Delete Instagram source
-  app.delete("/api/settings/instagram-sources/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/settings/instagram-sources/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -68,7 +68,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
   });
 
   // POST /api/instagram/sources/:id/parse - Scrape Instagram Reels from source
-  app.post("/api/instagram/sources/:id/parse", isAuthenticated, async (req: any, res) => {
+  app.post("/api/instagram/sources/:id/parse", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

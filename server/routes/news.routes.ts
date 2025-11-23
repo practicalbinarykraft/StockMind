@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import Parser from "rss-parser";
 import { fetchAndExtract } from "../lib/fetch-and-extract";
@@ -14,7 +14,7 @@ const rssParser = new Parser();
  */
 export function registerNewsRoutes(app: Express) {
   // GET /api/news - Get all news items with enriched data
-  app.get("/api/news", isAuthenticated, async (req: any, res) => {
+  app.get("/api/news", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -50,7 +50,7 @@ export function registerNewsRoutes(app: Express) {
   });
 
   // GET /api/news/score/:id - Get AI score for specific news item
-  app.get("/api/news/score/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/news/score/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -76,7 +76,7 @@ export function registerNewsRoutes(app: Express) {
   });
 
   // PATCH /api/news/:id/action - Update item action (dismiss, select, seen)
-  app.patch("/api/news/:id/action", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/news/:id/action", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -94,7 +94,7 @@ export function registerNewsRoutes(app: Express) {
   });
 
   // POST /api/news/refresh - Manual refresh from RSS sources
-  app.post("/api/news/refresh", isAuthenticated, async (req: any, res) => {
+  app.post("/api/news/refresh", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -143,7 +143,7 @@ export function registerNewsRoutes(app: Express) {
   });
 
   // POST /api/news/:id/fetch-full-content - Fetch full article via web scraping
-  app.post("/api/news/:id/fetch-full-content", isAuthenticated, async (req: any, res) => {
+  app.post("/api/news/:id/fetch-full-content", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -185,7 +185,7 @@ export function registerNewsRoutes(app: Express) {
   });
 
   // POST /api/news/refresh-extended - Extended parsing (all available items)
-  app.post("/api/news/refresh-extended", isAuthenticated, async (req: any, res) => {
+  app.post("/api/news/refresh-extended", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

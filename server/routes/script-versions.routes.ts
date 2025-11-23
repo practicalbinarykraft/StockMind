@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { scriptVersions, sceneRecommendations } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -69,7 +69,7 @@ export function registerScriptVersionsRoutes(app: Express) {
    * Get script version history and recommendations for a project
    * Single source of truth for script versions and recommendations
    */
-  app.get("/api/projects/:id/script-history", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/script-history", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = getUserId(req);
@@ -113,7 +113,7 @@ export function registerScriptVersionsRoutes(app: Express) {
    * GET /api/projects/:id/script-versions
    * Get all script versions for frontend
    */
-  app.get("/api/projects/:id/script-versions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/script-versions", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = getUserId(req);
@@ -135,7 +135,7 @@ export function registerScriptVersionsRoutes(app: Express) {
    * GET /api/projects/:id/versions/:versionId
    * Get a specific version by ID
    */
-  app.get("/api/projects/:id/versions/:versionId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/versions/:versionId", requireAuth, async (req: any, res) => {
     try {
       const { id: projectId, versionId } = req.params;
       const userId = getUserId(req);
@@ -161,7 +161,7 @@ export function registerScriptVersionsRoutes(app: Express) {
    * POST /api/projects/:id/create-initial-version
    * Create initial script version from analysis
    */
-  app.post("/api/projects/:id/create-initial-version", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/create-initial-version", requireAuth, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { scenes, analysisResult, analysisScore } = req.body;
@@ -220,7 +220,7 @@ export function registerScriptVersionsRoutes(app: Express) {
    * PUT /api/projects/:id/versions/:versionId/accept
    * Accept candidate version and make it current
    */
-  app.put("/api/projects/:id/versions/:versionId/accept", isAuthenticated, async (req: any, res) => {
+  app.put("/api/projects/:id/versions/:versionId/accept", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
@@ -285,7 +285,7 @@ export function registerScriptVersionsRoutes(app: Express) {
    * DELETE /api/projects/:id/versions/:versionId
    * Delete/reject candidate version
    */
-  app.delete("/api/projects/:id/versions/:versionId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/projects/:id/versions/:versionId", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);

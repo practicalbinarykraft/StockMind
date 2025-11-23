@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { analyzeScript, scoreText } from "../ai-services";
 
@@ -14,7 +14,7 @@ export function registerAiRoutes(app: Express) {
    * Analyzes a script using AI based on the specified format
    * Requires: Anthropic API key
    */
-  app.post("/api/ai/analyze-script", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/analyze-script", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -56,7 +56,7 @@ export function registerAiRoutes(app: Express) {
    * Scores text content using AI analysis
    * Requires: Anthropic API key
    */
-  app.post("/api/ai/score-text", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/score-text", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

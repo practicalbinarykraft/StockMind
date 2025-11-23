@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { storage } from '../../storage';
-import { isAuthenticated } from '../../replit-auth';
+import { requireAuth } from '../../middleware/jwt-auth';
 import * as igGraphClient from '../../ig-graph-client';
 import * as encryption from '../../encryption';
 
@@ -14,18 +14,15 @@ const router = Router();
 // Environment Variables
 const FB_APP_ID = process.env.FB_APP_ID;
 const FB_APP_SECRET = process.env.FB_APP_SECRET;
-const BASE_URL = process.env.REPL_SLUG
-  ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : 'http://localhost:5000';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // Helper Functions
 
 /**
- * Get userId from request (supports both req.user.id and req.user.claims.sub)
+ * Get userId from request (JWT auth attaches userId directly)
  */
 function getUserId(req: Request): string | null {
-  const user = req.user as any;
-  return user?.id || user?.claims?.sub || null;
+  return (req as any).userId || null;
 }
 
 /**
@@ -47,7 +44,7 @@ function validateEnvVars(): { valid: boolean; missing: string[] } {
  * GET /auth/callback
  * Handles OAuth callback from Facebook
  */
-router.get('/auth/callback', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/auth/callback', requireAuth, async (req: Request, res: Response) => {
   try {
     // Validate authorization code
     const code = req.query.code as string;

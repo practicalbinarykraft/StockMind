@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { storage } from '../../storage';
-import { isAuthenticated } from '../../replit-auth';
+import { requireAuth } from "../../middleware/jwt-auth";
 import * as igGraphClient from '../../ig-graph-client';
 import * as encryption from '../../encryption';
 import { getUserId } from './oauth.routes';
@@ -29,7 +29,7 @@ const router = Router();
  *
  * Fetches media from Instagram Graph API and saves to database
  */
-router.get('/:accountId/media', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/:accountId/media', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -119,7 +119,7 @@ router.get('/:accountId/media', isAuthenticated, async (req: Request, res: Respo
  * Returns media information from the database including
  * permalink, caption, thumbnail, and sync status
  */
-router.get('/media/:igMediaId/details', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/media/:igMediaId/details', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) {

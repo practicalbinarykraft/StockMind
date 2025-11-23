@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { apiResponse } from "../lib/api-response";
 
@@ -13,7 +13,7 @@ export function registerVersionComparisonRoutes(app: Express) {
    * GET /api/projects/:id/compare
    * Compare two specific versions by ID
    */
-  app.get("/api/projects/:id/compare", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/compare", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
@@ -115,7 +115,7 @@ export function registerVersionComparisonRoutes(app: Express) {
    * GET /api/projects/:id/reanalyze/compare/latest
    * Get comparison data for current vs candidate version (used in modal)
    */
-  app.get("/api/projects/:id/reanalyze/compare/latest", isAuthenticated, async (req: any, res) => {
+  app.get("/api/projects/:id/reanalyze/compare/latest", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
@@ -207,7 +207,7 @@ export function registerVersionComparisonRoutes(app: Express) {
    * POST /api/projects/:id/reanalyze/compare/choose
    * Choose which version to keep (base or candidate)
    */
-  app.post("/api/projects/:id/reanalyze/compare/choose", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:id/reanalyze/compare/choose", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
@@ -256,7 +256,7 @@ export function registerVersionComparisonRoutes(app: Express) {
    * DELETE /api/projects/:id/reanalyze/candidate
    * Cancel/reject candidate draft
    */
-  app.delete("/api/projects/:id/reanalyze/candidate", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/projects/:id/reanalyze/candidate", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);

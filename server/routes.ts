@@ -13,7 +13,6 @@
 
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./replit-auth";
 import igRouter from "./routes/ig";
 import { ProjectService } from './services/project-service';
 import { ScriptVersionService } from './services/script-version-service';
@@ -40,9 +39,6 @@ import { registerReanalysisRoutes } from "./routes/reanalysis.routes";
 import { registerVersionComparisonRoutes } from "./routes/version-comparison.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication middleware
-  await setupAuth(app);
-
   // Initialize services (used by some routes)
   const projectService = new ProjectService(storage);
   const scriptVersionService = new ScriptVersionService(storage);

@@ -14,17 +14,26 @@ export function setupSecurity(app: Express) {
       // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin) return callback(null, true);
 
-      // In production, allow only Replit domains
-      const allowedOrigins = [
-        'https://stockmind.repl.co',
-        'https://stockmind.practicalbinarykraft.repl.co',
-        /\.repl\.co$/, // Allow all repl.co subdomains
-      ];
+      // Get allowed origins from environment variable
+      // Format: comma-separated list, e.g., "https://example.com,https://www.example.com"
+      const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '';
+      const allowedOrigins: (string | RegExp)[] = allowedOriginsEnv
+        .split(',')
+        .map(o => o.trim())
+        .filter(o => o.length > 0);
 
-      // In development, allow localhost
+      // In development, always allow localhost
       if (process.env.NODE_ENV !== 'production') {
         allowedOrigins.push('http://localhost:5173');
         allowedOrigins.push('http://localhost:5000');
+      }
+
+      // If no origins configured and in production, allow current host
+      if (allowedOrigins.length === 0 && process.env.NODE_ENV === 'production') {
+        // Allow any origin in production if not configured (NOT RECOMMENDED for real production)
+        // Set ALLOWED_ORIGINS environment variable for security
+        console.warn('[Security] No ALLOWED_ORIGINS configured, allowing all origins');
+        return callback(null, true);
       }
 
       const isAllowed = allowedOrigins.some(allowed => {

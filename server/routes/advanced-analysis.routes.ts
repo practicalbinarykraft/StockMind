@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { scoreNewsItem, scoreInstagramReel } from "../ai-services";
 import { scoreNewsAdvanced, scoreReelAdvanced, scoreCustomScriptAdvanced } from "../ai-services";
@@ -15,7 +15,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
    * POST /api/analyze/advanced/news
    * Test advanced news analysis with multi-agent system
    */
-  app.post("/api/analyze/advanced/news", isAuthenticated, async (req: any, res) => {
+  app.post("/api/analyze/advanced/news", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -61,7 +61,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
    * POST /api/analyze/advanced/reel
    * Test advanced Instagram Reel analysis with multi-agent system
    */
-  app.post("/api/analyze/advanced/reel", isAuthenticated, async (req: any, res) => {
+  app.post("/api/analyze/advanced/reel", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -107,7 +107,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
    * POST /api/analyze/advanced/script
    * Test advanced custom script analysis with multi-agent system
    */
-  app.post("/api/analyze/advanced/script", isAuthenticated, async (req: any, res) => {
+  app.post("/api/analyze/advanced/script", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -159,7 +159,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
    * Compare old vs new analysis systems
    * Useful for testing and validating the new multi-agent system
    */
-  app.post("/api/analyze/compare", isAuthenticated, async (req: any, res) => {
+  app.post("/api/analyze/compare", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

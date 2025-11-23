@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replit-auth";
+import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { fetchVoices, generateSpeech } from "../elevenlabs-service";
 
@@ -14,7 +14,7 @@ export function registerElevenlabsRoutes(app: Express) {
    * Fetches available voices from ElevenLabs
    * Requires: ElevenLabs API key
    */
-  app.get("/api/elevenlabs/voices", isAuthenticated, async (req: any, res) => {
+  app.get("/api/elevenlabs/voices", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -44,7 +44,7 @@ export function registerElevenlabsRoutes(app: Express) {
    * Body: { voiceId, text, voiceSettings? }
    * Returns: Base64-encoded audio data
    */
-  app.post("/api/elevenlabs/generate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/elevenlabs/generate", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });

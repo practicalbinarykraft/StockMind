@@ -23,8 +23,8 @@ export function setupSentry(app: Express) {
     // Performance monitoring
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
 
-    // Release tracking
-    release: process.env.REPL_SLUG || 'unknown',
+    // Release tracking (use APP_VERSION or git commit hash in production)
+    release: process.env.APP_VERSION || process.env.GIT_COMMIT || 'unknown',
 
     // Filter sensitive data
     beforeSend(event, hint) {
