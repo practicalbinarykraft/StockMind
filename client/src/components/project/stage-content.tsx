@@ -1,7 +1,7 @@
 import { type Project, type ProjectStep } from "@shared/schema"
 import { Stage1SourceSelection } from "./stages/stage-1-source-selection"
 import { Stage2ContentInput } from "./stages/stage-2-content-input"
-import { Stage3AIAnalysis } from "./stages/stage-3-ai-analysis"
+import { Stage3AIAnalysis } from "./stages/stage-3/stage-3-ai-analysis"
 import { Stage4VoiceGeneration } from "./stages/stage-4-voice"
 import { Stage5AvatarSelection } from "./stages/stage-5-avatar"
 import { Stage6FinalExport } from "./stages/stage-6-export"
