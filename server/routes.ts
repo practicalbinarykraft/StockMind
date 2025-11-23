@@ -14,7 +14,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./replit-auth";
-import igRouter from "./ig-routes";
+import igRouter from "./routes/ig";
 import { ProjectService } from './services/project-service';
 import { ScriptVersionService } from './services/script-version-service';
 import { storage } from "./storage";
