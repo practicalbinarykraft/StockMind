@@ -317,14 +317,45 @@ df -h | grep -E '(Filesystem|/$)'
 
 ### Weekly
 
-**1. Database Backup**
+**1. Database Backup** ✅ AUTOMATED
 ```bash
-# Manual backup
+# Backups run automatically daily at 2 AM via cron
+# See: scripts/backup-database.sh
+
+# Manual backup (if needed)
+DATABASE_URL=$DATABASE_URL ./scripts/backup-database.sh
+
+# Or using Docker:
 docker-compose exec postgres pg_dump -U stockmind stockmind > \
   /backups/stockmind_$(date +%Y%m%d).sql
 
-# Verify backup
-ls -lh /backups/
+# Verify backups
+ls -lh ./backups/
+
+# View backup logs
+tail -f ./backups/backup.log
+
+# Restore from backup
+DATABASE_URL=$DATABASE_URL ./scripts/restore-database.sh ./backups/stockmind_backup_YYYYMMDD_HHMMSS.sql.gz
+```
+
+**Automated Backup Configuration:**
+- Schedule: Daily at 2:00 AM server time
+- Retention: 30 days (configurable)
+- Compression: gzip (saves ~70% space)
+- Location: `./backups/`
+- Logs: `./backups/backup.log`
+
+**Setup automated backups:**
+```bash
+# One-time setup
+sudo ./scripts/setup-backup-cron.sh
+
+# Edit backup configuration
+nano .env.backup
+
+# Test backup manually
+sudo -u $USER bash -c 'source .env.backup && ./scripts/backup-database.sh'
 ```
 
 **2. Clean Old Uploads**
