@@ -474,6 +474,82 @@ echo "ssh-rsa AAAA..." >> ~/.ssh/authorized_keys
 
 ---
 
+## 🧪 Staging Environment
+
+### Purpose
+Test deployments before production to catch issues early.
+
+### Configuration
+- **URL:** http://localhost:5001 (or staging.stockmind.example.com)
+- **Database:** Separate from production (port 5433)
+- **Data:** Test/dummy data only
+- **Environment:** NODE_ENV=staging
+
+### Deploy to Staging
+```bash
+# One-command deployment with tests
+./scripts/deploy-staging.sh
+
+# Skip smoke tests (faster)
+./scripts/deploy-staging.sh --skip-tests
+
+# Manual deployment
+docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
+
+# View logs
+docker-compose -f docker-compose.staging.yml logs -f app-staging
+```
+
+### Smoke Tests
+```bash
+# Run smoke tests manually
+./scripts/smoke-test-staging.sh
+
+# Test specific URL
+STAGING_URL=https://staging.example.com ./scripts/smoke-test-staging.sh
+```
+
+**Tests include:**
+- ✅ Health check endpoint
+- ✅ Public API endpoints
+- ✅ Static assets loading
+- ✅ Database connectivity
+- ✅ Security headers
+- ✅ Rate limiting
+- ✅ Environment configuration
+
+### Staging Workflow
+1. **Develop** on feature branch
+2. **Merge** to staging branch (optional)
+3. **Deploy** to staging: `./scripts/deploy-staging.sh`
+4. **Test** manually + automated smoke tests
+5. **If OK** → deploy to production
+6. **If issues** → fix and redeploy to staging
+
+### Reset Staging Database
+```bash
+# Drop and recreate database
+docker-compose -f docker-compose.staging.yml down -v
+docker-compose -f docker-compose.staging.yml up -d
+
+# Or restore from backup
+docker-compose -f docker-compose.staging.yml exec postgres-staging \
+  psql -U stockmind_staging stockmind_staging < backup.sql
+```
+
+### Differences from Production
+| Setting | Staging | Production |
+|---------|---------|-----------|
+| Port | 5001 | 5000 |
+| DB Port | 5433 | 5432 |
+| NODE_ENV | staging | production |
+| Database | stockmind_staging | stockmind |
+| Backups | ./backups-staging | ./backups |
+| Uploads | ./uploads-staging | ./uploads |
+| Registration | Enabled | May be disabled |
+
+---
+
 ## 📞 Escalation
 
 ### Who to Contact

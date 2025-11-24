@@ -1,0 +1,127 @@
+version: '3.8'
+
+# ============================================================================
+# StockMind Staging Environment
+# ============================================================================
+#
+# Purpose: Test deployments before production
+# Database: Separate from production (staging-specific data)
+# Domain: staging.stockmind.example.com
+#
+# Usage:
+#   docker-compose -f docker-compose.staging.yml up -d
+#   docker-compose -f docker-compose.staging.yml logs -f
+#   docker-compose -f docker-compose.staging.yml down
+#
+
+services:
+  # PostgreSQL Database (Staging)
+  postgres-staging:
+    image: postgres:16-alpine
+    container_name: stockmind-postgres-staging
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: stockmind_staging
+      POSTGRES_USER: stockmind_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_password_change_me}
+
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+      - ./backups-staging:/backups
+
+    ports:
+      - "5433:5432"  # Different port from production
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockmind_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - stockmind-staging
+
+  # StockMind Application (Staging)
+  app-staging:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stockmind-app-staging
+    restart: unless-stopped
+
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+
+    environment:
+      # Application
+      NODE_ENV: staging
+      PORT: 5000
+      BASE_URL: ${STAGING_BASE_URL:-http://localhost:5001}
+
+      # Database
+      DATABASE_URL: postgresql://stockmind_staging:${POSTGRES_PASSWORD:-staging_password_change_me}@postgres-staging:5432/stockmind_staging
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-staging_jwt_secret_CHANGE_IN_PRODUCTION}
+      SESSION_SECRET: ${SESSION_SECRET:-staging_session_secret_CHANGE_IN_PRODUCTION}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5001,http://localhost:5173}
+
+      # Monitoring (optional)
+      SENTRY_DSN: ${SENTRY_DSN_STAGING:-}
+      VITE_SENTRY_DSN: ${VITE_SENTRY_DSN_STAGING:-}
+
+      # AI API Keys (optional - can be set via UI)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
+
+      # Instagram Graph API (optional)
+      FB_APP_ID: ${FB_APP_ID:-}
+      FB_APP_SECRET: ${FB_APP_SECRET:-}
+
+      # Feature Flags
+      ENABLE_REGISTRATION: ${ENABLE_REGISTRATION:-true}
+
+      # Staging-specific
+      STAGING: "true"
+      APP_VERSION: staging-${GIT_COMMIT:-latest}
+
+    ports:
+      - "5001:5000"  # Different port from production
+
+    volumes:
+      - ./uploads-staging:/app/uploads
+      - ./backups-staging:/app/backups
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    networks:
+      - stockmind-staging
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stockmind-staging.rule=Host(`staging.stockmind.example.com`)"
+      - "traefik.http.routers.stockmind-staging.entrypoints=websecure"
+      - "traefik.http.routers.stockmind-staging.tls.certresolver=letsencrypt"
+      - "com.centurylinklabs.watchtower.enable=true"
+
+volumes:
+  postgres_staging_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres-staging
+
+networks:
+  stockmind-staging:
+    driver: bridge
+    name: stockmind-staging-network
