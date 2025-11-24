@@ -8,6 +8,13 @@
       "when": 1763962359693,
       "tag": "0000_empty_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1732454567000,
+      "tag": "0001_add_performance_indexes",
+      "breakpoints": false
     }
   ]
 }
