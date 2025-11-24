@@ -1,3 +1,7 @@
+// CRITICAL: Validate environment variables FIRST, before any other imports
+import { validateEnvironmentOrExit } from "./lib/env-validator";
+validateEnvironmentOrExit();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
