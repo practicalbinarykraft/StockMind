@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { insertApiKeySchema } from "@shared/schema";
 import { testApiKeyByProvider } from "../lib/api-key-tester";
+import { logger } from "../lib/logger";
 
 /**
  * API Keys management routes
@@ -30,8 +31,13 @@ export function registerApiKeysRoutes(app: Express) {
       }));
 
       res.json(safeKeys);
-    } catch (error) {
-      console.error("Error fetching API keys:", error);
+    } catch (error: any) {
+      // ⚠️ SECURITY: Never log API keys or sensitive error details
+      logger.error("Error fetching API keys", {
+        userId,
+        errorType: error.constructor?.name,
+        // Deliberately NOT logging error.message which might contain sensitive data
+      });
       res.status(500).json({ message: "Failed to fetch API keys" });
     }
   });
@@ -58,8 +64,14 @@ export function registerApiKeysRoutes(app: Express) {
 
       res.json(safeApiKey);
     } catch (error: any) {
-      console.error("Error creating API key:", error);
-      res.status(400).json({ message: error.message || "Failed to create API key" });
+      // ⚠️ SECURITY: Never log API keys or sensitive error details
+      logger.error("Error creating API key", {
+        userId,
+        provider: req.body?.provider,
+        errorType: error.constructor?.name,
+        // Deliberately NOT logging error.message or req.body which contains the API key
+      });
+      res.status(400).json({ message: "Failed to create API key" });
     }
   });
 
@@ -72,8 +84,12 @@ export function registerApiKeysRoutes(app: Express) {
       const { id } = req.params;
       await storage.deleteApiKey(id, userId);
       res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting API key:", error);
+    } catch (error: any) {
+      logger.error("Error deleting API key", {
+        userId,
+        keyId: req.params.id,
+        errorType: error.constructor?.name,
+      });
       res.status(500).json({ message: "Failed to delete API key" });
     }
   });

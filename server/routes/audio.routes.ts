@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { requireAuth } from "../middleware/jwt-auth";
+import { uploadLimiter } from "../middleware/rate-limiter";
+import { logger } from "../lib/logger";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -45,8 +47,9 @@ export function registerAudioRoutes(app: Express) {
    * POST /api/audio/upload
    * Uploads an audio file to the server
    * Accepts: MP3, WAV, M4A (max 25MB)
+   * Rate limited: 20 uploads per hour
    */
-  app.post("/api/audio/upload", requireAuth, upload.single('audio'), async (req: any, res) => {
+  app.post("/api/audio/upload", uploadLimiter, requireAuth, upload.single('audio'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No audio file uploaded" });
@@ -61,7 +64,11 @@ export function registerAudioRoutes(app: Express) {
         mimetype: req.file.mimetype
       });
     } catch (error: any) {
-      console.error("Error uploading audio:", error);
+      logger.error("Error uploading audio", {
+        error: error.message,
+        userId: req.userId,
+        stack: error.stack
+      });
       res.status(500).json({ message: error.message || "Failed to upload audio" });
     }
   });
