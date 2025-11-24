@@ -21,8 +21,8 @@ docker run -d --name stockmind-postgres \
   -e POSTGRES_PASSWORD=your_password \
   -p 5432:5432 postgres:16
 
-# 4. Push database schema
-npm run db:push
+# 4. Run database migrations
+npm run db:migrate
 
 # 5. Start development server
 npm run dev
@@ -119,9 +119,10 @@ docker-compose up -d --build
 
 **Rollback:**
 ```bash
-# Currently using drizzle-kit push (no migrations yet)
-# To rollback: restore from backup
+# Option 1: Using rollback script (preferred)
+docker-compose exec app npm run db:rollback -- --steps=1
 
+# Option 2: Restore from backup
 # 1. Stop application
 docker-compose stop app
 
@@ -133,9 +134,10 @@ docker-compose start app
 ```
 
 **Prevention:**
-- ⚠️ TODO: Implement proper migrations with drizzle-kit generate
 - Always test migrations on staging first
 - Always backup before migration
+- Create rollback SQL for complex migrations
+- See [MIGRATIONS.md](./MIGRATIONS.md) for detailed procedures
 
 ---
 
@@ -461,6 +463,7 @@ echo "ssh-rsa AAAA..." >> ~/.ssh/authorized_keys
 
 ## 📚 Additional Resources
 
+- [Database Migrations Guide](./MIGRATIONS.md)
 - [Deployment Guide](./LOCAL_SETUP.md)
 - [Production Readiness Review](./PRODUCTION_READINESS_REVIEW.md)
 - [Test Coverage Report](./TEST_AND_LOGGING_COVERAGE_REPORT.md)

@@ -39,6 +39,9 @@ COPY tsconfig.json ./
 # Build backend
 RUN npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 
+# Build migration runner
+RUN npx esbuild server/db/migrate.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/db
+
 # Stage 3: Production runtime
 FROM node:20-alpine AS production
 
@@ -66,6 +69,14 @@ COPY --from=backend-builder /app/dist ./dist
 COPY shared ./shared
 COPY drizzle.config.ts ./
 
+# Copy migration files and runner
+COPY drizzle/migrations ./drizzle/migrations
+COPY --from=backend-builder /app/dist/db/migrate.js ./dist/db/migrate.js
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 # Create uploads directory
 RUN mkdir -p uploads && chown nodejs:nodejs uploads
 
@@ -80,7 +91,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
+# Run migrations via entrypoint, then start application
+ENTRYPOINT ["dumb-init", "--", "./docker-entrypoint.sh"]
 
-# Start application
+# Start application (passed to entrypoint script)
 CMD ["node", "dist/index.js"]
