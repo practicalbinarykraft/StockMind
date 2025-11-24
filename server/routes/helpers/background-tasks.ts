@@ -1,5 +1,7 @@
 import { storage } from "../../storage";
 import { scoreInstagramReel, scoreNewsItem } from "../../ai-services";
+import { logBackgroundTask } from "../../lib/logger-helpers";
+import { logger } from "../../lib/logger";
 
 /**
  * Background transcription helper for Instagram Reels
@@ -10,11 +12,18 @@ export async function transcribeInstagramItemBackground(
   localVideoPath: string,
   userId: string
 ): Promise<void> {
+  const startTime = Date.now();
+
   // Import here to avoid circular dependencies
   const { transcribeInstagramVideo } = await import("../../transcription-service");
 
   try {
-    console.log(`[Transcription] Starting background transcription for item: ${itemId}`);
+    logBackgroundTask({
+      taskName: 'transcribeInstagramItem',
+      status: 'started',
+      itemId,
+      userId
+    });
 
     // Update status to 'processing' before starting transcription
     await storage.updateInstagramItemTranscription(itemId, 'processing');
@@ -31,11 +40,21 @@ export async function transcribeInstagramItemBackground(
         result.language,
         undefined
       );
-      console.log(`[Transcription] ✅ Transcribed item: ${itemId} (${result.text?.length || 0} chars, language: ${result.language})`);
+
+      const duration = Date.now() - startTime;
+      logBackgroundTask({
+        taskName: 'transcribeInstagramItem',
+        status: 'completed',
+        itemId,
+        userId,
+        duration,
+        textLength: result.text?.length || 0,
+        language: result.language
+      });
 
       // Auto-start AI scoring after successful transcription
       if (result.text) {
-        console.log(`[AI Score] 🎯 Auto-starting AI analysis for item: ${itemId}`);
+        logger.info('Auto-starting AI analysis after transcription', { itemId, userId });
         scoreInstagramItemBackground(itemId, userId);
       }
     } else {
@@ -46,17 +65,36 @@ export async function transcribeInstagramItemBackground(
         undefined,
         result.error
       );
-      console.error(`[Transcription] ❌ Failed to transcribe item: ${itemId} - ${result.error}`);
+
+      logBackgroundTask({
+        taskName: 'transcribeInstagramItem',
+        status: 'failed',
+        itemId,
+        userId,
+        duration: Date.now() - startTime,
+        error: result.error
+      });
     }
   } catch (error: any) {
-    console.error(`[Transcription] ❌ Background transcription error for item ${itemId}:`, error.message);
+    logBackgroundTask({
+      taskName: 'transcribeInstagramItem',
+      status: 'failed',
+      itemId,
+      userId,
+      duration: Date.now() - startTime,
+      error
+    });
+
     await storage.updateInstagramItemTranscription(
       itemId,
       'failed',
       undefined,
       undefined,
       error.message
-    ).catch(err => console.error('Failed to update transcription status:', err));
+    ).catch(err => logger.error('Failed to update transcription status', {
+      itemId,
+      error: err.message
+    }));
   }
 }
 
@@ -68,27 +106,34 @@ export async function scoreInstagramItemBackground(
   itemId: string,
   userId: string
 ): Promise<void> {
+  const startTime = Date.now();
+
   try {
-    console.log(`[AI Score] Starting AI analysis for item: ${itemId}`);
+    logBackgroundTask({
+      taskName: 'scoreInstagramItem',
+      status: 'started',
+      itemId,
+      userId
+    });
 
     // Get the item with transcription
     const items = await storage.getInstagramItems(userId);
     const item = items.find(i => i.id === itemId);
 
     if (!item) {
-      console.error(`[AI Score] ❌ Item not found: ${itemId}`);
+      logger.error('Instagram item not found for scoring', { itemId, userId });
       return;
     }
 
     if (!item.transcriptionText) {
-      console.error(`[AI Score] ❌ No transcription available for item: ${itemId}`);
+      logger.error('No transcription available for AI scoring', { itemId, userId });
       return;
     }
 
     // Get Anthropic API key
     const apiKeyRecord = await storage.getUserApiKey(userId, 'anthropic');
     if (!apiKeyRecord) {
-      console.error(`[AI Score] ❌ Anthropic API key not found for user`);
+      logger.error('Anthropic API key not found for user', { userId });
       return;
     }
 
@@ -116,9 +161,26 @@ export async function scoreInstagramItemBackground(
       result.qualityScore
     );
 
-    console.log(`[AI Score] ✅ Scored item ${itemId}: ${result.score}/100`);
+    logBackgroundTask({
+      taskName: 'scoreInstagramItem',
+      status: 'completed',
+      itemId,
+      userId,
+      duration: Date.now() - startTime,
+      score: result.score,
+      freshnessScore: result.freshnessScore,
+      viralityScore: result.viralityScore,
+      qualityScore: result.qualityScore
+    });
   } catch (error: any) {
-    console.error(`[AI Score] ❌ Background scoring error for item ${itemId}:`, error.message);
+    logBackgroundTask({
+      taskName: 'scoreInstagramItem',
+      status: 'failed',
+      itemId,
+      userId,
+      duration: Date.now() - startTime,
+      error
+    });
   }
 }
 
@@ -127,15 +189,26 @@ export async function scoreInstagramItemBackground(
  * Scores news items without blocking the response
  */
 export async function scoreRssItems(items: any[], userId: string) {
+  const startTime = Date.now();
+
   try {
     // Get user's Anthropic API key
     const apiKey = await storage.getUserApiKey(userId, 'anthropic');
     if (!apiKey) {
-      console.log('[AI] No Anthropic API key found for user, skipping scoring');
+      logger.info('No Anthropic API key found, skipping RSS scoring', { userId });
       return;
     }
 
-    console.log(`[AI] Scoring ${items.length} RSS items...`);
+    logBackgroundTask({
+      taskName: 'scoreRssItems',
+      status: 'started',
+      userId,
+      itemsProcessed: 0,
+      totalItems: items.length
+    });
+
+    let scoredCount = 0;
+    let failedCount = 0;
 
     for (const item of items) {
       try {
@@ -151,14 +224,39 @@ export async function scoreRssItems(items: any[], userId: string) {
           aiComment: result.comment,
         });
 
-        console.log(`[AI] Scored item "${item.title}": ${result.score}/100`);
-      } catch (err) {
-        console.error(`[AI] Failed to score item "${item.title}":`, err);
+        logger.debug('Scored RSS item', {
+          itemId: item.id,
+          title: item.title,
+          score: result.score
+        });
+
+        scoredCount++;
+      } catch (err: any) {
+        logger.error('Failed to score RSS item', {
+          itemId: item.id,
+          title: item.title,
+          error: err.message
+        });
+        failedCount++;
       }
     }
 
-    console.log(`[AI] Completed scoring ${items.length} items`);
-  } catch (error) {
-    console.error('[AI] Scoring failed:', error);
+    logBackgroundTask({
+      taskName: 'scoreRssItems',
+      status: 'completed',
+      userId,
+      duration: Date.now() - startTime,
+      itemsProcessed: scoredCount,
+      totalItems: items.length,
+      failedCount
+    });
+  } catch (error: any) {
+    logBackgroundTask({
+      taskName: 'scoreRssItems',
+      status: 'failed',
+      userId,
+      duration: Date.now() - startTime,
+      error
+    });
   }
 }
