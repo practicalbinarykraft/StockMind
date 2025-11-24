@@ -1,6 +1,7 @@
 import helmet from 'helmet';
 import cors from 'cors';
 import type { Express } from 'express';
+import { logger } from '../lib/logger';
 
 /**
  * Security middleware configuration
@@ -28,12 +29,15 @@ export function setupSecurity(app: Express) {
         allowedOrigins.push('http://localhost:5000');
       }
 
-      // If no origins configured and in production, allow current host
+      // If no origins configured and in production, FAIL SECURE
       if (allowedOrigins.length === 0 && process.env.NODE_ENV === 'production') {
-        // Allow any origin in production if not configured (NOT RECOMMENDED for real production)
-        // Set ALLOWED_ORIGINS environment variable for security
-        console.warn('[Security] No ALLOWED_ORIGINS configured, allowing all origins');
-        return callback(null, true);
+        // CRITICAL: ALLOWED_ORIGINS must be configured in production
+        const error = new Error(
+          'CORS: ALLOWED_ORIGINS environment variable is required in production. ' +
+          'Set it to comma-separated list of allowed domains (e.g., "https://example.com,https://www.example.com")'
+        );
+        console.error('[Security] CRITICAL:', error.message);
+        return callback(error);
       }
 
       const isAllowed = allowedOrigins.some(allowed => {
