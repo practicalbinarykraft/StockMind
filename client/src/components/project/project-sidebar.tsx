@@ -1,6 +1,17 @@
+import { useState } from "react"
 import { type Project } from "@shared/schema"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { 
   ArrowLeft,
@@ -43,7 +54,11 @@ interface ProjectSidebarProps {
 export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
   const [, setLocation] = useLocation()
   const { toast } = useToast()
-  
+
+  // State for navigation warning dialog
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false)
+  const [pendingStageNavigation, setPendingStageNavigation] = useState<number | null>(null)
+
   const currentStage = project.currentStage
 
   // Fetch steps data to check which steps are skipped
@@ -111,22 +126,33 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
     // Can only navigate to completed stages (based on actual step data, not just currentStage)
     const isCompleted = isStepCompleted(stageNum) || stageNum < maxReachedStage
     if (!isCompleted && stageNum !== currentStage) return
-    
+
     // Don't navigate if already on this stage
     if (stageNum === currentStage) return
-    
-    // Show warning for early stages (1-4) when navigating back
+
+    // Show warning dialog for early stages (1-4) when navigating back
     if (stageNum < 5 && stageNum < maxReachedStage) {
-      const confirmed = window.confirm(
-        `⚠️ Внимание!\n\n` +
-        `Вы возвращаетесь на этап ${stageNum} (${STAGES.find(s => s.number === stageNum)?.title || 'Unknown'}).\n\n` +
-        `Изменения на ранних этапах могут повлиять на последующие этапы.\n\n` +
-        `Продолжить?`
-      )
-      if (!confirmed) return
+      setPendingStageNavigation(stageNum)
+      setShowNavigationWarning(true)
+      return
     }
-    
+
     navigateToStageMutation.mutate(stageNum)
+  }
+
+  // Handle confirmed navigation from dialog
+  const handleConfirmNavigation = () => {
+    if (pendingStageNavigation !== null) {
+      navigateToStageMutation.mutate(pendingStageNavigation)
+    }
+    setShowNavigationWarning(false)
+    setPendingStageNavigation(null)
+  }
+
+  // Handle cancel navigation from dialog
+  const handleCancelNavigation = () => {
+    setShowNavigationWarning(false)
+    setPendingStageNavigation(null)
   }
 
   return (
@@ -297,13 +323,34 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
             Stage {currentStage} of {STAGES.length}
           </div>
           <div className="mt-2 h-2 bg-sidebar-border rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-primary transition-all duration-300"
               style={{ width: `${(currentStage / STAGES.length) * 100}%` }}
             />
           </div>
         </div>
       </div>
+
+      {/* Navigation Warning Dialog */}
+      <AlertDialog open={showNavigationWarning} onOpenChange={setShowNavigationWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Внимание!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы возвращаетесь на этап {pendingStageNavigation} ({STAGES.find(s => s.number === pendingStageNavigation)?.title || 'Unknown'}).
+              Изменения на ранних этапах могут повлиять на последующие этапы.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelNavigation}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmNavigation}>
+              Продолжить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
