@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: stockmind-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: stockmind
+      POSTGRES_USER: stockmind
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stockmind_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    networks:
+      - stockmind
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockmind"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # StockMind application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: stockmind-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 5000
+      DATABASE_URL: postgresql://stockmind:${POSTGRES_PASSWORD:-stockmind_dev_password}@postgres:5432/stockmind
+      SESSION_SECRET: ${SESSION_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Sentry (optional)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+
+      # CORS
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5000}
+
+      # External services (optional)
+      APIFY_API_KEY: ${APIFY_API_KEY:-}
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    volumes:
+      - uploads_data:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - stockmind
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  stockmind:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local

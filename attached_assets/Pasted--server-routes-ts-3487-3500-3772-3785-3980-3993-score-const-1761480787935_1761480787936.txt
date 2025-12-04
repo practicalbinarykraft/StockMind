@@ -1,0 +1,62 @@
+Нашёл! Файл: server/routes.ts - строки 3487-3500, 3772-3785, 3980-3993
+
+Формулы расчёта score:
+const metrics = {
+  overallScore: analysisResult.overallScore,  // ← от Claude API напрямую
+  hookScore: analysisResult.breakdown?.hook?.score || 0,
+  structureScore: analysisResult.breakdown?.structure?.score || 0,  // ← ПРОБЛЕМА!
+  emotionalScore: analysisResult.breakdown?.emotional?.score || 0,  // ← ПРОБЛЕМА!
+  ctaScore: analysisResult.breakdown?.cta?.score || 0,  // ← ПРОБЛЕМА!
+  predicted: {...},
+  perScene: perSceneScores
+};
+ПРОБЛЕМА: breakdown.structure.score НЕ СУЩЕСТВУЕТ в ответе Claude! Поэтому всегда = 0.
+
+Нужно посмотреть что реально возвращает AI:
+
+
+Decided on metric extraction logic (13 seconds)
+🔍 НАШЁЛ ПРОБЛЕМУ!
+Файл: server/routes.ts (строки 3487-3500, 3772-3785, 3980-3993)
+Неправильный код (сейчас):
+
+const metrics = {
+  overallScore: analysisResult.overallScore,  // ✅ работает
+  hookScore: analysisResult.breakdown?.hook?.score || 0,  // ✅ работает
+  structureScore: analysisResult.breakdown?.structure?.score || 0,  // ❌ ВСЕГДА 0!
+  emotionalScore: analysisResult.breakdown?.emotional?.score || 0,  // ❌ ВСЕГДА 0!
+  ctaScore: analysisResult.breakdown?.cta?.score || 0,  // ❌ ВСЕГДА 0!
+  predicted: {...},
+  perScene: perSceneScores
+};
+Реальная структура от Claude API:
+
+{
+  overallScore: 61,
+  structureScore: 85,     // ← ТУТ, на верхнем уровне!
+  emotionalScore: 72,     // ← ТУТ, на верхнем уровне!
+  ctaScore: 68,           // ← ТУТ, на верхнем уровне!
+  breakdown: {
+    hook: { score: 78, ... },  // ✅ есть .score
+    structure: { /* нет .score! */ },
+    emotional: { /* нет .score! */ },
+    cta: { /* нет .score! */ }
+  }
+}
+Должно быть:
+
+const metrics = {
+  overallScore: analysisResult.overallScore,
+  hookScore: analysisResult.breakdown?.hook?.score || 0,
+  structureScore: analysisResult.structureScore || 0,  // ← исправить
+  emotionalScore: analysisResult.emotionalScore || 0,  // ← исправить
+  ctaScore: analysisResult.ctaScore || 0,  // ← исправить
+  predicted: {...},
+  perScene: perSceneScores
+};
+Что происходит на скриншоте:
+ДО: 89/100 с breakdown [0,0,0,0] → старые данные до моей обновы
+ПОСЛЕ: 61/100 с breakdown [78,0,0,0] → новые данные, но структура/эмоции/CTA = 0 из-за бага
+Дельта хука: 0→78 = +78 (зелёный) - правильно
+Остальные: всё 0 из-за бага
+Исправить это нужно в 3 местах в server/routes.ts! Создать план?

@@ -1,0 +1,132 @@
+🚨 КРИТИЧНО! ДВА ISSUE:
+🔴 ISSUE #1: ПРОПАЛИ ПРОЕКТЫ
+СНАЧАЛА ПРОВЕРЬ ЭТО!
+Agent, URGENT!
+
+All old projects disappeared from dashboard!
+
+Please check:
+1. Database - SELECT COUNT(*) FROM projects WHERE user_id = '43640117'
+2. Did schema migration break anything?
+3. Are projects still in DB but not showing in UI?
+
+Show me the query results!
+This is critical - user data is missing!
+```
+
+---
+
+## 🔴 ISSUE #2: UX/UI CONFUSION
+
+**ПОСЛЕ ТОГО КАК РАЗБЕРЁШЬСЯ С ПРОЕКТАМИ:**
+```
+Agent, UX/UI is broken! Fix the flow:
+
+PROBLEM:
+1. Stage 1 appears TWICE:
+   - First: /project/new (correct ✅)
+   - Second: Inside project Stage 1 (WRONG ❌)
+   
+2. Instagram Reels shows as popup (Dialog)
+   But News Articles shows as full Stage 2 page
+   This is inconsistent!
+
+CORRECT ARCHITECTURE:
+
+Stage Selection (/project/new) - ONE TIME ONLY:
+├─ News Articles
+├─ Custom Script  
+├─ Instagram Reels
+├─ YouTube (future)
+└─ Audio File (future)
+
+After selection → Create project with sourceType
+
+Stage 2 (Content Input) - DEPENDS ON sourceType:
+├─ IF sourceType = "news" → Show RSS articles list (like now)
+├─ IF sourceType = "custom" → Show text input form
+├─ IF sourceType = "instagram" → Show Reels list (NOT popup!)
+├─ IF sourceType = "youtube" → Show URL input
+└─ IF sourceType = "audio" → Show file upload
+
+Stage 3-7: AI Analysis → Voice → Avatar → Export → B-roll
+
+WHAT TO FIX:
+
+1. Remove Stage 1 from inside project workflow
+   - User already selected source type at /project/new
+   - No need to show source selection again!
+
+2. After creating project, open Stage 2 directly
+   - Skip Stage 1
+   - Go straight to content selection
+
+3. Make Instagram Reels consistent with News:
+   - Remove Dialog/popup
+   - Show as full Stage 2 page
+   - Same layout as News Articles
+   - List of Reels with filters, search, etc.
+
+4. Stage 2 component should be dynamic:
+```tsx
+   // Pseudocode:
+   if (project.sourceType === 'news') {
+     return <NewsArticlesList />;
+   } else if (project.sourceType === 'instagram') {
+     return <InstagramReelsList />; // Full page, not popup!
+   } else if (project.sourceType === 'custom') {
+     return <CustomScriptForm />;
+   }
+```
+
+5. Update navigation:
+   - /project/new → select source → create project → /project/{id}
+   - Project opens at Stage 2 (Content Input)
+   - Stage 1 is ONLY the initial selection page
+
+CRITICAL: Fix projects disappearing first!
+Then fix UX flow!
+```
+
+---
+
+## 📋 ПРИОРИТЕТЫ:
+
+### **PRIORITY 1: DATABASE** 🚨
+```
+WHY DID PROJECTS DISAPPEAR?
+- Check database
+- Check migrations
+- Restore data if needed
+```
+
+### **PRIORITY 2: UX FIX** 🔧
+```
+1. Remove Stage 1 from project workflow
+2. Open Stage 2 directly after project creation
+3. Make Instagram Reels full page (not popup)
+4. Dynamic Stage 2 based on sourceType
+```
+
+---
+
+## 💬 КОРОТКАЯ ВЕРСИЯ ДЛЯ AGENT:
+```
+URGENT! Two critical issues:
+
+1. ALL OLD PROJECTS DISAPPEARED!
+   - Check database: SELECT * FROM projects WHERE user_id = '43640117'
+   - Did migration break something?
+   - Projects must be restored!
+
+2. UX is broken - source selection appears twice:
+   - /project/new → select source type ✅
+   - Then Stage 1 shows SAME selection again ❌
+   
+   FIX:
+   - Remove Stage 1 from project workflow
+   - After /project/new → go directly to Stage 2
+   - Stage 2 = dynamic content based on sourceType
+   - Instagram Reels = full page (NOT popup!)
+
+Fix database issue first, then UX!

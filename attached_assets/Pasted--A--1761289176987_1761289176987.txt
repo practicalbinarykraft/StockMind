@@ -1,0 +1,128 @@
+круто, это уже очень близко к «магии» ✨
+пробегусь по критике/доводкам, чтобы A-вариант стал реально бронебойным.
+
+Что проверить и дотюнить прямо сейчас
+
+Бэкенд / Данные
+	•	Миграции
+	•	Индексы:
+	•	scene_recommendations(script_version_id, applied) (для Apply All)
+	•	script_versions(project_id, is_current) (partial, у тебя уже есть, проверь уникальность)
+	•	Констрейнты:
+	•	Убедись, что ровно одна current-версия на проект:
+CREATE UNIQUE INDEX uniq_current_script ON script_versions(project_id) WHERE is_current;
+	•	Транзакции
+	•	В apply-all-recommendations: применяй все патчи и создание новой версии в одной транзакции, чтобы избежать «полуприменённых» состояний.
+	•	Сортировка “Apply All”
+	•	Финальный порядок: priority DESC → score_delta DESC → confidence DESC → sceneId ASC (детерминизм важен).
+	•	Дифф
+	•	Сохраняй diff (список сцен с before/after) при любой операции (manual/AI/bulk/revert). Это ускорит историю и сравнение.
+	•	Безопасность
+	•	Саницируй newText (XSS) и лимитируй размер (например, 2–4k символов на сцену).
+	•	Идемпотентность
+	•	Для apply-all добавь проверку, что все рекомендации ещё не applied (внутри транзакции), иначе двойной клик создаст дубликаты.
+
+Агентный слой
+	•	Нормализация ожидаемого эффекта
+	•	Непустой score_delta обязателен. Парси «+18 points», «+35% saves» в число (в твоём коде это уже есть — проверь крайние случаи: «≈20%», «+10–15%» → бери верхнюю границу).
+	•	Confidence
+	•	Хорошее правило: critical(0.95) > high(0.85) > medium(0.7) > low(0.5), но ещё умножай на «уверенность парсинга» (если текст рек’и распознан неоднозначно — понижать).
+	•	Дедуп
+	•	Перед записью рекомендаций: дедуп по ключу sceneId + area + hash(suggestedText).
+
+API контракты
+	•	Re-analyze
+	•	Дебаунс: не чаще 1 раза в N минут per проект (и защита на бэке).
+	•	Возвращай analysisJobId → фронт может показывать спиннер / «идёт анализ».
+	•	История
+	•	Возвращай помимо versions ещё diff и scores для каждой версии (экономит запросы).
+
+UI / UX
+	•	История (split diff)
+	•	Подсветка изменений по словам (diff-match-patch) + счетчик «изменено N символов».
+	•	Apply All
+	•	Перед применением — компактный диалог подтверждения со списком N рекоммендаций и ожидаемым суммарным приростом: +X score / +Y% saves.
+	•	Повторный анализ
+	•	Кнопка активна только если есть изменения с момента последнего анализа (флаг dirty_since_analysis).
+	•	Статусы
+	•	После “Применить” сцену подсвечивай зелёной лентой 1–2 сек, показывай +score_delta бейдж.
+
+Телеметрия
+	•	Логи: agent → alias → фактический model_id, latency, токены.
+	•	Счётчики: «применено поштучно», «apply-all», «откатов», средний score_delta/сцену.
+
+Мини-патчи (готовые вставки)
+
+SQL — уникальная current-версия
+
+-- единственная current-версия на проект
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_script_current
+ON script_versions(project_id)
+WHERE is_current = true;
+
+Node — сортировка «Apply All»
+
+function sortRecs(a: Rec, b: Rec) {
+  const pr = (p:string)=>p==='high'?3:p==='medium'?2:p==='low'?1:0;
+  return (pr(b.priority)-pr(a.priority))
+    || ((b.scoreDelta||0) - (a.scoreDelta||0))
+    || ((b.confidence||0) - (a.confidence||0))
+    || (a.sceneId - b.sceneId);
+}
+
+Node — транзакция для Apply All
+
+await db.tx(async (tx) => {
+  const recs = await tx.query(/* select unapplied for version FOR UPDATE */);
+  const sorted = recs.sort(sortRecs);
+
+  const { newScenes, diff } = applyAllToScenes(current.scenes, sorted);
+
+  // снимай current-флаг у старой версии
+  await tx.query(`UPDATE script_versions SET is_current=false WHERE id=$1`, [current.id]);
+
+  const inserted = await tx.query(`
+    INSERT INTO script_versions (project_id, version_number, scenes, full_script, changes, created_by, is_current, parent_version_id, diff, scores)
+    VALUES ($1,$2,$3,$4,$5,$6,true,$7,$8,$9)
+    RETURNING id
+  `,[projectId, nextVersion, newScenes, buildFull(newScenes), {type:'bulk_apply', count:sorted.length, affectedScenes:[...new Set(sorted.map(r=>r.sceneId))]}, 'ai', current.id, diff, mergedScores]);
+
+  await tx.query(
+    `UPDATE scene_recommendations SET applied=true, applied_at=NOW()
+     WHERE id = ANY($1::uuid[])`,
+    [sorted.map(r=>r.id)]
+  );
+
+  return inserted.rows[0];
+});
+
+UI — защита от двойного клика
+
+const [busy, setBusy] = useState(false);
+const onApplyAll = async () => {
+  if (busy) return;
+  setBusy(true);
+  try { await mutateAsync(); } finally { setBusy(false); }
+};
+
+Re-analyze — дебаунс на сервере
+
+const lastAt = await getLastAnalysisAt(projectId);
+if (Date.now() - lastAt < 5*60*1000) {
+  return res.status(429).json({ message: 'Try re-analyze later' });
+}
+
+Регрессии/риски, на которые обратить внимание
+	•	Гонки: пользователь успел применить поштучно и сразу «Apply All» — поэтому транзакция + SELECT … FOR UPDATE по рекомендациям.
+	•	Неоднозначные проценты: строки вида «10–15%» → бери верхнюю границу, либо среднее (обоснуй в коде).
+	•	Модели: продолжай использовать алиасы и резолвер (никаких opus-4/sonnet-4-5 напрямую).
+	•	Большие сценарии: пагинируй рекомендации в UI, иначе список «всех» может подвисать.
+
+Что дальше (минимальный roadmap)
+	1.	Влить: индексы, транзакции, сортировка, диффы.
+	2.	Дебаунс re-analyze + телеметрия.
+	3.	Split-diff в истории.
+	4.	Страница «Инсайты» (каркас + мок), затем реальный Instagram Graph (после получения app creds).
+	5.	Фоновая сборка learning_samples (под будущую петлю обучения).
+
+если хочешь — пришлю точные диффы под твои файлы (routes, schema, SceneEditor), чтобы просто вставить и поехать.

@@ -1,0 +1,147 @@
+
+
+🔎 REGRESSION & SECURITY CHECK — BACKEND
+
+Задача: последовательно проверить, что внедрённые правки работают корректно: извлечение полного текста статей, идемпотентность генерации сценария, корректная запись рекомендаций с верными scene_id, наличие эндпоинта /script-versions, и SSRF-защита в fetchAndExtract.
+
+ТЕХНИЧЕСКИЕ ДАННЫЕ (заполни перед запуском)
+	•	PROJECT_ID: <вставь UUID проекта>
+	•	NEWS_ID: <вставь UUID rss_items>
+	•	ANTHROPIC_API_KEY: уже сконфигурирован в окружении
+
+0) Подготовка
+	1.	Перезапусти сервер, очисти консоль.
+	2.	Включи подробное логирование для роутов fetch-full-content и generate-script.
+
+Ожидание: сервер поднят без ошибок.
+
+1) Проверка /api/news/:id/fetch-full-content
+
+Выполни:
+
+curl -s -X POST http://localhost:5000/api/news/$NEWS_ID/fetch-full-content | jq .
+
+Проверь и приложи в чат:
+	•	success: true и content длиной > 1000 символов, cached: true|false.
+	•	Если success: false, должен прийти fallback и осмысленный error (not-html|too-short|readability-failed|extract_failed|timeout и т.д.).
+	•	В БД таблице rss_items у записи $NEWS_ID поля full_content и last_fetched_at обновлены.
+
+2) Наличие эндпоинта /api/projects/:id/script-versions
+
+Выполни:
+
+curl -s http://localhost:5000/api/projects/$PROJECT_ID/script-versions | jq .
+
+Ожидание: JSON с ключом versions (массив). Приложи ответ.
+
+3) Генерация сценария + идемпотентность
+
+Смоделируй один и тот же запрос дважды с одним X-Idempotency-Key:
+
+IDK=$(uuidgen)
+curl -s -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: $IDK" \
+  -d '{"format":"news_update","sourceContent":"Тестовый полный текст (или возьми из fullContent)"}' \
+  http://localhost:5000/api/projects/$PROJECT_ID/generate-script | jq .
+
+curl -s -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: $IDK" \
+  -d '{"format":"news_update","sourceContent":"Тот же текст"}' \
+  http://localhost:5000/api/projects/$PROJECT_ID/generate-script | jq .
+
+Ожидание:
+	•	Первый ответ: { ok: true, versionId: "...", reused: false|absent }.
+	•	Второй ответ: { ok: true, reused: true, versionId: "тот же id" }.
+	•	В консоли видны логи: Generate Script → created version ... и idempotency reused ....
+
+Приложи оба ответа и логи.
+
+4) Верификация script_versions и scene_recommendations
+
+Сделай SQL-проверку (через psql/GUI) и приложи результаты:
+
+-- Текущая версия для проекта
+SELECT id, version_number, is_current, analysis_score, provenance
+FROM script_versions
+WHERE project_id = '$PROJECT_ID'
+ORDER BY version_number DESC
+LIMIT 3;
+
+-- Сцены текущей версии (должны иметь id 1..N в JSON)
+SELECT scenes
+FROM script_versions
+WHERE project_id = '$PROJECT_ID' AND is_current = true;
+
+-- Рекомендации для текущей версии
+SELECT sr.id, sr.script_version_id, sr.scene_id, sr.area, sr.priority, sr.score_delta, sr.applied
+FROM scene_recommendations sr
+JOIN script_versions sv ON sv.id = sr.script_version_id
+WHERE sv.project_id = '$PROJECT_ID' AND sv.is_current = true
+ORDER BY sr.scene_id, sr.priority DESC
+LIMIT 50;
+
+Ожидание:
+	•	В scenes у каждой сцены в JSON есть id: 1..N (порядковые).
+	•	В scene_recommendations.scene_id стоят ненулевые значения, совпадающие с порядком сцен.
+	•	Есть score_delta (если expectedImpact был указан), и provenance.idempotencyKey в script_versions.
+
+5) Проверка «применить рекомендацию» (backend)
+
+Сымитируй применение одной рекомендации:
+
+REC_ID="<подставь id из выборки выше>"
+curl -s -X POST \
+  -H "Content-Type: application/json" \
+  -d "{\"sceneId\":1, \"recommendationId\":\"$REC_ID\"}" \
+  http://localhost:5000/api/projects/$PROJECT_ID/apply-scene-recommendation | jq .
+
+Ожидание:
+	•	Ответ { success: true, newVersion: {...}, affectedScene: {...} }.
+	•	В БД:
+	•	Появилась новая версия с is_current = true, version_number увеличился на +1.
+	•	В scene_recommendations у REC_ID поле applied = true, applied_at не NULL.
+
+Приложи ответ и SQL-проверку.
+
+6) SSRF-защита в fetchAndExtract
+
+Проверь, что защищаемся от приватных/«магических» доменов и редиректов:
+
+# ожидаем блокировку/ошибку
+curl -s -X POST http://localhost:5000/api/news/$NEWS_ID/fetch-full-content \
+  -H 'Content-Type: application/json' \
+  -d '{"testUrl":"http://127.0.0.1"}' | jq .
+
+curl -s -X POST http://localhost:5000/api/news/$NEWS_ID/fetch-full-content \
+  -H 'Content-Type: application/json' \
+  -d '{"testUrl":"http://anything.nip.io"}' | jq .
+
+(Если у тебя реализована поддержка testUrl для ручной проверки — используй; если нет, просто подтверди по коду/логам, что: проверяются DNS-резолвы, IPv4 private CIDR, запрещены домены .nip.io/.xip.io/.sslip.io/.localtest.me, редиректы валидируются на каждом hop, лимит 5 hops.)
+
+Ожидание: ответы с отказом и логами вроде Private IPv4 blocked / Blocked host / too-many-redirects.
+
+7) /api/projects/:id/script-history
+
+Проверь обратную совместимость старого UI:
+
+curl -s http://localhost:5000/api/projects/$PROJECT_ID/script-history | jq .
+
+Ожидание: валидный ответ с currentVersion, versions, recommendations. Приложи ответ.
+
+⸻
+
+Итог: приложи в чат
+	•	Сырые ответы всех curl (включая jq .).
+	•	SQL-выборки (как текст).
+	•	Ключевые логи сервера по шагам.
+	•	Краткий вердикт по каждому пункту (✅/❌ + комментарий).
+
+Если что-то упадёт:
+	•	дай точный текст ошибки,
+	•	укажи, на каком шаге,
+	•	приложи кусок логов,
+	•	и сразу предложи фикс (минимально-инвазивный).
+
+⸻

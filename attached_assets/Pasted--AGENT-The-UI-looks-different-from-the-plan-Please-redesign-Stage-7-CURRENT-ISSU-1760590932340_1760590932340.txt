@@ -1,0 +1,87 @@
+📝 СООБЩЕНИЕ ДЛЯ AGENT:
+The UI looks different from the plan! Please redesign Stage 7.
+
+CURRENT ISSUES:
+1. Timeline is on the LEFT, but B-Roll panel should be on the RIGHT (sidebar)
+2. Layout is stacked vertically, but should be side-by-side
+3. Missing: Full script, Audio player, Avatar video
+4. "Инструкции съёмки" modal - should be inline in right panel
+
+CORRECT LAYOUT (2-column):
+
+┌─────────────────────────────┬──────────────────────────┐
+│ LEFT (65%)                  │ RIGHT (35%)              │
+│ Main content from Stage 6   │ B-Roll generation panel  │
+│                             │                          │
+│ 📊 Timeline проекта         │ 🎬 B-Roll генерация      │
+│ Total: 0:27                 │                          │
+│                             │ Выбор сцены:             │
+│ Сцена 1 (0:00-0:05) 85/100  │ [Dropdown: Сцена 1]      │
+│ BREAKING: Coinbase...       │                          │
+│ [▶️ Preview] or [Generate]  │ Инструкции съёмки:       │
+│                             │ [Textarea - inline!]     │
+│ Сцена 2 (0:05-0:11) 72/100  │ "крупный план..."        │
+│ CoinDCX — крупнейшая...     │                          │
+│ [Generate B-Roll]           │ [✨ Сгенерировать AI]    │
+│                             │ [📤 Референсы]           │
+│ Сцена 3 (0:11-0:16) 88/100  │                          │
+│ Оценка взлетела...          │ AI промпт:               │
+│ [Generate B-Roll]           │ [Readonly textarea]      │
+│                             │ "Stock exchange..."      │
+│ 📝 Полный скрипт:           │                          │
+│ BREAKING: Coinbase делает   │ [🎬 Создать футаж]       │
+│ громкую ставку...           │                          │
+│                             │ Status: ⏳ 45%           │
+│ 🎤 Аудио:                   │ or                       │
+│ [▶️ Play] 0:27              │ [▶️ Preview B-Roll]      │
+│                             │                          │
+│ 🎬 Видео с аватаром:        │                          │
+│ [Video player]              │                          │
+└─────────────────────────────┴──────────────────────────┘
+
+REQUIRED CHANGES:
+
+1. Use 2-column layout with flex:
+   - Left: w-2/3 or 65%
+   - Right: w-1/3 or 35% (fixed sidebar)
+
+2. LEFT PANEL must show (from Stage 6):
+   - Timeline with all scenes
+   - Each scene shows B-Roll status:
+     * [Generate B-Roll] if not started
+     * [▶️ Preview] if completed
+     * ⏳ Generating... if in progress
+   - Full script text below timeline
+   - Audio player with duration
+   - Avatar video player
+
+3. RIGHT PANEL (sidebar) must have:
+   - Scene selector dropdown (inline, not modal!)
+   - Shot instructions textarea (inline!)
+   - [ИИ генерация] and [Референсы] buttons
+   - AI-generated prompt (readonly)
+   - [Создать футаж] button
+   - Generation status/progress
+   - B-Roll preview when ready
+
+4. Remove modal for "Инструкции для монтажёра"
+   Everything should be visible inline in the right sidebar!
+
+5. Bottom actions:
+   - [✨ Сгенерировать все] (generate all scenes)
+   - [📸 Скриншот] (save timeline)
+   - [✅ Завершить] (complete project)
+   - [📥 Скачать всё] (download all)
+
+Please redesign Stage 7 with this correct 2-column layout!
+Left = Stage 6 content + B-Roll status per scene
+Right = B-Roll generation controls (inline, no modals)
+
+🎯 KEY POINTS:
+Agent должен:
+
+✅ Сделать 2-колонки (65/35)
+✅ Слева - весь Stage 6 контент
+✅ Справа - inline панель генерации
+❌ Убрать модалы
+✅ Показать статус B-Roll для каждой сцены в Timeline

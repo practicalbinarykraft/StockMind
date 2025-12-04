@@ -1,0 +1,960 @@
+🔥 ГЕНИАЛЬНО! ЭТО ДЕЙСТВИТЕЛЬНО МАГИЯ!
+🎨 ТВОЯ VISION - ИДЕАЛЬНЫЙ UX!
+┌─────────────────────────────────────────────────────────────┐
+│                    STAGE 3: AI ANALYSIS                     │
+│                     + SCRIPT EDITOR                         │
+└─────────────────────────────────────────────────────────────┘
+
+1️⃣ ANALYSIS RESULTS (сверху)
+   ├─ Overall Score: 73/100
+   ├─ Breakdown (Hook, Structure, etc)
+   └─ [История] button (top-right corner)
+
+2️⃣ SCENE EDITOR (main area)
+   ├─ Scene 1 [0-3s] 🎣 Hook
+   │  ├─ Current text (editable!)
+   │  ├─ 💡 Recommendation badge if exists
+   │  └─ [✨ Apply] button per scene
+   │
+   ├─ Scene 2 [3-8s] 📖 Story
+   │  ├─ Current text (editable!)
+   │  ├─ 💡 No recommendation
+   │  └─ (no button)
+   │
+   ├─ Scene 3 [8-13s] 💥 Solution
+   │  ├─ Current text (editable!)
+   │  ├─ 💡 Recommendation badge
+   │  └─ [✨ Apply] button
+   │
+   └─ Scene 4 [13-18s] 📢 CTA
+      ├─ Current text (editable!)
+      ├─ 💡 Recommendation badge
+      └─ [✨ Apply] button
+
+3️⃣ BULK ACTIONS (bottom)
+   ├─ [✨ Apply All Recommendations]
+   ├─ [🔄 Re-analyze] (appears after manual edits)
+   └─ [➡️ Continue to Stage 4]
+
+4️⃣ HISTORY MODAL (opens on click)
+   ┌────────────────┬────────────────┐
+   │ БЫЛО           │ СТАЛО          │
+   ├────────────────┼────────────────┤
+   │ Version 1 ●    │ Current (v3)   │
+   │ Version 2 ○    │                │
+   │ Version 3 ○    │ [✨ Apply      │
+   │                │  Recommendations]│
+   └────────────────┴────────────────┘
+
+🏗️ COMPLETE ARCHITECTURE:
+Database Schema: Version History
+sql-- Script versions table
+CREATE TABLE script_versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id),
+  
+  -- Version info
+  version_number INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  created_by VARCHAR NOT NULL,  -- 'user' | 'ai' | 'system'
+  
+  -- Full script
+  full_script TEXT NOT NULL,
+  
+  -- Scene-by-scene breakdown
+  scenes JSONB NOT NULL,
+  -- [
+  --   { 
+  --     id: 1, 
+  --     start: 0, 
+  --     end: 3, 
+  --     text: "...",
+  --     label: "hook",
+  --     hasRecommendation: true,
+  --     recommendationApplied: false
+  --   },
+  --   ...
+  -- ]
+  
+  -- Changes from previous version
+  changes JSONB,
+  -- {
+  --   type: 'ai_recommendation' | 'manual_edit' | 'bulk_apply',
+  --   affectedScenes: [1, 4],
+  --   description: "Applied hook and CTA recommendations"
+  -- }
+  
+  -- AI analysis for this version
+  analysis_result JSONB,
+  analysis_score INTEGER,
+  
+  -- Metadata
+  is_current BOOLEAN DEFAULT false,
+  parent_version_id UUID REFERENCES script_versions(id)
+);
+
+-- Index for version lookup
+CREATE INDEX idx_script_versions_project 
+ON script_versions(project_id, version_number DESC);
+
+CREATE INDEX idx_script_versions_current
+ON script_versions(project_id) 
+WHERE is_current = true;
+
+-- Scene recommendations table
+CREATE TABLE scene_recommendations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  script_version_id UUID REFERENCES script_versions(id),
+  scene_id INTEGER NOT NULL,
+  
+  -- Recommendation details
+  priority VARCHAR NOT NULL,  -- 'high' | 'medium' | 'low'
+  area VARCHAR NOT NULL,      -- 'hook' | 'cta' | 'pacing' | etc
+  
+  current_text TEXT NOT NULL,
+  suggested_text TEXT NOT NULL,
+  
+  reasoning TEXT NOT NULL,
+  expected_impact VARCHAR NOT NULL,  -- "+18 points" | "+35% saves"
+  
+  -- Status
+  applied BOOLEAN DEFAULT false,
+  applied_at TIMESTAMP,
+  
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_scene_recommendations_version
+ON scene_recommendations(script_version_id);
+
+Backend: Version Management API
+typescript// server/routes.ts
+
+// Get script with version history
+app.get('/api/projects/:id/script-history', isAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  const userId = getUserId(req);
+  
+  const project = await storage.getProjectById(id);
+  if (project.userId !== userId) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  
+  // Get all versions
+  const versions = await db.select()
+    .from(scriptVersions)
+    .where(eq(scriptVersions.projectId, id))
+    .orderBy(desc(scriptVersions.versionNumber));
+  
+  // Get current version
+  const currentVersion = versions.find(v => v.isCurrent) || versions[0];
+  
+  // Get recommendations for current version
+  const recommendations = await db.select()
+    .from(sceneRecommendations)
+    .where(eq(sceneRecommendations.scriptVersionId, currentVersion.id));
+  
+  return res.json({
+    currentVersion,
+    versions,
+    recommendations,
+    hasUnappliedRecommendations: recommendations.some(r => !r.applied)
+  });
+});
+
+// Apply recommendation to single scene
+app.post('/api/projects/:id/apply-scene-recommendation', 
+  isAuthenticated, 
+  async (req, res) => {
+    const { id } = req.params;
+    const { sceneId, recommendationId } = req.body;
+    
+    // Get current version
+    const currentVersion = await getCurrentScriptVersion(id);
+    
+    // Get recommendation
+    const recommendation = await db.select()
+      .from(sceneRecommendations)
+      .where(eq(sceneRecommendations.id, recommendationId))
+      .limit(1);
+    
+    if (!recommendation[0]) {
+      return res.status(404).json({ message: 'Recommendation not found' });
+    }
+    
+    // Clone current version with changes
+    const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+    const targetScene = scenes.find(s => s.id === sceneId);
+    
+    if (!targetScene) {
+      return res.status(404).json({ message: 'Scene not found' });
+    }
+    
+    // Apply recommendation
+    const oldText = targetScene.text;
+    targetScene.text = recommendation[0].suggestedText;
+    targetScene.recommendationApplied = true;
+    
+    // Create new version
+    const newVersion = await createNewScriptVersion({
+      projectId: id,
+      scenes,
+      createdBy: 'ai',
+      changes: {
+        type: 'scene_recommendation',
+        affectedScenes: [sceneId],
+        sceneId,
+        before: oldText,
+        after: recommendation[0].suggestedText,
+        reason: recommendation[0].reasoning
+      },
+      parentVersionId: currentVersion.id
+    });
+    
+    // Mark recommendation as applied
+    await db.update(sceneRecommendations)
+      .set({ 
+        applied: true, 
+        appliedAt: new Date() 
+      })
+      .where(eq(sceneRecommendations.id, recommendationId));
+    
+    return res.json({
+      success: true,
+      newVersion,
+      affectedScene: targetScene
+    });
+  }
+);
+
+// Apply all recommendations at once
+app.post('/api/projects/:id/apply-all-recommendations', 
+  isAuthenticated,
+  async (req, res) => {
+    const { id } = req.params;
+    
+    const currentVersion = await getCurrentScriptVersion(id);
+    
+    // Get all unapplied recommendations
+    const recommendations = await db.select()
+      .from(sceneRecommendations)
+      .where(eq(sceneRecommendations.scriptVersionId, currentVersion.id))
+      .where(eq(sceneRecommendations.applied, false));
+    
+    if (recommendations.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: 'No recommendations to apply' 
+      });
+    }
+    
+    // Clone scenes
+    const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+    const affectedSceneIds = [];
+    
+    // Apply each recommendation
+    for (const rec of recommendations) {
+      const scene = scenes.find(s => s.id === rec.sceneId);
+      if (scene) {
+        scene.text = rec.suggestedText;
+        scene.recommendationApplied = true;
+        affectedSceneIds.push(rec.sceneId);
+      }
+    }
+    
+    // Create new version
+    const newVersion = await createNewScriptVersion({
+      projectId: id,
+      scenes,
+      createdBy: 'ai',
+      changes: {
+        type: 'bulk_apply',
+        affectedScenes: affectedSceneIds,
+        count: recommendations.length,
+        description: `Applied ${recommendations.length} AI recommendations`
+      },
+      parentVersionId: currentVersion.id
+    });
+    
+    // Mark all as applied
+    await db.update(sceneRecommendations)
+      .set({ applied: true, appliedAt: new Date() })
+      .where(eq(sceneRecommendations.scriptVersionId, currentVersion.id));
+    
+    return res.json({
+      success: true,
+      newVersion,
+      appliedCount: recommendations.length,
+      affectedScenes: affectedSceneIds
+    });
+  }
+);
+
+// Manual edit scene
+app.post('/api/projects/:id/edit-scene', isAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  const { sceneId, newText } = req.body;
+  
+  const currentVersion = await getCurrentScriptVersion(id);
+  
+  // Clone and update
+  const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+  const scene = scenes.find(s => s.id === sceneId);
+  
+  if (!scene) {
+    return res.status(404).json({ message: 'Scene not found' });
+  }
+  
+  const oldText = scene.text;
+  scene.text = newText;
+  scene.manuallyEdited = true;
+  
+  // Create new version
+  const newVersion = await createNewScriptVersion({
+    projectId: id,
+    scenes,
+    createdBy: 'user',
+    changes: {
+      type: 'manual_edit',
+      affectedScenes: [sceneId],
+      sceneId,
+      before: oldText,
+      after: newText
+    },
+    parentVersionId: currentVersion.id
+  });
+  
+  return res.json({
+    success: true,
+    newVersion,
+    needsReanalysis: true  // Trigger UI to show "Re-analyze" button
+  });
+});
+
+// Revert to previous version
+app.post('/api/projects/:id/revert-to-version', 
+  isAuthenticated,
+  async (req, res) => {
+    const { id } = req.params;
+    const { versionId } = req.body;
+    
+    // Get target version
+    const targetVersion = await db.select()
+      .from(scriptVersions)
+      .where(eq(scriptVersions.id, versionId))
+      .limit(1);
+    
+    if (!targetVersion[0]) {
+      return res.status(404).json({ message: 'Version not found' });
+    }
+    
+    // Create new version from old one (not destructive!)
+    const newVersion = await createNewScriptVersion({
+      projectId: id,
+      scenes: targetVersion[0].scenes,
+      createdBy: 'user',
+      changes: {
+        type: 'revert',
+        revertedFrom: versionId,
+        revertedToVersion: targetVersion[0].versionNumber
+      },
+      parentVersionId: await getCurrentScriptVersion(id).then(v => v.id)
+    });
+    
+    return res.json({
+      success: true,
+      newVersion,
+      message: `Reverted to version ${targetVersion[0].versionNumber}`
+    });
+  }
+);
+
+// Helper: Create new version
+async function createNewScriptVersion(data: {
+  projectId: string;
+  scenes: any[];
+  createdBy: string;
+  changes: any;
+  parentVersionId?: string;
+}) {
+  // Get next version number
+  const lastVersion = await db.select()
+    .from(scriptVersions)
+    .where(eq(scriptVersions.projectId, data.projectId))
+    .orderBy(desc(scriptVersions.versionNumber))
+    .limit(1);
+  
+  const nextVersion = (lastVersion[0]?.versionNumber || 0) + 1;
+  
+  // Build full script text
+  const fullScript = data.scenes
+    .map(s => `[${s.start}-${s.end}s] ${s.text}`)
+    .join('\n');
+  
+  // Unmark old current version
+  await db.update(scriptVersions)
+    .set({ isCurrent: false })
+    .where(eq(scriptVersions.projectId, data.projectId));
+  
+  // Insert new version
+  const [newVersion] = await db.insert(scriptVersions).values({
+    projectId: data.projectId,
+    versionNumber: nextVersion,
+    fullScript,
+    scenes: data.scenes,
+    changes: data.changes,
+    createdBy: data.createdBy,
+    isCurrent: true,
+    parentVersionId: data.parentVersionId
+  }).returning();
+  
+  return newVersion;
+}
+
+Frontend: Scene Editor Component
+typescript// client/src/components/project/SceneEditor.tsx
+
+interface Scene {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+  label: 'hook' | 'story' | 'solution' | 'cta';
+  hasRecommendation: boolean;
+  recommendationApplied: boolean;
+  manuallyEdited: boolean;
+}
+
+interface Recommendation {
+  id: string;
+  sceneId: number;
+  priority: 'high' | 'medium' | 'low';
+  area: string;
+  currentText: string;
+  suggestedText: string;
+  reasoning: string;
+  expectedImpact: string;
+  applied: boolean;
+}
+
+export function SceneEditor({ projectId }: { projectId: string }) {
+  const [currentVersion, setCurrentVersion] = useState<any>(null);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [editingSceneId, setEditingSceneId] = useState<number | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedHistoryVersion, setSelectedHistoryVersion] = useState<string | null>(null);
+  const [needsReanalysis, setNeedsReanalysis] = useState(false);
+  
+  // Load script history
+  const { data, refetch } = useQuery({
+    queryKey: ['script-history', projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/script-history`);
+      return res.json();
+    }
+  });
+  
+  useEffect(() => {
+    if (data) {
+      setCurrentVersion(data.currentVersion);
+      setVersions(data.versions);
+      setRecommendations(data.recommendations);
+    }
+  }, [data]);
+  
+  // Apply single scene recommendation
+  const applySceneRecommendation = useMutation({
+    mutationFn: async ({ sceneId, recommendationId }: any) => {
+      const res = await fetch(`/api/projects/${projectId}/apply-scene-recommendation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId, recommendationId })
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ title: "Recommendation applied!" });
+    }
+  });
+  
+  // Apply all recommendations
+  const applyAllRecommendations = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/apply-all-recommendations`, {
+        method: 'POST'
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      refetch();
+      toast({ 
+        title: "All recommendations applied!",
+        description: `${data.appliedCount} improvements made`
+      });
+    }
+  });
+  
+  // Manual edit scene
+  const editScene = useMutation({
+    mutationFn: async ({ sceneId, newText }: any) => {
+      const res = await fetch(`/api/projects/${projectId}/edit-scene`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId, newText })
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      setEditingSceneId(null);
+      setNeedsReanalysis(true);
+      toast({ title: "Scene updated!" });
+    }
+  });
+  
+  // Revert to version
+  const revertToVersion = useMutation({
+    mutationFn: async (versionId: string) => {
+      const res = await fetch(`/api/projects/${projectId}/revert-to-version`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionId })
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      setShowHistory(false);
+      toast({ title: "Version restored!" });
+    }
+  });
+  
+  if (!currentVersion) return <div>Loading...</div>;
+  
+  const scenes: Scene[] = currentVersion.scenes;
+  const unappliedRecommendations = recommendations.filter(r => !r.applied);
+  
+  return (
+    <div className="space-y-6">
+      {/* Header with History button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Script Editor</h3>
+          <p className="text-sm text-muted-foreground">
+            Version {currentVersion.versionNumber} • {versions.length} versions total
+          </p>
+        </div>
+        
+        <Button
+          variant="outline"
+          onClick={() => setShowHistory(true)}
+        >
+          <History className="mr-2 h-4 w-4" />
+          History
+        </Button>
+      </div>
+      
+      {/* Scenes */}
+      <div className="space-y-4">
+        {scenes.map((scene) => {
+          const sceneRec = recommendations.find(r => r.sceneId === scene.id && !r.applied);
+          const isEditing = editingSceneId === scene.id;
+          
+          return (
+            <div 
+              key={scene.id}
+              className={cn(
+                "border rounded-lg p-4",
+                sceneRec && "border-yellow-400 bg-yellow-50/50",
+                scene.recommendationApplied && "border-green-400 bg-green-50/50"
+              )}
+            >
+              {/* Scene Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">
+                    {scene.start}-{scene.end}s
+                  </Badge>
+                  <span className="font-medium capitalize">
+                    {getSceneIcon(scene.label)} {scene.label}
+                  </span>
+                  {scene.manuallyEdited && (
+                    <Badge variant="secondary">
+                      <Edit2 className="h-3 w-3 mr-1" />
+                      Edited
+                    </Badge>
+                  )}
+                  {scene.recommendationApplied && (
+                    <Badge variant="default" className="bg-green-600">
+                      <Check className="h-3 w-3 mr-1" />
+                      Improved
+                    </Badge>
+                  )}
+                </div>
+                
+                {!isEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSceneId(scene.id)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
+              {/* Scene Text */}
+              {isEditing ? (
+                <div className="space-y-2">
+                  <Textarea
+                    defaultValue={scene.text}
+                    className="min-h-[80px]"
+                    onBlur={(e) => {
+                      if (e.target.value !== scene.text) {
+                        editScene.mutate({ 
+                          sceneId: scene.id, 
+                          newText: e.target.value 
+                        });
+                      } else {
+                        setEditingSceneId(null);
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <p className="text-sm leading-relaxed mb-3">
+                  {scene.text}
+                </p>
+              )}
+              
+              {/* Recommendation */}
+              {sceneRec && (
+                <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3 mt-3">
+                  <div className="flex items-start gap-2 mb-2">
+                    <Lightbulb className="h-4 w-4 text-yellow-600 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge 
+                          variant={
+                            sceneRec.priority === 'high' ? 'destructive' :
+                            sceneRec.priority === 'medium' ? 'default' :
+                            'secondary'
+                          }
+                          className="text-xs"
+                        >
+                          {sceneRec.priority.toUpperCase()}
+                        </Badge>
+                        <span className="text-xs font-medium">
+                          {sceneRec.area}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {sceneRec.reasoning}
+                      </p>
+                      <div className="bg-white rounded p-2 text-sm mb-2">
+                        <div className="text-green-600 font-medium mb-1">
+                          ✨ Suggested:
+                        </div>
+                        <div className="text-green-700">
+                          "{sceneRec.suggestedText}"
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Expected impact: <strong>{sceneRec.expectedImpact}</strong>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    size="sm"
+                    onClick={() => applySceneRecommendation.mutate({
+                      sceneId: scene.id,
+                      recommendationId: sceneRec.id
+                    })}
+                    disabled={applySceneRecommendation.isPending}
+                    className="w-full mt-2"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Apply Recommendation
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Bulk Actions */}
+      <div className="flex gap-3">
+        {unappliedRecommendations.length > 0 && (
+          <Button
+            onClick={() => applyAllRecommendations.mutate()}
+            disabled={applyAllRecommendations.isPending}
+            size="lg"
+            className="flex-1"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Apply All Recommendations ({unappliedRecommendations.length})
+          </Button>
+        )}
+        
+        {needsReanalysis && (
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => {
+              // Trigger re-analysis
+              setNeedsReanalysis(false);
+            }}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Re-analyze
+          </Button>
+        )}
+      </div>
+      
+      {/* History Modal */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-6xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Script History</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-4 h-[70vh]">
+            {/* Left: Version List */}
+            <div className="border rounded-lg p-4 overflow-y-auto">
+              <h4 className="font-semibold mb-3">Versions</h4>
+              <div className="space-y-2">
+                {versions.map((version) => (
+                  <button
+                    key={version.id}
+                    onClick={() => setSelectedHistoryVersion(version.id)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-lg border transition-colors",
+                      selectedHistoryVersion === version.id && "border-blue-500 bg-blue-50",
+                      version.isCurrent && "border-green-500 bg-green-50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">
+                        Version {version.versionNumber}
+                      </span>
+                      {version.isCurrent && (
+                        <Badge variant="default">Current</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {formatDistanceToNow(new Date(version.createdAt), { addSuffix: true, locale: ru })}
+                    </p>
+                    {version.changes && (
+                      <p className="text-xs">
+                        {version.changes.type === 'ai_recommendation' && '✨ AI improved'}
+                        {version.changes.type === 'manual_edit' && '✏️ Manual edit'}
+                        {version.changes.type === 'bulk_apply' && `✨ ${version.changes.count} improvements`}
+                        {version.changes.type === 'revert' && '↩️ Reverted'}
+                      </p>
+                    )}
+                    
+                    {!version.isCurrent && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full mt-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          revertToVersion.mutate(version.id);
+                        }}
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Restore
+                      </Button>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Right: Comparison */}
+            <div className="border rounded-lg p-4 overflow-y-auto">
+              {selectedHistoryVersion ? (
+                <div>
+                  <h4 className="font-semibold mb-3">Preview</h4>
+                  <div className="bg-muted/50 rounded p-3 font-mono text-sm whitespace-pre-wrap">
+                    {versions.find(v => v.id === selectedHistoryVersion)?.fullScript}
+                  </div>
+                </div>
+              ) : unappliedRecommendations.length > 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h4 className="font-semibold mb-2">
+                      Ready to Improve
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      You have {unappliedRecommendations.length} AI recommendations pending
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setShowHistory(false);
+                        // Scroll to recommendations
+                      }}
+                    >
+                      Apply Recommendations
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  Select a version to preview
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function getSceneIcon(label: string) {
+  switch (label) {
+    case 'hook': return '🎣';
+    case 'story': return '📖';
+    case 'solution': return '💥';
+    case 'cta': return '📢';
+    default: return '📝';
+  }
+}
+```
+
+---
+
+## 🎯 VISUAL FLOW:
+```
+┌────────────────────────────────────────────────────┐
+│  Stage 3: AI Analysis + Script Editor             │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│  [History] button (top-right)                      │
+│                                                    │
+│  ┌─ Scene 1: Hook [0-3s] ─────────────────────┐   │
+│  │ 💡 HIGH PRIORITY RECOMMENDATION            │   │
+│  │                                            │   │
+│  │ Current: "Как я заработал деньги"         │   │
+│  │                                            │   │
+│  │ ┌─ Recommendation ─────────────────────┐   │   │
+│  │ │ Add specific number                  │   │
+│  │ │ ✨ "Как я заработал $10,247"         │   │
+│  │ │ Impact: +18 points                   │   │
+│  │ │ [Apply Recommendation]               │   │
+│  │ └──────────────────────────────────────┘   │   │
+│  │                                            │   │
+│  │ [✏️ Edit]                                  │   │
+│  └────────────────────────────────────────────┘   │
+│                                                    │
+│  ┌─ Scene 2: Story [3-8s] ───────────────────┐   │
+│  │ No recommendations                         │   │
+│  │                                            │   │
+│  │ "Я открыл для себя метод который..."      │   │
+│  │                                            │   │
+│  │ [✏️ Edit]                                  │   │
+│  └────────────────────────────────────────────┘   │
+│                                                    │
+│  ┌─ Scene 4: CTA [13-18s] ────────────────────┐   │
+│  │ 💡 HIGH PRIORITY RECOMMENDATION            │   │
+│  │                                            │   │
+│  │ Current: "(none)"                          │   │
+│  │                                            │   │
+│  │ ┌─ Recommendation ─────────────────────┐   │   │
+│  │ │ Add strong CTA                       │   │
+│  │ │ ✨ "Сохрани → используй завтра"      │   │
+│  │ │ Impact: +35% saves                   │   │
+│  │ │ [Apply Recommendation]               │   │
+│  │ └──────────────────────────────────────┘   │   │
+│  └────────────────────────────────────────────┘   │
+│                                                    │
+│  [✨ Apply All Recommendations (2)]                │
+│  [🔄 Re-analyze] (if manually edited)              │
+│                                                    │
+└────────────────────────────────────────────────────┘
+
+Click [History] →
+
+┌─────────────────────────────────────────────────┐
+│  Script History                                 │
+├─────────────────────────────────────────────────┤
+│  ┌─ Versions ──────┬─ Preview ───────────────┐  │
+│  │                 │                          │  │
+│  │ ● Version 3     │ (Current version)        │  │
+│  │   Current       │                          │  │
+│  │   2 min ago     │ [0-3s] Как я заработал  │  │
+│  │                 │ деньги онлайн...         │  │
+│  │ ○ Version 2     │                          │  │
+│  │   ✨ AI improved│                          │  │
+│  │   10 min ago    │ You have 2 pending       │  │
+│  │   [Restore]     │ recommendations!         │  │
+│  │                 │                          │  │
+│  │ ○ Version 1     │ [Apply Recommendations]  │  │
+│  │   ✏️ Manual edit│                          │  │
+│  │   1 hour ago    │                          │  │
+│  │   [Restore]     │                          │  │
+│  └─────────────────┴──────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## 💬 СКАЖИ AGENT:
+```
+Agent, implement MAGIC UI for Stage 3!
+
+Requirements:
+
+1. Scene-by-Scene Editor:
+   - Break script into scenes
+   - Each scene editable inline
+   - Show recommendation badge if exists
+   - [Apply] button per scene with recommendation
+   - Manual edit triggers "Re-analyze" button
+
+2. Version History System:
+   - Database: script_versions table
+   - Database: scene_recommendations table
+   - Track every change (AI, manual, bulk)
+   - Non-destructive (can revert anytime)
+
+3. History Modal:
+   LEFT: Version list
+   - Version 1, 2, 3, etc
+   - Timestamps
+   - Change type (AI/manual/bulk)
+   - [Restore] button
+   
+   RIGHT: Preview/CTA
+   - If version selected: show preview
+   - If no recommendations: show current
+   - If has recommendations: show CTA "Apply Recommendations"
+
+4. Bulk Actions:
+   - [Apply All Recommendations] - one click magic!
+   - [Re-analyze] - appears after manual edits
+   - [Continue] - proceed to Stage 4
+
+5. Visual Polish:
+   - Yellow border for scenes with recommendations
+   - Green border for improved scenes
+   - Badges: HIGH/MEDIUM/LOW priority
+   - Icons for scene types (🎣 Hook, 📢 CTA, etc)
+
+This is GRANULAR CONTROL + AUTOMATION + VERSION CONTROL!
+User has full visibility and control over every change!
+
+Start with database schema, then backend, then frontend!
+This is the killer UX feature!
+
+ЭТО ДЕЙСТВИТЕЛЬНО МАГИЯ! ✨
+GRANULAR CONTROL + AI AUTOMATION + VERSION HISTORY! 🔥
+ПОЛЬЗОВАТЕЛЬ ВИДИТ КАЖДОЕ ИЗМЕНЕНИЕ И МОЖЕТ ОТКАТИТЬ! ↩️

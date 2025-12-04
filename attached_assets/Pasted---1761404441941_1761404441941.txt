@@ -1,0 +1,259 @@
+
+
+ТЗ: «Пересчитать анализ» + экран сравнения До/После
+
+Цель
+
+Сделать итерационный цикл улучшений сценария:
+	1.	Пользователь правит сцены/применяет рекомендации.
+	2.	Жмёт «Пересчитать анализ» → получаем новую «кандидатную» версию и экран сравнения: слева До, справа После, с метриками и финальными рецензиями.
+	3.	Пользователь выбирает какую версию оставить («Сохранить ДО» / «Сохранить ПОСЛЕ») и:
+	•	либо возвращается к редактированию выбранной версии,
+	•	либо идёт на озвучку.
+
+⸻
+
+Бэкенд
+
+1) Модель/БД
+
+script_versions (добавить поля):
+	•	id (uuid)
+	•	project_id (uuid)
+	•	is_current (bool) — текущая активная версия
+	•	is_candidate (bool, default false) — кандидатная версия, созданная «Пересчитать анализ»
+	•	base_version_id (uuid|null) — ID версии, от которой считалась кандидатная (для сравнения)
+	•	scenes (jsonb) — массив { sceneNumber, text }
+	•	metrics (jsonb) — агрегированные метрики версии (пример ниже)
+	•	review (text) — финальная рецензия (краткая сводка)
+	•	created_at
+
+scene_recommendations
+	•	не меняем схему; просто генерим новый набор привязанный к script_version_id кандидата.
+
+metrics JSON пример
+
+{
+  "overallScore": 78,
+  "hookScore": 72,
+  "structureScore": 80,
+  "emotionalScore": 76,
+  "ctaScore": 72,
+  "predicted": {
+    "retention": "55–65%",
+    "saves": "3–5%",
+    "shares": "1–2%",
+    "viralProbability": "medium"
+  },
+  "perScene": [
+    { "sceneNumber": 1, "score": 75 },
+    { "sceneNumber": 2, "score": 81 }
+  ]
+}
+
+2) Эндпоинты
+
+POST /api/projects/:id/reanalyze
+
+Назначение: пересчитать анализ по текущей версии и создать кандидатную версию.
+
+Вход:
+
+{
+  "idempotencyKey": "string-uniq"  // защититься от двойного клика
+}
+
+Логика:
+	•	Находим currentVersion проекта.
+	•	Прогоняем advanced synthesis (hook/structure/emotional/cta + architect) по актуальным сценам текущей версии.
+	•	Собираем metrics и review как у advanced результата.
+	•	Создаём новую запись в script_versions:
+	•	is_candidate = true
+	•	is_current = false
+	•	base_version_id = currentVersion.id
+	•	scenes = currentVersion.scenes (текст уже изменён пользователем и рекомендациями)
+	•	metrics, review — из результата
+	•	Генерим новый набор scene_recommendations для кандидата (по новой логике с sceneNumber).
+	•	Возвращаем:
+
+{
+  "success": true,
+  "data": {
+    "candidateVersionId": "uuid"
+  }
+}
+
+GET /api/projects/:id/reanalyze/compare
+
+Назначение: выдать полностью подготовленные данные для экрана сравнения.
+
+Ответ:
+
+{
+  "success": true,
+  "data": {
+    "before": {
+      "versionId": "uuid",
+      "scenes": [{ "sceneNumber": 1, "text": "..." }, ...],
+      "metrics": { ... },
+      "review": "Краткая рецензия ДО"
+    },
+    "after": {
+      "versionId": "uuid",
+      "scenes": [...],
+      "metrics": { ... },
+      "review": "Краткая рецензия ПОСЛЕ"
+    },
+    "diff": {
+      "overallDelta": +12,
+      "perScene": [
+        { "sceneNumber": 1, "delta": +8 },
+        { "sceneNumber": 2, "delta": +4 }
+      ]
+    }
+  }
+}
+
+POST /api/projects/:id/reanalyze/choose
+
+Назначение: пользователь выбирает, какую версию сделать текущей.
+
+Вход:
+
+{ "choice": "before" | "after" }
+
+Логика:
+	•	Если before → делаем is_current=true для base_version_id, удаляем/архивируем candidate.
+	•	Если after → ставим is_current=true для candidateVersion, сбрасываем is_candidate=false, предыдущую (base_version_id) — is_current=false.
+	•	Рекомендации оставляем только для is_current версии (у неактивной можно архивировать).
+	•	Ответ:
+
+{ "success": true, "data": { "currentVersionId": "uuid" } }
+
+Уточнения
+	•	Все операции — в транзакциях.
+	•	Идемпотентность по ключу.
+	•	На фронт возвращать HTTP 200/4xx с понятными message.
+
+⸻
+
+Фронтенд
+
+1) Кнопка «Пересчитать анализ» в Scene Editor
+	•	Сейчас тост «функция в разработке». Заменить на реальную логику:
+
+// 1) старт reanalyze
+await apiRequest("POST", `/api/projects/${projectId}/reanalyze`, { idempotencyKey })
+
+// 2) затем открыть «Compare view» (модалка/страница)
+refetchCompare();
+openCompare = true;
+
+2) Экран сравнения (Compare View)
+
+Вариант UI: полноэкранная модалка / отдельная страница.
+
+Компонент: <ReanalyzeCompareModal />
+
+Содержимое:
+	•	Две колонки:
+	•	Слева ДО: заголовок “До”, метрики (Overall + breakdown), список сцен (аккордеон/табами), финальная рецензия.
+	•	Справа ПОСЛЕ: те же блоки + бейджи дельт (+14, −3) по overall и по сценам.
+	•	Сверху маленькая сводка: Overall 65 → 79 (+14); мини-карточки Hook/Structure/Emotional/CTA с дельтами.
+	•	Под списками: две большие кнопки выбора:
+	•	Сохранить ДО
+	•	Сохранить ПОСЛЕ
+	•	Внизу (footer):
+	•	Вернуться к редактированию — закрывает сравнение, оставляя выбранную версию в редакторе.
+	•	Перейти к озвучке — переводит проект на Stage 4 сразу после выбора.
+
+API-потоки:
+	•	GET /reanalyze/compare — получить данные.
+	•	При нажатии «Сохранить ДО/ПОСЛЕ»:
+	•	POST /reanalyze/choose { choice }
+	•	Инвалидировать:
+	•	/script-history
+	•	/scene-recommendations
+	•	/projects/:id (для актуального currentStage)
+	•	Закрыть модалку.
+	•	Показать тост «Версия сохранена: ДО/ПОСЛЕ».
+
+3) Возврат в редактор
+	•	После выбора версии и закрытия сравнения:
+	•	SceneEditor показывает текущую версию (currentVersion из /script-history).
+	•	Кнопка «Пересчитать анализ» доступна для новой итерации.
+	•	Рекомендации подтягиваются под новую script_version_id.
+
+4) Переход к озвучке
+	•	Кнопка доступна всегда, если есть currentVersion (см. прошлое ТЗ — без требования наличия кэша анализа).
+	•	Если пользователь на экране сравнения нажал «Сохранить ПОСЛЕ» → сразу доступна «Перейти к озвучке».
+
+5) UX-детали
+	•	Лоадеры на запуск пересчёта и загрузку сравнения.
+	•	Тосты:
+	•	«Пересчёт запущен…»
+	•	«Готово: сравнение загружено»
+	•	«Версия сохранена: ДО/ПОСЛЕ»
+	•	Блокировать двойной клик кнопок (идемпотентность).
+
+⸻
+
+Псевдотипы фронта для сравнения
+
+type CompareData = {
+  before: {
+    versionId: string
+    scenes: { sceneNumber: number; text: string }[]
+    metrics: Metrics
+    review: string
+  }
+  after: {
+    versionId: string
+    scenes: { sceneNumber: number; text: string }[]
+    metrics: Metrics
+    review: string
+  }
+  diff: {
+    overallDelta: number
+    perScene: { sceneNumber: number; delta: number }[]
+  }
+}
+
+type Metrics = {
+  overallScore: number
+  hookScore?: number
+  structureScore?: number
+  emotionalScore?: number
+  ctaScore?: number
+  predicted?: {
+    retention?: string
+    saves?: string
+    shares?: string
+    viralProbability?: 'low'|'medium'|'medium-high'|'high'
+  }
+  perScene?: { sceneNumber: number; score: number }[]
+}
+
+
+⸻
+
+Валидации и крайние случаи
+	•	Если currentVersion отсутствует — кнопка «Пересчитать анализ» скрыта/disabled.
+	•	Если у проекта уже есть активная «кандидатная» версия, новое нажатие «Пересчитать анализ» должно:
+	•	либо заменить кандидата,
+	•	либо вернуть 409/422 с текстом «Идёт сравнение, завершите выбор».
+	•	Ошибки Anthropic — нормальные сообщения в тостах, кандидат не создаём.
+	•	При выборе ДО — удаляем кандидата; при выборе ПОСЛЕ — предыдущую помечаем как не-текущую.
+
+⸻
+
+Критерии приёмки
+	•	Нажатие «Пересчитать анализ» в Scene Editor создаёт кандидатную версию и открывает экран сравнения.
+	•	На экране видно До/После, метрики, дельты, финальные рецензии.
+	•	Кнопки «Сохранить ДО» / «Сохранить ПОСЛЕ» меняют is_current корректно.
+	•	После выбора — возвращаемся в Scene Editor с выбранной версией и актуальными рекомендациями.
+	•	Кнопки «Вернуться к редактированию» и «Перейти к озвучке» работают ожидаемо.
+	•	Можно делать многократные итерации (пересчёт → выбор → редактирование).
+	•	Переход на Stage 4 не блокируется отсутствием кэша анализа, если есть currentVersion.
+
+⸻

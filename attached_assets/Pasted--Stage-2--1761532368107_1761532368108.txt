@@ -1,0 +1,108 @@
+Сделаем. Кнопка «Предпросмотр» в Stage 2 будет открывать ту же статью и иметь кнопку «Перевести», как в редакторе. Ниже — точечные правки (минимальные, без ломки текущего флоу).
+
+Что меняем (кратко)
+	1.	Переиспользуем ваш уже готовый просмотрщик статьи (модалку) из Stage 3.
+	2.	Добавляем кнопку «Предпросмотр» в карточку новости (рядом с Select).
+	3.	В модалке — кнопка «Перевести» (RU/EN), переводим и заголовок, и контент тем же бекенд-методом, что и на следующем шаге.
+	4.	Никакой новой логики на сервере не нужно: используем те же эндпоинты чтения статьи и перевода, что уже есть.
+
+⸻
+
+Изменения в коде
+
+1) Вынести/переиспользовать модалку
+
+Если в Stage 3 у вас уже есть компонент просмотра статьи (например, ArticlePreviewModal / ArticleViewerModal), просто вынесите его в client/src/components/shared/ArticlePreviewModal.tsx и оставьте тот же API:
+
+// props образец — подправьте под ваш файл
+type ArticlePreviewModalProps = {
+  isOpen: boolean;
+  articleId: string;
+  onClose: () => void;
+};
+
+// внутри модалки:
+// - react-query: GET /api/news/{id} (или ваш существующий)
+// - кнопка "Перевести на русский / Показать оригинал"
+// - POST/GET на ваш уже существующий endpoint перевода
+
+Важно: модалка уже умеет переводить и заголовок, и тело — переиспользуем тот же хук/мутацию, что и в Stage 3 (вы недавно чинили перевод title).
+
+2) Добавить кнопку «Предпросмотр» в карточку новости
+
+Файл: client/src/components/project/stages/stage-2-content-input.tsx
+(или где у вас объявлен NewsCard)
+
+import { useState } from "react";
+// ...
+import { ArticlePreviewModal } from "@/components/shared/ArticlePreviewModal"; // путь к вынесенному компоненту
+
+function NewsCard({ article, onSelect /* ... */ }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  return (
+    <Card className="relative">
+      {/* ... ваша шапка и бейдж score ... */}
+      <CardHeader>
+        <CardTitle>{article.title}</CardTitle>
+        <CardDescription>{article.subtitle}</CardDescription>
+      </CardHeader>
+
+      <CardFooter className="flex gap-2">
+        <Button className="flex-1" onClick={() => onSelect(article)}>
+          Select
+        </Button>
+
+        {/* НОВОЕ: предпросмотр */}
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>
+          Предпросмотр
+        </Button>
+
+        {/* (если есть кнопка фидбэка/дизлайка — оставляем как было) */}
+      </CardFooter>
+
+      {/* Модалка-предпросмотр */}
+      <ArticlePreviewModal
+        isOpen={previewOpen}
+        articleId={article.id}
+        onClose={() => setPreviewOpen(false)}
+      />
+    </Card>
+  );
+}
+
+3) Внутри ArticlePreviewModal
+
+(если выносите впервые — набросок интерфейса)
+	•	Заголовок статьи, источник, время.
+	•	Тело статьи (скролл).
+	•	Справа/сверху кнопка:
+	•	«Перевести на русский» → переводим и title, и content (тем же бекенд-функционалом, который вы починили).
+	•	Если уже переведено — показываем «Показать оригинал».
+	•	Скелетоны на загрузку, тосты на ошибки.
+
+Псевдокод кнопки перевода (повторяем Stage 3):
+
+const translateMutation = useMutation({
+  mutationFn: () => api.translateArticle({ id: articleId, to: "ru" }), // ваш уже существующий метод
+  onSuccess: (data) => {
+    setState({ title: data.title, content: data.content, lang: "ru" });
+  },
+});
+
+
+⸻
+
+UX-детали
+	•	Кнопку «Предпросмотр» ставим рядом с Select. На мобиле — в одну строку прокруткой или переносом; на десктопе — просто две кнопки.
+	•	В модалке оставьте «EN/RU» чипы/кнопку-­тоггл — как в редакторе, чтобы опыт был консистентным.
+	•	Кэширование: react-query ключ для статьи должен совпадать со Stage 3, чтобы повторный просмотр открывался мгновенно.
+	•	Accessibility: фокус на модалку, Esc — закрывает, aria-labelledby заголовок.
+
+⸻
+
+Регрессии не будет
+	•	Ничего на сервере не меняем: дергаем те же эндпоинты чтения и перевода, что уже используются на следующем шаге.
+	•	Локально в Stage 2 только добавили кнопку и открытие уже готовой модалки.
+
+Если хочешь, могу сразу прислать конкретные импорты по вашим путям (как в репозитории), но базовая интеграция такая.

@@ -1,0 +1,153 @@
+да, это ровно то. Ниже — готовый task list для реплита (без модалки, только «магия» по сценам). Копируй как есть в их таск-трекер/replit.md.
+
+Restore per-scene AI recommendations (“Apply suggestion”)
+
+0) Scope
+
+Вернуть блок «Рекомендации AI» в редакторе сцен (Stage 3) с конкретными заменами текста и кнопками «Применить»/«Применить всё». Модалку сравнения не трогаем.
+
+⸻
+
+1) Schema & types
+
+Files: shared/schema.ts
+	•	Add type:
+
+export type SceneRecommendation = {
+  sceneNumber: number;               // 1..N (stable id)
+  currentText: string;
+  suggestedText: string;
+  area: 'hook'|'structure'|'emotion'|'cta'|'pacing'|'clarity';
+  priority: 'high'|'medium'|'low';
+  delta: number;                     // expected +points (0..20)
+  rationale: string;                 // why the change helps
+};
+
+	•	В ScriptVersion добавить поле (опционально, если будем хранить):
+
+sceneRecommendations?: SceneRecommendation[];
+
+
+⸻
+
+2) Backend
+
+2.1 Endpoint: run analysis (дополнить ответ)
+
+Files: server/routes.ts
+
+POST /api/projects/:projectId/analysis/run
+Возвращает:
+
+{
+  "success": true,
+  "data": {
+    "versionId":"vN",
+    "overallScore":66,
+    "breakdown":{"hook":82,"structure":58,"emotional":0,"cta":0},
+    "architectReview":{...},
+    "sceneRecommendations":[ /* SceneRecommendation[] */ ]
+  }
+}
+
+2.2 Generate scene recommendations
+
+Files: server/ai-service.ts (или рядом)
+	•	Implement generateSceneRecommendations(scenes, context): Promise<SceneRecommendation[]>
+	•	Вход: массив { sceneNumber, text }, опционально: тематика/тон/целевой формат.
+	•	Для каждой сцены генерировать 1–2 варианта, выбирать лучший (или вернуть первый), плюс area, priority, delta, rationale.
+	•	Ограничить параллелизм (например, 2–3 одновременных вызова) + retry с backoff на 429/5xx.
+	•	Нормализовать answer (LLM может вернуть scenes/suggestions/и т.п.).
+	•	В analysis/run после общего скоринга вызывать generateSceneRecommendations и подмешивать в ответ.
+	•	(Опц.) Сохранение:
+	•	storage.saveSceneRecommendations(projectId, versionId, recs)
+	•	и чтение при повторном заходе, если уже есть.
+
+2.3 Идемпотентность
+	•	При повторном analysis/run для того же versionId разрешено: пересчитать и перезаписать recs или вернуть существующие — выберите одно поведение и задокументируйте.
+
+⸻
+
+3) Frontend
+
+3.1 SceneEditor: держим рекомендации в состоянии
+
+Files: client/src/components/project/scene-editor.tsx
+	•	После успешного analysis/run класть data.sceneRecommendations в локальный стейт (мап по sceneNumber).
+	•	Показать в правой колонке «Результаты анализа» + счётчик «Рекомендации по сценам: N».
+
+3.2 SceneCard: отрисовать блок «Рекомендации AI»
+
+Files: client/src/components/project/scene-card.tsx
+
+Для каждой сцены:
+	•	Если есть рекомендации для sceneNumber — показать:
+	•	Бейдж: +{delta} • {area} • {priority}
+	•	Серым — currentText (кратко, collapsible)
+	•	Зелёным — suggestedText
+	•	Под ним — мелко rationale
+	•	Кнопки:
+	•	[Применить рекомендацию] → заменяет текст текущей сцены на suggestedText, помечает сцену как “изменена”.
+	•	[Отклонить] → убирает рекомендацию из стейта (не из БД).
+	•	Вверху списка сцен — [Применить всё (выгодные)]: применить все recs с priority="high"|"medium" и delta >= 6 (порог константой).
+
+3.3 Логика применения
+	•	Применение не создаёт новую версию сразу — просто меняет текст в текущем редакторе.
+	•	Кнопка «Сохранить новую версию» (глобальная в Stage 3) создаёт vN+1 и (опционально) триггерит авто-реанализ для обновления общего балла. Сравнение — отдельная фича/шаг, тут не используем модалку.
+
+3.4 UX/тексты
+	•	Тосты:
+	•	«Анализ готов. Рекомендации загружены: N сцен».
+	•	«Применено X рекомендаций».
+	•	Прогресс-бар анализа «Hook → Structure → Emotion → CTA → Сводка» оставить как есть.
+
+⸻
+
+4) Edge cases
+	•	Если у сцены пустой suggestedText — скрывать карточку рекомендации.
+	•	Если пользователь изменил сцену вручную после анализа → подсвечивать «рекомендация устарела» (можно просто скрыть, если currentText !== фактический).
+	•	Убедиться, что используем sceneNumber, а не индекс массива — это уже фиксировано в текущем коде, продолжить ту же схему.
+
+⸻
+
+5) QA checklist
+	•	После «Анализ сценария» появляется блок «Рекомендации AI»; число N>0 на типовом входе.
+	•	В каждой сцене с рекомендацией видны: зелёный предложенный текст, бейдж delta/area/priority, rationale, кнопки.
+	•	«Применить рекомендацию» меняет текст сцены сразу.
+	•	«Применить всё (выгодные)» применяет только high/medium и delta ≥ 6.
+	•	«Сохранить новую версию» создаёт vN+1; общий балл пересчитан, рекомендации очищены/пересчитаны.
+	•	Никаких модалок сравнения в этом флоу.
+
+⸻
+
+6) Промпт-скелет для LLM (пер-сцена)
+
+(для generateSceneRecommendations)
+
+System: You are a short-form video script doctor. 
+You improve one scene at a time for TikTok/IG Reels. 
+Return strict JSON for each scene.
+
+User JSON:
+{
+  "sceneNumber": 3,
+  "currentText": "...",
+  "format": "Hook&Story",
+  "language": "ru",
+  "goal": "maximize retention and saves",
+  "tone": "neutral"
+}
+
+Assistant JSON schema:
+{
+  "suggestedText": "string (≤ 40 words, same language)",
+  "area": "hook|structure|emotion|cta|pacing|clarity",
+  "priority": "high|medium|low",
+  "delta": number,   // 0..20, integer
+  "rationale": "string (≤ 30 words)"
+}
+
+
+⸻
+
+Если нужно, добавлю готовые заглушки функций/компонент-пропсов под ваш стек.

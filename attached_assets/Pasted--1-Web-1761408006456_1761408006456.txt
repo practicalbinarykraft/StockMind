@@ -1,0 +1,81 @@
+Топ! Дальше — два шага, чтобы из «песочницы» сделать уже «ганшип»:
+
+Шаг 1. Реальная геопривязка (WebMercator) вместо псевдо-метров
+
+Скопируй в Agent целиком:
+
+Промпт — “WebMercator sync: lon/lat ↔ world”
+	1.	Создай src/geo.js с функциями:
+
+// tileSize=256
+export function lonLatToWorld(lon, lat, zoom){
+  const scale = 256 * Math.pow(2, zoom);
+  const x = (lon + 180) / 360 * scale;
+  const sin = Math.sin(lat * Math.PI/180);
+  const y = (0.5 - Math.log((1+sin)/(1-sin))/(4*Math.PI)) * scale;
+  return {x, y};
+}
+export function worldToLonLat(x, y, zoom){
+  const scale = 256 * Math.pow(2, zoom);
+  const lon = x/scale*360 - 180;
+  const n = Math.PI - 2*Math.PI*(y/scale - 0.5);
+  const lat = 180/Math.PI * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
+  return {lon, lat};
+}
+
+	2.	В map.js экспортируй getMapState() → {centerLonLat:[lon,lat], zoom}.
+	3.	В MissionScene храни this.worldPerPixel и this.mapZoom. При старте бери getMapState(), переводишь центр lon/lat в worldXY (через lonLatToWorld) и выставляешь camera.scroll так, чтобы (0,0) мира соответствовал (0,0) web-mercator (можно просто работать в тех же «worldXY»).
+	4.	Синхронизируй: при движении/зуме Phaser вычисляй центр камеры в worldXY → обратно worldToLonLat → map.jumpTo({center, zoom: mapZoomFromPhaser(zoom)}). Для упрощения сделай линейную мапу: mapZoom = 3 + (camera.zoom-0.5)*4.
+	5.	Обнови дебаг: показывай Map zoom, Center lon,lat, Camera worldX/Y.
+Критерий: при drag/zoom центр на карте и в дебаге корректно пересчитывается (курсором водишь — lon/lat меняются реалистично).
+
+⸻
+
+Шаг 2. Орудия AC-130: стрельба, взрывы, урон, счёт
+
+Скопируй в Agent:
+
+Промпт — “Weapons + FX + Damage”
+Сделай одним коммитом:
+	1.	Добавь систему вооружения в сцене:
+
+this.weapons = {
+  m25: {name:'25 мм',  rpm:600,  aoe:20,  dmg:40, recoil:2,  cooldown:0.1},
+  m40: {name:'40 мм',  rpm:120,  aoe:35,  dmg:80, recoil:4,  cooldown:0.5},
+  m105:{name:'105 мм', rpm:10,   aoe:70,  dmg:200,recoil:8,  cooldown:2.0}
+};
+this.currentWeapon = 'm40';
+this.nextShotAt = 0;
+
+	2.	Управление:
+
+	•	ЛКМ — выстрел текущего оружия в точку курсора (мировые координаты).
+	•	Колесо вверх/вниз — переключение между m25/m40/m105 (покажи в HUD).
+	•	Придуши стрельбу таймером: if(time < nextShotAt) return; nextShotAt = time + cooldown*1000.
+
+	3.	Эффекты:
+
+	•	«Музл-флэш» у центра экрана: краткий белый спрайт/Graphics вспышка.
+	•	Трассер (тонкая линия к цели, живёт 100–150 мс).
+	•	Эксплойжн: белый круг, быстро растёт до aoe, затем затухает; лёгкий screen-shake по recoil.
+	•	«Кратер»: тёмно-серый мягкий круг (blend multiply), остаётся как след на 5–10 сек.
+
+	4.	Урон:
+
+	•	Пройди по this.units: если дистанция до центра взрыва ≤ aoe → hp -= dmg*(1 - d/aoe).
+	•	Если hp ≤ 0 и unit.faction==='enemy' → score += 10 (инф), +25 (vehicle), +50 (tank); дружеские — штраф -50 и mistakes++.
+	•	Мёртвый юнит плавно гаснет и удаляется из группы.
+
+	5.	HUD:
+
+	•	В правом верхнем углу добавь WEAPON: <name>  COOLDOWN: <sec> (зелёный HUD-шрифт).
+	•	При смене оружия — всплывающий тост на 1 сек.
+
+	6.	Критерий:
+
+	•	Стреляет, вспышки/трассеры/взрывы видны.
+	•	Враги получают урон по радиусу, SCORE растёт, за friendly — штраф.
+	•	Screen-shake и кратеры добавляют «тяжести» выстрела.
+	•	Переключение 25/40/105 мм работает.
+
+⸻

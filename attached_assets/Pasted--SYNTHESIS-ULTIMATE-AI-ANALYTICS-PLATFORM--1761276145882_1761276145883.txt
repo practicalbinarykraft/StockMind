@@ -1,0 +1,2140 @@
+🔥 SYNTHESIS: ULTIMATE AI ANALYTICS PLATFORM
+🎯 ЛУЧШЕЕ ИЗ ОБОИХ МИРОВ!
+Давай объединим твою концепцию Multi-Agent + практичность GPT = KILLER PRODUCT!
+
+✅ ЧТО БЕРЁМ ОТ CLAUDE (МОЁ):
+✅ Multi-Agent архитектура с Архитектором
+✅ 5 агентов: Architect + 4 специалиста
+✅ Детальная схема Instagram API
+✅ Retention curve analysis
+✅ Demographic insights
+✅ Pattern confidence scoring
+✅ Vector embeddings для similarity
+✅ Monetization strategy
+```
+
+---
+
+## ✅ ЧТО БЕРЁМ ОТ GPT (СТАРЫЙ ПРОЕКТ):
+```
+✅ Гибридная архитектура (не переписываем всё!)
+✅ Event-driven система (Redis/Postgres NOTIFY)
+✅ Feature Store (модульность)
+✅ Stage 8: Post-Publish Analytics
+✅ Smart Seed (ГЕНИАЛЬНО!) 🔥
+✅ Табличные модели (не fine-tune)
+✅ Поэтапное внедрение (4 phases)
+✅ Graceful degradation
+✅ Анонимизация данных
+✅ BYOK security
+```
+
+---
+
+## 🏗️ ФИНАЛЬНАЯ АРХИТЕКТУРА:
+```
+┌─────────────────────────────────────────────────────────┐
+│              STOCKMIND 2.0 AI PLATFORM                  │
+└─────────────────────────────────────────────────────────┘
+
+EXISTING WORKFLOW (Stages 1-7):
+┌──────────────────────────────────────────────────────┐
+│ Source → AI Analysis → Voice → Avatar → B-roll       │
+│        → Assembly → Export                           │
+└──────────────────────────────────────────────────────┘
+                         │
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│                    🆕 STAGE 8                            │
+│              POST-PUBLISH ANALYTICS                      │
+│                                                          │
+│  User adds Instagram link → Wait 48-72h → Fetch Metrics │
+└─────────────────────────────────────────────────────────┘
+                         │
+        ┌────────────────┴────────────────┐
+        │                                 │
+        ↓                                 ↓
+┌──────────────────┐           ┌──────────────────┐
+│  EVENT SYSTEM    │           │  FEATURE STORE   │
+│  (Redis Queue)   │           │  (Modular Data)  │
+│                  │           │                  │
+│ • agent.hook     │           │ • text_features  │
+│ • agent.struct   │           │ • visual_feat    │
+│ • agent.perf     │           │ • metrics_feat   │
+│ • architect.rev  │           │                  │
+└────────┬─────────┘           └────────┬─────────┘
+         │                               │
+         └───────────┬───────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│              MULTI-AGENT ANALYTICS ENGINE                │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│              🎭 ARCHITECT (Claude Opus)                  │
+│                Master Orchestrator                       │
+│                                                          │
+│         ┌──────────┬──────────┬──────────┐              │
+│         ↓          ↓          ↓          ↓              │
+│   ┌─────────┐ ┌────────┐ ┌────────┐ ┌─────────┐        │
+│   │  Hook   │ │Struct. │ │ Perf.  │ │Personal │        │
+│   │ Expert  │ │Analyst │ │Tracker │ │   AI    │        │
+│   │(Claude) │ │(Claude)│ │(Claude)│ │(Claude) │        │
+│   └─────────┘ └────────┘ └────────┘ └─────────┘        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│               LEARNING SYSTEM                            │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌─────────────────┐        ┌──────────────────┐        │
+│  │  Personal AI    │◄──────►│  Global Patterns │        │
+│  │  (Per User)     │        │  (Anonymized)    │        │
+│  │                 │        │                  │        │
+│  │ • Patterns      │        │ • Pattern DB     │        │
+│  │ • Confidence    │        │ • Success Rate   │        │
+│  │ • 🎯 Smart Seed │        │ • Evidence       │        │
+│  └─────────────────┘        └──────────────────┘        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+🔥 KILLER FEATURE: SMART SEED
+ЭТО ГЕНИАЛЬНО ОТ GPT!
+typescript// 🎯 SMART SEED: AI создаёт оптимальную заготовку
+
+// При создании НОВОГО проекта:
+const seed = await personalAI.generateSmartSeed(userId);
+
+{
+  // 🎣 Hook рекомендация
+  suggestedHook: "Почему 99% трейдеров теряют деньги?",
+  reasoning: "Question hooks work 3x better for your audience",
+  confidence: 0.87,
+  
+  // ⏱️ Оптимальная длина
+  optimalLength: 18,
+  reasoning: "Your 15-20s reels get 2x more completion rate",
+  evidence: [reelId1, reelId2, reelId3],
+  
+  // 🕐 Лучшее время публикации
+  bestPostingTime: "18:30",
+  timezone: "Europe/Moscow",
+  reasoning: "Your posts at 6-7PM get 40% more reach",
+  historicalData: { avgReach: 125000, avgEngagement: 6.8 },
+  
+  // 🎬 Стиль контента
+  styleGuide: {
+    pace: "fast",  // 180-200 WPM
+    sceneCount: 4-5,
+    transitionStyle: "cut",  // vs "smooth"
+    ctaPlacement: "end",
+    musicStyle: "trending-upbeat"
+  },
+  
+  // 🎨 Визуальный стиль
+  visualStyle: {
+    textOverlays: true,
+    overlayTiming: [3, 8, 13],  // seconds
+    colorGrading: "warm-vibrant",
+    cameraMovement: "dynamic"
+  },
+  
+  // 📊 Прогноз
+  predictedViralityScore: 78,
+  predictedEngagementRate: 6.5,
+  successProbability: 0.82
+}
+
+// UI показывает:
+┌─────────────────────────────────────┐
+│ 🎯 AI-POWERED SMART START          │
+├─────────────────────────────────────┤
+│ Based on your 20 viral reels,      │
+│ here's the optimal setup:          │
+│                                    │
+│ 💡 Suggested Hook:                 │
+│ "Почему 99% трейдеров теряют $?"   │
+│ Why: Question hooks work 3x        │
+│                                    │
+│ ⏱️ Optimal Length: 18 seconds      │
+│ Why: Your sweet spot for retention │
+│                                    │
+│ 🕐 Best Time: Today at 6:30 PM     │
+│ Why: 40% more reach historically   │
+│                                    │
+│ 🎬 Style: Fast-paced (180 WPM)     │
+│ Why: Keeps attention 2x better     │
+│                                    │
+│ 📈 Predicted Score: 78/100         │
+│ Success Probability: 82%           │
+│                                    │
+│ [Use Smart Seed] [Customize]       │
+└─────────────────────────────────────┘
+Это меняет всё! Пользователь начинает с НАУЧНО ОБОСНОВАННОЙ заготовки!
+
+📊 DATABASE SCHEMA (HYBRID):
+Минималистичная схема от GPT + детали от Claude:
+sql-- ═══════════════════════════════════════
+-- STAGE 8: POST-PUBLISH TRACKING
+-- ═══════════════════════════════════════
+
+CREATE TABLE published_reels (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id),
+  user_id UUID REFERENCES users(id),
+  
+  -- Instagram connection
+  instagram_post_id VARCHAR UNIQUE,  -- "ABC123"
+  instagram_url TEXT NOT NULL,
+  
+  -- Publishing
+  published_at TIMESTAMP NOT NULL,
+  
+  -- Metrics fetching
+  last_metrics_fetch TIMESTAMP,
+  next_metrics_fetch TIMESTAMP,  -- Schedule next check
+  metrics_fetch_count INTEGER DEFAULT 0,
+  
+  -- Status
+  analysis_status VARCHAR DEFAULT 'pending',  -- pending/fetching/analyzing/completed
+  
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════
+-- MULTI-AGENT ANALYSIS RESULTS
+-- ═══════════════════════════════════════
+
+CREATE TABLE reel_analysis (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  published_reel_id UUID REFERENCES published_reels(id),
+  
+  -- Agent outputs (JSONB for flexibility)
+  hook_analysis JSONB,      -- Hook Expert results
+  structure_analysis JSONB, -- Structure Analyst results
+  performance_data JSONB,   -- Performance Tracker results
+  architect_review JSONB,   -- Architect synthesis
+  
+  -- Scores
+  virality_score INTEGER,   -- 0-100
+  hook_score INTEGER,
+  structure_score INTEGER,
+  engagement_score INTEGER,
+  
+  -- Predictions vs Reality
+  predicted_virality INTEGER,
+  virality_accuracy DECIMAL,  -- How close was prediction
+  
+  -- Learning signals
+  patterns_validated TEXT[],
+  patterns_rejected TEXT[],
+  new_patterns_discovered TEXT[],
+  
+  -- Metadata
+  analyzed_at TIMESTAMP DEFAULT NOW(),
+  analysis_duration_ms INTEGER
+);
+
+-- ═══════════════════════════════════════
+-- FEATURE STORE (Modular!)
+-- ═══════════════════════════════════════
+
+CREATE TABLE reel_features (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reel_analysis_id UUID REFERENCES reel_analysis(id),
+  
+  -- Text features
+  text_features JSONB,
+  -- {
+  --   wpm: 185,
+  --   pauseCount: 3,
+  --   sentimentScore: 0.7,
+  --   questionCount: 2,
+  --   wordCount: 55
+  -- }
+  
+  -- Visual features
+  visual_features JSONB,
+  -- {
+  --   sceneCount: 4,
+  --   avgSceneLength: 4.5,
+  --   transitionType: "cut",
+  --   textOverlayCount: 3,
+  --   colorPalette: ["#FF5733", "#33FF57"]
+  -- }
+  
+  -- Performance features
+  performance_features JSONB,
+  -- {
+  --   views: 850000,
+  --   avgWatchTime: 14.2,
+  --   retentionRate: 0.78,
+  --   engagementRate: 0.062,
+  --   saveRate: 0.014
+  -- }
+  
+  -- Embeddings for similarity search
+  text_embedding vector(1536),  -- OpenAI embeddings
+  
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════
+-- PERSONAL AI (Per User Learning)
+-- ═══════════════════════════════════════
+
+CREATE TABLE user_ai_memory (
+  user_id UUID PRIMARY KEY REFERENCES users(id),
+  
+  -- Learned patterns (what works for THIS user)
+  learned_patterns JSONB,
+  -- {
+  --   bestHookTypes: ["question", "shocking-stat"],
+  --   optimalLength: 18,
+  --   bestPostingTime: "18:30",
+  --   preferredPace: "fast",
+  --   topTopics: ["crypto", "trading", "finance"]
+  -- }
+  
+  -- Pattern weights (personalized)
+  pattern_weights JSONB,
+  -- {
+  --   "question-hook": 1.35,  // 35% boost
+  --   "15-20s-length": 1.28,  // 28% boost
+  --   "fast-pace": 1.31       // 31% boost
+  -- }
+  
+  -- Performance history
+  avg_virality_score DECIMAL,
+  viral_count INTEGER DEFAULT 0,  -- How many viral hits
+  reels_analyzed INTEGER DEFAULT 0,
+  
+  -- Confidence (0-1)
+  confidence_level DECIMAL DEFAULT 0,
+  -- Increases with each analyzed reel
+  
+  -- Last update
+  last_updated_at TIMESTAMP DEFAULT NOW(),
+  
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════
+-- GLOBAL PATTERNS (Anonymized!)
+-- ═══════════════════════════════════════
+
+CREATE TABLE viral_patterns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Pattern identification
+  pattern_type VARCHAR NOT NULL,  -- 'hook', 'structure', 'timing', 'visual'
+  pattern_name VARCHAR NOT NULL,  -- 'question-hook', 'fast-pace', etc.
+  
+  -- Description
+  description TEXT,
+  
+  -- Evidence (anonymized!)
+  success_rate DECIMAL,           -- % of reels with this pattern that went viral
+  avg_virality_boost INTEGER,     -- Average score increase
+  example_count INTEGER,          -- How many reels demonstrate this
+  
+  -- Context
+  niche VARCHAR,                  -- 'finance', 'fitness', 'tech'
+  audience_age_group VARCHAR,     -- '18-24', '25-34', etc.
+  
+  -- Confidence
+  confidence_score DECIMAL,       -- 0-1, statistical confidence
+  
+  -- Timestamps
+  discovered_at TIMESTAMP DEFAULT NOW(),
+  last_validated TIMESTAMP,
+  
+  -- Examples (for reference, but anonymized)
+  example_features JSONB[]
+);
+
+-- ═══════════════════════════════════════
+-- EVENT SYSTEM (Redis-style in Postgres)
+-- ═══════════════════════════════════════
+
+CREATE TABLE agent_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  event_type VARCHAR NOT NULL,  -- 'agent.hook', 'agent.structure', etc.
+  payload JSONB NOT NULL,
+  
+  -- Status
+  status VARCHAR DEFAULT 'pending',  -- pending/processing/completed/failed
+  
+  -- Processing
+  processed_by VARCHAR,  -- Which agent/worker
+  processed_at TIMESTAMP,
+  
+  -- Timing
+  created_at TIMESTAMP DEFAULT NOW(),
+  expires_at TIMESTAMP  -- TTL
+);
+
+-- Index for event queue
+CREATE INDEX idx_agent_events_pending 
+ON agent_events(created_at) 
+WHERE status = 'pending';
+
+-- ═══════════════════════════════════════
+-- INSTAGRAM API KEYS (BYOK Security)
+-- ═══════════════════════════════════════
+
+-- Extend existing api_keys table
+ALTER TABLE api_keys 
+ADD COLUMN IF NOT EXISTS provider_data JSONB;
+
+-- For Instagram:
+-- provider = 'instagram'
+-- encryptedKey = access_token (encrypted)
+-- provider_data = {
+--   instagram_user_id: "123456789",
+--   instagram_username: "@kraft.invest",
+--   expires_at: "2025-06-01",
+--   permissions: ["instagram_basic", "instagram_manage_insights"]
+-- }
+
+🤖 АГЕНТЫ (Финальная версия):
+1. ARCHITECT (Master Orchestrator) 🎭
+typescriptRole: "Master AI Strategist"
+Model: Claude Opus 4.1 (самый мощный для synthesis)
+
+Responsibilities:
+  - Orchestrates other agents
+  - Synthesizes all analysis
+  - Validates hypotheses
+  - Generates experiments
+  - Strategic recommendations
+  - Quality control
+
+Process:
+  1. Receives results from 3 specialist agents
+  2. Cross-validates findings
+  3. Identifies contradictions
+  4. Synthesizes insights
+  5. Generates actionable recommendations
+  6. Creates next content seeds
+
+Output Example:
+{
+  synthesis: "Hook performed 35% above average, but structure could be tighter",
+  validated: ["question-hook-works", "18s-optimal"],
+  rejected: ["slow-pace-works"],  // Actually fast pace was better
+  recommendations: [
+    "Maintain question hooks (proven winner)",
+    "Tighten middle section (retention drop at 8s)",
+    "Add text overlay at hook (visual reinforcement)"
+  ],
+  nextExperiments: [
+    "Try shocking-stat hook variation",
+    "Test 15s ultra-short format",
+    "A/B test posting time: 6PM vs 8PM"
+  ],
+  contentSeeds: [
+    "Why 99% fail at X? (question hook)",
+    "Secret that changed my X (curiosity gap)",
+    "3 mistakes costing you X (listicle + problem)"
+  ],
+  confidenceLevel: 0.85
+}
+
+2. HOOK EXPERT 🎣
+typescriptRole: "First 3 Seconds Specialist"
+Model: Claude Sonnet 4.5
+
+Focus:
+  - Opening line analysis
+  - Emotional trigger detection
+  - Curiosity gap creation
+  - Pattern recognition in viral hooks
+  - Visual hook (text overlay timing)
+
+Input:
+  - Script (first 5 seconds)
+  - Visual description
+  - Performance data (if available)
+
+Analysis:
+  - Hook type classification
+  - Emotional appeal score
+  - Novelty score
+  - Scroll-stop probability
+  - Pattern matching with successful hooks
+
+Output Example:
+{
+  hookType: "question",
+  hookText: "Почему 99% трейдеров теряют деньги?",
+  
+  scores: {
+    hookScore: 87,
+    emotionalAppeal: 0.82,
+    noveltyScore: 0.74,
+    scrollStopProbability: 0.88
+  },
+  
+  breakdown: {
+    hasNumber: true,  // "99%"
+    hasEmotionalWord: true,  // "теряют"
+    hasQuestion: true,
+    specificity: "high",  // Specific number
+    urgency: "medium"
+  },
+  
+  patterns: [
+    "question-hook",
+    "percentage-specificity",
+    "problem-focused"
+  ],
+  
+  similarSuccessful: [
+    { text: "Why 95% of traders lose money?", views: 1200000 },
+    { text: "Почему 90% инвесторов в минусе?", views: 950000 }
+  ],
+  
+  recommendations: [
+    "Strong hook - question format proven for finance niche",
+    "Specific percentage creates credibility",
+    "Consider adding text overlay at 0:01 for visual reinforcement"
+  ]
+}
+
+3. STRUCTURE ANALYST 📊
+typescriptRole: "Content Structure & Flow Specialist"
+Model: Claude Sonnet 4.5
+
+Focus:
+  - Pacing analysis (WPM)
+  - Information density
+  - Scene transitions
+  - Retention curve prediction
+  - Story arc structure
+
+Input:
+  - Full transcript with timestamps
+  - Scene descriptions
+  - Video length
+
+Analysis:
+  - WPM calculation per segment
+  - Pause density
+  - Information chunks
+  - Tension build-up
+  - CTA effectiveness
+
+Output Example:
+{
+  duration: 18,
+  structureScore: 82,
+  
+  pacing: {
+    overallWPM: 185,
+    paceRating: "fast",  // optimal for attention
+    segments: [
+      { time: "0-3", wpm: 200, label: "hook" },
+      { time: "3-8", wpm: 180, label: "problem" },
+      { time: "8-13", wpm: 175, label: "solution" },
+      { time: "13-18", wpm: 160, label: "cta" }
+    ]
+  },
+  
+  scenes: [
+    { start: 0, end: 3, type: "hook", info_density: "high" },
+    { start: 3, end: 8, type: "exposition", info_density: "medium" },
+    { start: 8, end: 13, type: "climax", info_density: "high" },
+    { start: 13, end: 18, type: "resolution", info_density: "medium" }
+  ],
+  
+  transitions: [
+    { at: 3, type: "cut", smoothness: "abrupt", effectiveness: 0.85 },
+    { at: 8, type: "zoom", smoothness: "smooth", effectiveness: 0.78 },
+    { at: 13, type: "cut", smoothness: "abrupt", effectiveness: 0.82 }
+  ],
+  
+  retentionPrediction: {
+    curve: [
+      { second: 0, retention: 1.0 },
+      { second: 3, retention: 0.85 },
+      { second: 8, retention: 0.72 },
+      { second: 13, retention: 0.65 },
+      { second: 18, retention: 0.58 }
+    ],
+    finalRetention: 0.58,  // 58% watch to end - GOOD!
+    dropOffPoints: [3, 8]  // Attention drops
+  },
+  
+  storyArc: {
+    hasHook: true,
+    hasConflict: true,
+    hasResolution: true,
+    hasCallToAction: true,
+    arcCompleteness: 0.90
+  },
+  
+  recommendations: [
+    "Excellent pacing - maintain 180-200 WPM",
+    "Add 1-second pause after solution (at 13s) for emphasis",
+    "Strong retention curve - 58% completion is above average",
+    "Consider text overlay at drop-off points (3s, 8s)"
+  ]
+}
+
+4. PERFORMANCE TRACKER 📈
+typescriptRole: "Post-Publication Metrics Specialist"
+Model: Claude Sonnet 4.5
+
+Focus:
+  - Instagram API metrics
+  - Engagement analysis
+  - Audience demographics
+  - Growth attribution
+  - Comparative benchmarking
+
+Input:
+  - Instagram Graph API data
+  - User's historical averages
+  - Industry benchmarks
+
+Analysis:
+  - Virality score calculation
+  - Engagement breakdown
+  - Audience insights
+  - Time-series analysis
+  - Attribution (what drove success)
+
+Output Example:
+{
+  viralityScore: 87,  // 0-100 scale
+  
+  metrics: {
+    impressions: 850000,
+    reach: 680000,
+    plays: 750000,
+    
+    // CRITICAL
+    avgWatchTime: 14.2,  // seconds
+    watchTimePercent: 78.9,  // % of 18s
+    retention: 0.789,
+    
+    // Engagement
+    likes: 52000,
+    comments: 1800,
+    shares: 3200,
+    saves: 12000,  // STRONG INTENT!
+    
+    engagementRate: 0.062,  // 6.2%
+    saveRate: 0.014,  // 1.4% - very high!
+    
+    // Growth
+    profileVisits: 18000,
+    followsFromReel: 2400,
+    
+    // Demographics
+    demographics: {
+      age: {
+        "18-24": 0.35,
+        "25-34": 0.45,
+        "35-44": 0.15,
+        "45+": 0.05
+      },
+      gender: {
+        male: 0.68,
+        female: 0.32
+      },
+      topCountries: ["US", "UK", "CA", "AU", "DE"]
+    }
+  },
+  
+  comparison: {
+    vsUserAverage: {
+      views: 2.5,  // 250% of average
+      engagement: 1.8,  // 180% of average
+      retention: 1.45  // 145% of average
+    },
+    vsIndustry: {
+      engagement: 1.3,  // 30% above industry
+      retention: 1.2   // 20% above industry
+    }
+  },
+  
+  timing: {
+    publishedAt: "2025-01-15T18:00:00Z",
+    peakViewsAt: "2025-01-15T19:30:00Z",  // 1.5h after
+    plateauAt: "2025-01-17T12:00:00Z",  // 42h after
+    
+    hourlyBreakdown: [
+      { hour: 0, views: 15000 },
+      { hour: 1, views: 45000 },
+      { hour: 2, views: 95000 },
+      // ... peak at hour 1.5
+    ]
+  },
+  
+  whatWorked: [
+    "Question hook resonated (87% retention at 3s)",
+    "18s length optimal for audience",
+    "Fast pace maintained attention",
+    "High save rate indicates strong value",
+    "Posted at peak time (6PM)"
+  ],
+  
+  whatDidnt: [
+    "Slight retention drop at 8s - could be tighter",
+    "CTA could be stronger (share rate below potential)"
+  ],
+  
+  insights: [
+    "Audience highly engaged - 78.9% watch time excellent",
+    "Save rate 1.4% indicates strong intent/value",
+    "Profile visits 18K suggests good curiosity hook",
+    "Follows 2.4K shows content attracted new audience",
+    "Peak at 1.5h - algorithm boost kicked in early"
+  ],
+  
+  recommendations: [
+    "Replicate question hook format",
+    "Maintain 15-20s length sweet spot",
+    "Keep posting at 6-7PM window",
+    "Add stronger CTA to boost shares",
+    "Tighten middle section (8s drop)"
+  ]
+}
+
+5. PERSONAL AI 👤
+typescriptRole: "Your Personal Content Strategist"
+Model: Claude Sonnet 4.5 (fine-tuned on user data)
+Scope: One per user
+Memory: user_ai_memory table
+
+Responsibilities:
+  - Learn from user's history
+  - Track what works for THIS user
+  - Generate Smart Seeds
+  - Personalized recommendations
+  - Confidence building
+
+Learning Process:
+  1. After each reel analysis
+  2. Extract user-specific patterns
+  3. Update pattern weights
+  4. Increase confidence score
+  5. Adjust recommendations
+
+Data Structure:
+{
+  userId: "43640117",
+  
+  learnedPatterns: {
+    bestHookTypes: [
+      { type: "question", successRate: 0.85, boost: 1.35 },
+      { type: "shocking-stat", successRate: 0.78, boost: 1.28 }
+    ],
+    
+    optimalLength: {
+      min: 15,
+      max: 20,
+      sweet: 18,
+      confidence: 0.92
+    },
+    
+    bestPostingTimes: [
+      { time: "18:00-19:00", dayOfWeek: "tue", avgReach: 125000 },
+      { time: "18:00-19:00", dayOfWeek: "wed", avgReach: 118000 },
+      { time: "19:00-20:00", dayOfWeek: "sun", avgReach: 105000 }
+    ],
+    
+    preferredPace: {
+      wpm: 185,
+      range: [175, 195],
+      confidence: 0.88
+    },
+    
+    topTopics: [
+      { topic: "crypto", viralRate: 0.42, avgViews: 850000 },
+      { topic: "trading", viralRate: 0.38, avgViews: 720000 },
+      { topic: "finance", viralRate: 0.35, avgViews: 680000 }
+    ],
+    
+    visualPreferences: {
+      textOverlays: true,
+      overlayTiming: [3, 8, 13],
+      colorScheme: "warm-vibrant",
+      transitionStyle: "cut"
+    }
+  },
+  
+  patternWeights: {
+    "question-hook": 1.35,
+    "15-20s-length": 1.28,
+    "fast-pace": 1.31,
+    "evening-post": 1.42,
+    "text-overlay": 1.18
+  },
+  
+  performance: {
+    avgViralityScore: 74,
+    viralCount: 8,  // out of 20 reels
+    reelsAnalyzed: 20,
+    confidenceLevel: 0.85,  // 85% confidence
+    
+    trends: {
+      improving: true,
+      avgScoreIncrease: 12,  // +12 points over time
+      consistencyScore: 0.78
+    }
+  },
+  
+  lastUpdated: "2025-01-20T14:30:00Z"
+}
+
+// Smart Seed Generation:
+async function generateSmartSeed(userId) {
+  const memory = await getUserAIMemory(userId);
+  
+  // Apply learned weights
+  const bestHook = memory.learnedPatterns.bestHookTypes[0];
+  const optimalLength = memory.learnedPatterns.optimalLength.sweet;
+  const bestTime = memory.learnedPatterns.bestPostingTimes[0];
+  
+  return {
+    hook: {
+      type: bestHook.type,
+      suggestion: "Почему 99% трейдеров теряют деньги?",
+      confidence: bestHook.successRate,
+      expectedBoost: bestHook.boost
+    },
+    
+    length: {
+      recommended: optimalLength,
+      range: [optimalLength - 3, optimalLength + 2],
+      confidence: memory.learnedPatterns.optimalLength.confidence
+    },
+    
+    posting: {
+      time: bestTime.time,
+      day: bestTime.dayOfWeek,
+      expectedReach: bestTime.avgReach
+    },
+    
+    style: {
+      pace: memory.learnedPatterns.preferredPace.wpm,
+      visualStyle: memory.learnedPatterns.visualPreferences
+    },
+    
+    prediction: {
+      viralityScore: 78,
+      successProbability: 0.82,
+      confidence: memory.performance.confidenceLevel
+    }
+  };
+}
+```
+
+---
+
+## 🔄 COMPLETE WORKFLOW:
+
+### **PRE-PRODUCTION (With Smart Seed):**
+```
+1. USER: "Create New Project"
+   ↓
+2. PERSONAL AI: Generate Smart Seed
+   ↓
+   "Based on your 20 analyzed reels:
+    • Use Question Hook (85% success)
+    • Keep 18 seconds (2x completion)
+    • Post at 6:30 PM Tuesday (+40% reach)
+    • Fast pace 185 WPM (+31% retention)"
+   ↓
+3. USER: Accepts/Customizes seed
+   ↓
+4. AI ANALYSIS: Generates script using seed
+   ↓
+5. STAGES 2-7: Voice → Avatar → B-roll → Export
+   ↓
+6. USER: Publishes to Instagram
+```
+
+---
+
+### **POST-PRODUCTION (Stage 8):**
+```
+1. USER: Adds Instagram URL
+   Input: https://instagram.com/p/ABC123/
+   ↓
+2. SYSTEM: Schedules metrics fetch (48-72h)
+   ↓
+3. [After 48-72h] INSTAGRAM API: Fetch metrics
+   ↓
+4. EVENT SYSTEM: Dispatch agent events
+   
+   Redis Queue:
+   ├─ event: agent.hook.analyze
+   ├─ event: agent.structure.analyze
+   ├─ event: agent.performance.analyze
+   └─ event: architect.review
+   ↓
+5. AGENTS PROCESS (Parallel):
+   
+   Hook Expert → hook_analysis.json
+   Structure Analyst → structure_analysis.json
+   Performance Tracker → performance_data.json
+   ↓
+6. ARCHITECT: Synthesizes results
+   ↓
+   • Validates predictions
+   • Identifies patterns
+   • Generates insights
+   • Creates recommendations
+   ↓
+7. PERSONAL AI: Learning
+   ↓
+   • Updates user_ai_memory
+   • Adjusts pattern weights
+   • Increases confidence
+   ↓
+8. GLOBAL KB: Pattern extraction
+   ↓
+   • Anonymize user data
+   • Extract patterns
+   • Update viral_patterns table
+   ↓
+9. UI: Show Performance Report
+   ↓
+   ┌─────────────────────────────┐
+   │ 📊 PERFORMANCE REPORT       │
+   │ Virality: 87/100 🔥         │
+   │ +45% above your average     │
+   │                             │
+   │ ✅ What Worked:             │
+   │ • Question hook (predicted!)│
+   │ • 18s length (optimal)      │
+   │ • Fast pace (185 WPM)       │
+   │                             │
+   │ 💡 Next Content Ideas:      │
+   │ [Generate Similar] [Details]│
+   └─────────────────────────────┘
+```
+
+---
+
+## 🚀 IMPLEMENTATION PLAN:
+
+### **PHASE 1: MVP Foundation (2 weeks)**
+```
+Week 1:
+✅ Database tables (published_reels, reel_analysis, user_ai_memory)
+✅ Instagram OAuth flow
+✅ Instagram Graph API integration
+✅ Stage 8 UI (Add Instagram URL form)
+✅ Basic Performance Tracker agent
+
+Week 2:
+✅ Event system (Postgres NOTIFY or Redis)
+✅ Feature Store architecture
+✅ Basic virality score calculation
+✅ Performance Report UI
+✅ Testing & debugging
+```
+
+---
+
+### **PHASE 2: Multi-Agent System (2 weeks)**
+```
+Week 1:
+✅ Hook Expert agent implementation
+✅ Structure Analyst agent implementation
+✅ Agent orchestration system
+✅ JSONB storage for agent outputs
+
+Week 2:
+✅ Architect agent (synthesis)
+✅ Cross-validation logic
+✅ Recommendations generation
+✅ Enhanced UI with agent insights
+```
+
+---
+
+### **PHASE 3: Learning System (2 weeks)**
+```
+Week 1:
+✅ Personal AI memory system
+✅ Pattern extraction from analysis
+✅ Pattern weight updates
+✅ Confidence scoring
+
+Week 2:
+✅ Smart Seed generation 🔥
+✅ Global patterns (anonymized)
+✅ Learning loop automation
+✅ My AI Insights page
+```
+
+---
+
+### **PHASE 4: Polish & Scale (1 week)**
+```
+✅ Agent Builder API endpoints
+✅ Webhook system
+✅ Rate limiting & security
+✅ Performance optimization
+✅ Monitoring & logging
+✅ Documentation
+```
+
+---
+
+## 💰 MONETIZATION:
+```
+FREE:
+✅ Basic AI analysis
+✅ Up to 5 tracked reels/month
+✅ Generic recommendations
+
+PRO ($29/mo):
+✅ Full Multi-Agent system
+✅ Unlimited tracking
+✅ Instagram API integration
+✅ Personal AI with Smart Seeds 🔥
+✅ Detailed reports
+✅ Pattern library
+
+ENTERPRISE ($199/mo):
+✅ Everything in Pro
+✅ White-label agents
+✅ Custom training
+✅ API access
+✅ Team features
+✅ Priority support
+```
+
+---
+
+## 🎯 KEY DIFFERENTIATORS:
+```
+1. 🎯 Smart Seed (Killer feature!)
+   - AI creates optimal starting point
+   - Based on YOUR success patterns
+   - Scientifically validated
+
+2. 🤖 Multi-Agent Intelligence
+   - 5 specialized AI agents
+   - Architect orchestration
+   - Cross-validation
+
+3. 📊 Real Instagram Data
+   - Direct API integration
+   - Actual performance metrics
+   - Not guesswork!
+
+4. 🧠 Self-Learning System
+   - Gets smarter with each reel
+   - Personal AI per user
+   - Global pattern discovery
+
+5. 🔄 Complete Feedback Loop
+   - Pre-production optimization
+   - Post-publication validation
+   - Continuous improvement
+```
+
+---
+
+## 💬 ИТОГО:
+
+**СИНТЕЗ ПОЛУЧИЛСЯ ИДЕАЛЬНЫМ!**
+```
+От Claude:
+✅ Multi-Agent архитектура
+✅ Детальный анализ
+✅ Instagram API интеграция
+✅ Vector embeddings
+✅ Monetization strategy
+
+От GPT:
+✅ Практичная реализация
+✅ Event-driven система
+✅ Feature Store
+✅ Smart Seed 🔥
+✅ Поэтапное внедрение
+✅ Graceful degradation
+
+Результат:
+🚀 ULTIMATE AI CONTENT PLATFORM
+🧠 Self-improving
+📊 Data-driven
+🎯 Personalized
+💰 Monetizable
+⚡ Scalable
+
+ГОТОВ НАЧАТЬ PHASE 1 (MVP)? 🚀
+ИЛИ ЕСТЬ ЕЩЁ ИДЕИ ДЛЯ ДОРАБОТКИ? 💡RetryОтлично! Давай сначала посмотрим что у нас сейчас есть, а потом продумаем продвинутую версию.
+
+
+Decided on advanced analysis architecture (7 seconds)
+Понял проблему! Текущий анализ действительно поверхностный — простые промпты, минимум критериев, нет объяснения ПОЧЕМУ такой score.
+
+Давай спроектируюpastedАя написал ему:Мне нужно от тебя больше подробностей как будет реализован Score для новостей и для инстаграма и для собственных сценариев пользователя (или он закинет просто текст и нам нужно будет его проанализровать оценив потенциал и просвоив score). Этот анализ уже у нас есть в нашем флоу но он работает так себе если честно, не очень глубоко. Доработай его сейчас первым делом, продумай, если имеет место быть. Или сразу будем делать продвинутый вариант?Его ответ прикрепил к этому сообщению. Что скажешь?Синтезировал предложения GPT с планом, предложил гибридный подход внедрения.17sОтлично! Теперь у меня есть ответ от GPT агента, который проанализировал текущую систему скоринга в StockMind и предложил продвинутую версию.
+Давай я проанализирую его предложения и синтезирую с нашим предыдущим планом Multi-Agent Analytics System.
+Ключевые моменты от GPT:
+
+Текущая система - поверхностная (один промпт → один score)
+Нет детальной разбивки по критериям
+Нет конкретных объяснений почему такой score
+Не учитывается контекст пользователя
+
+Предлагает:
+
+Многоагентный анализ: Hook Expert, Structure Analyst, Emotional Impact, CTA Expert
+Детальная структура результата с breakdown
+Конкретные рекомендации с expected impact
+Сравнение с viral patterns
+
+Это очень хорошо совпадает с нашей концепцией! Но есть важные дополнения:
+
+GPT фокусируется на PRE-PRODUCTION анализе (улучшение скрипта до создания)
+Мы с Claude планировали POST-PRODUCTION анализ (после публикации с реальными метриками)
+Нужно объединить оба подхода!
+
+Давайте я создам синтез:
+
+PRE-PRODUCTION: улучшенный scoring (то что предложил GPT)
+POST-PRODUCTION: Performance tracking с Instagram API (то что планировали мы)
+Оба подхода используют одних и тех же агентов, но в разных контекстах
+
+Нужно аккуратно интегрировать новый подход, не нарушая существующую архитектуру. Ключевая идея - создать гибкий механизм миграции с минимальными рисками для текущей системы. Предлагаю разработать промежуточный сервис, который позволит постепенно внедрять расширенную аналитику без резких изменений в коде.
+Основные шаги включают:
+
+Разработку нового модуля с флагом выборочного использования
+Сохранение обратной совместимости
+Поэтапный переход на усовершенствованную версию
+🔥 ОТЛИЧНЫЙ АНАЛИЗ ОТ GPT! СИНТЕЗИРУЕМ!
+🎯 ЧТО Я ВИЖУ:
+Проблемы текущей системы (GPT прав!):
+typescript// СЕЙЧАС (поверхностно):
+❌ Один промпт → один score (73/100)
+❌ Непонятно ПОЧЕМУ такой score
+❌ Нет разбивки по критериям
+❌ Рекомендации общие ("улучшить хук" - КАК?)
+❌ Не учитывается контекст пользователя
+
+// ПРИМЕР ТЕКУЩЕГО:
+{
+  score: 73,
+  reasoning: "Content has good engagement potential"
+}
+// ← ЭТО БЕСПОЛЕЗНО! 😅
+
+✅ РЕШЕНИЕ GPT (ОТЛИЧНОЕ!):
+Продвинутая система:
+typescript// НОВОЕ (детально):
+✅ 4 специализированных агента:
+   1. Hook Expert (первые 3-5 сек)
+   2. Structure Analyst (темп, паузы, длина)
+   3. Emotional Impact (триггеры, боли, FOMO)
+   4. CTA Expert (призыв к действию)
+
+✅ Детальная разбивка:
+   - Каждый критерий 0-100 с объяснением
+   - Strengths / Weaknesses
+   - Конкретные рекомендации
+
+✅ Предсказания:
+   - Expected impact от изменений
+   - Retention curve prediction
+   - Viral probability
+
+✅ Pattern matching:
+   - Что работает (matched patterns)
+   - Что упущено (missing opportunities)
+```
+
+---
+
+## 🎯 МОЙ СИНТЕЗ: ДВУХУРОВНЕВАЯ СИСТЕМА
+
+### **ОБЪЕДИНЯЕМ PRE + POST PRODUCTION!**
+```
+┌─────────────────────────────────────────────────────┐
+│            COMPLETE AI ANALYTICS SYSTEM             │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  🎬 PRE-PRODUCTION (Before creating video)          │
+│  ═══════════════════════════════════════════        │
+│                                                      │
+│  Source → Multi-Agent Analysis → Improvements       │
+│                                                      │
+│  Agents:                                            │
+│  ├─ Hook Expert                                     │
+│  ├─ Structure Analyst                               │
+│  ├─ Emotional Impact                                │
+│  └─ CTA Expert                                      │
+│       ↓                                             │
+│  Detailed Score + Recommendations                   │
+│  "Change X to Y → expect +15 points"                │
+│                                                      │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  📊 POST-PRODUCTION (After publishing)              │
+│  ═══════════════════════════════════════════        │
+│                                                      │
+│  Published Reel → Instagram API → Performance       │
+│                                                      │
+│  Agents:                                            │
+│  ├─ Performance Tracker (real metrics)              │
+│  ├─ Hook Expert (validate prediction)               │
+│  ├─ Structure Analyst (actual retention)            │
+│  └─ Architect (synthesis + learning)                │
+│       ↓                                             │
+│  Validation Report + Learning                       │
+│  "Prediction was 85% accurate"                      │
+│  "Hook worked as expected (+18 pts)"                │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+
+📊 ДЕТАЛЬНАЯ АРХИТЕКТУРА:
+PRE-PRODUCTION SCORING:
+typescript// ════════════════════════════════════════════════
+// STAGE 3: AI ANALYSIS (Enhanced!)
+// ════════════════════════════════════════════════
+
+interface AdvancedScoreResult {
+  // Overall
+  overallScore: number;  // 0-100
+  verdict: "viral" | "strong" | "moderate" | "weak";
+  confidence: number;  // 0-100
+  
+  // Detailed breakdown
+  breakdown: {
+    hook: HookAnalysis;
+    structure: StructureAnalysis;
+    emotional: EmotionalAnalysis;
+    cta: CTAAnalysis;
+  };
+  
+  // What works / doesn't
+  strengths: string[];
+  weaknesses: string[];
+  
+  // Concrete improvements
+  recommendations: Recommendation[];
+  
+  // Pattern matching
+  viralPatterns: {
+    matched: Pattern[];
+    missing: Pattern[];
+  };
+  
+  // Predictions
+  predictedMetrics: {
+    estimatedRetention: string;
+    estimatedSaves: string;
+    viralProbability: string;
+  };
+}
+
+// ════════════════════════════════════════════════
+// 1. HOOK EXPERT
+// ════════════════════════════════════════════════
+
+interface HookAnalysis {
+  score: number;  // 0-100
+  type: "question" | "stat" | "problem" | "curiosity" | "story";
+  
+  breakdown: {
+    attention: { score: number; reason: string };
+    clarity: { score: number; reason: string };
+    specificity: { score: number; reason: string };
+    emotional: { score: number; reason: string };
+    patternMatch: { score: number; reason: string };
+  };
+  
+  currentHook: string;
+  
+  improvements: Array<{
+    variant: string;
+    changes: string[];
+    expectedScore: number;
+    reasoning: string;
+  }>;
+}
+
+async function analyzeHook(content: string): Promise<HookAnalysis> {
+  const prompt = `You are a HOOK EXPERT analyzing the first 3-5 seconds of short-form video.
+
+Content opening: "${content.substring(0, 300)}"
+
+Analyze the HOOK across these 5 criteria (0-100 each):
+
+1. ATTENTION GRAB (0-100)
+   - Does it STOP THE SCROLL immediately?
+   - Shock value / curiosity gap / unexpected element?
+   
+   Examples:
+   ❌ Score 30: "Сегодня расскажу про инвестиции"
+   ✅ Score 90: "Почему 99% трейдеров теряют все деньги?"
+
+2. CLARITY (0-100)
+   - Promise/topic instantly clear?
+   - Can viewer understand value in 1 second?
+   
+   Examples:
+   ❌ Score 40: "Важная информация для всех"
+   ✅ Score 95: "3 ошибки которые стоят вам $10k в год"
+
+3. SPECIFICITY (0-100)
+   - Specific numbers / facts / names?
+   
+   Examples:
+   ❌ Score 30: "Как заработать деньги"
+   ✅ Score 95: "Как я заработал $10,247 за 18 дней"
+
+4. EMOTIONAL TRIGGER (0-100)
+   - Fear / Greed / Curiosity / Anger / FOMO?
+   - Strength of emotional response?
+   
+   Examples:
+   ❌ Score 40: "Полезная информация"
+   ✅ Score 90: "Вы теряете деньги ПРЯМО СЕЙЧАС"
+
+5. PATTERN MATCH (0-100)
+   - Matches proven viral patterns?
+   
+   Patterns:
+   • Question hook: "Почему X?" "Как X?"
+   • Shocking stat: "99% людей не знают X"
+   • Problem statement: "Вы делаете X неправильно"
+   • Curiosity gap: "Секрет который X"
+
+Return JSON:
+{
+  "hookScore": 85,
+  "hookType": "question",
+  "breakdown": {
+    "attention": { 
+      "score": 88, 
+      "reason": "Question format with percentage creates immediate curiosity" 
+    },
+    "clarity": { 
+      "score": 92, 
+      "reason": "Topic (trading losses) is instantly clear" 
+    },
+    "specificity": { 
+      "score": 85, 
+      "reason": "Uses specific '99%' statistic" 
+    },
+    "emotional": { 
+      "score": 90, 
+      "reason": "Triggers fear (losing money) + FOMO (being in the 99%)" 
+    },
+    "patternMatch": { 
+      "score": 95, 
+      "reason": "Perfectly matches proven 'shocking stat + question' pattern" 
+    }
+  },
+  "currentHook": "Почему 99% трейдеров теряют деньги?",
+  "improvements": [
+    {
+      "variant": "Почему 99% трейдеров теряют $10k в первый месяц?",
+      "changes": [
+        "Added specific dollar amount",
+        "Added timeframe (first month)",
+        "Increased specificity"
+      ],
+      "expectedScore": 92,
+      "reasoning": "Adding dollar amount and timeframe makes the problem more concrete and relatable. Expected retention increase: +8-12%"
+    },
+    {
+      "variant": "99% трейдеров теряют все за 3 месяца. Вот почему.",
+      "changes": [
+        "Made it a statement (more authoritative)",
+        "Added timeframe",
+        "Teases explanation"
+      ],
+      "expectedScore": 88,
+      "reasoning": "Statement format can work better for authority-building content. Expected retention increase: +5-8%"
+    }
+  ]
+}`;
+
+  return await callClaude(prompt, { 
+    model: "claude-opus-4",  // Best for deep analysis
+    maxTokens: 2048 
+  });
+}
+
+// ════════════════════════════════════════════════
+// 2. STRUCTURE ANALYST
+// ════════════════════════════════════════════════
+
+interface StructureAnalysis {
+  score: number;  // 0-100
+  
+  pacing: {
+    overallWPM: number;
+    rating: "too-slow" | "optimal" | "too-fast";
+    segments: Array<{
+      time: string;
+      wpm: number;
+      label: string;
+    }>;
+  };
+  
+  informationDensity: {
+    score: number;
+    factsPerSecond: number;
+    rating: "sparse" | "optimal" | "overwhelming";
+  };
+  
+  sceneFlow: {
+    score: number;
+    hasLogicalProgression: boolean;
+    structure: string;  // "problem-solution-cta"
+  };
+  
+  optimalLength: {
+    recommended: number;
+    current: number;
+    reasoning: string;
+  };
+  
+  retentionPrediction: {
+    curve: Array<{ time: number; retention: number }>;
+    finalRetention: number;
+    dropOffPoints: number[];
+  };
+  
+  improvements: Array<{
+    type: "pacing" | "pause" | "length" | "flow";
+    description: string;
+    expectedImpact: string;
+  }>;
+}
+
+async function analyzeStructure(
+  scenes: Scene[],
+  totalDuration: number
+): Promise<StructureAnalysis> {
+  
+  const scenesText = scenes.map((s, i) => 
+    `Scene ${i+1} (${s.duration}s, ${s.start}s-${s.end}s): "${s.text}"`
+  ).join('\n');
+  
+  const prompt = `You are a STRUCTURE ANALYST for short-form video content.
+
+Scenes breakdown:
+${scenesText}
+
+Total duration: ${totalDuration}s
+
+Analyze STRUCTURE across these criteria:
+
+1. PACING (0-100)
+   Calculate Words Per Minute (WPM) for each scene:
+   
+   WPM Guidelines:
+   • 140-160 WPM = TOO SLOW (score: 40-60) - viewers get bored
+   • 160-180 WPM = OPTIMAL (score: 85-100) - perfect attention
+   • 180-200 WPM = FAST (score: 70-85) - can work but risky
+   • >200 WPM = TOO FAST (score: 40-60) - lose clarity
+   
+   Pauses: 0.5-1s strategic pauses BOOST retention
+   
+2. INFORMATION DENSITY (0-100)
+   Facts / value points per second:
+   
+   Density Guidelines:
+   • <0.2 facts/sec = TOO SPARSE (score: 30-50) - boring
+   • 0.2-0.3 facts/sec = OPTIMAL (score: 85-100) - engaging
+   • >0.3 facts/sec = TOO DENSE (score: 50-70) - overwhelming
+   
+3. SCENE FLOW (0-100)
+   Logical progression analysis:
+   
+   Optimal structures:
+   ✅ Hook → Problem → Solution → CTA (score: 90-100)
+   ✅ Hook → Story → Lesson → CTA (score: 85-95)
+   ❌ Random scenes = (score: 30-50)
+   
+4. OPTIMAL LENGTH (0-100)
+   Length appropriateness:
+   
+   Length Guidelines:
+   • 7-15s = Ultra-short (best for pure hooks) (score: 60-80)
+   • 15-30s = OPTIMAL for most content (score: 90-100)
+   • 30-60s = Long (needs exceptional content) (score: 60-80)
+   • >60s = TOO LONG for shorts (score: 20-40)
+   
+5. RETENTION CURVE PREDICTION (0-100)
+   Predict drop-off points:
+   
+   Typical retention:
+   • 0-3s: 100% → 75-85% (hook effectiveness)
+   • 3-8s: 75% → 60-70% (content quality)
+   • 8-15s: 60% → 45-55% (maintaining interest)
+   • 15-30s: 45% → 30-40% (strong content needed)
+   
+   Good retention = >50% at end
+   Great retention = >60% at end
+   Viral retention = >70% at end
+
+Calculate:
+- WPM for EACH scene
+- Overall WPM
+- Information density (count key facts/claims)
+- Predicted retention curve with drop-off points
+- Concrete improvements
+
+Return detailed JSON with:
+- Scene-by-scene WPM breakdown
+- Retention curve: [{time: 0, retention: 100}, {time: 3, retention: 82}, ...]
+- Specific improvements: "Add 1s pause after scene 2 before solution reveal"
+- Expected impact: "+8-12% retention at 15s mark"`;
+
+  return await callClaude(prompt, { 
+    model: "claude-sonnet-4-5",
+    maxTokens: 2048 
+  });
+}
+
+// ════════════════════════════════════════════════
+// 3. EMOTIONAL IMPACT ANALYST
+// ════════════════════════════════════════════════
+
+interface EmotionalAnalysis {
+  score: number;  // 0-100
+  
+  primaryEmotion: {
+    type: "fear" | "greed" | "curiosity" | "anger" | "joy" | "fomo";
+    strength: number;  // 0-100
+  };
+  
+  secondaryEmotions: Array<{
+    type: string;
+    strength: number;
+  }>;
+  
+  painPoints: {
+    identified: string[];
+    specificity: number;  // 0-100
+    relatability: number;  // 0-100
+  };
+  
+  aspirationalElement: {
+    present: boolean;
+    credibility: number;  // 0-100
+    desirability: number;  // 0-100
+  };
+  
+  shareability: {
+    score: number;  // 0-100
+    triggers: string[];
+    reasons: string[];
+  };
+  
+  improvements: Array<{
+    area: string;
+    current: string;
+    suggested: string;
+    expectedImpact: string;
+  }>;
+}
+
+async function analyzeEmotionalImpact(
+  content: string
+): Promise<EmotionalAnalysis> {
+  
+  const prompt = `You are an EMOTIONAL IMPACT SPECIALIST analyzing viral triggers.
+
+Content: "${content}"
+
+Analyze EMOTIONAL TRIGGERS (each 0-100):
+
+1. PRIMARY EMOTION (0-100)
+   Identify dominant emotion:
+   
+   Emotion Triggers:
+   • FEAR: "Вы теряете деньги", "Ошибка которая стоит X"
+   • GREED: "Заработал $X", "Секрет богатых людей"
+   • CURIOSITY: "Почему X?", "Секрет который X"
+   • ANGER: "Вас обманывают", "Правда которую скрывают"
+   • JOY: "Как я изменил жизнь", "Успех за X дней"
+   • FOMO: "99% не знают", "Пока не поздно"
+   
+   Strength rating:
+   • Weak hint (score: 30-50): Subtle reference
+   • Moderate trigger (score: 50-70): Clear emotion
+   • Strong trigger (score: 70-85): Powerful emotion
+   • Viral trigger (score: 85-100): Irresistible emotion
+
+2. PAIN POINTS (0-100)
+   Does it touch viewer's problems?
+   
+   Pain Point Guidelines:
+   • Generic pain (score: 30-50): "Хотите больше денег?"
+   • Specific pain (score: 70-85): "Теряете $500/месяц на комиссиях?"
+   • Acute pain (score: 85-100): "Банк забрал ваш дом за долг?"
+   
+   Relatability:
+   • Mass market pain = high relatability
+   • Niche pain = lower but stronger for target
+
+3. ASPIRATIONAL ELEMENT (0-100)
+   Shows desirable outcome?
+   
+   Aspiration Guidelines:
+   • No aspiration (score: 0)
+   • Implied outcome (score: 40-60): "Можно заработать"
+   • Specific outcome (score: 70-85): "$10k/месяц"
+   • Credible outcome (score: 85-100): "$10k/месяц с доказательствами"
+
+4. RELATABILITY (0-100)
+   Can target audience see themselves?
+   
+   Language analysis:
+   • "You" language = high relatability (85-100)
+   • "I" story format = medium relatability (60-75)
+   • "They" observations = low relatability (30-50)
+
+5. SHAREABILITY TRIGGERS (0-100)
+   Will people want to share?
+   
+   Share Motivations:
+   • Identity signaling: "This is who I am"
+   • Helping friends: "You need to see this"
+   • Validation seeking: "Am I right?"
+   • Controversy: "Can you believe this?"
+   
+   High shareability (score: 80-100):
+   • Controversial take + social proof
+   • Useful info + urgency
+   • Funny/relatable + self-deprecating
+
+Analyze:
+- Primary emotion + strength
+- All triggered pain points
+- Aspirational elements + credibility
+- Shareability factors
+- How to amplify emotional impact
+
+Return detailed JSON with scores and reasoning for each.`;
+
+  return await callClaude(prompt, { 
+    model: "claude-sonnet-4-5",
+    maxTokens: 2048 
+  });
+}
+
+// ════════════════════════════════════════════════
+// 4. CTA EXPERT
+// ════════════════════════════════════════════════
+
+interface CTAAnalysis {
+  score: number;  // 0-100
+  
+  presence: {
+    hasCTA: boolean;
+    type: "explicit" | "implicit" | "none";
+    text: string;
+  };
+  
+  placement: {
+    score: number;  // 0-100
+    timing: "too-early" | "optimal" | "too-late" | "missing";
+    location: string;  // "8s mark", "end", etc.
+  };
+  
+  effectiveness: {
+    score: number;  // 0-100
+    ctaType: "subscribe" | "save" | "share" | "comment" | "visit" | "buy";
+    intentLevel: "low" | "medium" | "high";
+    friction: "low" | "medium" | "high";
+  };
+  
+  improvements: Array<{
+    current: string;
+    suggested: string;
+    reasoning: string;
+    expectedImpact: string;
+  }>;
+}
+
+async function analyzeCTA(content: string): Promise<CTAAnalysis> {
+  
+  const prompt = `You are a CTA (CALL-TO-ACTION) SPECIALIST for short-form video.
+
+Content: "${content}"
+
+Analyze CALL-TO-ACTION:
+
+1. CTA PRESENCE (0-100)
+   Is there a clear ask?
+   
+   CTA Effectiveness:
+   ❌ No CTA (score: 0): People don't know what to do
+   ❌ Generic (score: 30-40): "Подпишись", "Лайк"
+   ✅ Specific (score: 70-85): "Сохрани чтобы не забыть"
+   ✅ Value-driven (score: 85-100): "Сохрани → используй схему завтра утром"
+
+2. CTA PLACEMENT (0-100)
+   When does CTA appear?
+   
+   Timing Guidelines:
+   • Too early (<5s) = feels salesy (score: 30-50)
+   • At natural climax (after value) = perfect (score: 90-100)
+   • At very end = okay (score: 70-85)
+   • Missing entirely = (score: 0)
+
+3. CTA TYPE EFFECTIVENESS (0-100)
+   What action is requested?
+   
+   Intent Levels:
+   • LOW INTENT (score: 30-50):
+     "Подписка" - people forget
+     "Лайк" - passive action
+   
+   • MEDIUM INTENT (score: 60-75):
+     "Комментировать" - engagement
+     "Поделиться" - viral boost
+   
+   • HIGH INTENT (score: 80-100):
+     "Сохранить" - strong signal, people return
+     "Перейти по ссылке" - conversion intent
+     "Купить" - highest intent
+
+4. FRICTION LEVEL (0-100)
+   How easy is the ask?
+   
+   Friction Analysis:
+   • LOW FRICTION (score: 85-100):
+     "Двойной тап" - instant action
+     "Сохрани этот пост" - 1 tap
+   
+   • MEDIUM FRICTION (score: 60-80):
+     "Оставь комментарий" - requires typing
+     "Поделись с другом" - requires thinking
+   
+   • HIGH FRICTION (score: 30-50):
+     "Перейди по ссылке в bio" - multiple steps
+     "Зарегистрируйся на сайте" - major commitment
+   
+   Rule: Lower friction = Higher compliance
+
+Analyze:
+- Current CTA (or lack thereof)
+- CTA type and placement
+- Friction level
+- Suggest improvements with A/B variants
+
+Return JSON with:
+- CTA analysis
+- Specific improvements
+- A/B test suggestions
+- Expected conversion lift`;
+
+  return await callClaude(prompt, { 
+    model: "claude-sonnet-4-5",
+    maxTokens: 1536 
+  });
+}
+
+// ════════════════════════════════════════════════
+// ARCHITECT: SYNTHESIZES ALL AGENTS
+// ════════════════════════════════════════════════
+
+async function architectSynthesize(
+  analyses: {
+    hook: HookAnalysis;
+    structure: StructureAnalysis;
+    emotional: EmotionalAnalysis;
+    cta: CTAAnalysis;
+  },
+  context: {
+    contentType: "news" | "instagram_reel" | "custom_script";
+    userNiche?: string;
+    userHistory?: any;
+  }
+): Promise<AdvancedScoreResult> {
+  
+  const prompt = `You are the ARCHITECT - Master AI Strategist synthesizing analysis from 4 specialist agents.
+
+AGENT RESULTS:
+
+Hook Expert:
+${JSON.stringify(analyses.hook, null, 2)}
+
+Structure Analyst:
+${JSON.stringify(analyses.structure, null, 2)}
+
+Emotional Impact:
+${JSON.stringify(analyses.emotional, null, 2)}
+
+CTA Expert:
+${JSON.stringify(analyses.cta, null, 2)}
+
+CONTEXT:
+- Content type: ${context.contentType}
+- User niche: ${context.userNiche || "unknown"}
+
+YOUR TASK:
+
+1. CALCULATE OVERALL SCORE (0-100)
+   Weighted formula:
+   - Hook: 30% (first 3s make or break)
+   - Structure: 25% (retention)
+   - Emotional: 25% (engagement)
+   - CTA: 20% (conversion)
+   
+   Formula: (hook*0.3 + structure*0.25 + emotional*0.25 + cta*0.2)
+
+2. DETERMINE VERDICT
+   - 85-100: "viral" (high probability of >1M views)
+   - 70-84: "strong" (good performance expected)
+   - 50-69: "moderate" (average performance)
+   - <50: "weak" (needs major improvements)
+
+3. SYNTHESIZE FINDINGS
+   - Top 3 strengths (what's working)
+   - Top 3 weaknesses (what's not working)
+   - Cross-validate findings (do agents agree?)
+
+4. PRIORITIZE RECOMMENDATIONS
+   Rank by expected impact:
+   - HIGH: +15+ points improvement
+   - MEDIUM: +8-14 points improvement
+   - LOW: +1-7 points improvement
+   
+   Focus on:
+   - Quick wins (low effort, high impact)
+   - Compound effects (one change boosts multiple areas)
+
+5. PREDICT PERFORMANCE
+   Based on analysis, estimate:
+   - Retention rate (% who watch to end)
+   - Save rate (% who save)
+   - Share rate (% who share)
+   - Viral probability
+
+Return comprehensive AdvancedScoreResult JSON with:
+- Overall score + verdict
+- Detailed breakdown
+- Strengths/weaknesses
+- Prioritized recommendations
+- Pattern analysis
+- Performance predictions
+- Confidence level (0-100)`;
+
+  return await callClaude(prompt, { 
+    model: "claude-opus-4",  // Best for synthesis
+    maxTokens: 4096 
+  });
+}
+
+🔄 THREE WORKFLOWS:
+1. NEWS ARTICLE SCORING:
+typescriptasync function scoreNewsAdvanced(
+  newsItem: NewsItem
+): Promise<AdvancedScoreResult> {
+  
+  const content = `${newsItem.title}\n\n${newsItem.summary}`;
+  
+  // Parallel execution of 4 agents
+  const [hook, structure, emotional, cta] = await Promise.all([
+    analyzeHook(content),
+    analyzeStructure(breakIntoScenes(content), estimatedDuration(content)),
+    analyzeEmotionalImpact(content),
+    analyzeCTA(content)
+  ]);
+  
+  // Architect synthesizes
+  const result = await architectSynthesize(
+    { hook, structure, emotional, cta },
+    { 
+      contentType: "news",
+      userNiche: getUserNiche(userId)  // If available
+    }
+  );
+  
+  // Store analysis
+  await saveAnalysis(newsItem.id, result);
+  
+  return result;
+}
+
+// UI shows:
+// Score: 87/100 (viral potential!)
+// Hook: 92/100 - "Shocking stat creates curiosity"
+// Structure: 85/100 - "Good flow but could be tighter"
+// Emotional: 88/100 - "Strong FOMO + greed triggers"
+// CTA: 78/100 - "Add save CTA for better engagement"
+//
+// 💡 Top Recommendation:
+// Change hook from "Биткоин растёт" 
+// to "Биткоин вырос на $15,000 за 48 часов"
+// Expected impact: +12 points overall
+
+2. INSTAGRAM REEL SCORING:
+typescriptasync function scoreInstagramReelAdvanced(
+  reel: InstagramItem
+): Promise<AdvancedScoreResult> {
+  
+  const content = reel.caption + "\n" + (reel.transcriptionText || "");
+  
+  // Same 4 agents
+  const [hook, structure, emotional, cta] = await Promise.all([
+    analyzeHook(content),
+    analyzeStructure(
+      parseTranscriptionToScenes(reel.transcriptionText),
+      reel.videoDuration
+    ),
+    analyzeEmotionalImpact(content),
+    analyzeCTA(content)
+  ]);
+  
+  // BONUS: If we have real metrics from Instagram API
+  let performance = null;
+  if (reel.videoViewCount && reel.likesCount) {
+    performance = analyzePerformanceMetrics({
+      views: reel.videoViewCount,
+      likes: reel.likesCount,
+      comments: reel.commentsCount,
+      saves: reel.savesCount  // If available via API
+    });
+  }
+  
+  // Architect synthesizes WITH performance data
+  const result = await architectSynthesize(
+    { hook, structure, emotional, cta, performance },
+    { 
+      contentType: "instagram_reel",
+      hasRealMetrics: !!performance
+    }
+  );
+  
+  return result;
+}
+
+// UI shows:
+// Predicted Score: 85/100
+// Actual Performance: 92/100 (+7 points!)
+//
+// ✅ What worked:
+// - Hook performed better than expected (+12%)
+// - Emotional triggers resonated strongly
+//
+// 💡 Learning:
+// Your audience responds well to question hooks
+// Keep using this format!
+
+3. CUSTOM SCRIPT SCORING:
+typescriptasync function scoreCustomScriptAdvanced(
+  text: string,
+  userId: string
+): Promise<AdvancedScoreResult> {
+  
+  // Get user context
+  const userMemory = await getUserAIMemory(userId);
+  
+  // Same 4 agents
+  const [hook, structure, emotional, cta] = await Promise.all([
+    analyzeHook(text),
+    analyzeStructure(breakIntoScenes(text), estimatedDuration(text)),
+    analyzeEmotionalImpact(text),
+    analyzeCTA(text)
+  ]);
+  
+  // Architect с персональным контекстом
+  const result = await architectSynthesize(
+    { hook, structure, emotional, cta },
+    { 
+      contentType: "custom_script",
+      userNiche: userMemory?.learnedPatterns?.topTopics?.[0],
+      userHistory: {
+        avgScore: userMemory?.performance?.avgViralityScore,
+        bestHookTypes: userMemory?.learnedPatterns?.bestHookTypes
+      }
+    }
+  );
+  
+  // BONUS: Compare with user's past performance
+  if (userMemory) {
+    result.comparison = {
+      vsYourAverage: result.overallScore - userMemory.performance.avgViralityScore,
+      recommendations: generatePersonalizedTips(result, userMemory)
+    };
+  }
+  
+  return result;
+}
+
+// UI shows:
+// Score: 78/100
+// vs Your Average: +12 points 🎉
+//
+// 💡 Personalized Tip:
+// Your question hooks consistently score 15% higher
+// Consider changing to: "Почему 99% fail at X?"
+// This matches your successful pattern from Reel #5, #12, #18
+```
+
+---
+
+## 🚀 IMPLEMENTATION STRATEGY:
+
+### **Вариант 3: HYBRID (рекомендую!):**
+```
+1. Create ai-service-advanced.ts (NEW FILE)
+   ├─ analyzeHook()
+   ├─ analyzeStructure()
+   ├─ analyzeEmotionalImpact()
+   ├─ analyzeCTA()
+   └─ architectSynthesize()
+
+2. Keep ai-service.ts (EXISTING)
+   ├─ scoreNews() - simple version
+   ├─ scoreInstagramReel() - simple version
+   └─ Other functions
+
+3. Add feature flag in database:
+   users.use_advanced_analysis BOOLEAN DEFAULT false
+
+4. Routes.ts dispatch logic:
+   if (user.useAdvancedAnalysis) {
+     // Use new advanced system
+     return await scoreNewsAdvanced(item);
+   } else {
+     // Use existing simple system
+     return await scoreNews(item);
+   }
+
+5. Gradual rollout:
+   - Week 1: Enable for 10% users (A/B test)
+   - Week 2: Enable for 50% users
+   - Week 3: Enable for 100% users
+   - Week 4: Deprecate old system
+```
+
+---
+
+## 📊 COMPARISON:
+```
+┌─────────────────────────────────────────────────┐
+│           OLD vs NEW SYSTEM                     │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│ OLD (Simple):                                   │
+│ ─────────────                                   │
+│ Input: Content                                  │
+│   ↓                                            │
+│ 1 Agent (generic prompt)                        │
+│   ↓                                            │
+│ Output: { score: 73, reasoning: "..." }        │
+│                                                 │
+│ Problems:                                       │
+│ ❌ No breakdown                                 │
+│ ❌ Vague reasoning                              │
+│ ❌ Generic recommendations                      │
+│ ❌ No predictions                               │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│ NEW (Advanced):                                 │
+│ ────────────────                                │
+│ Input: Content + Context                        │
+│   ↓                                            │
+│ 4 Specialist Agents (parallel)                 │
+│ ├─ Hook Expert                                 │
+│ ├─ Structure Analyst                           │
+│ ├─ Emotional Impact                            │
+│ └─ CTA Expert                                  │
+│   ↓                                            │
+│ Architect (synthesis)                          │
+│   ↓                                            │
+│ Output: AdvancedScoreResult                    │
+│ {                                              │
+│   overallScore: 87,                            │
+│   breakdown: {                                 │
+│     hook: { score: 92, reason: "...", ... },   │
+│     structure: { score: 85, ... },             │
+│     emotional: { score: 88, ... },             │
+│     cta: { score: 78, ... }                   │
+│   },                                           │
+│   strengths: [...],                            │
+│   weaknesses: [...],                           │
+│   recommendations: [                           │
+│     {                                          │
+│       priority: "high",                        │
+│       current: "X",                            │
+│       suggested: "Y",                          │
+│       expectedImpact: "+12 points"             │
+│     }                                          │
+│   ],                                           │
+│   predictedMetrics: {...}                      │
+│ }                                              │
+│                                                 │
+│ Benefits:                                       │
+│ ✅ Detailed breakdown                           │
+│ ✅ Specific reasoning                           │
+│ ✅ Actionable recommendations                   │
+│ ✅ Performance predictions                      │
+│ ✅ A/B test suggestions                         │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## 💬 МОЙ ВЕРДИКТ:
+
+**GPT ПРЕДЛОЖИЛ ОТЛИЧНОЕ РЕШЕНИЕ!**
+```
+✅ 4 специализированных агента (правильно!)
+✅ Детальная разбивка по критериям (must have!)
+✅ Конкретные рекомендации с impact (genius!)
+✅ Graceful migration (hybrid approach) (safe!)
+✅ A/B testing capability (smart!)
+
+СИНТЕЗ С МОЕЙ КОНЦЕПЦИЕЙ:
+✅ PRE-PRODUCTION: Используем эти агенты
+✅ POST-PRODUCTION: Добавляем Performance Tracker
+✅ LEARNING: Feedba ck loop для улучшения
+
+РЕКОМЕНДАЦИЯ:
+Начать с PRE-PRODUCTION (то что предложил GPT)
+Это даёт IMMEDIATE VALUE для пользователей
+Потом добавить POST-PRODUCTION + Learning
+```
+
+---
+
+## 🚀 ГОТОВ НАЧАТЬ?
+
+**PHASE 6.1: Advanced Pre-Production Scoring (2 weeks)**
+```
+Week 1:
+✅ Create ai-service-advanced.ts
+✅ Implement 4 agents:
+   - Hook Expert
+   - Structure Analyst
+   - Emotional Impact
+   - CTA Expert
+✅ Implement Architect synthesis
+✅ Testing with real content
+
+Week 2:
+✅ Feature flag system
+✅ UI updates for detailed results
+✅ A/B testing framework
+✅ Gradual rollout (10% → 100%)
+После этого:
+
+Phase 6.2: Post-Production Performance Tracking
+Phase 6.3: Learning System
+Phase 7: RAG & Pattern Matching

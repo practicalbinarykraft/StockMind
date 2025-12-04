@@ -1,0 +1,89 @@
+да, это и есть причина «генерации без результата».
+
+Что сломано
+	•	Фронтенд запрашивает GET /api/projects/:id/script-versions (несуществующий роут).
+	•	Бэкенд отдает только GET /api/projects/:id/script-history.
+	•	Из-за 404 фронт не видит версии → hasScript = false навсегда → остаёшься в «Анализ исходника», хотя бэкенд уже создал версию.
+	•	Дополнительно виделось: enabled: STAGE3_MAGIC_UI у запроса — если фича-флаг false, запрос даже не стартует.
+
+Как починить (безопасно, минимальные правки)
+
+1) Бэкенд: дать алиас на старый фронтовый путь
+
+Добавь тонкий алиас к существующему handler’у, чтобы не ломать других потребителей:
+
+// server/routes.ts
+
+// Было:
+app.get('/api/projects/:id/script-history', isAuthenticated, getScriptHistory);
+
+// Добавь алиас:
+app.get('/api/projects/:id/script-versions', isAuthenticated, getScriptHistory);
+// где getScriptHistory — та же функция, что и выше.
+
+Это мгновенно снимет 404 и разблокирует текущий фронт.
+
+2) Фронтенд: либо укажи правильный URL, либо оставь как есть
+
+В идеале поправить на единый путь:
+
+// client/src/components/project/stages/stage-3-ai-analysis.tsx
+// Было:
+useQuery({
+  queryKey: ['script-versions', projectId],
+  queryFn: () => apiRequest('GET', `/api/projects/${projectId}/script-versions`).then(r => r.json()),
+  // enabled: STAGE3_MAGIC_UI,  ❌ так запрос может не запуститься
+});
+
+// Стало (и безопаснее):
+useQuery({
+  queryKey: ['script-history', projectId],
+  queryFn: () => apiRequest('GET', `/api/projects/${projectId}/script-history`).then(r => r.json()),
+  enabled: Boolean(projectId), // не завися от флага
+});
+
+Если править фронт неудобно — п.1 (алиас) уже чинит проблему.
+
+3) Логика «есть скрипт?»
+
+Не полагайся на флаго-состояние. Детерминированно:
+
+const hasScript = Boolean(data?.currentVersion || (data?.versions?.length ?? 0) > 0);
+if (hasScript) setViewMode('script-editor');
+
+4) После генерации версии — гарантированно рефетч и переход
+
+В мутации «Generate & Create Version» добавь:
+
+onSuccess: (res) => {
+  // 1) гарантированно инвалидация истории
+  queryClient.invalidateQueries({ queryKey: ['script-history', projectId] });
+  // 2) мгновенный UX-переход, даже до прихода сети
+  setViewMode('script-editor');
+  setCurrentVersion(res.version);
+}
+
+5) Идемпотентность (защититься от двойного клика)
+	•	Фронт уже шлёт idempotencyKey — оставляем.
+	•	На бэке, если видишь существующую версию с тем же idem, возвращай:
+
+{ "ok": true, "idempotent": true, "version": { ... } }
+
+
+	•	Фронт обрабатывает одинаково: перейти в редактор, не ждать второй раз.
+
+Быстрый чек-лист проверки
+	1.	Нажать «Применить рекомендованный»
+→ POST /generate-script = 200
+→ POST /create-initial-version = 200
+→ GET /script-history = 200, содержит currentVersion.
+	2.	UI мгновенно переключился в Script Editor (без перерисовки «Анализ исходника»).
+	3.	Обновить страницу (F5) на Stage 3 → сразу попадаем в Script Editor (детект по наличию версии).
+	4.	Двойной клик по кнопке → второй ответ idempotent:true, дублей нет.
+
+Что сказать агенту / реплиту
+	•	Добавить алиас маршрута /api/projects/:id/script-versions к существующему handler’у script-history.
+	•	На фронте: снять enabled: STAGE3_MAGIC_UI с запроса историй и/или сменить URL на /script-history.
+	•	После success генерации: invalidateQueries(['script-history', projectId]) + мгновенно setViewMode('script-editor').
+
+Это минимальные изменения, не затрагивают архитектуру и моментально снимают зацикливание.

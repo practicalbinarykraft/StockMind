@@ -1,0 +1,147 @@
+да, похоже «до/после» сейчас подменяет видимостью реальный смысл: очки по зонам (хук/структура/эмоции/CTA/итого) считаются некорректно, а «рецензия архитектора» от мульти-агентов вообще не попадает в сравнение. Кидаю ТЗ для реплита — коротко, по делу.
+
+ТЗ: починить сравнение «ДО/ПОСЛЕ» и мультиагентную рецензию
+
+1) Симптомы
+	•	В модалке «Сравнение версий (ДО/ПОСЛЕ)» дельты/очки показывают 0 0 52 0 0 или нули, хотя рекомендации применялись.
+	•	Нет текстовой рецензии от AI-архитектора сверху (резюме мультиагентного анализа).
+	•	Ранее были 404 и несовпадения путей — они исправлены; теперь нужно корректно формировать и отдавать данные сравнения.
+
+2) Что, скорее всего, сломано
+	•	Кандидатная версия создаётся, но к ней не прикрепляется результат advanced анализа (или сохраняется не в том поле).
+	•	Дельты считаются не из analysis.breakdown.*.score, а из несуществующих/пустых свойств.
+	•	«Очки» берутся не из текущего текста сцен (после применённых рекомендаций), а из предыдущей версии.
+	•	В ответе /reanalyze/compare/latest не возвращается «рецензия архитектора» (итог мультиагентного пайплайна).
+
+3) Должно быть в хранилище версии
+
+Для каждой версии сценария (и base, и candidate) храните:
+
+type ScriptVersion = {
+  id: string
+  isCurrent: boolean
+  scriptLanguage: 'ru'|'en'
+  scenes: Array<{ id: number; text: string }>
+  analysis: {
+    overallScore: number
+    verdict: 'viral'|'strong'|'moderate'|'weak'
+    confidence: number
+    breakdown: {
+      hook: { score: number, criteria?: Record<string,{score:number,reason:string}> }
+      structure: { score: number, pacing?: any, informationDensity?: any }
+      emotional: { score: number, primaryEmotion?: any }
+      cta: { score: number, presence?: any }
+    }
+    strengths: string[]
+    weaknesses: string[]
+    recommendations?: any[]
+    viralPatterns?: any
+    predictedMetrics?: {
+      estimatedRetention?: string
+      estimatedSaves?: string
+      estimatedShares?: string
+      viralProbability?: 'low'|'medium'|'high'
+    }
+    // ВАЖНО:
+    architectReview: string // итоговая рецензия мультиагентного синтеза
+  }
+  createdAt: string
+}
+
+4) Бэкенд
+
+4.1 Генерация candidate (reanalyze job)
+	•	Источник данных: текущая версия сцен после применённых рекомендаций.
+	•	Запускаем advanced анализ по правильному endpoint’у (вы уже сделали: /api/analyze/advanced/*).
+	•	По завершении job сохраняем полную analysis (как выше) в новую версию (isCurrent=false, помечаем как isCandidate=true или просто не текущая, но с флагом jobId).
+	•	Не забываем architectReview (итог агрегации мультиагентов). Если у вас это поле называлось иначе — нормализуйте и положите сюда.
+
+4.2 Возврат сравнения
+
+GET /api/projects/:projectId/reanalyze/compare/latest должен вернуть строго JSON:
+
+{
+  "success": true,
+  "data": {
+    "base": {
+      "id": "v1",
+      "overall": 68,
+      "breakdown": { "hook": 55, "structure": 62, "emotional": 70, "cta": 58 },
+      "review": "Короткое резюме ДО…"
+    },
+    "candidate": {
+      "id": "v2",
+      "overall": 78,
+      "breakdown": { "hook": 71, "structure": 74, "emotional": 79, "cta": 66 },
+      "review": "Короткое резюме ПОСЛЕ…"
+    },
+    "delta": {
+      "overall": 10,
+      "hook": 16,
+      "structure": 12,
+      "emotional": 9,
+      "cta": 8
+    }
+  }
+}
+
+Как считать delta:
+
+const d = {
+  overall: candidate.analysis.overallScore - base.analysis.overallScore,
+  hook: candidate.analysis.breakdown.hook.score - base.analysis.breakdown.hook.score,
+  structure: candidate.analysis.breakdown.structure.score - base.analysis.breakdown.structure.score,
+  emotional: candidate.analysis.breakdown.emotional.score - base.analysis.breakdown.emotional.score,
+  cta: candidate.analysis.breakdown.cta.score - base.analysis.breakdown.cta.score,
+}
+
+Edge cases:
+	•	Нет кандидата → 404 { success:false, code:'NO_CANDIDATE' }.
+	•	Анализ не завершён → 202 { success:false, code:'PENDING', progress:{...} }.
+
+4.3 «Выбрать версию»
+
+POST /api/projects/:projectId/reanalyze/compare/choose body:
+
+{ "keep": "candidate" } // или "base"
+
+Действия:
+	•	Если candidate — делаем isCurrent=true у candidate и isCurrent=false у старой current; переносим последнюю analysis как текущую.
+	•	Если base — просто удаляем/архивируем candidate.
+	•	Ответ: { success:true, data:{ currentVersionId:"..." } }.
+
+5) Фронтенд
+
+5.1 CompareModal
+	•	Уже открывается. Теперь заполняем UI из ответа:
+	•	Слева «ДО»: общий балл, четыре подсчёта (hook/structure/emotional/cta), короткая рецензия base.review.
+	•	Справа «ПОСЛЕ»: то же и рецензия candidate.review.
+	•	Между ними — бейджи дельт (+/−).
+	•	Если 202 PENDING — показывать прогресс и кнопку «Обновить статус».
+	•	Если 404 NO_CANDIDATE — понятный текст: «Сначала нажмите “Сделать версию для сравнения”».
+
+5.2 Кнопки выбора
+	•	«Оставить ДО» → keep:"base".
+	•	«Выбрать ПОСЛЕ» → keep:"candidate".
+	•	После успеха → invalidate:
+	•	["/api/projects", projectId, "script-history"]
+	•	["/api/projects", projectId, "scene-recommendations"]
+	•	Тост об успехе и автозакрытие модалки.
+
+6) Проверки/тест-кейсы (приёмка)
+	1.	Применяю 1–2 рекомендации → «Сделать версию для сравнения» → ждём → «Открыть сравнение».
+	•	Дельты НЕ нули (кроме случаев без реальных изменений).
+	•	Общий балл и 4 подсчёта меняются ожидаемо.
+	2.	В верхней части модалки видна рецензия архитектора и для «ДО», и для «ПОСЛЕ».
+	3.	«Выбрать ПОСЛЕ» делает её текущей: редактор сцен показывает именно candidate-текст; история версий обновилась.
+	4.	Нет HTML-ответов: все /reanalyze/compare/* — application/json.
+	5.	Нет падений в консоли.
+
+7) Где ещё может прятаться баг
+	•	При применении рекомендаций сервер сохраняет текст сцены в версии, но не выставляет флаг для reanalyze-job (или job читает старую версию).
+	•	Перепутаны индексы сцен: sceneId vs sceneNumber (off-by-one) → «Scene not found»/тихая деградация.
+	•	В compare/latest берутся поля hookScore/structureScore… вместо breakdown.hook.score и т. п.
+
+⸻
+
+Сделайте, пожалуйста, это по шагам. Как только candidate будет хранить полный analysis (включая architectReview) и compare/latest начнёт возвращать нормализованный JSON, модалка покажет адекватные дельты, а мультиагентная «рецензия архитектора» появится сверху — ровно как мы хотим.

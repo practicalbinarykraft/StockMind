@@ -1,0 +1,547 @@
+🔴 ДВЕ КРИТИЧНЫЕ ПРОБЛЕМЫ!
+ПРОБЛЕМА 1: ОШИБКА HEYGEN API
+Screenshot 1 показывает:
+❌ 500: {"message":"Failed to generate video with HeyGen"}
+```
+
+**Это ошибка HeyGen, НЕ Kie.ai!**
+
+Но ты на **Stage 3 (AI Analysis)**, а не Stage 7!
+
+---
+
+## ПРОБЛЕМА 2: SCORE НЕ МЕНЯЕТСЯ + ВСЕ ВАРИАНТЫ ПЕРЕКЛЮЧАЮТСЯ
+
+**Screenshots 2-3 показывают Stage 3:**
+
+### Баг 1: Score не обновляется
+```
+Scene 1: 72 (было)
+Scene 2: 88 (было) 
+Scene 3: 78 (было)
+
+После переключения Variant 2:
+Scene 1: 72 (то же!)
+Scene 2: 88 (то же!)
+Scene 3: 78 (то же!)
+```
+
+**Score должен пересчитываться для каждого варианта!**
+
+### Баг 2: Все сцены переключаются сразу
+```
+Кликнул "Variant 2" на Scene 1
+→ ВСЕ сцены переключились на Variant 2!
+
+Должно:
+→ Только Scene 1 → Variant 2
+→ Scene 2, 3 остаются на своих вариантах
+```
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+Two bugs in Stage 3 variants:
+
+BUG 1: Score doesn't update when switching variants
+- Scene 1 always shows 72 for all variants
+- Scene 2 always shows 88 for all variants
+- Scene 3 always shows 78 for all variants
+
+Each variant should have its own score!
+When user clicks "Variant 2", recalculate score for that text.
+
+FIX:
+When variant changes, call Claude API to analyze new text:
+- Count words
+- Check readability
+- Calculate engagement score
+Update the score badge for that scene.
+
+BUG 2: All scenes switch variants together
+- Click "Variant 2" on Scene 1
+- ALL scenes switch to Variant 2!
+
+Should be:
+- Click "Variant 2" on Scene 1
+- ONLY Scene 1 switches
+- Scene 2, 3 stay on their current variants
+
+FIX:
+Each scene should have independent variant selection.
+Store per-scene selected variant in state:
+{
+  sceneId: 'scene-1',
+  selectedVariant: 'variant-2'
+}
+
+Please fix both issues now!
+```
+
+---
+
+## 🎯 КАК ДОЛЖНО РАБОТАТЬ:
+
+### Правильное поведение:
+```
+Initial state:
+Scene 1: Original (72)
+Scene 2: Original (88)
+Scene 3: Original (78)
+
+User clicks "Variant 2" on Scene 1:
+Scene 1: Variant 2 (score recalculated → 85)
+Scene 2: Original (88) ← не меняется!
+Scene 3: Original (78) ← не меняется!
+
+User clicks "Variant 1" on Scene 3:
+Scene 1: Variant 2 (85)
+Scene 2: Original (88)
+Scene 3: Variant 1 (score recalculated → 91)
+
+📝 ЧТО НУЖНО:
+
+Independent variant selection per scene
+Score recalculation on variant change
+State structure:
+
+typescriptconst [sceneVariants, setSceneVariants] = useState<{
+  [sceneId: string]: {
+    selectedVariant: 'original' | 'variant-1' | 'variant-2' | 'variant-3',
+    scores: {
+      original: number,
+      'variant-1': number,
+      'variant-2': number,
+      'variant-3': number
+    }
+  }
+}>({});
+
+А ПРО STAGE 7 ПОКА ЗАБУДЬ!
+Сначала почини Stage 3! 🔧
+ОТПРАВЬ ЭТО AGENT! 🚀RetryАвидео не генерируется. начинает крутиться загрузка и пропадает🔴 STAGE 5: ВИДЕО НЕ ГЕНЕРИРУЕТСЯ!
+ПРОБЛЕМА:
+"Начинает крутиться загрузка и пропадает"
+Это значит:
+
+✅ Запрос отправляется
+❌ Что-то ломается во время генерации
+❌ UI сбрасывается в начальное состояние
+
+
+🔍 НУЖНА ДИАГНОСТИКА:
+Открой F12 → Console
+Должны быть ошибки:
+❌ POST /api/heygen/generate - 500 Error
+или
+❌ Failed to generate video
+или
+❌ Network error
+```
+
+### Открой F12 → Network
+
+**Найди запрос:**
+```
+POST /api/projects/{id}/generate-video
+или
+POST /api/heygen/generate
+```
+
+**Посмотри Response:**
+- Status code?
+- Error message?
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+Video generation on Stage 5 is broken!
+
+ISSUE:
+1. User selects avatar
+2. Clicks "Create Video with Selected Avatar"
+3. Loading spinner appears
+4. Spinner disappears immediately
+5. Nothing happens - no video, no error shown
+
+DEBUGGING NEEDED:
+Please check:
+1. Console logs - any errors?
+2. Network tab - what's the response?
+3. Is audioUrl from Stage 4 available?
+4. Is HeyGen API key configured?
+
+Likely causes:
+- Missing audioUrl (Stage 4 data not saved)
+- HeyGen API error (key issue?)
+- Upload audio failed (heygen-service.ts)
+- Frontend error handling missing
+
+Please:
+1. Add error logging to see what fails
+2. Show error message to user if generation fails
+3. Check if Stage 4 audioUrl exists before generating
+4. Log the full error from HeyGen API
+
+Add console.log statements:
+- Before calling generate API
+- After receiving response
+- In catch blocks
+
+Then show me the console output!
+
+🎯 ИЛИ БЫСТРАЯ ПРОВЕРКА:
+1. Проверь Stage 4 данные
+Database → project_steps:
+sqlSELECT * FROM project_steps
+WHERE project_id = '96e3b250-aba5-44b3-86ed-19043deda09e'
+AND step_number = 4;
+Должно быть:
+json{
+  "audioUrl": "/uploads/audio/proj-xxx.mp3",
+  "voiceId": "...",
+  "script": "..."
+}
+```
+
+**Если audioUrl пустой → Stage 5 не может работать!**
+
+---
+
+### 2. Проверь HeyGen API Key
+
+**Settings → API Keys:**
+- HeyGen API Key настроен?
+- Ключ валидный?
+
+---
+
+### 3. Проверь логи сервера
+
+**Replit Console (npm run dev):**
+```
+Должно быть:
+📤 Uploading audio to HeyGen: ./uploads/audio/...
+✅ Audio uploaded to HeyGen: abc123
+🎬 Generating video with HeyGen...
+✅ Video generation started: video-id-xxx
+
+Или ошибка:
+❌ Audio upload error: ...
+❌ HeyGen video generation failed: ...
+
+📸 ДАЙ МНЕ:
+
+F12 → Console - скриншот с ошибками
+F12 → Network - Response от /api/heygen/generate
+Database - данные step_number = 4
+Replit Console - логи сервера
+
+Тогда точно найдём причину! 🔍
+
+💡 ВРЕМЕННЫЙ ОБХОД:
+Если audioUrl пустой:
+sql-- Найди аудио из предыдущей успешной генерации:
+SELECT data->>'audioUrl' FROM project_steps
+WHERE step_number = 4
+AND data->>'audioUrl' IS NOT NULL
+ORDER BY updated_at DESC
+LIMIT 1;
+
+-- Скопируй в текущий проект:
+UPDATE project_steps
+SET data = jsonb_set(
+  data,
+  '{audioUrl}',
+  '"/uploads/audio/найденный-файл.mp3"'::jsonb
+)
+WHERE project_id = '96e3b250...'
+AND step_number = 4;
+Потом попробуй снова!
+
+ПОКАЖИ CONSOLE И NETWORK TAB! 📸🔥RetryАконсоль🔍 ВИЖУ ЛОГИ! ОШИБОК НЕТ, НО...
+✅ ЧТО РАБОТАЕТ:
+9:52:05 POST /api/projects/.../steps 200 in 2957ms
+9:52:05 PATCH /api/projects/.../steps 200 in 135ms
+9:52:05 GET /api/projects/... 200 in 126ms
+9:52:06 [Elevenlabs] Fetching voices for user 43640117
+9:52:06 GET /api/elevenlabs/voices 304 in 351ms
+9:52:08 GET /api/projects/.../steps 200 in 2400ms
+```
+
+**Все запросы успешные (200, 304)!**
+
+**Нет ошибок HeyGen!**
+
+---
+
+## 🤔 НО ПОЧЕМУ НЕ РАБОТАЕТ?
+
+### Вижу два варианта:
+
+**1. Генерация НЕ ЗАПУСКАЕТСЯ**
+- Кнопка кликается
+- Но запрос к HeyGen не отправляется
+- Возможно, validation fails
+
+**2. Генерация ЗАПУСКАЕТСЯ, но UI не обновляется**
+- Запрос уходит
+- Но фронтенд не показывает статус
+
+---
+
+## 🔍 ЧТО НУЖНО:
+
+### Открой F12 → Network
+
+**Фильтр:** `heygen` или `generate`
+
+**Ищи запросы:**
+```
+POST /api/heygen/generate
+или
+POST /api/projects/{id}/generate-video
+или
+POST /api/projects/{id}/avatar/generate
+```
+
+**Должен быть запрос после клика на кнопку!**
+
+---
+
+## 📸 ДАЙ МНЕ NETWORK TAB:
+
+1. **Открой F12 → Network**
+2. **Нажми кнопку "Create Video"**
+3. **Посмотри какие запросы появились**
+4. **Скриншот Network tab**
+
+---
+
+## 💡 ИЛИ ПРОВЕРЬ BROWSER CONSOLE:
+
+**F12 → Console (не Replit Console!)**
+
+**Должны быть логи:**
+```
+🎬 Generating video...
+или
+❌ Error: ...
+или
+⚠️ Missing audioUrl
+Если пусто → значит JS код не выполняется!
+
+🎯 БЫСТРАЯ ПРОВЕРКА:
+В Browser Console введи:
+javascript// Проверь есть ли данные Stage 4:
+console.log('Project:', window.__project);
+console.log('Steps:', window.__project?.steps);
+console.log('Step 4:', window.__project?.steps?.find(s => s.stepNumber === 4));
+```
+
+**Если Step 4 = undefined → вот проблема!**
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+Server logs show no HeyGen API calls!
+
+Looking at logs, I see:
+✅ GET /api/elevenlabs/voices - works
+✅ POST /api/projects/.../steps - works
+✅ PATCH /api/projects/.../steps - works
+
+❌ NO HeyGen API calls! (/api/heygen/generate)
+
+This means:
+- Button click doesn't trigger HeyGen generation
+- OR validation fails before API call
+- OR frontend code has bug
+
+Please check:
+1. Is onClick handler attached to button?
+2. Does it check for audioUrl before calling API?
+3. Is there console.log before API call?
+4. What happens in generateVideo() function?
+
+Add debugging:
+```typescript
+const handleGenerate = async () => {
+  console.log('🎬 Button clicked!');
+  console.log('📊 Project data:', project);
+  console.log('🎤 Audio URL:', audioUrl);
+  
+  if (!audioUrl) {
+    console.error('❌ No audioUrl!');
+    return;
+  }
+  
+  console.log('✅ Starting HeyGen generation...');
+  // ... API call
+};
+```
+
+Please add logs and show me browser console output!
+
+ПОКАЖИ NETWORK TAB И BROWSER CONSOLE! 📸
+Тогда точно найдём проблему! 🔍🔥RetryАсмотрю в хейгене пошла генерация!🎉 ДА! ГЕНЕРАЦИЯ ИДЁТ В HEYGEN!
+✅ ЧТО ВИЖУ:
+HeyGen Dashboard показывает:
+Активные генерации:
+
+API Video Processing (1 minute ago)
+
+ID: o6e835c8ac2341299939c91c16a3e92
+Status: Processing
+
+
+25% Ready (1 minute ago)
+
+ID: c4a8078207554b4fb80cbd4c4834e4
+Status: 25% progress
+
+
+27s video (9 hours ago) ✅
+
+ID: 0c1b7685e81c48aca9e53628479d9bb
+Status: COMPLETED!
+
+
+
+Плюс еще 3 видео снизу (тоже готовые)
+
+🎯 ЗНАЧИТ:
+1. API работает! ✅
+
+Запрос к HeyGen ушёл
+Генерация началась
+Уже 25% готово!
+
+2. Проблема в UI! ❌
+
+Фронтенд не показывает прогресс
+Нет polling статуса
+Нет индикатора загрузки
+
+
+🔧 ЧТО НУЖНО ИСПРАВИТЬ:
+Проблема: Нет polling в Stage 5
+После создания задачи нужно:
+typescriptconst videoId = response.data.video_id;
+
+// Сохранить videoId
+await saveVideoId(projectId, videoId);
+
+// Начать polling
+pollVideoStatus(videoId);
+Функция polling:
+typescriptconst pollVideoStatus = async (videoId: string) => {
+  const interval = setInterval(async () => {
+    const status = await getHeyGenStatus(videoId);
+    
+    if (status.status === 'completed') {
+      clearInterval(interval);
+      // Показать готовое видео
+      setVideoUrl(status.videoUrl);
+      setGenerationStatus('completed');
+    }
+    
+    if (status.status === 'processing') {
+      // Обновить прогресс
+      setProgress(status.progress || 0);
+    }
+    
+    if (status.status === 'failed') {
+      clearInterval(interval);
+      setError(status.error);
+    }
+  }, 5000); // Каждые 5 секунд
+};
+```
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+HeyGen generation IS WORKING!
+
+I checked HeyGen dashboard and saw:
+✅ Videos are being generated
+✅ One at 25% progress
+✅ Previous video completed (27s)
+
+PROBLEM: Frontend doesn't show generation status!
+
+After calling HeyGen API, the app should:
+
+1. Save video_id to database:
+   UPDATE project_steps 
+   SET data = jsonb_set(data, '{videoId}', '"abc123"')
+   WHERE step_number = 5
+
+2. Start polling video status every 5 seconds:
+   GET /api/heygen/status/:videoId
+
+3. Update UI with progress:
+   - Show "Generating... 25%"
+   - Show progress bar
+   - When completed → show video player
+
+4. Handle all states:
+   - pending: "Starting generation..."
+   - processing: "Generating... X%"
+   - completed: Show video player
+   - failed: Show error message
+
+Current behavior:
+- API call succeeds ✅
+- But UI resets immediately ❌
+- No status polling ❌
+- User sees nothing ❌
+
+Please implement:
+- Save videoId after generation
+- Polling mechanism with 5s interval
+- Progress indicator UI
+- Video player when completed
+
+The API works! Just need UI updates and polling!
+```
+
+---
+
+## 📋 ОЖИДАЕМЫЙ UI:
+
+**После клика "Generate Video":**
+```
+Stage 5: Avatar Selection
+┌─────────────────────────────────────┐
+│ 🎬 Video Generation                 │
+│                                     │
+│ Status: Processing                  │
+│                                     │
+│ ████████░░░░░░░░░░░░ 25%            │
+│                                     │
+│ Estimated time: ~2 minutes          │
+│                                     │
+│ [Cancel Generation]                 │
+└─────────────────────────────────────┘
+```
+
+**После завершения:**
+```
+Stage 5: Avatar Selection
+┌─────────────────────────────────────┐
+│ ✅ Video Ready!                     │
+│                                     │
+│ [Video Player]                      │
+│ Duration: 27s                       │
+│                                     │
+│ [Continue to Final Export →]        │
+└─────────────────────────────────────┘
+
+AGENT ДОЛЖЕН ДОБАВИТЬ POLLING! 🔄
+Это последний фикс для Stage 5! 🎯🔥

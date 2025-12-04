@@ -1,0 +1,252 @@
+Принял. Быстро пробежался по instagram-monitor.ts. В целом ок, но вижу несколько вещей, которые прямо сейчас дадут «404/пусто/дубликаты/гонки». Ниже — точечные правки (готовые вставки) и почему.
+
+Что явно поправить
+1) Неверный ключ Apify
+
+Ты пишешь, что getUserApiKey() уже возвращает расшифрованный ключ, но берёшь encryptedKey. Это почти наверняка и есть причина «ничего не парсится / 404». Возьми плейнтекст-поле.
+
+// было:
+const apifyKey = apifyKeyObj.encryptedKey; // This is already decrypted by getUserApiKey
+
+// нужно (устойчиво к разным реализациям хранилища):
+const apifyKey =
+  (apifyKeyObj.decryptedKey as string) ||
+  (apifyKeyObj.plaintext as string) ||
+  (apifyKeyObj.key as string) ||
+  (apifyKeyObj.value as string);
+if (!apifyKey) {
+  throw new Error('Apify key not available (decryption failed)');
+}
+
+2) Не даём кронам накладываться (перезапуски/кластер → двойной запуск)
+
+node-cron дернёт задачу даже если предыдущая ещё идёт. Добавь примитивный лок (и таймаут), чтобы не параллелить:
+
+let isRunning = false;
+
+async function checkAllSources() {
+  if (isRunning) {
+    console.log('[Instagram Monitor] Skip: previous run still active');
+    return;
+  }
+  isRunning = true;
+  const started = Date.now();
+  try {
+    // ... твой код ...
+  } catch (error) {
+    console.error('[Instagram Monitor] Error in checkAllSources:', error);
+  } finally {
+    isRunning = false;
+    console.log(`[Instagram Monitor] Done in ${Math.round((Date.now()-started)/1000)}s`);
+  }
+}
+
+
+Если несколько инстансов сервера — сделай DB-лок (например, UPDATE instagram_sources SET lock_until = NOW()+interval '10 min' WHERE ... AND (lock_until IS NULL OR lock_until<NOW()) RETURNING *) и обрабатывай только то, что «захватил».
+
+3) Гонки и дубликаты: делай upsert
+
+Сейчас — SELECT → INSERT, что при параллели легко даёт дубликаты. Нужен уникальный индекс (user_id, external_id) и onConflictDoNothing.
+
+// предпосылка в БД:
+// CREATE UNIQUE INDEX IF NOT EXISTS ux_instagram_items_user_external
+//   ON instagram_items(user_id, external_id);
+
+await db.insert(instagramItems)
+  .values({
+    sourceId: source.id,
+    userId: source.userId,
+    externalId: reel.shortCode,    // или reel.id, но тогда используй везде одно и то же
+    shortCode: reel.shortCode,
+    caption: reel.caption,
+    url: reel.url,
+    videoUrl: reel.videoUrl,
+    thumbnailUrl: reel.thumbnailUrl,
+    videoDuration: reel.videoDuration,
+    likesCount: reel.likesCount,
+    commentsCount: reel.commentsCount,
+    videoViewCount: reel.videoViewCount,
+    ownerUsername: reel.ownerUsername,
+    ownerFullName: reel.ownerFullName,
+    publishedAt: reel.timestamp ? new Date(reel.timestamp) : new Date(),
+  })
+  .onConflictDoNothing(); // drizzle-orm: добавь импорт для метода
+
+
+И вместо предварительного SELECT ... LIMIT 1 — просто посмотри insertResult.numInsertedRows (или сделай RETURNING) и увеличивай счётчики только если реально вставилось.
+
+4) Аккуратнее с interval в Drizzle
+
+Ты используешь:
+
+nextCheckAt: sql`NOW() + ${failInterval} * interval '1 hour'`,
+
+
+Это норм, но для читаемости/безопасности лучше так:
+
+nextCheckAt: sql`NOW() + (${instagramSources.checkIntervalHours}) * interval '1 hour'`
+
+
+А когда умножаешь на 2 (бэкофф) — параметризуй прямо числом:
+
+nextCheckAt: sql`NOW() + ${safeInterval * 2} * interval '1 hour'`,
+
+
+(у тебя так уже сделано в одном месте — оставь одинаково и там, и там.)
+
+5) Обработка пустых результатов/структуры Apify
+
+Бывает, что run завершился, а listItems() вернул пусто/не тот формат. Защитись:
+
+const { items } = await withTimeout(
+  client.dataset(run.defaultDatasetId!).listItems({ limit: resultsLimit }),
+  30_000,
+  `Apify dataset fetch timeout for user: ${username}`
+);
+
+if (!items || !Array.isArray(items)) {
+  return { success: false, items: [], error: 'Apify returned empty dataset', itemCount: 0 };
+}
+
+const transformedItems: InstagramReelData[] = items
+  .filter(Boolean)
+  .map((item: any) => ({
+    id: item.id || item.shortCode,
+    shortCode: item.shortCode || item.code || item.id,      // ← добавь fallback
+    url: item.url || (item.shortCode ? `https://instagram.com/p/${item.shortCode}` : ''),
+    caption: item.caption || '',
+    hashtags: item.hashtags || [],
+    mentions: item.mentions || [],
+    videoUrl: item.videoUrl || item.video_url || '',        // ← fallback
+    thumbnailUrl: item.displayUrl || item.display_url || item.images?.[0],
+    videoDuration: item.videoDuration || item.duration,
+    likesCount: item.likesCount || item.likes || 0,
+    commentsCount: item.commentsCount || item.comments || 0,
+    videoViewCount: item.videoViewCount || item.views,
+    videoPlayCount: item.videoPlayCount || item.plays,
+    sharesCount: item.sharesCount,
+    timestamp: item.timestamp || item.takenAt || item.taken_at || new Date().toISOString(),
+    ownerUsername: item.ownerUsername || item.username,
+    ownerFullName: item.ownerFullName || item.ownerFullname || item.full_name,
+    ownerId: item.ownerId || item.owner_id,
+    musicInfo: item.musicInfo ? {
+      artist: item.musicInfo.artist,
+      songName: item.musicInfo.songName,
+      originalAudio: item.musicInfo.originalAudio,
+    } : undefined,
+  }))
+  .filter(r => r.shortCode && r.url);
+
+
+У Apify разные акторы/версии дают разные ключи (shortCode vs code, videoUrl vs video_url). Эти фоллбеки спасают.
+
+6) Счётчики и транзакция
+
+Если ты обрабатываешь десятки роликов, лучше сделать это в транзакции и считать «вставилось/нет», чтобы корректно обновить newReelsFound, itemCount, viralReelsCount.
+
+Примерно так:
+
+await db.transaction(async (tx) => {
+  let inserted = 0;
+  let viral = 0;
+
+  for (const reel of result.items) {
+    const ins = await tx.insert(instagramItems).values({ /* ...как выше... */ }).onConflictDoNothing();
+    const ok = 'numInsertedOrUpdatedRows' in ins ? Number(ins.numInsertedOrUpdatedRows) : 0;
+    if (ok > 0) {
+      inserted++;
+      const threshold = source.viralThreshold ?? 0;
+      const views = reel.videoViewCount ?? reel.videoPlayCount ?? 0;
+      if (views >= threshold) viral++;
+    }
+  }
+
+  await tx.update(instagramSources).set({
+    lastCheckedAt: new Date(),
+    lastSuccessfulParseAt: new Date(),
+    nextCheckAt: sql`NOW() + ${safeInterval} * interval '1 hour'`,
+    totalChecks: sql`${instagramSources.totalChecks} + 1`,
+    newReelsFound: sql`${instagramSources.newReelsFound} + ${inserted}`,
+    failedChecks: 0,
+    itemCount: sql`${instagramSources.itemCount} + ${inserted}`,
+  }).where(eq(instagramSources.id, source.id));
+
+  console.log(`[Instagram Monitor] ✅ ${source.username}: ${inserted} new Reels (${viral} viral)`);
+});
+
+7) Конкурентная обработка источников (без DDoS)
+
+Сейчас источники идут строго по одному — можно ускорить, но с лимитом (чтобы не словить лимиты Apify):
+
+const pLimit = (await import('p-limit')).default;
+const limit = pLimit(Number(process.env.INSTA_MONITOR_CONCURRENCY || 2));
+
+await Promise.all(sourcesToCheck.map(src => limit(() => checkSourceForUpdates(src))));
+
+8) Таймзона и запуск по стартапу
+
+Если сервер не в нужной TZ, укажи её и сделай первый прогон при запуске:
+
+cron.schedule('0 * * * *', async () => {
+  console.log('[Instagram Monitor] Starting hourly check...');
+  await checkAllSources();
+}, { timezone: process.env.CRON_TZ || 'UTC' });
+
+// сразу при инициализации:
+checkAllSources().catch(console.error);
+
+9) Валидация данных
+
+Перед вставкой в БД проверь обязательные поля:
+
+if (!reel.shortCode || !reel.url) continue;
+
+
+И нормализуй publishedAt:
+
+const publishedAt = reel.timestamp ? new Date(reel.timestamp) : null;
+
+Мини-дифф (вырезки)
+- const apifyKey = apifyKeyObj.encryptedKey;
++ const apifyKey =
++   apifyKeyObj.decryptedKey ||
++   apifyKeyObj.plaintext ||
++   apifyKeyObj.key ||
++   apifyKeyObj.value;
++ if (!apifyKey) {
++   // маркируем как fail + бэкофф
++   await db.update(instagramSources).set({
++     lastCheckedAt: new Date(),
++     totalChecks: sql`${instagramSources.totalChecks} + 1`,
++     failedChecks: sql`${instagramSources.failedChecks} + 1`,
++     nextCheckAt: sql`NOW() + ${(safeInterval * 2)} * interval '1 hour'`,
++   }).where(eq(instagramSources.id, source.id));
++   console.log(`[Instagram Monitor] Apify key missing for ${source.username}, skipped`);
++   return;
++ }
+
+- for (const source of sourcesToCheck) {
+-   try { await checkSourceForUpdates(source); } catch (e) { ... }
+- }
++ const pLimit = (await import('p-limit')).default;
++ const limit = pLimit(Number(process.env.INSTA_MONITOR_CONCURRENCY || 2));
++ await Promise.all(sourcesToCheck.map(src => limit(() => checkSourceForUpdates(src))));
+
+- const existing = await db.select().from(instagramItems).where(...).limit(1);
+- if (existing.length === 0) {
+-   await db.insert(instagramItems).values({...});
+-   newReelsCount++;
+- }
++ const ins = await db.insert(instagramItems).values({...}).onConflictDoNothing();
++ const inserted = 'numInsertedOrUpdatedRows' in ins ? Number(ins.numInsertedOrUpdatedRows) : 0;
++ if (inserted > 0) { newReelsCount++; /* viral++ подсчёт тут же */ }
+
+Мелкие замечания (на подумать)
+
+Уточни actor id: у Apify бывает apify/instagram-scraper и кастомные «reel» форки. Если 404 на акторе — это тоже причина.
+
+Если хочешь «тёплые» запросы — после actor.call() можно дернуть client.run(run.id).waitForFinish() (у клиента-версии это под капотом обычно делается, но зависит от SDK).
+
+Логи: добавь last4 токена и userId в начало прогона (безопасно и удобно для grep).
+
+Защитись от пустого videoUrl: FFmpeg потом упадёт — лучше фильтровать заранее.

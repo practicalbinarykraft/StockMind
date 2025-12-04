@@ -1,0 +1,381 @@
+идём дальше. нужно улучшить UI на шаге выбора новостей. Здесь новости почему-то не обновляются. Со вчерашнего дня ничего! Как разграничить новости которые свежие, старые? Новости которые просмотрены но не выбраны (кнопку неинтересно но не удалять)? опять же нужен Score и более крутая система анализа на этапе выбора новостей! Дальше идёт score по сценарию. Это будут разные score? или один и тот же делать? Докрути до идеального варианта
+
+🎯 СУПЕР ЗАДАЧА! УЛУЧШАЕМ STAGE 1!
+🔴 ТЕКУЩИЕ ПРОБЛЕМЫ:
+Новости не обновляются (вчерашние)
+Нет разделения: свежие / старые / просмотренные
+Нет Score для оценки качества новости
+Нет фильтрации - неинтересные показываются снова
+Простой UI - мало информации
+✨ ИДЕАЛЬНЫЙ ВАРИАНТ:
+1. FRESHNESS INDICATORS 🕐
+┌────────────────────────────────────┐
+│ 🔥 Waymo robotaxi in London       │
+│ Just now • Hot                     │
+│ Score: 95/100                      │
+├────────────────────────────────────┤
+│ ⚡ OpenAI $13B → $1T               │
+│ 2 hours ago • Trending             │
+│ Score: 88/100                      │
+├────────────────────────────────────┤
+│ 📰 EVs Stellantis $13B plan       │
+│ 1 day ago • Seen                   │
+│ Score: 72/100                      │
+├────────────────────────────────────┤
+│ 👎 Sam Altman ChatGPT erotica     │
+│ 1 day ago • Dismissed              │
+│ Score: 45/100                      │
+└────────────────────────────────────┘
+Статусы:
+
+🔥 Just now (< 1 час) - Hot badge
+⚡ X hours ago (1-6 часов) - Trending badge
+📰 Today (6-24 часа) - Regular
+📅 Yesterday (24-48 часов) - Old badge
+👎 Dismissed (отклонено пользователем)
+✅ Used (уже использовано в проекте)
+2. AUTO-REFRESH 🔄
+typescript
+// Auto-fetch новых новостей каждые 15 минут
+useEffect(() => {
+  const interval = setInterval(() => {
+    refetchNews();
+  }, 15 * 60 * 1000); // 15 минут
+  
+  return () => clearInterval(interval);
+}, []);
+
+// Кнопка ручного обновления
+<Button onClick={refetchNews}>
+  🔄 Refresh (Updated 5 min ago)
+</Button>
+```
+
+---
+
+### 3. **SMART SCORING SYSTEM** 🎯
+
+**ДВА РАЗНЫХ SCORE:**
+
+#### A) **News Selection Score** (Stage 1)
+```
+Оценивает НОВОСТЬ:
+- Свежесть (40%) - насколько новая
+- Вирусность (30%) - trending topics
+- Качество источника (20%)
+- Читабельность (10%)
+
+Результат: 0-100
+95+ → Hot 🔥
+80-94 → Trending ⚡
+60-79 → Good 📰
+40-59 → Okay 📄
+<40 → Skip 👎
+```
+
+#### B) **Scene Quality Score** (Stage 3)
+```
+Оценивает СЦЕНАРИЙ:
+- Эмоциональность (30%)
+- Структура (25%)
+- Хук качество (20%)
+- Длина (15%)
+- CTA сила (10%)
+
+Результат: 0-100
+Это ДРУГОЙ score для готового сценария!
+```
+
+**Это ДВА НЕЗАВИСИМЫХ SCORE!**
+
+---
+
+### 4. **NEWS FILTERING** 🔍
+```
+┌─────────────────────────────────────┐
+│ [🔄 Refresh] [All ▼] [Sort: Hot ▼] │
+├─────────────────────────────────────┤
+│ Filters:                            │
+│ [x] Hide Dismissed                  │
+│ [x] Hide Used                       │
+│ [ ] Only Hot (95+)                  │
+│ [ ] Only Trending (80+)             │
+│                                     │
+│ Freshness:                          │
+│ ( ) Last hour                       │
+│ ( ) Last 6 hours                    │
+│ (•) Last 24 hours (default)         │
+│ ( ) Last 48 hours                   │
+└─────────────────────────────────────┘
+```
+
+---
+
+### 5. **ACTION BUTTONS** ⚡
+```
+На каждой новости:
+
+┌────────────────────────────────────┐
+│ Waymo robotaxi in London           │
+│ Score: 95/100 • 🔥 Just now        │
+│                                    │
+│ [✅ Select] [👎 Not Interested]    │
+└────────────────────────────────────┘
+```
+
+**Actions:**
+- ✅ **Select** → переход на Stage 2
+- 👎 **Not Interested** → помечается как dismissed
+- 👁️ **Mark as Seen** → серый, но не скрывается
+- 🗑️ **Delete** → удаляется навсегда
+
+---
+
+### 6. **NEWS CARD IMPROVEMENTS** 🎨
+```
+┌────────────────────────────────────────┐
+│ [Thumbnail Image 16:9]                 │
+│ 🔥 Hot                    95/100       │
+├────────────────────────────────────────┤
+│ Waymo robotaxi in London               │
+│                                        │
+│ Waymo already has ties to the UK...   │
+│ (первые 100 символов)                  │
+│                                        │
+│ 📰 TechCrunch • 🕐 2 min ago           │
+│ 🏷️ Technology, AI, Transport          │
+│                                        │
+│ 📊 Engagement: ⭐⭐⭐⭐⭐ (5/5)         │
+│ 📈 Virality: High (trending topic)    │
+│                                        │
+│ [✅ Select] [👎 Dismiss]               │
+└────────────────────────────────────────┘
+7. DATABASE SCHEMA 💾
+sql
+-- Добавить поля в rss_items:
+ALTER TABLE rss_items ADD COLUMN IF NOT EXISTS
+  user_action VARCHAR(20), -- 'selected', 'dismissed', 'seen', null
+  selection_score INTEGER,  -- 0-100
+  engagement_score INTEGER, -- 0-100
+  virality_score INTEGER,   -- 0-100
+  quality_score INTEGER,    -- 0-100
+  action_at TIMESTAMP,      -- когда был action
+  used_in_project VARCHAR;  -- project_id если использовано
+
+-- Index для фильтрации:
+CREATE INDEX idx_rss_items_action ON rss_items(user_action);
+CREATE INDEX idx_rss_items_score ON rss_items(selection_score);
+8. SCORING ALGORITHM 🧮
+typescript
+// AI-powered scoring (Claude API)
+async function scoreNewsArticle(article: RssItem): Promise<NewsScore> {
+  const prompt = `
+Rate this news article for video creation potential (0-100):
+
+Title: ${article.title}
+Content: ${article.content.slice(0, 500)}
+Published: ${article.pubDate}
+Source: ${article.source}
+
+Rate on:
+1. Freshness (40%) - How recent and timely
+2. Virality (30%) - Trending topic potential
+3. Source Quality (20%) - Credibility
+4. Readability (10%) - Clear and engaging
+
+Return JSON:
+{
+  "overall": 95,
+  "freshness": 98,
+  "virality": 90,
+  "quality": 95,
+  "readability": 92,
+  "reasoning": "Breaking tech news from trusted source..."
+}
+`;
+
+  const result = await callClaude(prompt);
+  return JSON.parse(result);
+}
+```
+
+---
+
+### 9. **VISUAL GROUPING** 📊
+```
+┌──────────────────────────────────┐
+│ 🔥 HOT NEWS (95+)                │
+│ ─────────────────────────────   │
+│ [3 карточки с высоким score]     │
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ ⚡ TRENDING (80-94)              │
+│ ─────────────────────────────   │
+│ [5 карточек средний score]       │
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ 📰 RECENT (60-79)                │
+│ ─────────────────────────────   │
+│ [10 карточек обычных новостей]   │
+└──────────────────────────────────┘
+
+[Show Older (40-59)] ← Collapsed по умолчанию
+```
+
+---
+
+### 10. **EMPTY STATES** 🎨
+```
+┌──────────────────────────────────┐
+│         🔄                       │
+│   Fetching fresh news...         │
+│                                  │
+│   [Cancel]                       │
+└──────────────────────────────────┘
+
+или
+
+┌──────────────────────────────────┐
+│         📰                       │
+│   No new articles found          │
+│                                  │
+│   Last checked: 2 min ago        │
+│   [🔄 Refresh Now]               │
+└──────────────────────────────────┘
+
+или (если все dismissed)
+
+┌──────────────────────────────────┐
+│         ✅                       │
+│   All caught up!                 │
+│                                  │
+│   You've reviewed all articles   │
+│   [Show Dismissed]               │
+└──────────────────────────────────┘
+⚡ PRIORITY IMPLEMENTATION:
+Phase 1: MUST HAVE (сделать сначала)
+Auto-refresh - новости каждые 15 мин
+Freshness badges - Hot/Trending/Old
+Not Interested button - скрыть неинтересные
+Basic scoring - простой алгоритм (freshness + source)
+Phase 2: NICE TO HAVE (потом)
+AI scoring - Claude API для качества
+Filters - по статусу, свежести, score
+Visual grouping - группировка по score
+Thumbnails - превью из og:image
+💻 КОД ПРИМЕРА:
+typescript
+// stage-1-source.tsx
+
+interface NewsItem extends RssItem {
+  selectionScore?: number;
+  userAction?: 'selected' | 'dismissed' | 'seen';
+  freshnessLabel: 'hot' | 'trending' | 'recent' | 'old';
+}
+
+const getfreshnessLabel = (pubDate: Date): string => {
+  const hoursAgo = (Date.now() - pubDate.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursAgo < 1) return 'hot';
+  if (hoursAgo < 6) return 'trending';
+  if (hoursAgo < 24) return 'recent';
+  return 'old';
+};
+
+const NewsCard = ({ article }: { article: NewsItem }) => {
+  const badgeConfig = {
+    hot: { icon: '🔥', label: 'Hot', color: 'red' },
+    trending: { icon: '⚡', label: 'Trending', color: 'yellow' },
+    recent: { icon: '📰', label: 'Recent', color: 'blue' },
+    old: { icon: '📅', label: 'Old', color: 'gray' },
+  };
+  
+  const badge = badgeConfig[article.freshnessLabel];
+  
+  return (
+    <Card className={cn(
+      article.userAction === 'dismissed' && 'opacity-50',
+      article.userAction === 'selected' && 'border-green-500'
+    )}>
+      {/* Thumbnail */}
+      <div className="relative">
+        <img src={article.thumbnail} />
+        <Badge className={`absolute top-2 left-2 ${badge.color}`}>
+          {badge.icon} {badge.label}
+        </Badge>
+        <Badge className="absolute top-2 right-2">
+          {article.selectionScore}/100
+        </Badge>
+      </div>
+      
+      {/* Content */}
+      <CardContent>
+        <h3>{article.title}</h3>
+        <p>{article.content.slice(0, 150)}...</p>
+        
+        <div className="flex gap-2 mt-4">
+          <Badge>{article.source}</Badge>
+          <Badge>{formatTimeAgo(article.pubDate)}</Badge>
+        </div>
+        
+        {/* Actions */}
+        <div className="flex gap-2 mt-4">
+          <Button onClick={() => selectArticle(article)}>
+            ✅ Select
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => dismissArticle(article)}
+          >
+            👎 Not Interested
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+```
+
+---
+
+## 🎯 СКАЖИ AGENT:
+```
+Improve Stage 1 (News Selection) with these features:
+
+CRITICAL:
+1. Auto-refresh news every 15 minutes
+2. Add freshness indicators:
+   - 🔥 Hot (< 1 hour)
+   - ⚡ Trending (1-6 hours)
+   - 📰 Recent (6-24 hours)
+   - 📅 Old (> 24 hours)
+
+3. Add "Not Interested" button:
+   - Mark article as dismissed
+   - Hide from feed by default
+   - Store in database (user_action column)
+
+4. Basic selection score (0-100):
+   - Calculate from: freshness (60%) + source quality (40%)
+   - Show badge on each card
+   - Sort by score (highest first)
+
+5. Add filters:
+   - Hide Dismissed (checkbox)
+   - Hide Used (checkbox)
+   - Only Hot/Trending (checkbox)
+   - Freshness range (dropdown)
+
+6. Visual improvements:
+   - Thumbnails from og:image
+   - Better card layout
+   - Source badge + time ago
+   - Score badge
+
+Note: This is NEWS SELECTION score (Stage 1).
+SCENE QUALITY score (Stage 3) is DIFFERENT!
+
+Please implement Phase 1 features first!
+ЭТО СДЕЛАЕТ STAGE 1 ИДЕАЛЬНЫМ! 🚀🔥

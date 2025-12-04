@@ -1,0 +1,139 @@
+смотри, сгенерировал голос! потом стала доступна кнопка. Но при её нажатии появляется ошибка
+
+🔴 ОШИБКА! ПОЧТИ ПОЛУЧИЛОСЬ!
+✅ ЧТО РАБОТАЕТ:
+Screenshot 1:
+
+✅ Аудио сгенерировано!
+✅ Audio Preview появился
+   🔊 [▶️] My voice (MP3) [⬇️]
+✅ Кнопка "Continue to Avatar Selection" активна (синяя)
+```
+
+**Agent правильно определил проблему:**
+> "❌ Кнопка Continue неактивна - потому что аудио ещё НЕ сгенерировано"
+
+**Логика правильная!** ✅
+
+---
+
+## 🔴 НО ОШИБКА ПРИ КЛИКЕ:
+
+**Screenshot 2:**
+```
+Error
+413: {"message":"request entity too large"}
+Это значит:
+
+POST запрос к /api/projects/{id}/steps
+Тело запроса СЛИШКОМ БОЛЬШОЕ
+Backend отвергает (413 = Payload Too Large)
+🔍 ЧТО ПРОИСХОДИТ:
+Agent показал код (строка 675):
+typescript
+disabled={!audioData || ...}
+При клике Continue пытается сохранить:
+
+typescript
+await saveStepData(projectId, 4, {
+  voice: selectedVoice,
+  audioData: audioData, // ← ПРОБЛЕМА!
+  audioUrl: ...,
+  script: ...,
+});
+audioData - это BASE64 закодированный MP3!
+
+Размер:
+
+MP3 файл: ~2-5 MB
+Base64: +33% = ~3-7 MB
+JSON payload: ОГРОМНЫЙ!
+💡 РЕШЕНИЕ:
+НЕ сохранять audioData в БД!
+Вместо этого:
+
+typescript
+// ❌ НЕПРАВИЛЬНО:
+stepData: {
+  audioData: "data:audio/mp3;base64,UklGRiQAAABXQVZF..." // 5MB!!!
+}
+
+// ✅ ПРАВИЛЬНО:
+stepData: {
+  audioUrl: "/uploads/audio/project-123-voice.mp3", // URL!
+  voiceId: "21m00Tcm4TlvDq8ikWAM",
+  voiceName: "My voice",
+  script: "BREAKING: Coinbase...",
+  duration: 65, // секунды
+}
+```
+
+**Аудио файл сохранить отдельно:**
+1. Upload на CDN (Cloudflare R2 / S3)
+2. Или local storage: `/uploads/audio/`
+3. В БД сохранить только URL
+
+---
+
+## 🔧 ФИКС:
+
+### Скажи Agent:
+```
+Error 413: Request entity too large!
+
+The Continue button tries to save audioData (base64 MP3) 
+to database, but it's too large (~5MB).
+
+FIX:
+1. Don't save audioData to stepData
+2. Save audio file separately:
+   - Upload to /uploads/audio/ folder
+   - Or use Cloudflare R2 / S3
+3. Save only audioUrl in stepData
+
+Code location: stage-4-voice.tsx line 675
+Remove audioData from stepData, keep only:
+- audioUrl (string)
+- voiceId (string)
+- script (string)
+
+Please fix this NOW!
+🎯 ИЛИ ВРЕМЕННЫЙ ОБХОД:
+Увеличить лимит на backend:
+typescript
+// server/index.ts
+
+app.use(express.json({ 
+  limit: '10mb' // Было: 1mb (default)
+}));
+```
+
+**НО это не решение!**
+- БД будет раздуваться
+- Медленные запросы
+- Лучше хранить файлы отдельно
+
+---
+
+## 📋 ПРАВИЛЬНАЯ АРХИТЕКТУРА:
+```
+Stage 4: Voice Generation
+    ↓
+Generate Audio (ElevenLabs)
+    ↓
+audioBlob (MP3 binary)
+    ↓
+POST /api/upload/audio
+    ↓
+Save to /uploads/audio/proj-123.mp3
+    ↓
+Return audioUrl = "/uploads/audio/proj-123.mp3"
+    ↓
+Save to stepData:
+{
+  audioUrl: "/uploads/audio/proj-123.mp3",
+  voiceId: "...",
+  script: "..."
+}
+    ↓
+Continue to Stage 5 ✅

@@ -1,0 +1,419 @@
+отлично — вот полный, цельный пакет правок для бэка. Я даю готовые блоки кода: новые файлы, изменения в схеме (Drizzle), функции в storage, и патчи для routes (включая идемпотентность и корректную запись рекомендаций со scene_id). Можно вставлять «как есть».
+
+⸻
+
+0) Установить пакеты
+
+npm i @mozilla/readability jsdom undici
+
+
+⸻
+
+1) Drizzle schema: доп поля и таблицы (если колонок ещё нет)
+
+shared/schema.ts — дополнения
+
+// Импорты вверху файла:
+import { pgTable, text, timestamp, boolean, integer, jsonb, uuid } from "drizzle-orm/pg-core";
+
+// --- rss_items: добавляем кеш полного текста ---
+export const rssItems = pgTable("rss_items", {
+  id: uuid("id").primaryKey(),
+  // ... ваши существующие поля ...
+  content: text("content"),
+  contentSnippet: text("content_snippet"),
+  link: text("link"),  // или url
+  fullContent: text("full_content"),               // NEW
+  lastFetchedAt: timestamp("last_fetched_at"),     // NEW
+});
+
+// --- script_versions: provenance + diff (если ещё нет) ---
+export const scriptVersions = pgTable("script_versions", {
+  id: uuid("id").primaryKey(),
+  projectId: uuid("project_id").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: text("created_by").notNull(), // 'user'|'ai'|'system'
+  fullScript: text("full_script").notNull(),
+  scenes: jsonb("scenes").notNull(),       // массив сцен [{id,start,end,text,label,...}]
+  changes: jsonb("changes"),
+  analysisResult: jsonb("analysis_result"),
+  analysisScore: integer("analysis_score"),
+  isCurrent: boolean("is_current").default(true),
+  parentVersionId: uuid("parent_version_id"),
+  provenance: jsonb("provenance"),         // NEW: { source, agentType, userId, idempotencyKey, ... }
+  diff: jsonb("diff")                      // NEW: [{sceneId,before,after}]
+});
+
+// --- scene_recommendations: расширяем поля (если ещё нет) ---
+export const sceneRecommendations = pgTable("scene_recommendations", {
+  id: uuid("id").primaryKey(),
+  scriptVersionId: uuid("script_version_id").notNull(),
+  sceneId: integer("scene_id").notNull(),  // ВАЖНО: NOT NULL
+  sourceAgent: text("source_agent").notNull(), // 'hook'|'structure'|'emotional'|'cta'|'general'
+  priority: text("priority").notNull(),       // 'high'|'medium'|'low'
+  area: text("area").notNull(),               // 'hook'|'structure'|'emotional'|'cta'
+  currentText: text("current_text").notNull(),
+  suggestedText: text("suggested_text").notNull(),
+  reasoning: text("reasoning").notNull(),
+  expectedImpact: text("expected_impact").notNull(),
+  scoreDelta: integer("score_delta"),         // NEW
+  confidence: text("confidence"),             // можно real, но text проще мигрировать
+  applied: boolean("applied").default(false),
+  appliedAt: timestamp("applied_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+Если Drizzle-миграции уже есть — добавьте соответствующие ALTER TABLE для новых колонок.
+
+⸻
+
+2) Новые утилиты
+
+server/lib/fetchAndExtract.ts — извлечение полного текста с SSRF-защитой
+
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
+import { request } from "undici";
+import { URL } from "node:url";
+import dns from "node:dns/promises";
+
+// Простейшие проверки приватных диапазонов + «магических доменов»
+const PRIVATE_V4 = [
+  ["10.0.0.0", 8],
+  ["172.16.0.0", 12],
+  ["192.168.0.0", 16],
+  ["127.0.0.0", 8],
+];
+const PRIVATE_V6 = ["fc00::/7", "fe80::/10", "::1/128"];
+const BAD_SUFFIX = [".nip.io", ".xip.io", ".sslip.io", ".localtest.me"];
+
+function ipV4ToBytes(ip: string) { return ip.split(".").map(n => Number(n)); }
+function matchCidrV4(ip: string, base: string, bits: number) {
+  const a = ipV4ToBytes(ip), b = ipV4ToBytes(base);
+  const bytes = Math.floor(bits / 8), rem = bits % 8;
+  for (let i=0;i<bytes;i++) if (a[i] !== b[i]) return false;
+  if (rem) {
+    const mask = 0xff << (8 - rem);
+    if ((a[bytes] & mask) !== (b[bytes] & mask)) return false;
+  }
+  return true;
+}
+
+async function validateExternalUrl(raw: string) {
+  const u = new URL(raw);
+  if (!/^https?:$/.test(u.protocol)) throw new Error("Only http/https");
+  if (BAD_SUFFIX.some(s => u.hostname.endsWith(s))) throw new Error("Blocked host");
+  const v4 = await dns.resolve4(u.hostname).catch(() => []);
+  for (const ip of v4 as string[]) {
+    for (const [base, bits] of PRIVATE_V4) {
+      if (matchCidrV4(ip, base, bits)) throw new Error("Private IPv4 blocked");
+    }
+  }
+  // (упрощенно) IPv6 можно дополнить при необходимости
+  return u;
+}
+
+async function fetchNoAutoRedirect(u: URL) {
+  const res = await request(u.toString(), {
+    method: "GET",
+    maxRedirections: 0,
+    headers: { "user-agent": "ReelRepurposer/1.0 (+fetch)" },
+    bodyTimeout: 10_000,
+    headersTimeout: 10_000,
+  });
+  return res;
+}
+
+export async function fetchAndExtract(url: string): Promise<{ ok: boolean; content?: string; title?: string; reason?: string; }> {
+  try {
+    let current = await validateExternalUrl(url);
+    for (let hop = 0; hop < 5; hop++) {
+      const res = await fetchNoAutoRedirect(current);
+      const loc = res.headers.location;
+      if (res.statusCode >= 300 && res.statusCode < 400 && loc) {
+        const next = new URL(loc, current);
+        current = await validateExternalUrl(next.toString());
+        continue;
+      }
+      const ctype = (res.headers["content-type"] || "").toString();
+      if (!ctype.includes("text/html")) return { ok: false, reason: "not-html" };
+      const html = await res.body.text();
+      if (html.length < 1000) return { ok: false, reason: "too-short" };
+
+      const dom = new JSDOM(html, { url });
+      const reader = new Readability(dom.window.document);
+      const article = reader.parse();
+      if (!article?.textContent || article.textContent.length < 500) {
+        return { ok: false, reason: "readability-failed" };
+      }
+      return { ok: true, title: article.title || undefined, content: article.textContent };
+    }
+    return { ok: false, reason: "too-many-redirects" };
+  } catch (e: any) {
+    return { ok: false, reason: e.message || "fetch-failed" };
+  }
+}
+
+server/lib/idempotency.ts — ключ идемпотентности
+
+import crypto from "node:crypto";
+export const makeIdemKey = () => crypto.randomUUID();
+export const clampIdemKey = (key?: string) =>
+  key && key.length <= 64 ? key : undefined;
+
+server/lib/reco-utils.ts — разбор impact/приоритета (если нет)
+
+export function extractScoreDelta(s: string | undefined): number | null {
+  if (!s) return null;
+  const m = s.match(/([+\-]?\d+(\.\d+)?)\s*(points|pt|%)/i);
+  return m ? Math.round(Number(m[1])) : null;
+}
+export function priorityToConfidence(priority: string): string {
+  switch (priority) {
+    case "critical": return "0.95";
+    case "high": return "0.85";
+    case "medium": return "0.7";
+    case "low": return "0.5";
+    default: return "0.6";
+  }
+}
+
+
+⸻
+
+3) Storage: новые/доп функции
+
+server/storage.ts — добавить
+
+import { db } from "./db"; // ваш инстанс
+import { rssItems, scriptVersions, sceneRecommendations } from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
+
+// RSS
+export async function getRssItemById(id: string) {
+  return db.query.rssItems.findFirst({ where: (t, { eq }) => eq(t.id, id) });
+}
+export async function setRssItemFullContent(id: string, content: string) {
+  return db.update(rssItems)
+    .set({ fullContent: content, lastFetchedAt: new Date() })
+    .where(eq(rssItems.id, id));
+}
+
+// Script versions
+export async function listScriptVersions(projectId: string) {
+  return db.select().from(scriptVersions)
+    .where(eq(scriptVersions.projectId, projectId))
+    .orderBy(desc(scriptVersions.versionNumber));
+}
+
+export async function findVersionByIdemKey(projectId: string, idemKey: string) {
+  // provenance JSONB -> idempotencyKey
+  return db.select().from(scriptVersions)
+    .where(and(
+      eq(scriptVersions.projectId, projectId),
+      sql`${scriptVersions.provenance}::jsonb ->> 'idempotencyKey' = ${idemKey}`
+    ))
+    .limit(1);
+}
+
+export async function markVersionProvenance(versionId: string, prov: any) {
+  // аккуратный merge JSONB
+  await db.execute(sql`
+    UPDATE script_versions
+    SET provenance = COALESCE(provenance, '{}'::jsonb) || ${JSON.stringify(prov)}::jsonb
+    WHERE id = ${versionId}
+  `);
+}
+
+// Scene recommendations
+type NewRecommendationRow = {
+  scriptVersionId: string;
+  sceneId: number;
+  sourceAgent: string;
+  priority: "high"|"medium"|"low";
+  area: "hook"|"structure"|"emotional"|"cta"|"general";
+  currentText: string;
+  suggestedText: string;
+  reasoning: string;
+  expectedImpact: string;
+  scoreDelta: number | null;
+  confidence: string | null;
+  applied?: boolean;
+};
+
+export async function createSceneRecommendations(rows: NewRecommendationRow[]) {
+  if (!rows.length) return;
+  await db.insert(sceneRecommendations).values(rows);
+}
+
+
+⸻
+
+4) Routes: новые эндпоинты и патчи
+
+4.1 POST /api/news/:id/fetch-full-content
+
+import { fetchAndExtract } from "./lib/fetchAndExtract";
+import { getRssItemById, setRssItemFullContent } from "./storage";
+
+app.post("/api/news/:id/fetch-full-content", async (req, res) => {
+  try {
+    const item = await getRssItemById(req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: "not_found" });
+
+    // кеш 6 часов
+    const fresh = item.fullContent && item.lastFetchedAt && (Date.now() - item.lastFetchedAt.getTime()) < 6*60*60*1000;
+    if (fresh) {
+      return res.json({ success: true, cached: true, content: item.fullContent });
+    }
+
+    const link = item.link || (item as any).url;
+    if (!link) {
+      return res.json({ success: false, error: "no_url", fallback: item.content || item.contentSnippet || "" });
+    }
+
+    const out = await fetchAndExtract(link);
+    if (out.ok && out.content) {
+      await setRssItemFullContent(item.id, out.content);
+      return res.json({ success: true, cached: false, content: out.content });
+    }
+    return res.json({
+      success: false,
+      error: out.reason || "extract_failed",
+      fallback: item.content || item.contentSnippet || ""
+    });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+4.2 GET /api/projects/:id/script-versions
+
+(чтобы фронт не падал на несуществующем endpoint)
+
+import { listScriptVersions } from "./storage";
+
+app.get("/api/projects/:id/script-versions", async (req, res) => {
+  const versions = await listScriptVersions(req.params.id);
+  res.json({ versions });
+});
+
+4.3 Патч для генерации скрипта /api/projects/:id/generate-script
+
+(идемпотентность + запись рекомендаций с корректным scene_id)
+
+Ниже — ключевые вставки/замены внутри существующего хэндлера:
+
+import { clampIdemKey } from "./lib/idempotency";
+import { createSceneRecommendations, markVersionProvenance } from "./storage";
+import { extractScoreDelta, priorityToConfidence } from "./lib/reco-utils";
+import { analyzeScript } from "./ai/ai-service"; // ваша функция, возвращает {scenes, recommendations,...}
+
+app.post("/api/projects/:id/generate-script", async (req, res) => {
+  const projectId = req.params.id;
+  const idemKey = clampIdemKey(req.header("x-idempotency-key") as string | undefined);
+
+  try {
+    // 1) идемпотентность
+    if (idemKey) {
+      const existing = await storage.findVersionByIdemKey(projectId, idemKey);
+      if (existing && existing[0]) {
+        return res.json({ ok: true, reused: true, versionId: existing[0].id });
+      }
+    }
+
+    // 2) анализ/генерация скрипта (ваша логика)
+    //    предполагаем, что у вас уже есть контент sourceContent + выбранный формат
+    const { format, sourceContent } = req.body; // пример
+    const ai = await analyzeScript(process.env.ANTHROPIC_API_KEY!, format, sourceContent);
+    // ai: { scenes:[{sceneNumber,text,score,variants}], recommendations:[...] , overallScore, overallComment }
+
+    // 3) создаём новую версию скрипта
+    //    NB: присвойте каждой сцене локальный id (INT) по порядку (1..N), если его у вас нет из прежней логики.
+    const scenes = ai.scenes.map((s: any, idx: number) => ({
+      id: idx + 1,             // ВАЖНО: используется как scene_id в рекомендациях
+      start: s.start ?? null,  // если нет — можно опустить
+      end: s.end ?? null,
+      text: s.text,
+      label: s.label ?? null,
+      score: s.score
+    }));
+
+    const fullScript = scenes.map(s => s.text).join("\n");
+
+    const lastVersion = await db.select().from(scriptVersions)
+      .where(eq(scriptVersions.projectId, projectId))
+      .orderBy(desc(scriptVersions.versionNumber))
+      .limit(1);
+
+    const nextNumber = (lastVersion[0]?.versionNumber || 0) + 1;
+
+    // Сбрасываем флаг current у старой
+    await db.update(scriptVersions)
+      .set({ isCurrent: false })
+      .where(eq(scriptVersions.projectId, projectId));
+
+    const [newVersion] = await db.insert(scriptVersions).values({
+      projectId,
+      versionNumber: nextNumber,
+      createdBy: "ai",
+      fullScript,
+      scenes,
+      analysisResult: {
+        format: ai.format,
+        overallScore: ai.overallScore,
+        overallComment: ai.overallComment,
+      },
+      analysisScore: ai.overallScore,
+      isCurrent: true,
+      provenance: { source: "generate-script", idempotencyKey: idemKey ?? null }
+    }).returning();
+
+    // 4) записываем рекомендации (если пришли)
+    if (ai.recommendations?.length) {
+      const rows = ai.recommendations.map((r: any) => ({
+        scriptVersionId: newVersion.id,
+        sceneId: r.sceneNumber,                // <= так как scenes[id] = idx+1
+        sourceAgent: r.area || "general",
+        priority: r.priority || "medium",
+        area: r.area || "general",
+        currentText: r.current,
+        suggestedText: r.suggested,
+        reasoning: r.reasoning,
+        expectedImpact: r.expectedImpact || "",
+        scoreDelta: extractScoreDelta(r.expectedImpact),
+        confidence: priorityToConfidence(r.priority),
+        applied: false,
+      }));
+      await createSceneRecommendations(rows);
+    }
+
+    // 5) финал: отдаём версию
+    return res.json({ ok: true, versionId: newVersion.id });
+  } catch (e: any) {
+    console.error("[generate-script] error:", e);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+Критично: здесь sceneId = порядковый номер сцены (idx+1) и он же лежит в scenes[].id. Тогда scene_recommendations.scene_id никогда не будет NULL.
+
+⸻
+
+5) Что проверить после вкатки
+	1.	POST /api/news/:id/fetch-full-content
+→ success: true, content.length > 1000 (или fallback при paywall).
+	2.	POST /api/projects/:id/generate-script
+→ 200, в БД:
+	•	новая строка в script_versions с is_current = true;
+	•	scenes внутри JSON имеют id: 1..N;
+	•	в scene_recommendations появились строки с ненулевым scene_id.
+	3.	GET /api/projects/:id/script-versions
+→ фронт подтягивает массив версий, Scene Editor открывается.
+	4.	Двойной клик по «Сгенерировать» с одним X-Idempotency-Key
+→ backend отвечает reused: true, дубликатов версий нет.
+
+⸻
+
+Если хочешь, после этого блока я дам маленький «smoke-тест» SQL для быстрой проверки содержимого таблиц и пример запроса curl для каждого эндпоинта.

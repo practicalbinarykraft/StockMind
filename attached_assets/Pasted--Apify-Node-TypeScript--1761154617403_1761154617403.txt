@@ -1,0 +1,398 @@
+отправляю “пакет” целиком — минимальный, но боевой Apify-интеграционный слой под Node/TypeScript, который у нас и был по сути: стартуем актор, ждём вебхук, тянем dataset items, скачиваем видео, складываем в S3/локально, создаём запись ingest и кидаем задачу на транскрибирование. Всё в одном сообщении, чтобы копипастить было удобно.
+
+0) .env (пример)
+# Apify
+APIFY_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+APIFY_INSTAGRAM_ACTOR=apify/instagram-reels-scraper         # или ваш кастомный актор
+APIFY_WEBHOOK_SECRET=super-secret-for-hmac
+
+# Public base URL (куда апифай постит вебхук)
+PUBLIC_BASE_URL=https://your.domain.com
+
+# S3 (опционально; если не задать — упадём на file://)
+S3_BUCKET=studio-videos
+S3_REGION=us-east-1
+S3_ACCESS_KEY=AKIA...
+S3_SECRET_KEY=...
+
+1) SQL: таблицы ingest + transcripts (идемпотентность и статусы)
+
+migrations/20251015_add_ingest.sql
+
+-- Ingest items: что мы скачали и где лежит
+CREATE TABLE IF NOT EXISTS ingest_items (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID NOT NULL,
+  provider         TEXT NOT NULL,                          -- 'instagram' | 'youtube' | ...
+  source_url       TEXT NOT NULL,
+  external_id      TEXT,                                   -- instagram shortcode/id для идемпотентности
+  status           TEXT NOT NULL DEFAULT 'pending',        -- 'pending' | 'downloading' | 'downloaded' | 'failed' | 'transcribed'
+  title            TEXT,
+  duration_sec     INTEGER,
+  width            INTEGER,
+  height           INTEGER,
+  s3_video         TEXT,
+  s3_thumb         TEXT,
+  local_video      TEXT,
+  local_thumb      TEXT,
+  meta             JSONB DEFAULT '{}'::jsonb,
+  error            JSONB DEFAULT '{}'::jsonb,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ingest_extid_idx ON ingest_items(provider, external_id);
+
+-- Транскрипты (если используете)
+CREATE TABLE IF NOT EXISTS transcripts (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ingest_item_id   UUID REFERENCES ingest_items(id) ON DELETE CASCADE,
+  lang             TEXT,
+  text             TEXT,
+  wpm              INTEGER,
+  segments         JSONB,
+  words            JSONB,
+  created_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- updated_at триггер
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS ingest_items_set_updated ON ingest_items;
+CREATE TRIGGER ingest_items_set_updated BEFORE UPDATE ON ingest_items
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+2) Клиент Apify: старт/вебхук/получение датасета
+
+server/apify/apify-client.ts
+
+import crypto from 'node:crypto';
+import { ApifyClient } from 'apify-client';
+
+const token = process.env.APIFY_TOKEN!;
+if (!token) throw new Error('APIFY_TOKEN is required');
+
+export const apify = new ApifyClient({ token });
+
+/**
+ * Подпись вебхука. Apify присылает HMAC (sha256) в одном из заголовков.
+ * Мы поддерживаем оба: x-apify-signature-256 | x-apify-signature
+ */
+export function verifyApifySignature(rawBody: string, headers: Record<string,string | string[] | undefined>) {
+  const secret = process.env.APIFY_WEBHOOK_SECRET || '';
+  if (!secret) return true; // если не задан — пропускаем (dev)
+
+  const sig256 = (headers['x-apify-signature-256'] || headers['X-Apify-Signature-256']) as string | undefined;
+  const sig = (headers['x-apify-signature'] || headers['X-Apify-Signature']) as string | undefined;
+
+  const calc = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  if (sig256 && sig256 === calc) return true;
+  if (sig && sig === calc) return true;
+
+  return false;
+}
+
+/** Получить элементы датасета */
+export async function getDatasetItems(datasetId: string, limit = 50) {
+  const dataset = apify.dataset(datasetId);
+  const { items } = await dataset.listItems({ limit });
+  return items as any[];
+}
+
+3) Instagram: запуск актора и разбор результата
+
+server/apify/instagram.ts
+
+import { apify } from './apify-client';
+
+const ACTOR_ID = process.env.APIFY_INSTAGRAM_ACTOR || 'apify/instagram-reels-scraper';
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL?.replace(/\/+$/,'') || 'http://localhost:3000';
+
+/** Достаём external_id из URL (shortcode) для идемпотентности */
+export function extractInstagramExternalId(url: string): string | null {
+  // поддержка форматов /reel/<shortcode>/, /p/<shortcode>/
+  const m = url.match(/(?:\/reel\/|\/p\/)([A-Za-z0-9_-]+)/);
+  return m?.[1] || null;
+}
+
+/** Старт актора Instagram по прямой ссылке на рилс */
+export async function startInstagramIngest(url: string, webhookData: Record<string, string>) {
+  // конфиг актора зависит от конкретного actorId (ниже общий случай)
+  const input = {
+    directUrls: [url],
+    // любые поля, которые требует ваш актор:
+    // proxy: { useApifyProxy: true, groups: ['RESIDENTIAL'] },
+  };
+
+  const webhookUrl = `${PUBLIC_BASE_URL}/api/ingest/apify/webhook`;
+
+  // Апифай вебхуки: событие FINISHED (или на DATASET.STORE)
+  const webhooks = [{
+    eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
+    requestUrl: webhookUrl,
+    payloadTemplate: JSON.stringify({
+      actorRunId: '{{actorRunId}}',
+      status: '{{status}}',
+      defaultDatasetId: '{{defaultDatasetId}}',
+      data: webhookData,
+    }),
+    // Если используете verifyApifySignature — установите secret на стороне Apify UI к этому webhook
+  }];
+
+  const run = await apify.actor(ACTOR_ID).call(input, { webhooks });
+  return run; // {id, defaultDatasetId, status...}
+}
+
+4) Утилиты загрузки/сохранения видео (S3 + локальный fallback)
+
+server/utils/downloader.ts
+
+import axios from 'axios';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+export async function downloadToTmp(url: string, dir: string, name: string) {
+  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+  const out = join(dir, name);
+  const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 60_000 });
+  await writeFile(out, Buffer.from(resp.data));
+  return out;
+}
+
+
+server/s3-uploader.ts (если у вас его уже нет — вот минималка)
+
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { readFile } from 'node:fs/promises';
+
+const bucket = process.env.S3_BUCKET;
+const region = process.env.S3_REGION;
+const accessKeyId = process.env.S3_ACCESS_KEY;
+const secretAccessKey = process.env.S3_SECRET_KEY;
+
+let s3: S3Client | null = null;
+
+export function isS3Configured() {
+  return !!(bucket && region && accessKeyId && secretAccessKey);
+}
+
+function getS3() {
+  if (!s3) {
+    s3 = new S3Client({ region, credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! } });
+  }
+  return s3!;
+}
+
+export async function uploadToS3(localPath: string, key: string, contentType: string) {
+  if (!isS3Configured()) throw new Error('S3 not configured');
+  const Body = await readFile(localPath);
+  await getS3().send(new PutObjectCommand({ Bucket: bucket!, Key: key, Body, ContentType: contentType, ACL: 'public-read' }));
+  // если у вас настроен CDN — формируйте по нему
+  return `https://${bucket}.s3.${region}.amazonaws.com/${encodeURI(key)}`;
+}
+
+5) Storage-интерфейс (минимум для вставки в ваш storage.ts)
+
+server/storage-ingest.ts
+
+import type { Pool } from 'pg';
+
+export class IngestStorage {
+  constructor(private db: Pool) {}
+
+  async findByExternalId(userId: string, provider: string, externalId: string) {
+    const { rows } = await this.db.query(
+      `SELECT * FROM ingest_items WHERE user_id = $1 AND provider = $2 AND external_id = $3 LIMIT 1`,
+      [userId, provider, externalId]
+    );
+    return rows[0] || null;
+  }
+
+  async createIngest(userId: string, provider: string, sourceUrl: string, externalId: string | null, meta: any = {}) {
+    const { rows } = await this.db.query(
+      `INSERT INTO ingest_items (user_id, provider, source_url, external_id, status, meta)
+       VALUES ($1, $2, $3, $4, 'pending', $5) RETURNING *`,
+      [userId, provider, sourceUrl, externalId, meta]
+    );
+    return rows[0];
+  }
+
+  async updateStatus(id: string, status: string, patch: any = {}) {
+    const { rows } = await this.db.query(
+      `UPDATE ingest_items SET status = $2, meta = COALESCE(meta, '{}'::jsonb) || $3::jsonb WHERE id = $1 RETURNING *`,
+      [id, status, JSON.stringify(patch)]
+    );
+    return rows[0];
+  }
+
+  async attachMedia(id: string, media: { s3?: { video?: string, thumb?: string }, local?: { video?: string, thumb?: string }, meta?: any }) {
+    const { s3, local, meta } = media;
+    const { rows } = await this.db.query(
+      `UPDATE ingest_items
+       SET s3_video = COALESCE($2, s3_video),
+           s3_thumb = COALESCE($3, s3_thumb),
+           local_video = COALESCE($4, local_video),
+           local_thumb = COALESCE($5, local_thumb),
+           meta = COALESCE(meta, '{}'::jsonb) || COALESCE($6::jsonb, '{}'::jsonb)
+       WHERE id = $1
+       RETURNING *`,
+      [id, s3?.video || null, s3?.thumb || null, local?.video || null, local?.thumb || null, JSON.stringify(meta || {})]
+    );
+    return rows[0];
+  }
+}
+
+6) Express-роуты: старт инжеста + вебхук + обработка результата
+
+server/routes-apify.ts
+
+import type { Express } from 'express';
+import type { Pool } from 'pg';
+import bodyParser from 'body-parser';
+import { IngestStorage } from './storage-ingest';
+import { startInstagramIngest, extractInstagramExternalId } from './apify/instagram';
+import { verifyApifySignature, getDatasetItems } from './apify/apify-client';
+import { downloadToTmp } from './utils/downloader';
+import { uploadToS3, isS3Configured } from './s3-uploader';
+
+export function registerApifyRoutes(app: Express, db: Pool, isAuthenticated: any) {
+  const storage = new IngestStorage(db);
+
+  // 1) Старт инжеста по Instagram URL
+  app.post('/api/ingest/instagram', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { url } = req.body;
+      if (!url) return res.status(400).json({ message: 'url is required' });
+
+      const extId = extractInstagramExternalId(url);
+      if (!extId) return res.status(400).json({ message: 'unsupported Instagram URL' });
+
+      // идемпотентность
+      const existing = await storage.findByExternalId(userId, 'instagram', extId);
+      if (existing) return res.json({ ok: true, ingestId: existing.id, status: existing.status });
+
+      const item = await storage.createIngest(userId, 'instagram', url, extId, { requestId: `ig:${extId}` });
+
+      // запускаем актор с вебхуком (вебхук вернёт нам datasetId)
+      await startInstagramIngest(url, { ingestId: item.id, userId });
+
+      res.json({ ok: true, ingestId: item.id, status: item.status });
+    } catch (e: any) {
+      console.error('[Ingest] Start error', e);
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // 2) Вебхук от Apify (нужно **перед** json-парсером получить сырое тело для подписи)
+  // если у вас уже стоит глобальный json bodyParser — вынесите этот роут раньше и используйте raw().
+  app.post('/api/ingest/apify/webhook',
+    bodyParser.raw({ type: '*/*' }),
+    async (req: any, res) => {
+      try {
+        const raw = req.body?.toString?.() || '';
+        if (!verifyApifySignature(raw, req.headers)) {
+          return res.status(401).end('bad signature');
+        }
+        const payload = JSON.parse(raw);
+
+        const { actorRunId, status, defaultDatasetId, data } = payload;
+        const ingestId = data?.ingestId as string | undefined;
+
+        console.log('[Apify][Webhook]', { actorRunId, status, defaultDatasetId, ingestId });
+
+        if (!ingestId) return res.status(200).end('no ingestId (ignored)');
+
+        // помечаем прогресс
+        await storage.updateStatus(ingestId, status === 'SUCCEEDED' ? 'downloading' : 'failed', { actorRunId, defaultDatasetId });
+
+        if (status !== 'SUCCEEDED') {
+          return res.status(200).end('run failed');
+        }
+
+        // тянем dataset items и ищем ссылку на видео
+        const items = await getDatasetItems(defaultDatasetId, 10);
+        // конкретное поле зависит от вашего актора. Чаще всего это videoUrl / video_url / url
+        const media = items?.find((i: any) => i?.videoUrl || i?.video_url || i?.video)?.videoUrl
+                  || items?.[0]?.videoUrl || items?.[0]?.video_url || items?.[0]?.video;
+
+        if (!media) {
+          await storage.updateStatus(ingestId, 'failed', { reason: 'no videoUrl in dataset' });
+          return res.status(200).end('no media');
+        }
+
+        // скачиваем во временную папку
+        const tmp = `/tmp/ingest-${ingestId}`;
+        const localPath = await downloadToTmp(media, tmp, 'video.mp4');
+
+        let publicUrl = `file://${localPath}`;
+        if (isS3Configured()) {
+          try {
+            const key = `ingest/${ingestId}/video.mp4`;
+            publicUrl = await uploadToS3(localPath, key, 'video/mp4');
+          } catch (e: any) {
+            console.error('[Ingest] S3 upload failed, fallback to file://', e.message);
+          }
+        }
+
+        await storage.attachMedia(ingestId, {
+          s3: isS3Configured() ? { video: publicUrl } : undefined,
+          local: !isS3Configured() ? { video: localPath } : undefined,
+          meta: { datasetId: defaultDatasetId }
+        });
+
+        // готово → можно запускать транскрибацию (если есть такой воркер/роут)
+        // fire-and-forget: ваш воркер подхватит ingest_items.status='downloading'
+        await storage.updateStatus(ingestId, 'downloaded');
+
+        return res.status(200).end('ok');
+      } catch (e: any) {
+        console.error('[Apify][Webhook] error', e);
+        return res.status(500).end('error');
+      }
+    }
+  );
+}
+
+
+важно: этот вебхук-роут должен получать raw body до json-парсера, иначе проверка подписи не сработает. Если у вас уже глобальный app.use(express.json()), зарегистрируйте registerApifyRoutes до него либо оставьте bodyParser.raw как в примере.
+
+7) Подключение роутов
+
+В вашем server/routes.ts (или основном файле с роутами) добавьте:
+
+import { registerApifyRoutes } from './routes-apify';
+
+// ...
+registerApifyRoutes(app, db, isAuthenticated);
+
+
+И убедитесь, что app.use(express.json()) не мешает raw-роуту вебхука (см. примечание выше).
+
+8) Пример фронтового вызова (или Postman)
+POST /api/ingest/instagram
+Content-Type: application/json
+
+{
+  "url": "https://www.instagram.com/reel/C7xyzAbCDEf/"
+}
+
+
+ответ:
+
+{ "ok": true, "ingestId": "uuid...", "status": "pending" }
+
+
+через 10–60с после завершения актора придёт вебхук → status перейдёт в downloaded, поле s3_video/local_video заполнится, и воркер транскрибации сможет продолжить.
+
+Как это решает ваши задачи
+
+Идемпотентность: external_id = shortcode → тот же рилс второй раз не закачаем.
+
+Надёжность: вебхук + подстраховка по datasetId; если нет videoUrl — пишем понятную ошибку.
+
+Готово к транскрибу: ingest_items.status переведён в downloaded, есть публичный URL/локальный путь.
+
+S3 / file://: гибкий fallback без поломок в dev.

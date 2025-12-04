@@ -1,0 +1,134 @@
+Да, это баг в обработке ошибок загрузки проекта.
+
+Сейчас сервер отдаёт 401 Unauthorized, а страница проекта показывает «Project not found» и кнопка «Назад» ведёт в никуда. Нужно корректно различать 401/403/404 и делать понятные действия.
+
+Вот короткое ТЗ для реплита (копни и вставь):
+
+Fix: корректная загрузка старых проектов (401/403/404)
+
+1) Клиент — единый перехват 401
+
+Файл: client/src/lib/api.ts (или место, где у тебя обёртка над fetch/axios)
+
+export class ApiError extends Error {
+  status: number;
+  body: any;
+  constructor(status: number, body: any) {
+    super(body?.message || `HTTP ${status}`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+export async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: "include" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body);
+  return body as T;
+}
+
+2) Клиент — страница проекта: разная реакция на 401/403/404
+
+Файл: client/src/pages/project/[id].tsx (или где рендерится Project view)
+
+const { id } = useParams<{ id: string }>();
+
+const { data, isLoading, error } = useQuery({
+  queryKey: ["/api/projects", id],
+  queryFn: () => apiGet<Project>(`/api/projects/${id}`),
+  retry: false,
+});
+
+if (isLoading) return <Spinner />;
+
+if (error) {
+  const status = (error as any)?.status ?? 0;
+
+  // 401 — истёк логин/другая сессия → мгновенный редирект на логин
+  if (status === 401) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    location.href = `/login?next=${next}`;
+    return null;
+  }
+
+  // 403 — проект есть, но доступ запрещён (другой владелец)
+  if (status === 403) {
+    return (
+      <ErrorState
+        title="Нет доступа к проекту"
+        description="Этот проект принадлежит другому пользователю. Вы можете открыть список своих проектов или создать копию."
+        actions={[
+          { label: "Мои проекты", href: "/projects" },
+          { label: "Создать копию", onClick: () => duplicateProject(id!) },
+        ]}
+      />
+    );
+  }
+
+  // 404 — реально не существует
+  if (status === 404) {
+    return (
+      <ErrorState
+        title="Проект не найден"
+        description="Возможно, он был удалён или ID указан неверно."
+        actions={[{ label: "На главную", href: "/projects" }]}
+      />
+    );
+  }
+
+  // Прочие ошибки
+  return (
+    <ErrorState
+      title="Ошибка загрузки"
+      description={(error as any)?.message ?? "Не удалось загрузить проект"}
+      actions={[{ label: "Повторить", onClick: () => queryClient.invalidateQueries({ queryKey: ["/api/projects", id] }) }]}
+    />
+  );
+}
+
+return <ProjectView project={data!} />;
+
+Важно: кнопка «Назад» в пустом состоянии должна вести на "/projects", а не history.back().
+Проверь BackButton — если нет history.length>1, делай navigate("/projects").
+
+3) Сервер — статусы ошибок
+
+Файл: server/routes.ts
+
+В хендлере GET /api/projects/:id:
+	•	Если нет юзера → 401.
+	•	Если проект не найден → 404.
+	•	Если найден, но project.userId !== user.id → 403 (сейчас часто уходит 401).
+
+Пример:
+
+app.get("/api/projects/:id", authRequired, async (req, res) => {
+  const user = req.user!;
+  const project = await storage.getProject(req.params.id);
+  if (!project) return apiResponse.notFound(res, { message: "Project not found" });
+  if (project.userId !== user.id) {
+    return apiResponse.forbidden(res, { message: "Forbidden" }); // 403
+  }
+  return apiResponse.ok(res, project);
+});
+
+4) Дополнительно (по желанию, быстро)
+	•	На клиенте добавь «умный» BackButton:
+
+const navigate = useNavigate();
+const goBack = () => {
+  if (window.history.length > 1) navigate(-1);
+  else navigate("/projects");
+};
+
+	•	На страницу ошибки 403 добавь кнопку «Создать копию» (вызов эндпоинта, который делает duplicateProject(originalId) с новым владельцем).
+
+⸻
+
+Что даёт правка
+	•	Старые проекты, созданные под другой сессией/юзером, больше не мимикрируют под «not found».
+	•	При 401 пользователь попадает на логин и возвращается назад в проект после входа.
+	•	При 403 он видит честное «Нет доступа» и может перейти к своим проектам или сделать копию.
+	•	Кнопка «Назад» больше не «ломается» при прямом входе по URL.
+
+Если хочешь, накину патч-диффом под конкретные файлы — скажи, какие точные пути у твоих компонентов (страница проекта/ошибочный компонент/обёртка fetch).

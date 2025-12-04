@@ -1,0 +1,71 @@
+# Prometheus Configuration for StockMind
+# Collects metrics from application, system, and containers
+
+global:
+  scrape_interval: 15s # Scrape targets every 15 seconds
+  evaluation_interval: 15s # Evaluate rules every 15 seconds
+  external_labels:
+    monitor: 'stockmind'
+    environment: 'production'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # StockMind Application (health endpoint)
+  - job_name: 'stockmind-app'
+    metrics_path: '/health'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['host.docker.internal:5000']  # Production app
+        labels:
+          service: 'stockmind'
+          environment: 'production'
+      - targets: ['host.docker.internal:5001']  # Staging app
+        labels:
+          service: 'stockmind'
+          environment: 'staging'
+
+  # PostgreSQL Exporter (optional - requires postgres_exporter)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         service: 'postgresql'
+
+  # System Metrics (Node Exporter)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'system'
+
+  # Container Metrics (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: 'containers'
+
+  # Docker metrics (if Docker metrics enabled)
+  # - job_name: 'docker'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:9323']
+  #       labels:
+  #         service: 'docker-engine'

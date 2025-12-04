@@ -1,0 +1,178 @@
+окей — кнопка «Открыть сравнение (ДО/ПОСЛЕ)» всё ещё “мертвая”. Ниже короткое, чёткое ТЗ для реплита, чтобы он довёл до рабочего состояния без догадок.
+
+ТЗ: починить открытие сравнения ДО/ПОСЛЕ
+
+Симптом
+
+— Кнопка видна и не disabled, но по клику ничего не происходит (нет модалки, нет запросов, нет тостов).
+
+Ожидаемое
+
+Клик по кнопке мгновенно открывает модалку сравнения. Если кандидата нет — тост с пояснением.
+
+⸻
+
+1) Исправить привязку клика и монтаж модалки
+
+Правки в stage-3-ai-analysis.tsx
+	•	Вверху файла:
+
+const [compareOpen, setCompareOpen] = useState(false);
+
+	•	Кнопка в боковой панели «Инструменты»:
+
+<Button
+  type="button"                     // ВАЖНО: чтобы не было submit
+  onClick={() => setCompareOpen(true)}
+  disabled={!hasCandidate}
+  data-testid="button-open-compare"
+  className="w-full"
+>
+  Открыть сравнение (ДО/ПОСЛЕ)
+</Button>
+
+	•	Монтируем модалку один раз внизу JSX Stage 3 (вне SceneEditor), чтобы она всегда была в DOM:
+
+<CompareModal
+  open={compareOpen}
+  onClose={() => setCompareOpen(false)}
+  projectId={project.id}
+/>
+
+Типичная причина «тишины»
+	•	Модалка вообще не смонтирована (условный рендер по hasCandidate/STAGE3_MAGIC_UI).
+	•	Кнопка без type="button" внутри формы → попытка submit и «пустой» клик.
+	•	onClick привязан на обёртку, а не на сам <Button>.
+
+⸻
+
+2) Починить определение hasCandidate
+
+Надёжная проверка на фронте (после запроса /script-history):
+
+const versions = scriptVersionsQuery.data?.versions ?? [];
+const hasCandidate = versions.some(
+  (v: any) => v.is_candidate === true || v.status === 'candidate'
+);
+
+Если hasCandidate === false, кнопку делаем disabled. При клике (если кнопка всё же активна) — тост:
+
+Нет версии для сравнения. Сначала нажмите «Сделать версию для сравнения».
+
+⸻
+
+3) Реализация CompareModal (shadcn/ui)
+
+В CompareModal.tsx проверьте:
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+export function CompareModal({ open, onClose, projectId }: Props) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent data-testid="modal-compare">
+        <DialogHeader>
+          <DialogTitle>Сравнение версий (ДО / ПОСЛЕ)</DialogTitle>
+        </DialogHeader>
+
+        {/* useQuery на /api/projects/:id/reanalyze/compare/latest */}
+        {/* Лоадер → данные → кнопки выбора */}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+Ключевое:
+	•	Не делать return null при !open — Dialоg управляет порталом сам.
+	•	Убедиться, что DialogContent реально рендерится (не прячется условием).
+	•	Никаких перекрывающих pointer-events: none слоёв.
+
+⸻
+
+4) Загрузка данных в модалке
+
+При open === true:
+
+const { data, isLoading, isError, error } = useQuery({
+  queryKey: ['/api/projects', projectId, 'reanalyze', 'compare', 'latest'],
+  queryFn: async () => {
+    const res = await apiRequest('GET', `/api/projects/${projectId}/reanalyze/compare/latest`);
+    const json = await res.json();
+    return json.data ?? json; // Распаковать { success, data }
+  },
+  enabled: open && !!projectId
+});
+
+Состояния:
+	•	isLoading → спиннер + «Загружаем сравнение…»
+	•	404 / {success:false, error:'no_candidate'} → показать в модалке блок:
+«Нет версии для сравнения. Сначала нажмите “Сделать версию для сравнения”.»
+	•	Ошибка → красный тост + кнопка «Закрыть».
+
+⸻
+
+5) Выбор версии
+
+Кнопки внутри модалки:
+
+<Button
+  type="button"
+  onClick={() => choose('base')}        // оставить ДО
+  data-testid="button-choose-base"
+>
+  Оставить ДО
+</Button>
+
+<Button
+  type="button"
+  onClick={() => choose('candidate')}   // выбрать ПОСЛЕ
+  data-testid="button-choose-candidate"
+>
+  Выбрать ПОСЛЕ
+</Button>
+
+Где:
+
+async function choose(keep: 'base'|'candidate') {
+  const res = await apiRequest('POST', `/api/projects/${projectId}/reanalyze/compare/choose`, { keep });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Failed');
+
+  onClose();
+  await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "script-history"] });
+  await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "scene-recommendations"] });
+}
+
+
+⸻
+
+6) Диагностика «на месте» (добавить на время)
+	•	В onClick кнопки:
+
+console.log('[Compare] click'); 
+
+	•	В CompareModal:
+
+useEffect(() => { console.log('[Compare] open=', open); }, [open]);
+
+Если в консоли нет [Compare] click → обработчик не привязан/кнопка перекрыта.
+Если есть [Compare] click, но нет [Compare] open= true → стейт не меняется (дублирование стейта, не тот setter).
+Если есть оба, но модалки нет — проблема в разметке Dialog/DialogContent.
+
+⸻
+
+7) Acceptance Criteria
+	1.	При наличии кандидата клик по «Открыть сравнение» открывает модалку ≤ 100 мс, виден спиннер, затем данные «ДО/ПОСЛЕ».
+	2.	Кнопки выбора работают; после «Выбрать ПОСЛЕ» модалка закрывается, в истории версий current меняется на выбранную.
+	3.	Без кандидата кнопка disabled; попытка форс-клика → тост «Нет версии для сравнения…».
+	4.	В консоли браузера нет ошибок, сеть показывает запрос к /reanalyze/compare/latest при открытии модалки и к /compare/choose при подтверждении.
+
+⸻
+
+Частые мелкие причины (проверьте заодно)
+	•	Кнопка внутри <form> без type="button" → «пустой» submit.
+	•	Неправильный фичефлаг скрывает модалку (рендерится только при STAGE3_MAGIC_UI && hasScript — а кнопка рендерится вне этой ветки).
+	•	hasCandidate вычисляется из нераспакованного ответа { success, data } → всегда false.
+	•	Двойной стейт модалки в родителе и в SceneEditor: открываем один, рендерим другой.
+
+Сделайте эти правки — кнопка начнёт жить, а пользователь всегда будет видеть, что происходит.

@@ -1,0 +1,168 @@
+import { useState } from "react"
+import { useQuery, useMutation } from "@tanstack/react-query"
+import { useToast } from "@/hooks/use-toast"
+import { apiRequest, queryClient } from "@/lib/query-client"
+import { isUnauthorizedError } from "@/lib/auth-utils"
+import type { InstagramSource } from "@shared/schema"
+import type { ParseMode } from "../types"
+
+export function useInstagramSources() {
+  const { toast } = useToast()
+
+  // State
+  const [showDialog, setShowDialog] = useState(false)
+  const [form, setForm] = useState({
+    username: "",
+    description: "",
+    autoUpdateEnabled: false,
+    checkIntervalHours: 6,
+    notifyNewReels: false,
+    notifyViralOnly: false,
+    viralThreshold: 70,
+  })
+
+  // Parse dialog state
+  const [showParseDialog, setShowParseDialog] = useState(false)
+  const [parseSourceId, setParseSourceId] = useState<string | null>(null)
+  const [parseMode, setParseMode] = useState<ParseMode>('latest-50')
+
+  // Fetch Instagram Sources
+  const { data: instagramSources, isLoading: instagramLoading } = useQuery<InstagramSource[]>({
+    queryKey: ["/api/settings/instagram-sources"],
+  })
+
+  // Get selected source for parse dialog
+  const selectedParseSource = instagramSources?.find(s => s.id === parseSourceId)
+
+  // Common error handler
+  const handleError = (error: Error, title: string) => {
+    if (isUnauthorizedError(error)) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      })
+      setTimeout(() => window.location.href = "/api/login", 500)
+      return
+    }
+    toast({ title, description: error.message, variant: "destructive" })
+  }
+
+  // Add Instagram Source Mutation
+  const addMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/settings/instagram-sources", {
+      username: form.username,
+      description: form.description || null,
+      autoUpdateEnabled: form.autoUpdateEnabled,
+      checkIntervalHours: form.checkIntervalHours,
+      notifyNewReels: form.notifyNewReels,
+      notifyViralOnly: form.notifyViralOnly,
+      viralThreshold: form.viralThreshold,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      setShowDialog(false)
+      setForm({
+        username: "", description: "", autoUpdateEnabled: false,
+        checkIntervalHours: 6, notifyNewReels: false,
+        notifyViralOnly: false, viralThreshold: 70,
+      })
+      toast({
+        title: "Instagram Source Added",
+        description: "The Instagram account has been added successfully.",
+      })
+    },
+    onError: (error: Error) => handleError(error, "Error"),
+  })
+
+  // Delete Instagram Source Mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/settings/instagram-sources/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      toast({ title: "Instagram Source Deleted", description: "The Instagram source has been removed." })
+    },
+    onError: (error: Error) => handleError(error, "Error"),
+  })
+
+  // Parse Instagram Source Mutation
+  const parseMutation = useMutation({
+    mutationFn: () => {
+      if (!parseSourceId) throw new Error("No source selected");
+      const settings = {
+        'latest-20': { resultsLimit: 20, parseMode: 'all' as const },
+        'latest-50': { resultsLimit: 50, parseMode: 'all' as const },
+        'latest-100': { resultsLimit: 100, parseMode: 'all' as const },
+        'new-only': { resultsLimit: 100, parseMode: 'new' as const },
+      }[parseMode];
+      return apiRequest("POST", `/api/instagram/sources/${parseSourceId}/parse`, settings)
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      setShowParseDialog(false)
+      toast({
+        title: "Parsing Complete",
+        description: `Successfully parsed ${data.itemCount} Reels (${data.savedCount} new, ${data.skippedCount} duplicates).`,
+      })
+    },
+    onError: (error: Error) => handleError(error, "Parsing Failed"),
+  })
+
+  // Toggle Instagram Auto-Update Mutation
+  const toggleAutoUpdateMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      apiRequest("PATCH", `/api/instagram/sources/${id}/auto-update`, { autoUpdateEnabled: enabled }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      toast({
+        title: variables.enabled ? "Auto-Update Enabled" : "Auto-Update Paused",
+        description: variables.enabled
+          ? "Instagram source will be monitored automatically."
+          : "Automatic monitoring has been paused.",
+      })
+    },
+    onError: (error: Error) => handleError(error, "Error"),
+  })
+
+  // Check Instagram Now Mutation
+  const checkNowMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/instagram/sources/${id}/check-now`, {}),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      const newReelsCount = data.newReelsCount ?? 0;
+      const viralReelsCount = data.viralReelsCount ?? 0;
+      const message = viralReelsCount > 0
+        ? `Found ${newReelsCount} new Reels (${viralReelsCount} viral).`
+        : `Found ${newReelsCount} new Reels.`;
+      toast({ title: "Manual Check Complete", description: message })
+    },
+    onError: (error: Error) => handleError(error, "Check Failed"),
+  })
+
+  const handleOpenParseDialog = (sourceId: string) => {
+    setParseSourceId(sourceId)
+    setShowParseDialog(true)
+    setParseMode('latest-50')
+  }
+
+  return {
+    instagramSources,
+    instagramLoading,
+    showDialog,
+    setShowDialog,
+    form,
+    setForm,
+    addMutation,
+    deleteMutation,
+    parseMutation,
+    toggleAutoUpdateMutation,
+    checkNowMutation,
+    showParseDialog,
+    setShowParseDialog,
+    parseSourceId,
+    parseMode,
+    setParseMode,
+    selectedParseSource,
+    handleOpenParseDialog,
+  }
+}

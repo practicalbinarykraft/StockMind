@@ -1,0 +1,70 @@
+понял: кнопка «Открыть сравнение (ДО/ПОСЛЕ)» есть, но по клику — тишина. Ни модалки, ни сетевых вызовов. Ниже — короткое ТЗ для реплита, чтобы быстро локализовать и исправить.
+
+ТЗ: починить кнопку «Открыть сравнение (ДО/ПОСЛЕ)»
+
+1) Что наблюдаю
+	•	Кнопка визуально активна, но клик не открывает модалку и не бьёт в API.
+	•	Нет явного тоста/ошибки → вероятность, что обработчик не привязан или модалка не смонтирована/закрыта пропсами.
+
+2) Ожидаемое поведение
+	•	При клике:
+	1.	Если есть кандидат-версия → открывается модалка сравнения, внутри идёт загрузка данных.
+	2.	Если кандидата нет → тост «Нет версии для сравнения. Сначала нажмите “Сделать версию для сравнения”». Кнопка должна быть disabled.
+	•	В модалке вывод: «ДО» vs «ПОСЛЕ», дельты метрик, кнопки «Оставить ДО» / «Выбрать ПОСЛЕ».
+
+3) Чек-лист быстрого дебага (сделать по порядку)
+	1.	В компоненте Stage 3 убедиться, что у кнопки есть onClick и он выставляет локальный стейт:
+	•	const [compareOpen, setCompareOpen] = useState(false)
+	•	onClick={() => setCompareOpen(true)}
+	2.	Убедиться, что <CompareModal /> реально смонтирован в DOM:
+	•	Внизу файла Stage 3:
+<CompareModal open={compareOpen} onClose={() => setCompareOpen(false)} projectId={project.id} />
+	3.	Проверить, что CompareModal использует shadcn <Dialog> корректно:
+	•	<Dialog open={open} onOpenChange={onClose}>
+	•	Внутри есть DialogContent (без него модалка не видна) и он не условно удалён.
+	•	Портал/слой не перекрывается (z-index). У shadcn ок, но проверьте что нет overflow:hidden родителя, ломающего порталы.
+	4.	Включить явные логи:
+	•	В onClick: console.log('[Compare] open click')
+	•	В CompareModal useEffect по open: console.log('[Compare] modal open=', open)
+	5.	Проверить фичефлаг/гард:
+	•	Если кнопка рендерится с disabled={!hasCandidate} — убедиться, что hasCandidate вычисляется от scriptVersionsQuery.data корректно (например, versions.some(v=>v.is_candidate)).
+	•	Если кандидата нет — показывайте тост и не открывайте модалку.
+	6.	Сетевой вызов в модалке:
+	•	Должен быть useQuery(['compare-latest', projectId], () => fetch('/api/projects/:id/reanalyze/compare/latest'))
+	•	Ответ разворачивать: у нас бэкенд часто шлёт { success, data }. Используйте const payload = (res.data || res) и обрабатывайте !success.
+	•	На ошибке — красный тост + кнопка «Закрыть».
+	7.	Протокол onChoose:
+	•	Кнопки «Оставить ДО» / «Выбрать ПОСЛЕ» вызывают POST /api/projects/:id/reanalyze/compare/choose c { keep:'base'|'candidate' }.
+	•	После 200: закрыть модалку, инвалидация script-history и локальные сцены.
+
+4) Мини-правки по месту (что конкретно проверить/поправить в коде)
+	•	Stage 3 (stage-3-ai-analysis.tsx)
+	•	есть const [compareOpen, setCompareOpen] = useState(false)
+	•	кнопка «Открыть сравнение…» вызывает setCompareOpen(true)
+	•	кнопка disabled, если !hasCandidate
+	•	<CompareModal open={compareOpen} onClose={() => setCompareOpen(false)} projectId={project.id} /> присутствует в JSX
+	•	CompareModal
+	•	использует <Dialog open={open} onOpenChange={(v)=>!v && onClose?.()}>
+	•	содержит <DialogContent> (а не условно скрыт)
+	•	при open === true делает GET /reanalyze/compare/latest и рендерит лоадер/ошибку/данные
+	•	кнопки выбора вызывают POST /reanalyze/compare/choose, после успеха:
+	•	закрывают модалку,
+	•	queryClient.invalidateQueries(['/api/projects', projectId, 'script-history']),
+	•	при необходимости обновляют локальный список сцен.
+
+5) UX-улучшения (малые, но важные)
+	•	При клике по «Открыть сравнение» сразу показывать модалку с спиннером и подписью «Загружаем сравнение…».
+	•	Если сервер вернул 404 | {success:false, error:'no_candidate'} — показать в модалке блок с иконкой и кнопкой «Сделать версию для сравнения».
+	•	Добавить data-testid:
+	•	button-open-compare
+	•	modal-compare
+	•	button-choose-base
+	•	button-choose-candidate
+
+6) Acceptance-тест
+	1.	При наличии candidate клик по «Открыть сравнение…» открывает модалку ≤100мс; видно спиннер, затем данные.
+	2.	Без candidate кнопка disabled; попытка клика (если не disabled) → тост «Нет версии для сравнения».
+	3.	Нажал «Выбрать ПОСЛЕ» → модалка закрылась, сцены и «текущая версия» обновились, история версий показывает новую как current.
+	4.	Никаких ошибок в консоле, кнопка работает повторно.
+
+Если всё это сделать — кнопка перестанет быть «пустой», и пользователь всегда будет понимать, что происходит.

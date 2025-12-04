@@ -1,0 +1,109 @@
+Спасибо за скрин. Это предсказуемый баг: сейчас кнопка «Сохранить новую версию» включается только после нажатия «Применить рекомендацию», а обычные ручные правки текста сцены не помечаются как изменения — флаг isModified/canSave не обновляется.
+
+Вот как быстро поправить. Я пишу в формате мини-ТЗ для реплита.
+
+Что исправить (кратко)
+	1.	При любом ручном изменении текста сцены помечать сцену как изменённую и включать кнопку «Сохранить новую версию».
+	2.	Показывать бейдж «Изменено» на карточке сцены.
+	3.	Сбрасывать рекомендации/оценки по этой сцене как «устаревшие» и предлагать переанализ после сохранения.
+	4.	После успешного сохранения — обнулять «грязные» сцены, запускать авто-реанализ новой версии и снова выключать кнопку «Сохранить».
+
+Изменения по файлам
+
+client/src/components/project/scene-editor.tsx
+
+Новые состояния
+
+// рядом с остальными useState
+const [dirtySceneIds, setDirtySceneIds] = useState<Set<number>>(new Set());
+const initialTextsRef = useRef<Map<number, string>>(new Map()); // baseline текстов текущей версии
+const [canSave, setCanSave] = useState(false); // если нет
+const [analysisStale, setAnalysisStale] = useState(false);       // для баннера/подсказки
+
+Инициализация baseline при загрузке/смене версии
+
+useEffect(() => {
+  const m = new Map<number,string>();
+  scenes.forEach(s => m.set(s.sceneNumber, (s.text ?? '').trim()));
+  initialTextsRef.current = m;
+  setDirtySceneIds(new Set());
+  setCanSave(false);
+  setAnalysisStale(false);
+}, [versionId]); // id текущей сохранённой версии сценария
+
+Обработчик ручного ввода
+
+const handleTextChange = (sceneNumber: number, newText: string) => {
+  setScenes(prev => prev.map(s =>
+    s.sceneNumber === sceneNumber ? { ...s, text: newText } : s
+  ));
+
+  const baseline = (initialTextsRef.current.get(sceneNumber) ?? '').trim();
+  const modified = (newText ?? '').trim() !== baseline;
+
+  setDirtySceneIds(prev => {
+    const next = new Set(prev);
+    if (modified) next.add(sceneNumber); else next.delete(sceneNumber);
+    // включаем/выключаем кнопку «Сохранить»
+    setCanSave(next.size > 0);
+    return next;
+  });
+
+  // Локально помечаем сцену как изменённую (для бейджа)
+  queryClient.setQueryData(/* ключ сцены/версии */, (old: any) => {
+    // если храните флаг в сцене:
+    return { ...old, isModified: modified };
+  });
+
+  // Рекомендации для этой сцены считаем устаревшими
+  setAnalysisStale(true);
+  setRecommendations(prev => {
+    const next = new Map(prev);
+    next.delete(sceneNumber); // скрыть блок «Применить» для старых рекомендаций этой сцены
+    return next;
+  });
+};
+
+Кнопка «Сохранить новую версию»
+	•	Делайте её активной, если canSave === true.
+	•	Текст кнопки можно сделать информативным:
+Сохранить новую версию (изменено: {dirtySceneIds.size}).
+
+После успешного сохранения
+
+onSuccess: (saved) => {
+  // обновляем baseline — теперь текущее становится сохранённым
+  const m = new Map<number,string>();
+  saved.scenes.forEach(s => m.set(s.sceneNumber, (s.text ?? '').trim()));
+  initialTextsRef.current = m;
+
+  setDirtySceneIds(new Set());
+  setCanSave(false);
+
+  // запустить авто-реанализ новой версии (как уже настроено)
+  triggerReanalyze(saved.versionId);
+
+  // рекомендации снова будут актуальны после анализа
+  setAnalysisStale(false);
+}
+
+client/src/components/project/scene-card.tsx
+	•	Пробрасываем onTextChange(sceneNumber, text) из SceneEditor.
+	•	Показываем бейдж, если dirtySceneIds.has(scene.sceneNumber) → «Изменено».
+	•	Если analysisStale === true и сцена помечена как изменённая — прячем блок «Рекомендации AI» или показываем подсказку «Рекомендации устарели. Сохраните версию и запустится переанализ».
+
+Блок «Сравнение»
+	•	Кнопку «Сравнение: Текущая vs Новая» прятать/блокировать, пока canSave === true (есть несохранённые правки).
+	•	Показывать после сохранения/реанализа (как у вас уже сделано для «готово»).
+
+UX-подсказки
+	•	Маленький баннер под панелью инструментов, если analysisStale:
+«Текст сцен был изменён вручную. Сохраните новую версию — мы автоматически пересчитаем оценки и обновим рекомендации».
+
+⸻
+
+После этих правок поведение будет таким, как ожидаешь:
+	•	набрал текст руками → сцена помечена «Изменено», кнопка «Сохранить новую версию» активна;
+	•	сохранил → создаётся vN+1, стартует авто-анализ, после готовности можно открыть сравнение с корректными баллами и разными текстами.
+
+Если хочешь — скину этот блок как готовый чек-лист для реплита одной кнопкой.

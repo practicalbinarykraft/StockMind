@@ -1,0 +1,95 @@
+Да, это тот же корень: в Stage 2 модалка берёт RSS-анонс (summary/excerpt), а не «полный текст» из экстрактора (Readability/Parse Extended), который у нас используется дальше по пайплайну. Поэтому видишь лишь пару абзацев.
+
+Вот как быстро починить, не ломая текущий флоу.
+
+Что должно происходить
+	1.	При открытии «Предпросмотра» сначала грузим краткие данные (быстро).
+	2.	Если у статьи нет fullText/contentHtml → сразу дёргаем тот же бэкенд-эндпоинт, который вызывается кнопкой «Parse Extended», и получаем распарсенный полный текст по originalUrl.
+	3.	После успешной экстракции перерисовываем модалку уже с полным текстом.
+	4.	Кнопка «Перевести» работает по полному тексту, а не по короткому summary.
+
+Точные правки (минимальные)
+
+1) Бэкенд (переиспользуем то, что уже есть)
+
+Судя по UI, у вас уже есть эндпоинт вида:
+	•	POST /api/news/:id/parse-extended (или аналог)
+который делает Readability/извлечение с оригинальной страницы и сохраняет результат (и/или отдаёт его).
+
+Если такого «точечного» нет, можно использовать общий:
+	•	POST /api/news/parse-extended с { id } или { url }
+и возвращать { fullText, contentHtml, language, title }.
+
+Ничего нового писать не нужно — просто вызов из модалки.
+
+2) Stage 2 — модалка предпросмотра
+
+В компоненте ArticlePreviewModal:
+	•	Храним локальное состояние:
+
+const [article, setArticle] = useState<{
+  id: string;
+  title: string;
+  summary?: string;
+  contentHtml?: string;   // полный текст (если уже есть)
+  originalUrl: string;
+  hasFull?: boolean;      // признак наличия полного текста 
+}>()
+const [loadingFull, setLoadingFull] = useState(false)
+const [errorFull, setErrorFull] = useState<string | null>(null)
+
+
+	•	При isOpen === true:
+	1.	грузим краткую карточку (GET /api/news/:id) — как сейчас;
+	2.	если !data.contentHtml/!data.hasFull → автоматически пробуем вытянуть полный текст:
+
+useEffect(() => {
+  if (!isOpen || !article) return
+  if (article.contentHtml) return
+  setLoadingFull(true)
+  setErrorFull(null)
+  api.parseExtended(article.id)  // тот же эндпоинт, что и верхняя кнопка "Parse Extended"
+    .then((full) => {
+      // ожидаем хотя бы contentHtml или fullText
+      if (full?.contentHtml || full?.fullText) {
+        setArticle((prev) => prev && ({
+          ...prev,
+          title: full.title ?? prev.title,
+          contentHtml: full.contentHtml ?? wrapAsHtml(full.fullText),
+          hasFull: true
+        }))
+      } else {
+        setErrorFull("Не удалось получить полный текст")
+      }
+    })
+    .catch(() => setErrorFull("Ошибка при загрузке полного текста"))
+    .finally(() => setLoadingFull(false))
+}, [isOpen, article?.id])
+
+
+	•	Рендер:
+	•	Если loadingFull → скелетон «Загружаем полный текст…».
+	•	Если errorFull и нет contentHtml → показать summary + линк «Открыть оригинал».
+	•	Если есть contentHtml → показываем полную статью.
+	•	Кнопка «Перевести» вызывает ваш существующий translateArticle(id|html) и заменяет title + contentHtml в состоянии.
+
+Важно: переводите тот же contentHtml, а не summary, иначе снова будет коротко.
+
+3) Карточка в списке
+
+Кнопка «Предпросмотр» остаётся как есть — меняется только поведение модалки. Для UX можно добавить подпись «идёт распаковка статьи…» на первые 1–2 секунды, чтобы было понятно, что ждём парсер.
+
+4) Кэш/реактивность
+	•	react-query ключи модалки сделайте такими же, как в Stage 3 для полного текста (['news', id, 'full']), чтобы не тянуть повторно при следующем открытии.
+	•	Если эндпоинт parse-extended ещё и сохраняет полный текст в БД, не забудьте queryClient.setQueryData/invalidateQueries для ['news', id] и ['news', id, 'full'], чтобы Stage 3 сразу видел полную версию.
+
+5) Paywall / неразбираемый сайт (крайний случай)
+	•	Если parse-extended вернул пусто → оставляем summary, показываем заметный бэдж «Полный текст недоступен» + ссылку «Открыть оригинал». Переводим тогда «как есть» (summary), но это исключение.
+
+⸻
+
+Почему раньше работало в следующем шаге?
+
+Потому что Stage 3 уже вызывал экстракцию («Parse Extended») перед анализом и работал с полным текстом. В Stage 2 до этого шага мы ещё не дёргали парсер — вот и видно только RSS summary.
+
+Сейчас модалка Stage 2 будет сама дёргать тот же парсер при открытии и показывать всю статью + перевод, как ты и хотел.

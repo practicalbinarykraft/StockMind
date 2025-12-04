@@ -1,0 +1,176 @@
+🎯 ПОНЯЛ! ДЕЛАЕМ STAGE 7!
+📋 ЗАДАЧА:
+Stage 7 = Stage 6 + Боковая панель с генерацией B-Roll
+
+🎨 LAYOUT:
+┌──────────────────────────────────────────────────────────────────┐
+│ Stage 7: Final Export & B-Roll Generation                        │
+└──────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┬─────────────────────────────────┐
+│ LEFT (65%)                  │ RIGHT (35%)                     │
+│ (всё из Stage 6)            │ (B-Roll генерация)              │
+│                             │                                 │
+│ 📊 Timeline                 │ 🎨 Scene B-Roll                 │
+│ ├─ 🎣 Hook (0:00-0:03)      │                                 │
+│ │  [▶️ Preview B-Roll]      │ Selected: Hook (0:00-0:03)      │
+│ ├─ 💪 Main (0:03-0:18)      │                                 │
+│ │  [Generate B-Roll]        │ 📝 Shot Instructions:           │
+│ └─ 🎯 CTA (0:18-0:27)       │ [textarea]                      │
+│    [Generate B-Roll]        │ "Close-up, dynamic camera..."   │
+│                             │                                 │
+│ 📝 Full Script              │ [✨ Generate AI Prompt]         │
+│ BREAKING: Coinbase...       │                                 │
+│                             │ AI Prompt (readonly):           │
+│ 🎤 Audio Player             │ "Stock exchange floor with      │
+│ [▶️ Play] 27.7s             │  traders, dynamic movement..."  │
+│                             │                                 │
+│ 🎬 Avatar Video             │ [🎬 Generate B-Roll]            │
+│ [Video Player]              │                                 │
+│                             │ Status: ⏳ Generating (45%)     │
+└─────────────────────────────┴─────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ Actions:                                                         │
+│ [✨ Generate All B-Roll] [📸 Screenshot] [✅ Complete] [📥 All] │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚡ СКАЖИ AGENT:
+```
+Implement Stage 7: B-Roll Generation!
+
+LAYOUT:
+Left side (65%): Keep ALL Stage 6 content
+- Timeline with scenes (no drag-drop needed)
+- Each scene shows: [▶️ Preview B-Roll] or [Generate B-Roll]
+- Full script
+- Audio player
+- Avatar video player
+
+Right sidebar (35%): B-Roll generation panel
+- Scene selector (which scene to work on)
+- Shot instructions textarea
+- [Generate AI Prompt] button (Claude API)
+- AI-generated prompt (readonly)
+- [Generate B-Roll] button (Kie.ai)
+- Generation status with progress
+- B-Roll preview when ready
+
+Bottom actions:
+- [✨ Generate All B-Roll] - batch generation
+- [📸 Save Screenshot] - timeline + script
+- [✅ Complete Project]
+- [📥 Download All]
+
+TECHNICAL:
+1. Use existing Kie.ai service (attached docs)
+   - generateVideo() with veo3_fast model
+   - aspectRatio: '9:16' (vertical)
+   - Polling with exponential backoff
+   - Circuit breaker protection
+
+2. Store B-Roll data in project_steps table:
+   step_number: 7
+   data: {
+     scenes: [{
+       sceneId: string,
+       shotInstructions: string,
+       aiPrompt: string,
+       taskId: string,
+       status: 'idle' | 'generating' | 'completed' | 'failed',
+       videoUrl?: string,
+       progress?: number
+     }]
+   }
+
+3. API endpoints needed:
+   POST /api/projects/:id/broll/generate
+   GET /api/projects/:id/broll/status/:taskId
+   POST /api/projects/:id/broll/generate-all
+
+4. Frontend features:
+   - Select scene from dropdown
+   - Edit shot instructions
+   - Generate prompt with Claude
+   - Generate B-Roll with Kie.ai
+   - Polling for status
+   - Preview completed B-Roll
+   - Click B-Roll preview → fullscreen modal
+
+5. Integration points:
+   - Use Stage 3 scenes (editedScenes)
+   - Use Stage 4 audio duration for timeline
+   - Use Stage 5 video for main content
+   - Generate B-Roll for each scene separately
+   - Store per-scene B-Roll URLs
+
+NO DRAG & DROP needed!
+Just scene selector dropdown + generate buttons.
+
+Start implementation now!
+Create stage-7-broll.tsx component first.
+
+📝 ВАЖНЫЕ ДЕТАЛИ:
+1. Kie.ai Integration:
+typescriptimport { generateVideo, getVideoStatus } from '@/server/kie-service';
+
+// Генерация B-Roll для сцены:
+const result = await generateVideo({
+  prompt: aiGeneratedPrompt,
+  model: 'veo3_fast',
+  aspectRatio: '9:16',
+  requestId: `${projectId}-scene-${sceneId}`, // Idempotency
+}, storage, userId, 'user');
+
+// Polling статуса:
+const pollStatus = async (taskId: string) => {
+  const status = await getVideoStatus(taskId, storage, userId);
+  
+  if (status.data.status === 'completed') {
+    return status.data.videoUrl;
+  }
+  
+  if (status.data.status === 'failed') {
+    throw new Error(status.data.error);
+  }
+  
+  // Continue polling...
+};
+2. Data Structure:
+typescript// project_steps (step_number = 7)
+{
+  scenes: [
+    {
+      sceneId: 'hook',
+      sceneTitle: 'Hook',
+      timeRange: '0:00-0:03',
+      shotInstructions: 'Close-up, dynamic...',
+      aiPrompt: 'Stock exchange floor...',
+      taskId: '571395941b6172c5...',
+      status: 'completed',
+      videoUrl: 'https://...',
+      progress: 100,
+      keyOwner: 'user',
+      keyLast4: 'eb05'
+    },
+    // ... other scenes
+  ]
+}
+3. UI States:
+typescript// Idle (не начата генерация):
+[Generate B-Roll]
+
+// Generating (в процессе):
+⏳ Generating... 45%
+[Cancel]
+
+// Completed (готово):
+✅ Ready
+[▶️ Preview] [🔄 Regenerate]
+
+// Failed (ошибка):
+❌ Failed: {error}
+[🔄 Retry]

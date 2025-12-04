@@ -1,0 +1,279 @@
+import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { logger } from '../../server/lib/logger.js';
+import {
+  logApiRequest,
+  logApiResponse,
+  logApiError,
+  logBackgroundTask,
+  logServiceCall,
+  logDbOperation,
+  logValidationError,
+  logCronJob,
+  logUserAction,
+} from '../../server/lib/logger-helpers.js';
+
+// Mock the logger
+jest.mock('../../server/lib/logger.js', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
+describe('Logger Helpers', () => {
+  beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+  });
+
+  describe('logApiRequest', () => {
+    test('should log API request with correct context', () => {
+      const mockReq = {
+        method: 'GET',
+        url: '/api/test',
+        userId: 'user-123',
+      };
+
+      logApiRequest(mockReq);
+
+      expect(logger.info).toHaveBeenCalledTimes(1);
+      expect(logger.info).toHaveBeenCalledWith(
+        'API request',
+        expect.objectContaining({
+          method: 'GET',
+          url: '/api/test',
+        })
+      );
+    });
+  });
+
+  describe('logApiResponse', () => {
+    test('should log successful response', () => {
+      logApiResponse({ method: 'GET', url: '/api/users', statusCode: 200 });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'API response',
+        expect.objectContaining({
+          method: 'GET',
+          url: '/api/users',
+          statusCode: 200,
+        })
+      );
+    });
+
+    test('should log error response with warn', () => {
+      logApiResponse({ method: 'POST', url: '/api/users', statusCode: 400 });
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'API response',
+        expect.objectContaining({
+          statusCode: 400,
+        })
+      );
+    });
+  });
+
+  describe('logApiError', () => {
+    test('should log API error with stack trace', () => {
+      const error = new Error('Test error');
+      error.stack = 'Error: Test error\n  at test.js:1:1';
+
+      logApiError(error, { method: 'GET', url: '/api/test' });
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'API error',
+        expect.objectContaining({
+          message: 'Test error',
+          stack: error.stack,
+          method: 'GET',
+          url: '/api/test',
+        })
+      );
+    });
+  });
+
+  describe('logBackgroundTask', () => {
+    test('should log task start', () => {
+      logBackgroundTask({
+        taskName: 'transcribeVideo',
+        status: 'started',
+      });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Background task started: transcribeVideo',
+        expect.objectContaining({
+          taskName: 'transcribeVideo',
+        })
+      );
+    });
+
+    test('should log task completion', () => {
+      logBackgroundTask({
+        taskName: 'transcribeVideo',
+        status: 'completed',
+        duration: 5000,
+        itemsProcessed: 10,
+      });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Background task completed: transcribeVideo',
+        expect.objectContaining({
+          taskName: 'transcribeVideo',
+          duration: 5000,
+          itemsProcessed: 10,
+        })
+      );
+    });
+
+    test('should log task failure', () => {
+      const error = new Error('Task failed');
+      logBackgroundTask({
+        taskName: 'transcribeVideo',
+        status: 'failed',
+        error,
+      });
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Background task failed: transcribeVideo',
+        expect.objectContaining({
+          taskName: 'transcribeVideo',
+          error: 'Task failed',
+        })
+      );
+    });
+  });
+
+  describe('logServiceCall', () => {
+    test('should log service call success', () => {
+      logServiceCall({
+        service: 'Apify',
+        operation: 'scrapeReels',
+        username: 'testuser',
+      });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Service call: Apify.scrapeReels',
+        expect.objectContaining({
+          service: 'Apify',
+          operation: 'scrapeReels',
+          username: 'testuser',
+        })
+      );
+    });
+
+    test('should log service call failure', () => {
+      const error = new Error('API rate limit exceeded');
+      logServiceCall({
+        service: 'Apify',
+        operation: 'scrapeReels',
+        error,
+      });
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Service call failed: Apify.scrapeReels',
+        expect.objectContaining({
+          service: 'Apify',
+          operation: 'scrapeReels',
+        })
+      );
+    });
+  });
+
+  describe('logDbOperation', () => {
+    test('should log database operation', () => {
+      logDbOperation('insert', 'users', { userId: 'user-123' });
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        'Database operation',
+        expect.objectContaining({
+          operation: 'insert',
+          table: 'users',
+          userId: 'user-123',
+        })
+      );
+    });
+  });
+
+  describe('logValidationError', () => {
+    test('should log validation error', () => {
+      const errors = {
+        email: 'Invalid email format',
+        password: 'Too short',
+      };
+
+      logValidationError(errors, { context: 'registration' });
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Validation error',
+        expect.objectContaining({
+          errors,
+          context: 'registration',
+        })
+      );
+    });
+  });
+
+  describe('logCronJob', () => {
+    test('should log cron job start', () => {
+      logCronJob('instagramMonitor', 'started', {
+        scheduledTime: new Date('2025-01-01T12:00:00Z'),
+      });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Cron job started: instagramMonitor',
+        expect.objectContaining({
+          scheduledTime: expect.any(Date),
+        })
+      );
+    });
+
+    test('should log cron job completion', () => {
+      logCronJob('instagramMonitor', 'completed', {
+        duration: 3000,
+        sourcesChecked: 5,
+      });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Cron job completed: instagramMonitor',
+        {
+          duration: 3000,
+          sourcesChecked: 5,
+        }
+      );
+    });
+
+    test('should log cron job failure', () => {
+      logCronJob('instagramMonitor', 'failed', {
+        error: 'Network error',
+      });
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Cron job failed: instagramMonitor',
+        {
+          error: 'Network error',
+        }
+      );
+    });
+  });
+
+  describe('logUserAction', () => {
+    test('should log user action', () => {
+      logUserAction('project_created', 'user-123', {
+        projectId: 'project-456',
+        projectName: 'Test Project',
+      });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'User action',
+        expect.objectContaining({
+          action: 'project_created',
+          userId: 'user-123',
+          projectId: 'project-456',
+          projectName: 'Test Project',
+        })
+      );
+    });
+  });
+});

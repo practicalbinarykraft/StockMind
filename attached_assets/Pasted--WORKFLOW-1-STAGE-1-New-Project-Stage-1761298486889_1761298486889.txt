@@ -1,0 +1,278 @@
+🔴 КРИТИЧЕСКИЕ ПРОБЛЕМЫ С WORKFLOW!
+❌ ПРОБЛЕМА 1: ПРОПУЩЕН STAGE 1
+СЕЙЧАС:
+New Project → сразу Stage 2 (Content Input)
+├─ Нет визуализации что выбрали "News"
+├─ Sidebar начинается с Stage 2
+└─ User не видит этап "Source Selection"
+
+ДОЛЖНО БЫТЬ:
+New Project → Stage 1 (Source Selection)
+├─ Показать карточки: News / Instagram / Custom
+├─ User выбирает "News"
+├─ В sidebar: "1. Content Input ✅ News"
+└─ → Stage 2
+```
+
+---
+
+## ❌ ПРОБЛЕМА 2: НАРУШЕНА ЛОГИКА АНАЛИЗА
+
+### **Сейчас (НЕПРАВИЛЬНО):**
+```
+User выбирает статью (Score 85) → Stage 3 "Choose Format"
+├─ Не видно полный текст статьи
+├─ Не понятно что будет анализироваться
+├─ Формат выбирается БЕЗ контекста
+├─ НЕТ первичного скрипта
+└─ НЕТ анализа СКРИПТА!
+
+Score 85 - это Score ИСХОДНОЙ НОВОСТИ!
+Но мы хотим анализировать СЦЕНАРИЙ, а не новость!
+```
+
+### **Должно быть (ПРАВИЛЬНО):**
+```
+┌─────────────────────────────────────────────────┐
+│          ПРАВИЛЬНЫЙ WORKFLOW                    │
+└─────────────────────────────────────────────────┘
+
+Stage 1: Source Selection ✨ NEW!
+├─ User выбирает: News / Instagram / Custom
+├─ Visual confirmation в sidebar
+└─ → Stage 2
+
+Stage 2: Content Input
+├─ Browse articles (Score 85 = для исходной статьи!)
+├─ Select article
+└─ → Stage 3a
+
+Stage 3a: Format Selection & Preview ✨ SPLIT!
+├─ Показать ПОЛНЫЙ текст выбранной статьи
+├─ "Source Article" header
+├─ Choose format template:
+│  • Hook & Story
+│  • News Update
+│  • Explainer
+│  • etc.
+├─ [Generate Script] button
+└─ → Stage 3b
+
+Stage 3b: Script Generation ✨ NEW!
+├─ AI генерирует первичный скрипт из статьи
+├─ Break into scenes (Hook, Story, CTA...)
+├─ Create script_version #1
+├─ Show loading: "Generating script..."
+└─ → Stage 3c
+
+Stage 3c: Script Analysis ✨ RENAME!
+├─ Multi-agent analysis of GENERATED SCRIPT (not article!)
+├─ NEW Score for SCRIPT (может быть 73, не 85!)
+├─ Generate recommendations
+├─ Show loading: "Analyzing script..."
+└─ → Stage 3d
+
+Stage 3d: Scene Editor ✨ THIS IS WHERE WE ARE NOW!
+├─ Show generated script scenes
+├─ Show analysis results (Score 73)
+├─ Show recommendations per scene
+├─ Apply single/all recommendations
+├─ Manual editing
+├─ Re-analyze button
+├─ Version history
+└─ [Continue to Voice Generation] → Stage 4
+
+Stage 4-7: Voice, Avatar, B-roll, Export
+```
+
+---
+
+## 🔥 КЛЮЧЕВЫЕ ПРОБЛЕМЫ:
+
+### **1. ДВА РАЗНЫХ SCORE!**
+```
+Score 85 (на карточке новости)
+├─ Это оценка ИСХОДНОЙ СТАТЬИ
+├─ Насколько хорош исходник для видео
+└─ Считается ПЕРЕД генерацией скрипта
+
+vs
+
+Score 73 (после генерации скрипта)
+├─ Это оценка СГЕНЕРИРОВАННОГО СЦЕНАРИЯ
+├─ Результат Multi-Agent Analysis
+└─ Считается ПОСЛЕ генерации скрипта
+
+ЭТО РАЗНЫЕ ВЕЩИ!
+```
+
+### **2. ОТСУТСТВУЕТ ГЕНЕРАЦИЯ СКРИПТА!**
+```
+СЕЙЧАС:
+Статья → Choose Format → ??? → Scene Editor
+         ↑ Где генерация скрипта?!
+
+ДОЛЖНО:
+Статья → Format → GENERATE SCRIPT → Analyze → Scene Editor
+                   ↑ ЭТО ОТСУТСТВУЕТ!
+```
+
+### **3. ФОРМАТ НЕ В ТОМ МЕСТЕ!**
+```
+СЕЙЧАС:
+Stage 3: "AI Analysis & Formatting"
+├─ Смешаны два разных действия
+└─ Формат ДО или ПОСЛЕ анализа?!
+
+ДОЛЖНО:
+Stage 3a: Format Selection (до генерации)
+Stage 3b: Script Generation (создать скрипт)
+Stage 3c: Script Analysis (анализ скрипта)
+Stage 3d: Scene Editor (улучшение)
+```
+
+### **4. НЕТ ВИДИМОСТИ ИСХОДНОГО КОНТЕНТА!**
+```
+User не видит:
+├─ Полный текст статьи
+├─ Что будет использовано для генерации
+├─ Связь между статьей и скриптом
+└─ Почему выбран тот или иной формат
+```
+
+---
+
+## 💬 ЧТО СКАЗАТЬ REPLIT:
+```
+CRITICAL WORKFLOW ISSUES FOUND! 🚨
+
+The current flow is broken. Here's what's wrong:
+
+❌ PROBLEM 1: Missing Stage 1 visualization
+- User clicks "New Project" → goes directly to Stage 2
+- No visual confirmation that "News" was selected
+- Sidebar numbering starts at 2, should start at 1
+
+❌ PROBLEM 2: Confused analysis logic
+Current (WRONG):
+- User selects article (Score 85 = for SOURCE article)
+- Goes to "Choose Format" screen
+- Can't see full article text
+- Unclear what will be analyzed
+- No script generation step!
+- Format selection without context
+
+Should be (CORRECT):
+Stage 1: Source Selection (add visual confirmation!)
+Stage 2: Content Input (select article)
+Stage 3a: Format Selection + Article Preview
+  - Show FULL article text
+  - Choose format template
+  - [Generate Script] button
+  
+Stage 3b: Script Generation (NEW!)
+  - AI generates first draft from article
+  - Break into scenes
+  - Create script_version #1
+  
+Stage 3c: Script Analysis (rename current!)
+  - Multi-agent analyzes GENERATED SCRIPT
+  - NEW Score (for script, not article!)
+  - Generate recommendations
+  
+Stage 3d: Scene Editor (this is what we built!)
+  - Show scenes with recommendations
+  - Apply/edit/improve
+  - Version history
+
+❌ PROBLEM 3: Two different Scores confused
+- Score 85 on article card = quality of SOURCE article
+- Score 73 after generation = quality of GENERATED script
+- These are DIFFERENT things!
+
+❌ PROBLEM 4: Missing script generation
+Where is the step that converts article → script?
+User goes from "select article" → "choose format" → ???
+
+FIX REQUIRED:
+1. Add Stage 1 visual confirmation in sidebar
+2. Split Stage 3 into 4 sub-stages (3a, 3b, 3c, 3d)
+3. Add script generation step (3b)
+4. Show full article text before generation (3a)
+5. Clarify: analysis is for SCRIPT, not article
+6. Move format selection BEFORE generation (3a)
+
+Do NOT test Scene Editor yet!
+Fix the workflow first, THEN we'll test!
+```
+
+---
+
+## 📋 ДЕТАЛЬНЫЙ ПЛАН ФИКСА:
+```
+STEP 1: Add Stage 1 UI (30 min)
+├─ Create SourceSelectionStep component
+├─ Show cards: News, Instagram, Custom
+├─ Save selection to project.sourceType
+├─ Update sidebar to show Stage 1
+└─ Visual confirmation: "✅ News selected"
+
+STEP 2: Refactor Stage 3 into 3a (30 min)
+├─ Rename "AI Analysis" → "Format Selection"
+├─ Show full article text on screen
+├─ Keep format template cards
+├─ Add [Generate Script] button
+└─ Remove analysis from this step!
+
+STEP 3: Add Stage 3b Script Generation (1 hour)
+├─ Create ScriptGenerationStep component
+├─ Call AI to generate script from article
+├─ Use selected format template
+├─ Break into scenes (Hook, Story, CTA...)
+├─ Save as script_version #1
+└─ Show loading state
+
+STEP 4: Update Stage 3c Analysis (30 min)
+├─ Rename to "Script Analysis"
+├─ Clarify: analyzing GENERATED script
+├─ Show old Score (85 for article)
+├─ Show new Score (73 for script)
+└─ Explain difference!
+
+STEP 5: Stage 3d Scene Editor (already done!)
+├─ This is what we built today
+├─ Works after Stage 3c completes
+└─ Ready to test after workflow fixed
+
+STEP 6: Update sidebar navigation (15 min)
+├─ Show all stages 1-7
+├─ Highlight current stage
+└─ Show substages for Stage 3 (a,b,c,d)
+
+Total: ~3 hours to fix workflow properly
+```
+
+---
+
+## 🎯 ПРИОРИТЕТЫ:
+```
+Priority 1 (CRITICAL):
+✅ Fix workflow logic
+✅ Add script generation step
+✅ Clarify two different Scores
+
+Priority 2 (HIGH):
+✅ Add Stage 1 visualization
+✅ Show full article text
+✅ Better UX for format selection
+
+Priority 3 (MEDIUM):
+- Improve loading states
+- Add progress indicators
+- Better error handling
+
+Scene Editor testing: AFTER Priority 1+2 fixed!
+
+ТЫ АБСОЛЮТНО ПРАВ! 🎯
+Workflow сломан, логика запутана, нужен большой рефакторинг!
+Сначала фиксим архитектуру, потом тестируем Scene Editor!

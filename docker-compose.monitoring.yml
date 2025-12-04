@@ -1,0 +1,172 @@
+version: '3.8'
+
+# ============================================================================
+# StockMind Monitoring Stack
+# Prometheus + Grafana for metrics and alerting
+# ============================================================================
+#
+# Usage:
+#   docker-compose -f docker-compose.monitoring.yml up -d
+#
+# Access:
+#   Grafana: http://localhost:3000 (admin/admin)
+#   Prometheus: http://localhost:9090
+#
+
+services:
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: stockmind-prometheus
+    restart: unless-stopped
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+
+    ports:
+      - "9090:9090"
+
+    networks:
+      - monitoring
+
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Grafana - Visualization & Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: stockmind-grafana
+    restart: unless-stopped
+
+    environment:
+      # Security
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+
+      # Server
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:-localhost}
+
+      # Database (optional - use external DB)
+      # GF_DATABASE_TYPE: postgres
+      # GF_DATABASE_HOST: postgres:5432
+      # GF_DATABASE_NAME: grafana
+      # GF_DATABASE_USER: grafana
+      # GF_DATABASE_PASSWORD: ${GRAFANA_DB_PASSWORD}
+
+      # Auth (optional - enable OAuth)
+      # GF_AUTH_GITHUB_ENABLED: true
+      # GF_AUTH_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      # GF_AUTH_GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+
+      # SMTP (optional - for alerts)
+      # GF_SMTP_ENABLED: true
+      # GF_SMTP_HOST: smtp.gmail.com:587
+      # GF_SMTP_USER: ${SMTP_USER}
+      # GF_SMTP_PASSWORD: ${SMTP_PASSWORD}
+      # GF_SMTP_FROM_ADDRESS: alerts@stockmind.com
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - prometheus
+
+    networks:
+      - monitoring
+
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Node Exporter - System Metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: stockmind-node-exporter
+    restart: unless-stopped
+
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
+    volumes:
+      - /:/host:ro,rslave
+
+    ports:
+      - "9100:9100"
+
+    networks:
+      - monitoring
+
+  # cAdvisor - Container Metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: stockmind-cadvisor
+    restart: unless-stopped
+
+    privileged: true
+
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+    ports:
+      - "8080:8080"
+
+    networks:
+      - monitoring
+
+    devices:
+      - /dev/kmsg
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  monitoring:
+    driver: bridge
+    name: stockmind-monitoring
+
+# ============================================================================
+# Quick Start
+# ============================================================================
+#
+# 1. Start monitoring stack:
+#    docker-compose -f docker-compose.monitoring.yml up -d
+#
+# 2. Access Grafana:
+#    Open http://localhost:3000
+#    Login: admin / admin (change on first login)
+#
+# 3. View Prometheus:
+#    Open http://localhost:9090
+#
+# 4. Check metrics:
+#    curl http://localhost:9090/api/v1/targets
+#
+# 5. Stop monitoring:
+#    docker-compose -f docker-compose.monitoring.yml down
+#
+# ============================================================================

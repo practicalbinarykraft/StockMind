@@ -1,0 +1,594 @@
+У нас оказывается нет функционала для переписывания сценария после получения анализа на 3 шаге! Анализ есть, рекомендации есть, а самого сценария на экране нет и нет кнопки "Переделать с учётом рекомендаций" (или "Применить рекомендации") как угодно назвать можно
+
+
+Выявил критический пробел: отсутствует функция применения рекомендаций к сценарию.
+
+
+
+
+🔴 КРИТИЧЕСКИЙ UX БАГ! ОТСУТСТВУЕТ ПРИМЕНЕНИЕ РЕКОМЕНДАЦИЙ!
+❌ ТЕКУЩАЯ ПРОБЛЕМА:
+Stage 3: AI Analysis
+├─ ✅ Анализ работает
+├─ ✅ Рекомендации генерируются
+├─ ❌ НЕТ отображения текущего сценария!
+├─ ❌ НЕТ кнопки "Применить рекомендации"!
+└─ ❌ НЕТ способа улучшить сценарий автоматически!
+
+Пользователь видит:
+"Добавьте CTA → ожидается +35% saves"
+
+НО КАК?! 😱
+- Где текущий сценарий?
+- Как применить рекомендацию?
+- Нужно вручную редактировать?
+
+ЭТО БЕСПОЛЕЗНО БЕЗ ACTION!
+```
+
+---
+
+## ✅ ПРАВИЛЬНЫЙ FLOW:
+```
+┌─────────────────────────────────────────────────┐
+│         STAGE 3: AI Analysis + Rewrite          │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│ 📝 CURRENT SCRIPT                               │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ [0-3s] Как я заработал деньги онлайн       │ │
+│ │ [3-8s] Я открыл для себя метод который...  │ │
+│ │ [8-13s] За месяц я заработал первые $500   │ │
+│ │ [13-18s] Теперь это мой основной доход     │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                 │
+│ 🎯 AI ANALYSIS: 73/100                          │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ Hook: 68/100 ⚠️                             │ │
+│ │ Structure: 75/100 ✅                        │ │
+│ │ Emotional: 80/100 ✅                        │ │
+│ │ CTA: 45/100 🔴                              │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                 │
+│ 💡 TOP RECOMMENDATIONS                          │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ 🔴 HIGH: Add specific numbers to hook      │ │
+│ │    Current: "Как я заработал деньги"       │ │
+│ │    Suggested: "Как я заработал $10,247"    │ │
+│ │    Impact: +18 points                      │ │
+│ │                                            │ │
+│ │ 🔴 HIGH: Add strong CTA at end             │ │
+│ │    Current: (none)                         │ │
+│ │    Suggested: "Сохрани → используй завтра" │ │
+│ │    Impact: +35% saves                      │ │
+│ │                                            │ │
+│ │ 🟡 MED: Add 1s pause at 8s mark            │ │
+│ │    Impact: +5% retention                   │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                 │
+│ [✨ Apply All Recommendations]                  │
+│ [🔄 Rewrite with AI]                            │
+│ [✏️ Edit Manually]                              │
+│                                                 │
+│ ─────────────────────────────────────────────── │
+│                                                 │
+│ ✅ IMPROVED SCRIPT (After applying)             │
+│ ┌─────────────────────────────────────────────┐ │
+│ │ [0-3s] Как я заработал $10,247 за 30 дней  │ │
+│ │ [3-8s] Я открыл метод который работает...  │ │
+│ │ [8-9s] [PAUSE 1s]                          │ │
+│ │ [9-13s] За первый месяц я заработал $500   │ │
+│ │ [13-18s] Сохрани пост → используй завтра   │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                 │
+│ 🎯 PREDICTED NEW SCORE: 89/100 (+16 points!)   │
+│                                                 │
+│ [✅ Accept] [❌ Reject] [Compare Side-by-Side]  │
+│                                                 │
+└─────────────────────────────────────────────────┘
+🏗️ IMPLEMENTATION:
+1. Backend: Rewrite Endpoint
+typescript
+// server/routes.ts
+
+app.post('/api/projects/:id/rewrite-script', isAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  const { 
+    applyRecommendations = true,
+    mode = 'auto'  // 'auto' | 'manual' | 'selective'
+  } = req.body;
+  
+  const project = await storage.getProjectById(id);
+  
+  // Get current script
+  const currentScript = await getCurrentScript(project);
+  
+  // Get AI analysis
+  const analysis = project.aiAnalysisResult;
+  
+  if (!analysis) {
+    return res.status(400).json({ 
+      message: 'Run AI analysis first' 
+    });
+  }
+  
+  // Generate improved script
+  const improvedScript = await improveScriptWithRecommendations(
+    currentScript,
+    analysis,
+    { mode, applyRecommendations }
+  );
+  
+  // Predict new score
+  const newScore = await predictScore(improvedScript);
+  
+  return res.json({
+    currentScript,
+    improvedScript,
+    changes: compareScripts(currentScript, improvedScript),
+    currentScore: analysis.overallScore,
+    predictedScore: newScore,
+    improvement: newScore - analysis.overallScore
+  });
+});
+
+// Apply improved script
+app.post('/api/projects/:id/apply-script', isAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  const { improvedScript } = req.body;
+  
+  // Save to project
+  await storage.updateProject(id, {
+    'stepData.improvedScript': improvedScript,
+    'stepData.scriptAppliedAt': new Date()
+  });
+  
+  return res.json({ success: true });
+});
+2. AI Service: Script Improvement
+typescript
+// server/ai-service-advanced.ts
+
+export async function improveScriptWithRecommendations(
+  currentScript: string,
+  analysis: AdvancedScoreResult,
+  options: { mode: string; applyRecommendations: boolean }
+): Promise<string> {
+  
+  const prompt = `You are an expert script rewriter for viral short-form video content.
+
+CURRENT SCRIPT:
+${currentScript}
+
+AI ANALYSIS RESULTS:
+Overall Score: ${analysis.overallScore}/100
+
+Recommendations:
+${analysis.recommendations.map((r, i) => `
+${i+1}. [${r.priority.toUpperCase()}] ${r.area}
+   Current: "${r.current}"
+   Suggested: "${r.suggested}"
+   Expected Impact: ${r.expectedImpact}
+   Reasoning: ${r.reasoning}
+`).join('\n')}
+
+Strengths (keep these):
+${analysis.strengths.map(s => `- ${s}`).join('\n')}
+
+Weaknesses (fix these):
+${analysis.weaknesses.map(w => `- ${w}`).join('\n')}
+
+YOUR TASK:
+
+Rewrite the script to implement ALL high-priority recommendations while:
+1. Maintaining the core message and value
+2. Keeping successful elements (strengths)
+3. Improving weak areas
+4. Maintaining natural flow and timing
+5. Staying within 18-25 seconds duration
+
+CRITICAL REQUIREMENTS:
+- Apply specific numbers where suggested (e.g., "$10,247" not "деньги")
+- Add CTA if recommended
+- Improve hook with suggested changes
+- Add pauses if recommended: [PAUSE 1s]
+- Keep scene structure clear with timestamps
+
+Return ONLY the improved script in this format:
+
+[0-3s] Hook text here
+[3-8s] Scene 2 text
+[8-9s] [PAUSE 1s]
+[9-13s] Scene 3 text
+[13-18s] CTA text
+
+DO NOT add explanations, just the script.`;
+
+  const improvedScript = await callClaude(prompt, {
+    model: 'claude-sonnet-4-5-20250929',
+    maxTokens: 1024
+  });
+  
+  return improvedScript.trim();
+}
+
+// Predict score for improved script
+export async function predictScore(script: string): Promise<number> {
+  // Quick analysis without full breakdown
+  const prompt = `Rate this script's viral potential (0-100):
+
+${script}
+
+Return ONLY a number 0-100.`;
+
+  const response = await callClaude(prompt, {
+    model: 'claude-sonnet-4-5-20250929',
+    maxTokens: 10
+  });
+  
+  return parseInt(response.trim());
+}
+
+// Compare scripts to show changes
+function compareScripts(original: string, improved: string) {
+  const changes = [];
+  
+  // Parse scenes
+  const originalScenes = parseScriptToScenes(original);
+  const improvedScenes = parseScriptToScenes(improved);
+  
+  originalScenes.forEach((scene, i) => {
+    const improvedScene = improvedScenes[i];
+    
+    if (improvedScene && scene.text !== improvedScene.text) {
+      changes.push({
+        type: 'modified',
+        scene: i + 1,
+        before: scene.text,
+        after: improvedScene.text,
+        reason: detectChangeReason(scene.text, improvedScene.text)
+      });
+    }
+  });
+  
+  return changes;
+}
+
+function detectChangeReason(before: string, after: string): string {
+  if (after.includes('$') && !before.includes('$')) {
+    return 'Added specific dollar amount';
+  }
+  if (after.toLowerCase().includes('сохрани') || after.toLowerCase().includes('подпишись')) {
+    return 'Added CTA';
+  }
+  if (after.match(/\d+/g)?.length > (before.match(/\d+/g)?.length || 0)) {
+    return 'Added specific numbers';
+  }
+  if (after.includes('?') && !before.includes('?')) {
+    return 'Changed to question format';
+  }
+  return 'Improved clarity and impact';
+}
+3. Frontend: Stage 3 UI
+typescript
+// client/src/pages/project/[id].tsx
+
+// State for Stage 3
+const [currentScript, setCurrentScript] = useState('');
+const [improvedScript, setImprovedScript] = useState<string | null>(null);
+const [scriptChanges, setScriptChanges] = useState([]);
+const [isRewriting, setIsRewriting] = useState(false);
+const [showComparison, setShowComparison] = useState(false);
+
+// Load current script from project
+useEffect(() => {
+  if (project && currentStage === 3) {
+    const script = extractScriptFromProject(project);
+    setCurrentScript(script);
+  }
+}, [project, currentStage]);
+
+// Rewrite script with AI
+const rewriteScript = async () => {
+  setIsRewriting(true);
+  
+  try {
+    const response = await fetch(`/api/projects/${project.id}/rewrite-script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        applyRecommendations: true,
+        mode: 'auto'
+      })
+    });
+    
+    const data = await response.json();
+    
+    setImprovedScript(data.improvedScript);
+    setScriptChanges(data.changes);
+    
+    toast({
+      title: "Script improved!",
+      description: `Predicted score: ${data.predictedScore}/100 (+${data.improvement} points)`
+    });
+  } catch (error) {
+    toast({
+      title: "Rewrite failed",
+      description: error.message,
+      variant: "destructive"
+    });
+  } finally {
+    setIsRewriting(false);
+  }
+};
+
+// Apply improved script
+const applyImprovedScript = async () => {
+  try {
+    await fetch(`/api/projects/${project.id}/apply-script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ improvedScript })
+    });
+    
+    // Refresh project
+    await refetchProject();
+    
+    toast({
+      title: "Script applied!",
+      description: "Using improved version"
+    });
+    
+    setImprovedScript(null);
+    setShowComparison(false);
+  } catch (error) {
+    toast({
+      title: "Apply failed",
+      description: error.message,
+      variant: "destructive"
+    });
+  }
+};
+
+// UI Component
+return (
+  <div className="space-y-6">
+    {/* Current Script */}
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold">Current Script</h3>
+        <Badge variant={improvedScript ? "secondary" : "default"}>
+          {improvedScript ? "Old Version" : "Active"}
+        </Badge>
+      </div>
+      
+      <div className="bg-muted/50 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap">
+        {currentScript}
+      </div>
+    </div>
+    
+    {/* AI Analysis Results */}
+    {analysisResult && (
+      <AnalysisResults data={analysisResult} />
+    )}
+    
+    {/* Action Buttons */}
+    {analysisResult && !improvedScript && (
+      <div className="flex gap-3">
+        <Button
+          onClick={rewriteScript}
+          disabled={isRewriting}
+          size="lg"
+          className="flex-1"
+        >
+          {isRewriting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Rewriting...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Apply All Recommendations
+            </>
+          )}
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={() => {/* Open manual editor */}}
+        >
+          <Edit className="mr-2 h-4 w-4" />
+          Edit Manually
+        </Button>
+      </div>
+    )}
+    
+    {/* Improved Script */}
+    {improvedScript && (
+      <div className="border-2 border-green-500 rounded-lg p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-green-600">
+              ✨ Improved Script
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              AI applied {scriptChanges.length} improvements
+            </p>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowComparison(!showComparison)}
+          >
+            <GitCompare className="mr-2 h-4 w-4" />
+            {showComparison ? 'Hide' : 'Show'} Changes
+          </Button>
+        </div>
+        
+        <div className="bg-green-50 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap">
+          {improvedScript}
+        </div>
+        
+        {/* Changes List */}
+        {showComparison && (
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm">Changes Made:</h4>
+            {scriptChanges.map((change, i) => (
+              <div key={i} className="bg-muted rounded p-3 text-sm">
+                <div className="font-medium mb-1">
+                  Scene {change.scene}: {change.reason}
+                </div>
+                <div className="space-y-1">
+                  <div className="text-red-600">
+                    - {change.before}
+                  </div>
+                  <div className="text-green-600">
+                    + {change.after}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Accept/Reject */}
+        <div className="flex gap-3">
+          <Button
+            onClick={applyImprovedScript}
+            size="lg"
+            className="flex-1"
+          >
+            <Check className="mr-2 h-4 w-4" />
+            Accept & Continue
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => {
+              setImprovedScript(null);
+              setScriptChanges([]);
+            }}
+            size="lg"
+          >
+            <X className="mr-2 h-4 w-4" />
+            Reject
+          </Button>
+        </div>
+      </div>
+    )}
+  </div>
+);
+```
+
+---
+
+## 🎯 BENEFITS:
+```
+✅ COMPLETE FEEDBACK LOOP
+   Analysis → Recommendations → AUTOMATIC IMPROVEMENT!
+
+✅ ONE-CLICK OPTIMIZATION
+   User doesn't need to manually apply changes
+
+✅ TRANSPARENCY
+   Show exactly what changed and why
+
+✅ CONTROL
+   Accept/reject improvements
+   Edit manually if needed
+
+✅ LEARNING
+   See how AI applies recommendations
+   Understand what works
+
+✅ SPEED
+   Instant script optimization
+   No manual rewriting needed
+```
+
+---
+
+## 📊 COMPARISON:
+```
+┌─────────────────────────────────────────┐
+│         BEFORE (Current)                │
+├─────────────────────────────────────────┤
+│ 1. Analyze script → Score: 73/100      │
+│ 2. Show recommendations                 │
+│ 3. User reads: "Add specific numbers"  │
+│ 4. User thinks: "How?"                 │
+│ 5. User manually edits script 😓       │
+│ 6. Continue to Stage 4                  │
+│                                         │
+│ Result: Manual work, no validation     │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│         AFTER (With Rewrite)            │
+├─────────────────────────────────────────┤
+│ 1. Analyze script → Score: 73/100      │
+│ 2. Show recommendations                 │
+│ 3. Click "Apply Recommendations" 🎯    │
+│ 4. AI rewrites script automatically ✨  │
+│ 5. Show improvements (+16 points!)     │
+│ 6. Accept/Reject                        │
+│ 7. Continue with optimized script      │
+│                                         │
+│ Result: Automated, validated, better   │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 💬 СКАЖИ AGENT:
+```
+Agent, CRITICAL UX BUG!
+
+Stage 3 shows analysis + recommendations, but NO WAY TO APPLY THEM!
+
+Missing features:
+❌ Current script not displayed
+❌ No "Apply Recommendations" button
+❌ No automatic script improvement
+❌ No before/after comparison
+❌ User can't benefit from AI recommendations!
+
+IMPLEMENT:
+
+1. Backend:
+   POST /api/projects/:id/rewrite-script
+   - Take current script
+   - Take AI recommendations
+   - Generate improved script with Claude
+   - Return comparison + predicted new score
+   
+   POST /api/projects/:id/apply-script
+   - Save improved script to project
+   - Update stepData
+
+2. AI Function:
+   improveScriptWithRecommendations()
+   - Use analysis.recommendations
+   - Apply high-priority changes
+   - Maintain core message
+   - Return improved script
+
+3. Frontend (Stage 3):
+   - Show current script
+   - Show analysis results
+   - Add "Apply All Recommendations" button
+   - Show improved script when ready
+   - Show side-by-side comparison
+   - Add Accept/Reject buttons
+
+4. UI Flow:
+   Current Script → Analysis → Apply → Improved Script → Accept → Continue
+
+This closes the feedback loop!
+AI doesn't just analyze - it IMPROVES automatically!
+
+Implement this NOW! This is a killer feature!
+ЭТО KILLER FEATURE! 🚀

@@ -1,0 +1,123 @@
+# 🚨 НОВАЯ КРИТИЧЕСКАЯ ОШИБКА!
+
+## 📊 Анализ ошибки:
+
+```javascript
+500: {"message": null value in column \"scene_id\" of relation \"scene_recommendations\" 
+violates not-null constraint}
+```
+
+### 🔍 Root Cause:
+Исправление Replit Agent было **неполным**! Он изменил только одно место, но есть еще места где `scene_id` передается как `undefined`.
+
+---
+
+## 🎯 ПОЛНОЕ ИСПРАВЛЕНИЕ:
+
+### Проблемные места в `server/routes.ts`:
+
+```typescript
+// 1️⃣ В функции extractRecommendations (Agent исправил):
+const sceneId = rec.sceneNumber; // ✅ ИСПРАВЛЕНО
+
+// 2️⃣ НО! В другом месте где создаются recommendations:
+await storage.createSceneRecommendation({
+  scriptVersionId: newVersion.id,
+  sceneId: dbScene.id,  // ❌ ОШИБКА! dbScene.id = undefined
+  sceneNumber: rec.sceneNumber,
+  ...
+});
+```
+
+---
+
+## 🔧 ЧТО СКАЗАТЬ REPLIT AGENT:
+
+```
+Найдена ошибка в server/routes.ts!
+
+При создании scene_recommendations поле sceneId = undefined.
+
+ИСПРАВЛЕНИЕ:
+Найди ВСЕ места где создаются scene recommendations и замени:
+
+❌ sceneId: dbScene.id
+✅ sceneId: rec.sceneNumber
+
+Должно быть так:
+await storage.createSceneRecommendation({
+  scriptVersionId: newVersion.id,
+  sceneId: rec.sceneNumber,  // используем номер сцены напрямую
+  sceneNumber: rec.sceneNumber,
+  sourceAgent: rec.sourceAgent,
+  priority: rec.priority,
+  category: rec.category,
+  suggestedText: rec.suggestedText,
+  reasoning: rec.reasoning,
+  scoreDelta: rec.expectedImpact,
+  confidence: rec.confidence || 0.8,
+  applied: false
+});
+
+Проверь ВСЕ вызовы storage.createSceneRecommendation и исправь везде!
+```
+
+---
+
+## 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА:
+
+Также нужно проверить что в **схеме БД** `scene_id` правильно определен:
+
+```typescript
+// shared/schema.ts
+export const sceneRecommendations = pgTable('scene_recommendations', {
+  id: serial('id').primaryKey(),
+  scriptVersionId: integer('script_version_id').notNull(),
+  sceneId: integer('scene_id').notNull(),  // ✅ Это порядковый номер (1,2,3...)
+  sceneNumber: integer('scene_number').notNull(),
+  ...
+});
+```
+
+---
+
+## 📋 ПОШАГОВЫЙ ПЛАН:
+
+1. **Попросите Agent:**
+   - Найти ВСЕ вызовы `storage.createSceneRecommendation`
+   - Показать текущий код
+   - Исправить `sceneId: dbScene.id` → `sceneId: rec.sceneNumber`
+
+2. **После исправления:**
+   - Перезапустить сервер
+   - Попробовать "Создать сценарий" снова
+
+3. **Если ошибка повторится:**
+   - Попросите Agent показать логи
+   - Я дам следующие инструкции
+
+---
+
+## 💡 ПОЧЕМУ ЭТО ПРОИСХОДИТ:
+
+```typescript
+// Проблема в понимании архитектуры:
+
+// ❌ Agent думал что есть таблица scenes:
+scenes (id, text, ...) → scene_recommendations.scene_id = scenes.id
+
+// ✅ На самом деле:
+script_versions.scenes = JSONB array [
+  { sceneNumber: 1, text: "..." },
+  { sceneNumber: 2, text: "..." }
+]
+→ scene_recommendations.sceneId = порядковый номер (1, 2, 3...)
+```
+
+---
+
+## 🎯 СЛЕДУЮЩИЙ ШАГ:
+
+**Скопируйте мое сообщение для Agent выше** (в сером блоке "ЧТО СКАЗАТЬ REPLIT AGENT") и отправьте ему.
+
+Дайте знать что он ответит! 🚀
