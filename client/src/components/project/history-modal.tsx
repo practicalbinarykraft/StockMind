@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { History, RotateCcw, CheckCircle2, User, Sparkles, ArrowRight } from 'lucide-react';
+import { History, RotateCcw, CheckCircle2, User, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { queryClient, apiRequest } from '@/lib/query-client';
@@ -164,7 +164,10 @@ export function HistoryModal({ projectId, currentScenes, onClose, onRevert }: Hi
             <ScrollArea className="h-[500px]">
               <div className="space-y-2">
                 {isLoading ? (
-                  <div className="text-sm text-muted-foreground">Загрузка...</div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Загрузка...
+                  </div>
                 ) : versions.length === 0 ? (
                   <div className="text-sm text-muted-foreground">История пуста</div>
                 ) : (

@@ -509,7 +509,10 @@ export default function InstagramReelsPage() {
         {/* Results Count */}
         <div className="mb-4 text-sm text-muted-foreground">
           {itemsLoading ? (
-            'Loading...'
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading...
+            </span>
           ) : (
             `Showing ${filteredItems.length} of ${instagramItems?.length || 0} Reels`
           )}

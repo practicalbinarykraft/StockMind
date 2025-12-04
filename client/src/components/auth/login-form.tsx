@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 /**
  * Login/Register Form
@@ -120,11 +121,16 @@ export function LoginForm() {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading
-                ? "Loading..."
-                : isLogin
-                ? "Login"
-                : "Create Account"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isLogin ? "Signing in..." : "Creating account..."}
+                </>
+              ) : isLogin ? (
+                "Login"
+              ) : (
+                "Create Account"
+              )}
             </Button>
 
             <div className="text-center text-sm">

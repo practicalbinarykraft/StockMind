@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { useAuth } from '@/hooks/use-auth'
+import { Loader2 } from 'lucide-react'
 
 interface PrivateRouteProps {
   component: React.ComponentType
@@ -29,7 +30,11 @@ export function PrivateRoute({ component: Component }: PrivateRouteProps) {
 
   // Show loading while checking authentication
   if (isLoading) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   // Don't render anything if not authenticated (redirect is in progress)
