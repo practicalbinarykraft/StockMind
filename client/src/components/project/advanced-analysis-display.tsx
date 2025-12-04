@@ -25,17 +25,11 @@ interface AdvancedAnalysisDisplayProps {
 }
 
 export function AdvancedAnalysisDisplay({ analysis, analysisTime }: AdvancedAnalysisDisplayProps) {
-  // Safe fallbacks for agent scores (breakdown doesn't have top-level .score fields)
-  const hookScore = analysis.breakdown?.hook?.score ?? 0;
-  const structureScore = (analysis as any).agentScores?.structure ?? 
-                         (analysis.breakdown as any).structure?.score ?? 
-                         0; // Fallback to 0 if backend doesn't provide agentScores
-  const emotionalScore = (analysis as any).agentScores?.emotional ?? 
-                         (analysis.breakdown as any).emotional?.score ?? 
-                         0;
-  const ctaScore = (analysis as any).agentScores?.cta ?? 
-                   (analysis.breakdown as any).cta?.score ?? 
-                   0;
+  // Use top-level scores if available, otherwise fall back to breakdown scores
+  const hookScore = analysis.hookScore ?? analysis.breakdown?.hook?.score ?? 0;
+  const structureScore = analysis.structureScore ?? analysis.breakdown?.structure?.score ?? 0;
+  const emotionalScore = analysis.emotionalScore ?? analysis.breakdown?.emotional?.score ?? 0;
+  const ctaScore = analysis.ctaScore ?? analysis.breakdown?.cta?.score ?? 0;
 
   // Color coding for scores
   const getScoreColor = (score: number): string => {

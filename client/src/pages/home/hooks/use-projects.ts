@@ -1,20 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
-import type { Project } from "@shared/schema"
-import type { ProjectsWithScriptsData } from "../types"
-
-interface EnrichedProject extends Project {
-  displayTitle: string
-  stats: {
-    scenesCount: number
-    duration: number
-    format: string
-    thumbnailUrl: string | null
-  }
-  steps?: any[]
-  currentVersion?: any
-}
+import type { EnrichedProject, ProjectsWithScriptsData } from "../types"
 
 export function useProjects() {
   const { toast } = useToast()
