@@ -51,8 +51,8 @@ export function registerBrollRoutes(app: Express) {
 
       res.json({ aiPrompt });
     } catch (error: any) {
-      logger.error("Error generating AI prompt:", { error });
-      res.status(500).json({ message: error.message || "Failed to generate AI prompt" });
+      logger.error("Error generating AI prompt:", { error: error.message });
+      res.status(500).json({ message: "Failed to generate AI prompt" });
     }
   });
 

@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
+import { logger } from "../lib/logger";
 import { scriptVersions, sceneRecommendations } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { ScriptVersionService } from "../services/script-version-service";
@@ -126,8 +127,8 @@ export function registerScriptVersionsRoutes(app: Express) {
       const versions = await storage.listScriptVersions(id);
       return res.json({ versions });
     } catch (error: any) {
-      console.error('[Script Versions] Error:', error);
-      return res.status(500).json({ message: error.message });
+      logger.error('[Script Versions] Error fetching versions', { error: error.message, projectId: req.params.id });
+      return res.status(500).json({ message: 'Failed to fetch script versions' });
     }
   });
 

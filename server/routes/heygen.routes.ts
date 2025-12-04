@@ -34,7 +34,7 @@ export function registerHeygenRoutes(app: Express) {
       res.json(avatars);
     } catch (error: any) {
       console.error("Error fetching HeyGen avatars:", error);
-      res.status(500).json({ message: error.message || "Failed to fetch avatars" });
+      res.status(500).json({ message: "Failed to fetch avatars" });
     }
   });
 
@@ -127,7 +127,7 @@ export function registerHeygenRoutes(app: Express) {
       return apiResponse.ok(res, status);
     } catch (error: any) {
       console.error("Error checking HeyGen video status:", error);
-      return apiResponse.serverError(res, error.message || "Failed to check video status", error);
+      return apiResponse.serverError(res, "Failed to check video status", error);
     }
   });
 }

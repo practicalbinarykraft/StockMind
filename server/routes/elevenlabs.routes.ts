@@ -33,7 +33,7 @@ export function registerElevenlabsRoutes(app: Express) {
       res.json(voices);
     } catch (error: any) {
       console.error("Error fetching voices:", error);
-      res.status(500).json({ message: error.message || "Failed to fetch voices" });
+      res.status(500).json({ message: "Failed to fetch voices" });
     }
   });
 
@@ -77,7 +77,7 @@ export function registerElevenlabsRoutes(app: Express) {
       });
     } catch (error: any) {
       console.error("Error generating speech:", error);
-      res.status(500).json({ message: error.message || "Failed to generate speech" });
+      res.status(500).json({ message: "Failed to generate speech" });
     }
   });
 }

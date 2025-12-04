@@ -41,7 +41,7 @@ export function registerRssRoutes(app: Express) {
       res.json(source);
     } catch (error: any) {
       console.error("Error creating RSS source:", error);
-      res.status(400).json({ message: error.message || "Failed to create RSS source" });
+      res.status(400).json({ message: "Failed to create RSS source" });
     }
   });
 
@@ -111,7 +111,7 @@ export function registerRssRoutes(app: Express) {
       res.json({ success: true, message: "Parsing started" });
     } catch (error: any) {
       console.error("Error triggering RSS parsing:", error);
-      res.status(500).json({ message: error.message || "Failed to trigger parsing" });
+      res.status(500).json({ message: "Failed to trigger parsing" });
     }
   });
 }

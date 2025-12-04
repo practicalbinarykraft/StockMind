@@ -47,7 +47,7 @@ export function registerAiRoutes(app: Express) {
         });
       }
 
-      res.status(500).json({ message: error.message || "Failed to analyze script" });
+      res.status(500).json({ message: "Failed to analyze script" });
     }
   });
 
@@ -81,7 +81,7 @@ export function registerAiRoutes(app: Express) {
       res.json(result);
     } catch (error: any) {
       console.error("Error scoring text:", error);
-      res.status(500).json({ message: error.message || "Failed to score text" });
+      res.status(500).json({ message: "Failed to score text" });
     }
   });
 }

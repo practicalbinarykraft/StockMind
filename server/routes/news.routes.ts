@@ -107,7 +107,7 @@ function normalizeRssUrl(url: string): string {
     
     return url;
   } catch (error: any) {
-    logger.error(`[RSS] Error normalizing URL ${url}`, { url, error: error.message });
+    logger.error(`[RSS] Error normalizing URL ${url}`, { url });
     return url;
   }
 }
@@ -330,7 +330,7 @@ export function registerNewsRoutes(app: Express) {
       res.json({ success: true, content: result.content, cached: false });
     } catch (error: any) {
       console.error("Error fetching full article content:", error);
-      res.status(500).json({ message: "Failed to fetch article content", error: error.message });
+      res.status(500).json({ message: "Failed to fetch article content" });
     }
   });
 
@@ -489,7 +489,7 @@ export function registerNewsRoutes(app: Express) {
       res.json(enrichedItems);
     } catch (error: any) {
       console.error("Error fetching all news:", error);
-      res.status(500).json({ message: "Failed to fetch news", error: error.message });
+      res.status(500).json({ message: "Failed to fetch news" });
     }
   });
 
@@ -514,7 +514,7 @@ export function registerNewsRoutes(app: Express) {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error adding to favorites:", error);
-      res.status(500).json({ message: "Failed to add to favorites", error: error.message });
+      res.status(500).json({ message: "Failed to add to favorites" });
     }
   });
 
@@ -537,7 +537,7 @@ export function registerNewsRoutes(app: Express) {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error removing from favorites:", error);
-      res.status(500).json({ message: "Failed to remove from favorites", error: error.message });
+      res.status(500).json({ message: "Failed to remove from favorites" });
     }
   });
 
@@ -568,7 +568,7 @@ export function registerNewsRoutes(app: Express) {
       res.json(enrichedItems);
     } catch (error: any) {
       console.error("Error fetching favorites:", error);
-      res.status(500).json({ message: "Failed to fetch favorites", error: error.message });
+      res.status(500).json({ message: "Failed to fetch favorites" });
     }
   });
 }

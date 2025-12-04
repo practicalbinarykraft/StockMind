@@ -48,7 +48,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
       res.json(source);
     } catch (error: any) {
       console.error("Error creating Instagram source:", error);
-      res.status(400).json({ message: error.message || "Failed to create Instagram source" });
+      res.status(400).json({ message: "Failed to create Instagram source" });
     }
   });
 
@@ -213,7 +213,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
       }
     } catch (error: any) {
       console.error("Error parsing Instagram source:", error);
-      res.status(500).json({ message: error.message || "Failed to parse Instagram source" });
+      res.status(500).json({ message: "Failed to parse Instagram source" });
     }
   });
 }

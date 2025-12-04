@@ -177,8 +177,8 @@ export function registerInstagramItemsRoutes(app: Express) {
         qualityScore: result.qualityScore,
       });
     } catch (error: any) {
-      console.error("Error scoring Instagram item:", error);
-      res.status(500).json({ message: "Failed to score Instagram item: " + error.message });
+      console.error("Error scoring Instagram item:", error.message);
+      res.status(500).json({ message: "Failed to score Instagram item" });
     }
   });
 }

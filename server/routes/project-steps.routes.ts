@@ -166,8 +166,8 @@ export function registerProjectStepsRoutes(app: Express) {
         steps: updatedSteps,
       });
     } catch (error: any) {
-      console.error("Error skipping step:", error);
-      res.status(500).json({ message: error.message || "Failed to skip step" });
+      console.error("Error skipping step:", error.message);
+      res.status(500).json({ message: "Failed to skip step" });
     }
   });
 }
