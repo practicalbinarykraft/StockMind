@@ -1,7 +1,6 @@
 import { useState, useRef } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
-import { getToken } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import type { ScriptVersion } from "../types"
 
@@ -73,17 +72,9 @@ export function useVoiceGeneration({
         formData.append('audio', file)
         formData.append('projectId', projectId)
 
-        const token = getToken()
-
-        if (!token) {
-          throw new Error('Authentication token not found. Please log in again.')
-        }
-
         const uploadRes = await fetch('/api/audio/upload', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          credentials: 'include', // Sends httpOnly cookie automatically
           body: formData,
         })
 

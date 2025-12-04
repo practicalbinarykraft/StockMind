@@ -1,114 +1,56 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuthToken } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 
-interface AuthResponse {
-  message: string;
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
-}
-
+/**
+ * Login/Register Form
+ *
+ * Uses httpOnly cookies for secure JWT storage
+ */
 export function LoginForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const { setToken } = useAuthToken();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, register } = useAuth();
   const { toast } = useToast();
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
-      }
-
-      return response.json() as Promise<AuthResponse>;
-    },
-    onSuccess: (data) => {
-      setToken(data.token);
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${data.user.email}!`,
-      });
-      // Reload to update auth state
-      window.location.href = "/";
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: async (data: {
-      email: string;
-      password: string;
-      firstName?: string;
-      lastName?: string;
-    }) => {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
-      }
-
-      return response.json() as Promise<AuthResponse>;
-    },
-    onSuccess: (data) => {
-      setToken(data.token);
-      toast({
-        title: "Registration successful",
-        description: `Welcome, ${data.user.email}!`,
-      });
-      // Reload to update auth state
-      window.location.href = "/";
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
-    if (isLogin) {
-      loginMutation.mutate({ email, password });
-    } else {
-      registerMutation.mutate({ email, password, firstName, lastName });
+    try {
+      if (isLogin) {
+        await login(email, password);
+        toast({
+          title: "Login successful",
+          description: "Welcome back!",
+        });
+      } else {
+        await register(email, password, firstName, lastName);
+        toast({
+          title: "Registration successful",
+          description: "Welcome!",
+        });
+      }
+      // Redirect to home page
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({
+        title: isLogin ? "Login failed" : "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  const isLoading = loginMutation.isPending || registerMutation.isPending;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">

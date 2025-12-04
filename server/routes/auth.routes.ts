@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { generateToken, hashPassword, comparePassword } from '../lib/jwt-auth';
 import { requireAuth } from '../middleware/jwt-auth';
 import { logger } from '../lib/logger';
+import { setAuthCookie, clearAuthCookie } from '../lib/cookie-auth';
 
 /**
  * JWT Authentication Routes
@@ -61,15 +62,14 @@ router.post('/register', async (req, res) => {
     // Generate JWT token
     const token = generateToken(newUser);
 
-    logger.info('User registered successfully', {
-      userId: newUser.id,
-      email: newUser.email
-    });
+    // Set token in httpOnly cookie (secure, not accessible via JS)
+    setAuthCookie(res, token);
 
-    // Return user data (without password hash) and token
+    logger.info('User registered successfully', { userId: newUser.id });
+
+    // Return user data (token is in cookie, not in response body)
     res.status(201).json({
       message: 'Registration successful',
-      token,
       user: {
         id: newUser.id,
         email: newUser.email,
@@ -153,15 +153,17 @@ router.post('/login', async (req, res) => {
     // Generate JWT token
     const token = generateToken(user);
 
+    // Set token in httpOnly cookie (secure, not accessible via JS)
+    setAuthCookie(res, token);
+
     logger.info('User logged in successfully', {
       userId: user.id,
       email: user.email
     });
 
-    // Return user data (without password hash) and token
+    // Return user data (token is in cookie, not in response body)
     res.json({
       message: 'Login successful',
-      token,
       user: {
         id: user.id,
         email: user.email,
@@ -303,8 +305,9 @@ router.get('/user', requireAuth, async (req, res) => {
  * Logout (client should delete token)
  */
 router.post('/logout', (req, res) => {
-  // With JWT, logout is handled client-side by deleting the token
-  // This endpoint exists for consistency with other auth systems
+  // Clear JWT cookie
+  clearAuthCookie(res);
+
   logger.info('User logged out', { userId: req.userId });
 
   res.json({

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractToken } from '../lib/jwt-auth';
+import { getAuthCookieName } from '../lib/cookie-auth';
 import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -30,13 +31,15 @@ export async function requireAuth(
   next: NextFunction
 ): Promise<void> {
   try {
-    // Extract token from Authorization header
-    const token = extractToken(req.headers.authorization);
+    // First try to get token from httpOnly cookie (more secure)
+    // Fall back to Authorization header (for API clients)
+    const cookieToken = req.cookies?.[getAuthCookieName()];
+    const headerToken = extractToken(req.headers.authorization);
+    const token = cookieToken || headerToken;
 
     if (!token) {
       res.status(401).json({
-        message: 'Authentication required',
-        error: 'No token provided'
+        message: 'Authentication required'
       });
       return;
     }
@@ -53,8 +56,7 @@ export async function requireAuth(
 
     if (!user) {
       res.status(401).json({
-        message: 'User not found',
-        error: 'Invalid token'
+        message: 'User not found'
       });
       return;
     }
@@ -71,8 +73,7 @@ export async function requireAuth(
     });
 
     res.status(401).json({
-      message: 'Authentication failed',
-      error: error.message
+      message: 'Authentication failed'
     });
   }
 }
@@ -87,7 +88,10 @@ export async function optionalAuth(
   next: NextFunction
 ): Promise<void> {
   try {
-    const token = extractToken(req.headers.authorization);
+    // First try cookie, then header
+    const cookieToken = req.cookies?.[getAuthCookieName()];
+    const headerToken = extractToken(req.headers.authorization);
+    const token = cookieToken || headerToken;
 
     if (token) {
       const payload = verifyToken(token);

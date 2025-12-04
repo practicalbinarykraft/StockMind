@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest } from "@/lib/query-client"
-import { getToken } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import type { EnrichedRssItem } from "../utils/news-helpers"
 
@@ -397,14 +396,9 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
 
   const loadSavedAnalysisMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      console.log(`[useNewsAnalysis] Loading saved analysis for article ${itemId}`)
       try {
         const res = await fetch(`/api/news/${itemId}/analysis`, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${getToken()}`,
-            'Content-Type': 'application/json',
-          },
           credentials: 'include',
         })
         

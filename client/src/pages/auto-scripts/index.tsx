@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { getToken } from "@/lib/auth-context";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -100,10 +99,8 @@ export default function AutoScriptsPage() {
   const { data: scripts, isLoading } = useQuery<AutoScript[]>({
     queryKey: ["auto-scripts", "pending"],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/auto-scripts?status=pending", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch scripts");
       return res.json();
@@ -139,11 +136,9 @@ export default function AutoScriptsPage() {
   // Reset revision mutation
   const resetRevisionMutation = useMutation({
     mutationFn: async (scriptId: string) => {
-      const token = getToken();
       const res = await fetch(`/api/auto-scripts/${scriptId}/reset-revision`, {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         const error = await res.json();
@@ -174,10 +169,8 @@ export default function AutoScriptsPage() {
   const { data: categoriesData } = useQuery<{ categories: RejectionCategory[] }>({
     queryKey: ["rejection-categories"],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/auto-scripts/rejection-categories", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch categories");
       return res.json();
@@ -187,11 +180,9 @@ export default function AutoScriptsPage() {
   // Approve mutation
   const approveMutation = useMutation({
     mutationFn: async (scriptId: string) => {
-      const token = getToken();
       const res = await fetch(`/api/auto-scripts/${scriptId}/approve`, {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         const error = await res.json();
@@ -230,13 +221,9 @@ export default function AutoScriptsPage() {
       reason: string;
       category: string;
     }) => {
-      const token = getToken();
       const res = await fetch(`/api/auto-scripts/${scriptId}/reject`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ reason, category }),
       });

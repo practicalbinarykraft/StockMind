@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { getToken } from "@/lib/auth-context";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -124,10 +123,8 @@ export default function ConveyorDashboard() {
   const { data: dashboard, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ["conveyor-dashboard"],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/dashboard", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch dashboard");
       return res.json();
@@ -139,10 +136,8 @@ export default function ConveyorDashboard() {
   const { data: items, isLoading: itemsLoading } = useQuery<ConveyorItem[]>({
     queryKey: ["conveyor-items"],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/items?limit=20", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch items");
       return res.json();
@@ -153,11 +148,9 @@ export default function ConveyorDashboard() {
   // Trigger mutation
   const triggerMutation = useMutation({
     mutationFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/trigger", {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         const error = await res.json();
@@ -185,13 +178,9 @@ export default function ConveyorDashboard() {
   // Pause/Stop mutation (sets enabled: false)
   const pauseMutation = useMutation({
     mutationFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/settings", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ enabled: false }),
       });
@@ -220,11 +209,9 @@ export default function ConveyorDashboard() {
   // Retry mutation
   const retryMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      const token = getToken();
       const res = await fetch(`/api/conveyor/items/${itemId}/retry`, {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         const error = await res.json();

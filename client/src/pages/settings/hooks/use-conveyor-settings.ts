@@ -1,7 +1,11 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { getToken } from "@/lib/auth-context";
+
+/**
+ * Conveyor Settings Hook
+ *
+ * Manages Content Factory settings using httpOnly cookies for auth
+ */
 
 export interface StylePreferences {
   formality: 'formal' | 'conversational' | 'casual';
@@ -44,11 +48,9 @@ export interface ConveyorSettings {
   totalApproved: number;
   totalRejected: number;
   approvalRate: string | null;
-  // Phase 1: Style customization
   stylePreferences: StylePreferences;
   customGuidelines: string[];
   durationRange: DurationRange;
-  // Phase 2: Custom prompts
   customPrompts: CustomPrompts | null;
 }
 
@@ -80,10 +82,8 @@ export function useConveyorSettings() {
   } = useQuery<ConveyorSettings>({
     queryKey: ["conveyor-settings"],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/settings", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch settings");
       return res.json();
@@ -97,10 +97,8 @@ export function useConveyorSettings() {
   } = useQuery<ConveyorStats>({
     queryKey: ["conveyor-stats"],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/stats", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
@@ -110,13 +108,9 @@ export function useConveyorSettings() {
   // Update settings mutation
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<ConveyorSettings>) => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/settings", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -153,11 +147,9 @@ export function useConveyorSettings() {
   // Reset learning data
   const resetLearningMutation = useMutation({
     mutationFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/settings/reset-learning", {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to reset learning data");
       return res.json();
@@ -182,11 +174,9 @@ export function useConveyorSettings() {
   // Trigger conveyor manually
   const triggerMutation = useMutation({
     mutationFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/trigger", {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         const error = await res.json();
