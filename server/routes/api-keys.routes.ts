@@ -100,11 +100,10 @@ export function registerApiKeysRoutes(app: Express) {
   // POST /api/settings/api-keys/:id/test - Test API key validity
   app.post("/api/settings/api-keys/:id/test", requireAuth, async (req: any, res) => {
     let userId: string | null = null;
+    const { id } = req.params;
     try {
       userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
-
-      const { id } = req.params;
 
       // Get the API key from database (with decrypted value)
       const apiKey = await storage.getApiKeyById(id, userId);

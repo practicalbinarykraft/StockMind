@@ -19,6 +19,8 @@ interface BackgroundTaskContext {
   duration?: number;
   itemsProcessed?: number;
   error?: any;
+  // Allow additional context properties
+  [key: string]: any;
 }
 
 interface ServiceCallContext {

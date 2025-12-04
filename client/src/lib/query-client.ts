@@ -60,14 +60,14 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   // Always use getAuthHeaders to ensure token is included
-  const headers: HeadersInit = getAuthHeaders();
+  const headers: Record<string, string> = getAuthHeaders() as Record<string, string>;
 
   // Override Content-Type for POST/PUT/PATCH requests with data
   if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
     headers["Content-Type"] = "application/json";
   } else if (!data) {
     // Remove Content-Type if no data (GET/DELETE requests)
-    delete (headers as any)["Content-Type"];
+    delete headers["Content-Type"];
   }
 
   const res = await fetch(url, {

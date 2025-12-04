@@ -309,20 +309,22 @@ export function registerAutoScriptsRoutes(app: Express) {
       }
 
       // Create script in scripts library
+      // Cast to any for optional fields that may not be in the strict type
+      const scriptData = script as any;
       const libraryScript = await scriptsLibraryStorage.createScript(userId, {
         title: script.title,
         status: 'ready',
         scenes: script.scenes || [],
         fullText: script.fullScript,
         format: script.formatId || undefined,
-        durationSeconds: script.durationSeconds || undefined,
+        durationSeconds: scriptData.durationSeconds || undefined,
         wordCount: script.fullScript ? script.fullScript.split(/\s+/).length : undefined,
         aiScore: script.finalScore || undefined,
-        aiAnalysis: script.scoring || undefined,
+        aiAnalysis: scriptData.scoring || undefined,
         sourceType: script.sourceType,
-        sourceId: script.sourceContentId || undefined,
-        sourceTitle: script.sourceTitle || undefined,
-        sourceUrl: script.sourceUrl || undefined,
+        sourceId: scriptData.sourceContentId || script.sourceItemId || undefined,
+        sourceTitle: scriptData.sourceTitle || undefined,
+        sourceUrl: scriptData.sourceUrl || undefined,
       });
 
       // Mark script as approved in auto_scripts table

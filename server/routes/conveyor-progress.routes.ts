@@ -144,7 +144,7 @@ export function registerConveyorProgressRoutes(app: Express) {
         eventType: log.eventType,
         stage: log.stageNumber,
         agent: log.agentName,
-        message: log.message || getLogMessage(log.eventType, log.details),
+        message: (log as any).message || getLogMessage(log.eventType, log.details),
         details: log.details,
         createdAt: log.createdAt,
       }));

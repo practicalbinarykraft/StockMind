@@ -502,7 +502,7 @@ export default function AutoScriptsPage() {
                     )}
 
                     <RevisionStatus
-                      status={selectedScript.status}
+                      status={selectedScript.status as "pending" | "approved" | "rejected" | "revision"}
                       revisionCount={selectedScript.revisionCount}
                       onReset={() => resetRevisionMutation.mutate(selectedScript.id)}
                       isResetting={resetRevisionMutation.isPending}

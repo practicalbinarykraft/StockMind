@@ -11,18 +11,20 @@ import type { EnrichedRssItem } from "../utils/news-helpers"
 import { getBadgeConfig } from "../utils/news-helpers"
 import { VideoScorePrediction } from "./VideoScorePrediction"
 
-interface NewsListItemProps {
+export interface NewsListItemProps {
   item: EnrichedRssItem
   translation?: { text: string; language: 'en' | 'ru' }
   analysis?: any
   isAnalyzing: boolean
   isTranslating: boolean
+  onSelect?: (item: EnrichedRssItem) => void
   onDismiss?: (e: React.MouseEvent, itemId: string) => void
   onTranslate: (itemId: string, text: string) => void
   onAnalyze: (item: EnrichedRssItem) => void
   onCreateScript?: (item: EnrichedRssItem, analysis: any) => void
   onToggleFavorite?: (isFavorite: boolean) => void
   onLoadSavedAnalysis?: (itemId: string) => void
+  onShowSavedAnalysis?: (itemId: string) => void
   isLoadingSavedAnalysis?: boolean
   hasSavedAnalysis?: boolean
   isDismissing?: boolean
@@ -41,6 +43,7 @@ export function NewsListItem({
   onCreateScript,
   onToggleFavorite,
   onLoadSavedAnalysis,
+  onShowSavedAnalysis,
   isLoadingSavedAnalysis,
   hasSavedAnalysis,
   isDismissing,

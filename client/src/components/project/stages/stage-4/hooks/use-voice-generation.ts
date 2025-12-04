@@ -17,7 +17,7 @@ interface UseVoiceGenerationReturn {
   audioData: string | null
   isPlaying: boolean
   previewingVoice: string | null
-  generateMutation: ReturnType<typeof useMutation>
+  generateMutation: any // UseMutationResult with specific types
   audioRef: React.RefObject<HTMLAudioElement | null>
   handleGenerate: () => void
   handlePlayPause: () => void

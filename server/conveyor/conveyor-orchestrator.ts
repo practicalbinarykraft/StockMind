@@ -8,7 +8,7 @@ import { conveyorSettingsStorage } from "../storage/conveyor-settings.storage";
 import { conveyorLogsStorage } from "../storage/conveyor-logs.storage";
 import { conveyorEvents } from "./conveyor-events";
 import { createFeedbackProcessor } from "./feedback-processor";
-import type { UserWritingContext } from "./types";
+import type { UserWritingContext, StylePreferences } from "./types";
 import {
   scoutAgent,
   scorerAgent,
@@ -130,7 +130,7 @@ export class ConveyorOrchestrator {
             ? settings.durationRange as { min: number; max: number }
             : { min: 30, max: 90 },
           stylePreferences: (settings?.stylePreferences && typeof settings.stylePreferences === 'object')
-            ? settings.stylePreferences as { formality: string; tone: string; language: string }
+            ? settings.stylePreferences as StylePreferences
             : undefined,
           // Phase 2: Custom prompt
           customPrompt: getObject(settings?.customPrompts)?.architectPrompt || undefined,
@@ -161,7 +161,7 @@ export class ConveyorOrchestrator {
           rejectionPatterns: getObject(settings?.rejectionPatterns, {}),
           // Phase 1: Style customization
           stylePreferences: (settings?.stylePreferences && typeof settings.stylePreferences === 'object')
-            ? settings.stylePreferences as { formality: string; tone: string; language: string }
+            ? settings.stylePreferences as StylePreferences
             : undefined,
           customGuidelines: getArray(settings?.customGuidelines, []),
           // Phase 2: Custom prompt
@@ -413,7 +413,7 @@ export class ConveyorOrchestrator {
           architecture,
           rejectionPatterns: getObject(settings?.rejectionPatterns, {}),
           stylePreferences: (settings?.stylePreferences && typeof settings.stylePreferences === 'object')
-            ? settings.stylePreferences as { formality: string; tone: string; language: string }
+            ? settings.stylePreferences as StylePreferences
             : undefined,
           customGuidelines: getArray(settings?.customGuidelines, []),
           customPrompt: getObject(settings?.customPrompts)?.writerPrompt || undefined,
@@ -425,7 +425,10 @@ export class ConveyorOrchestrator {
             notes: revisionContext.notes,
             previousScriptId: revisionContext.previousScriptId,
             attempt: revisionContext.attempt,
-            previousVersions: revisionContext.previousVersions,
+            previousVersions: revisionContext.previousVersions?.map(v => ({
+              ...v,
+              feedbackText: v.feedbackText || '',
+            })),
             selectedSceneIds: revisionContext.selectedSceneIds,
           },
         },

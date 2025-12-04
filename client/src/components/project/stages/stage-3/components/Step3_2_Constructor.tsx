@@ -509,7 +509,7 @@ export function Step3_2_Constructor({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBack} variant="destructive">
+            <AlertDialogAction onClick={confirmBack} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Вернуться
             </AlertDialogAction>
           </AlertDialogFooter>

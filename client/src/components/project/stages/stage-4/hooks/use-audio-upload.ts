@@ -10,7 +10,7 @@ interface UseAudioUploadReturn {
   uploadedAudioUrl: string | null
   isDragging: boolean
   isUploadPlaying: boolean
-  uploadMutation: ReturnType<typeof useMutation>
+  uploadMutation: any // UseMutationResult with specific types
   uploadAudioRef: React.RefObject<HTMLAudioElement | null>
   fileInputRef: React.RefObject<HTMLInputElement | null>
   handleFileSelect: (file: File) => void

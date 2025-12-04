@@ -37,38 +37,32 @@ export class ScriptsLibraryStorage implements IScriptsLibraryStorage {
     sourceType?: string;
     search?: string;
   }): Promise<ScriptLibrary[]> {
-    let query = db
-      .select()
-      .from(scriptsLibrary)
-      .where(eq(scriptsLibrary.userId, userId))
-      .orderBy(desc(scriptsLibrary.updatedAt));
+    // Build conditions array
+    const conditions = [eq(scriptsLibrary.userId, userId)];
 
     if (filters?.status && filters.status !== 'all') {
-      query = query.where(and(
-        eq(scriptsLibrary.userId, userId),
-        eq(scriptsLibrary.status, filters.status)
-      )) as any;
+      conditions.push(eq(scriptsLibrary.status, filters.status));
     }
 
     if (filters?.sourceType && filters.sourceType !== 'all') {
-      query = query.where(and(
-        eq(scriptsLibrary.userId, userId),
-        eq(scriptsLibrary.sourceType, filters.sourceType)
-      )) as any;
+      conditions.push(eq(scriptsLibrary.sourceType, filters.sourceType));
     }
 
     if (filters?.search) {
       const searchTerm = `%${filters.search}%`;
-      query = query.where(and(
-        eq(scriptsLibrary.userId, userId),
+      conditions.push(
         or(
           sql`${scriptsLibrary.title} ILIKE ${searchTerm}`,
           sql`${scriptsLibrary.fullText} ILIKE ${searchTerm}`
-        )
-      )) as any;
+        ) as any
+      );
     }
 
-    return await query;
+    return await db
+      .select()
+      .from(scriptsLibrary)
+      .where(and(...conditions))
+      .orderBy(desc(scriptsLibrary.updatedAt));
   }
 
   /**

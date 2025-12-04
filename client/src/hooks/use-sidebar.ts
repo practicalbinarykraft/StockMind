@@ -40,7 +40,7 @@ export function useSidebar() {
   }, [])
 
   const toggle = () => {
-    setIsOpen((prev) => {
+    setIsOpen((prev: boolean) => {
       const newValue = !prev
       localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(newValue))
       return newValue

@@ -1,5 +1,6 @@
 import type { IStorage } from '../storage';
 import type { InsertProject, InsertProjectStep, ScriptLibrary } from '@shared/schema';
+import type { ArticlePotentialResult } from '@shared/article-potential-types';
 import { logger } from '../lib/logger';
 
 /**
@@ -249,19 +250,19 @@ export class ProjectService {
     
     if (item.articleAnalysis) {
       // articleAnalysis is already parsed by rss.storage.ts parseJsonbField()
-      let articleAnalysis = item.articleAnalysis;
-      
+      let articleAnalysis: ArticlePotentialResult | null = item.articleAnalysis as ArticlePotentialResult;
+
       // Double-check parsing if it's still a string
-      if (typeof articleAnalysis === 'string') {
+      if (typeof item.articleAnalysis === 'string') {
         try {
-          articleAnalysis = JSON.parse(articleAnalysis);
+          articleAnalysis = JSON.parse(item.articleAnalysis) as ArticlePotentialResult;
         } catch (e) {
           logger.warn(`[ProjectService] Failed to parse articleAnalysis as JSON: ${e}`);
           articleAnalysis = null;
         }
       }
-      
-      if (articleAnalysis && typeof articleAnalysis === 'object' && articleAnalysis.score !== undefined) {
+
+      if (articleAnalysis && articleAnalysis.score !== undefined) {
         logger.info(`[ProjectService] Processing articleAnalysis`, {
           score: articleAnalysis.score,
           verdict: articleAnalysis.verdict,
@@ -338,11 +339,12 @@ export class ProjectService {
     }
 
     // Create project atomically (transaction ensures data consistency)
+    const step3DataObj = step3Data?.data as Record<string, unknown> | undefined;
     logger.info(`[ProjectService] Creating project with step3Data:`, {
       hasStep3Data: !!step3Data,
       step3DataStepNumber: step3Data?.stepNumber,
-      step3DataHasSourceAnalysis: !!step3Data?.data?.sourceAnalysis,
-      step3DataHasRecommendedFormat: !!step3Data?.data?.recommendedFormat
+      step3DataHasSourceAnalysis: !!step3DataObj?.sourceAnalysis,
+      step3DataHasRecommendedFormat: !!step3DataObj?.recommendedFormat
     });
     
     const project = await this.storage.createProjectFromNewsAtomic(
@@ -441,16 +443,24 @@ export class ProjectService {
     }
 
     // Build step data for Stage 3 (script with scenes)
+    // Type for script AI analysis (from analyzeScriptAdvanced)
+    interface ScriptAiAnalysis {
+      verdict?: string;
+      strengths?: string[];
+      weaknesses?: string[];
+    }
+    const aiAnalysis = script.aiAnalysis as ScriptAiAnalysis | null;
+
     const step3Data: Omit<InsertProjectStep, 'id' | 'projectId'> = {
       stepNumber: 3,
       data: {
         scenes: script.scenes,
         format: script.format,
-        sourceAnalysis: script.aiAnalysis ? {
+        sourceAnalysis: aiAnalysis ? {
           score: script.aiScore || 0,
-          verdict: script.aiAnalysis.verdict || 'moderate',
-          strengths: script.aiAnalysis.strengths || [],
-          weaknesses: script.aiAnalysis.weaknesses || [],
+          verdict: aiAnalysis.verdict || 'moderate',
+          strengths: aiAnalysis.strengths || [],
+          weaknesses: aiAnalysis.weaknesses || [],
         } : undefined,
         recommendedFormat: script.format ? {
           formatId: script.format,

@@ -27,12 +27,12 @@ import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
 
 const STAGES = [
-  { number: 1, title: "Source Selection", icon: Radio },
-  { number: 2, title: "Content Input", icon: Newspaper },
-  { number: 3, title: "Сценарий", icon: Sparkles },
-  { number: 4, title: "Voice Generation", icon: Mic },
-  { number: 5, title: "Avatar Selection", icon: Users },
-  { number: 6, title: "Final Export", icon: Download },
+  { number: 1, title: "Source Selection", icon: Radio, optional: false },
+  { number: 2, title: "Content Input", icon: Newspaper, optional: false },
+  { number: 3, title: "Сценарий", icon: Sparkles, optional: false },
+  { number: 4, title: "Voice Generation", icon: Mic, optional: true },
+  { number: 5, title: "Avatar Selection", icon: Users, optional: true },
+  { number: 6, title: "Final Export", icon: Download, optional: false },
 ]
 
 interface ProjectSidebarProps {
@@ -238,7 +238,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                   )}
                   
                   {/* Show source metadata for Stage 1 */}
-                  {stage.number === 1 && project.sourceType && project.sourceData && (
+                  {stage.number === 1 && project.sourceType && project.sourceData ? (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {project.sourceType === 'news' && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
@@ -258,18 +258,18 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                           Custom
                         </Badge>
                       )}
-                      {project.sourceData.language && (
+                      {(project.sourceData as Record<string, any>).language && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">
-                          {project.sourceData.language}
+                          {(project.sourceData as Record<string, any>).language}
                         </Badge>
                       )}
-                      {typeof project.sourceData.aiScore === 'number' && (
+                      {typeof (project.sourceData as Record<string, any>).aiScore === 'number' && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                          {project.sourceData.aiScore}/100
+                          {(project.sourceData as Record<string, any>).aiScore}/100
                         </Badge>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )

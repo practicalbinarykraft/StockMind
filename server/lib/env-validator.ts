@@ -123,7 +123,7 @@ export function validateEnvironment(): EnvValidationResult {
     if (!value || value.trim() === '') {
       if (config.required) {
         errors.push(`❌ ${key} is required but not set. ${config.description}`);
-        if ('default' in config) {
+        if ('default' in config && typeof config.default === 'string') {
           warnings.push(`   Using default value: ${config.default}`);
           // Set default value
           process.env[key] = config.default;
@@ -144,7 +144,7 @@ export function validateEnvironment(): EnvValidationResult {
   // Check recommended variables for production
   if (nodeEnv === 'production') {
     for (const [key, config] of Object.entries(RECOMMENDED_ENV_VARS)) {
-      if (config.recommendedIn.includes('production')) {
+      if ((config.recommendedIn as readonly string[]).includes('production')) {
         const value = env[key];
         if (!value || value.trim() === '') {
           warnings.push(`⚠️  ${key} not set. ${config.description}`);

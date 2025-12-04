@@ -155,6 +155,7 @@ export class DeliveryAgent extends BaseAgent<DeliveryInput, DeliveryOutput> {
     // 2. Create version record
     await autoScriptVersionsStorage.create({
       autoScriptId: scriptId,
+      userId: context.userId,
       versionNumber: revisionContext.attempt,
       title: updatedScript.title,
       scenes: script.scenes as any,

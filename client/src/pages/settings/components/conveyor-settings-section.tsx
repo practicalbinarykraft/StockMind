@@ -101,7 +101,7 @@ export function ConveyorSettingsSection() {
       dailyLimit: settings.dailyLimit,
       maxAgeDays: settings.maxAgeDays,
       monthlyBudgetLimit: settings.monthlyBudgetLimit,
-      stylePreferences: settings.stylePreferences || { formality: 'conversational', tone: 'engaging', language: 'ru' },
+      stylePreferences: (settings.stylePreferences || { formality: 'conversational', tone: 'engaging', language: 'ru' }) as typeof localSettings.stylePreferences,
       customGuidelines: settings.customGuidelines || [],
       durationRange: settings.durationRange || { min: 30, max: 90 },
       customPrompts: settings.customPrompts || null,
@@ -399,7 +399,7 @@ export function ConveyorSettingsSection() {
                 onValueChange={(value: 'formal' | 'conversational' | 'casual') =>
                   setLocalSettings({
                     ...localSettings,
-                    stylePreferences: { ...localSettings.stylePreferences, formality: value },
+                    stylePreferences: { ...localSettings.stylePreferences, formality: value } as typeof localSettings.stylePreferences,
                   })
                 }
               >
@@ -422,7 +422,7 @@ export function ConveyorSettingsSection() {
                 onValueChange={(value: 'serious' | 'engaging' | 'funny' | 'motivational') =>
                   setLocalSettings({
                     ...localSettings,
-                    stylePreferences: { ...localSettings.stylePreferences, tone: value },
+                    stylePreferences: { ...localSettings.stylePreferences, tone: value } as typeof localSettings.stylePreferences,
                   })
                 }
               >
@@ -446,7 +446,7 @@ export function ConveyorSettingsSection() {
                 onValueChange={(value: 'ru' | 'en') =>
                   setLocalSettings({
                     ...localSettings,
-                    stylePreferences: { ...localSettings.stylePreferences, language: value },
+                    stylePreferences: { ...localSettings.stylePreferences, language: value } as typeof localSettings.stylePreferences,
                   })
                 }
               >
