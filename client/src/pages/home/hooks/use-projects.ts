@@ -4,60 +4,48 @@ import { useToast } from "@/hooks/use-toast"
 import type { Project } from "@shared/schema"
 import type { ProjectsWithScriptsData } from "../types"
 
+interface EnrichedProject extends Project {
+  displayTitle: string
+  stats: {
+    scenesCount: number
+    duration: number
+    format: string
+    thumbnailUrl: string | null
+  }
+  steps?: any[]
+  currentVersion?: any
+}
+
 export function useProjects() {
   const { toast } = useToast()
 
-  const { data: projects, isLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  })
-
-  const { data: projectsWithScripts } = useQuery<ProjectsWithScriptsData>({
-    queryKey: ["/api/projects", "with-scripts"],
+  // Single query with include param - fetches all data in one request
+  // This eliminates N+1 queries (was: 1 + N*2 calls, now: 1 call)
+  const { data: enrichedProjects, isLoading } = useQuery<EnrichedProject[]>({
+    queryKey: ["/api/projects", "include=steps,currentVersion"],
     queryFn: async () => {
-      if (!projects) return { steps: {}, versions: {} }
-
-      const stepsPromises = projects.map(async (project) => {
-        try {
-          const res = await apiRequest("GET", `/api/projects/${project.id}/steps`)
-          if (!res.ok) return { projectId: project.id, steps: [] }
-          const steps = await res.json()
-          return { projectId: project.id, steps }
-        } catch {
-          return { projectId: project.id, steps: [] }
-        }
-      })
-
-      const versionsPromises = projects.map(async (project) => {
-        try {
-          const res = await apiRequest("GET", `/api/projects/${project.id}/script-versions`)
-          if (!res.ok) return { projectId: project.id, currentVersion: null }
-          const data = await res.json()
-          const currentVersion = data.versions?.find((v: any) => v.isCurrent) || data.versions?.[0] || null
-          return { projectId: project.id, currentVersion }
-        } catch {
-          return { projectId: project.id, currentVersion: null }
-        }
-      })
-
-      const [stepsResults, versionsResults] = await Promise.all([
-        Promise.all(stepsPromises),
-        Promise.all(versionsPromises)
-      ])
-
-      return {
-        steps: stepsResults.reduce((acc, { projectId, steps }) => {
-          acc[projectId] = steps
-          return acc
-        }, {} as Record<string, any[]>),
-        versions: versionsResults.reduce((acc, { projectId, currentVersion }) => {
-          acc[projectId] = currentVersion
-          return acc
-        }, {} as Record<string, any>)
-      }
+      const res = await apiRequest("GET", "/api/projects?include=steps,currentVersion")
+      if (!res.ok) throw new Error("Failed to fetch projects")
+      return res.json()
     },
-    enabled: !!projects && projects.length > 0,
     staleTime: 5 * 60 * 1000,
   })
+
+  // Transform enriched data to maintain backwards compatibility
+  const projects = enrichedProjects
+
+  const projectsWithScripts: ProjectsWithScriptsData | undefined = enrichedProjects
+    ? {
+        steps: enrichedProjects.reduce((acc, p) => {
+          acc[p.id] = p.steps || []
+          return acc
+        }, {} as Record<string, any[]>),
+        versions: enrichedProjects.reduce((acc, p) => {
+          acc[p.id] = p.currentVersion || null
+          return acc
+        }, {} as Record<string, any>),
+      }
+    : undefined
 
   const deleteMutation = useMutation({
     mutationFn: async (projectId: string) => {
