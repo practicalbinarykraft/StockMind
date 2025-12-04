@@ -5,6 +5,7 @@ import { getUserId } from "../utils/route-helpers";
 import { insertProjectStepSchema, projectSteps } from "@shared/schema";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
+import { logger } from "../lib/logger";
 
 /**
  * Project Steps routes
@@ -33,17 +34,16 @@ export function registerProjectStepsRoutes(app: Express) {
       }
 
       const steps = await storage.getProjectSteps(id);
-      
-      // Log steps for debugging
-      console.log(`[Project Steps Route] Returning ${steps.length} steps for project ${id}:`, {
-        stepNumbers: steps.map(s => s.stepNumber),
-        hasStep3: steps.some(s => s.stepNumber === 3),
-        step3Data: steps.find(s => s.stepNumber === 3)?.data
+
+      logger.debug("Returning project steps", {
+        projectId: id,
+        stepCount: steps.length,
+        stepNumbers: steps.map(s => s.stepNumber)
       });
-      
+
       res.json(steps);
-    } catch (error) {
-      console.error("Error fetching project steps:", error);
+    } catch (error: any) {
+      logger.error("Error fetching project steps", { error: error.message });
       res.status(500).json({ message: "Failed to fetch project steps" });
     }
   });
@@ -76,8 +76,8 @@ export function registerProjectStepsRoutes(app: Express) {
       const step = await storage.createProjectStep(validated);
       res.json(step);
     } catch (error: any) {
-      console.error("Error creating project step:", error);
-      res.status(400).json({ message: error.message || "Failed to create project step" });
+      logger.error("Error creating project step", { error: error.message });
+      res.status(400).json({ message: "Failed to create project step" });
     }
   });
 
@@ -166,7 +166,7 @@ export function registerProjectStepsRoutes(app: Express) {
         steps: updatedSteps,
       });
     } catch (error: any) {
-      console.error("Error skipping step:", error.message);
+      logger.error("Error skipping step", { error: error.message });
       res.status(500).json({ message: "Failed to skip step" });
     }
   });

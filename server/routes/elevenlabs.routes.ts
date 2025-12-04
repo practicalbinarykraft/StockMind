@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { fetchVoices, generateSpeech } from "../elevenlabs-service";
+import { logger } from "../lib/logger";
 
 /**
  * ElevenLabs Voice Generation routes
@@ -27,12 +28,12 @@ export function registerElevenlabsRoutes(app: Express) {
         });
       }
 
-      console.log(`[ElevenLabs] Fetching voices for user ${userId}`);
+      logger.debug("Fetching ElevenLabs voices", { userId });
       const voices = await fetchVoices(apiKey.decryptedKey);
 
       res.json(voices);
     } catch (error: any) {
-      console.error("Error fetching voices:", error);
+      logger.error("Error fetching voices", { error: error.message });
       res.status(500).json({ message: "Failed to fetch voices" });
     }
   });
@@ -63,7 +64,7 @@ export function registerElevenlabsRoutes(app: Express) {
         });
       }
 
-      console.log(`[ElevenLabs] Generating speech for user ${userId}, voice ${voiceId}`);
+      logger.info("Generating ElevenLabs speech", { userId, voiceId });
       const audioBuffer = await generateSpeech(apiKey.decryptedKey, voiceId, text, {
         voice_settings: voiceSettings,
       });
@@ -76,7 +77,7 @@ export function registerElevenlabsRoutes(app: Express) {
         size: audioBuffer.length
       });
     } catch (error: any) {
-      console.error("Error generating speech:", error);
+      logger.error("Error generating speech", { error: error.message });
       res.status(500).json({ message: "Failed to generate speech" });
     }
   });

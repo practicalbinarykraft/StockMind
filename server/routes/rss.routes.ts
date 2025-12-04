@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { insertRssSourceSchema } from "@shared/schema";
 import { parseRssSource } from "../lib/rss-background-tasks";
+import { logger } from "../lib/logger";
 
 /**
  * RSS sources management routes
@@ -18,8 +19,8 @@ export function registerRssRoutes(app: Express) {
 
       const sources = await storage.getRssSources(userId);
       res.json(sources);
-    } catch (error) {
-      console.error("Error fetching RSS sources:", error);
+    } catch (error: any) {
+      logger.error("Error fetching RSS sources", { error: error.message });
       res.status(500).json({ message: "Failed to fetch RSS sources" });
     }
   });
@@ -35,12 +36,12 @@ export function registerRssRoutes(app: Express) {
 
       // Trigger parsing in background (don't await)
       parseRssSource(source.id, source.url, userId).catch(err =>
-        console.error(`Background RSS parsing failed for ${source.id}:`, err)
+        logger.error("Background RSS parsing failed", { sourceId: source.id, error: err.message })
       );
 
       res.json(source);
     } catch (error: any) {
-      console.error("Error creating RSS source:", error);
+      logger.error("Error creating RSS source", { error: error.message });
       res.status(400).json({ message: "Failed to create RSS source" });
     }
   });
@@ -59,8 +60,8 @@ export function registerRssRoutes(app: Express) {
       }
 
       res.json(source);
-    } catch (error) {
-      console.error("Error updating RSS source:", error);
+    } catch (error: any) {
+      logger.error("Error updating RSS source", { error: error.message });
       res.status(500).json({ message: "Failed to update RSS source" });
     }
   });
@@ -74,8 +75,8 @@ export function registerRssRoutes(app: Express) {
       const { id } = req.params;
       await storage.deleteRssSource(id, userId);
       res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting RSS source:", error);
+    } catch (error: any) {
+      logger.error("Error deleting RSS source", { error: error.message });
       res.status(500).json({ message: "Failed to delete RSS source" });
     }
   });
@@ -104,13 +105,13 @@ export function registerRssRoutes(app: Express) {
 
       // Trigger parsing in background (don't await)
       parseRssSource(source.id, source.url, userId).catch(err => {
-        console.error(`Manual RSS parsing failed for ${source.id}:`, err);
+        logger.error("Manual RSS parsing failed", { sourceId: source.id, error: err.message });
         // Error will be saved in parseError by parseRssSource
       });
 
       res.json({ success: true, message: "Parsing started" });
     } catch (error: any) {
-      console.error("Error triggering RSS parsing:", error);
+      logger.error("Error triggering RSS parsing", { error: error.message });
       res.status(500).json({ message: "Failed to trigger parsing" });
     }
   });

@@ -5,6 +5,7 @@ import { getUserId } from "../utils/route-helpers";
 import { scoreNewsItem, scoreInstagramReel } from "../ai-services";
 import { scoreNewsAdvanced, scoreReelAdvanced, scoreCustomScriptAdvanced } from "../ai-services";
 import { apiResponse } from "../lib/api-response";
+import { logger } from "../lib/logger";
 
 /**
  * Advanced Analysis routes
@@ -33,15 +34,15 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         });
       }
 
-      console.log('[Advanced AI] Analyzing news with multi-agent system...');
-      console.warn('[Advanced AI] Using deprecated scoreNewsAdvanced(). Consider using analyzeArticlePotential() for articles.');
+      logger.debug("Analyzing news with multi-agent system");
+      logger.warn("Using deprecated scoreNewsAdvanced(). Consider using analyzeArticlePotential() for articles.");
       const startTime = Date.now();
 
       // TODO: Migrate to analyzeArticlePotential() for articles
       const result = await scoreNewsAdvanced(apiKey.decryptedKey, title, content);
 
       const duration = Date.now() - startTime;
-      console.log(`[Advanced AI] Analysis completed in ${duration}ms`);
+      logger.debug("Advanced AI analysis completed", { durationMs: duration });
 
       res.json({
         ...result,
@@ -51,10 +52,9 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         }
       });
     } catch (error: any) {
-      console.error("Error in advanced news analysis:", error);
+      logger.error("Error in advanced news analysis", { error: error.message });
       res.status(500).json({
-        message: error.message || "Failed to analyze news content",
-        error: error.toString()
+        message: "Failed to analyze news content"
       });
     }
   });
@@ -81,13 +81,13 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         });
       }
 
-      console.log('[Advanced AI] Analyzing Instagram Reel with multi-agent system...');
+      logger.debug("Analyzing Instagram Reel with multi-agent system");
       const startTime = Date.now();
 
       const result = await scoreReelAdvanced(apiKey.decryptedKey, transcription, caption || null);
 
       const duration = Date.now() - startTime;
-      console.log(`[Advanced AI] Analysis completed in ${duration}ms`);
+      logger.debug("Reel analysis completed", { durationMs: duration });
 
       res.json({
         ...result,
@@ -97,10 +97,9 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         }
       });
     } catch (error: any) {
-      console.error("Error in advanced reel analysis:", error);
+      logger.error("Error in advanced reel analysis", { error: error.message });
       res.status(500).json({
-        message: error.message || "Failed to analyze reel content",
-        error: error.toString()
+        message: "Failed to analyze reel content"
       });
     }
   });
@@ -127,7 +126,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         });
       }
 
-      console.log('[Advanced AI] Analyzing custom script with multi-agent system...');
+      logger.debug("Analyzing custom script with multi-agent system");
       const startTime = Date.now();
 
       const result = await scoreCustomScriptAdvanced(
@@ -138,7 +137,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
       );
 
       const duration = Date.now() - startTime;
-      console.log(`[Advanced AI] Analysis completed in ${duration}ms`);
+      logger.debug("Script analysis completed", { durationMs: duration });
 
       res.json({
         ...result,
@@ -148,10 +147,9 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         }
       });
     } catch (error: any) {
-      console.error("Error in advanced script analysis:", error);
+      logger.error("Error in advanced script analysis", { error: error.message });
       res.status(500).json({
-        message: error.message || "Failed to analyze script",
-        error: error.toString()
+        message: "Failed to analyze script"
       });
     }
   });
@@ -176,7 +174,7 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         });
       }
 
-      console.log('[AI Comparison] Running both old and new analysis systems...');
+      logger.debug("Running comparison between old and new analysis systems");
 
       let oldResult: any;
       let newResult: any;
@@ -246,8 +244,8 @@ export function registerAdvancedAnalysisRoutes(app: Express) {
         return apiResponse.badRequest(res, "Type must be 'news' or 'reel'");
       }
     } catch (error: any) {
-      console.error("Error in comparison:", error);
-      return apiResponse.serverError(res, error.message || "Failed to compare analysis systems", error);
+      logger.error("Error in comparison", { error: error.message });
+      return apiResponse.serverError(res, "Failed to compare analysis systems", error);
     }
   });
 }

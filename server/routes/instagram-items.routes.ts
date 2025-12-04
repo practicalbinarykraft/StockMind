@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { scoreInstagramReel } from "../ai-services";
 import { transcribeInstagramItemBackground } from "./helpers/background-tasks";
+import { logger } from "../lib/logger";
 
 /**
  * Instagram Items routes
@@ -25,7 +26,7 @@ export function registerInstagramItemsRoutes(app: Express) {
 
       res.json(items);
     } catch (error: any) {
-      console.error("Error fetching Instagram items:", error);
+      logger.error("Error fetching Instagram items", { error: error.message });
       res.status(500).json({ message: "Failed to fetch Instagram items" });
     }
   });
@@ -46,7 +47,7 @@ export function registerInstagramItemsRoutes(app: Express) {
 
       res.json(item);
     } catch (error: any) {
-      console.error("Error fetching Instagram item:", error);
+      logger.error("Error fetching Instagram item", { error: error.message });
       res.status(500).json({ message: "Failed to fetch Instagram item" });
     }
   });
@@ -71,7 +72,7 @@ export function registerInstagramItemsRoutes(app: Express) {
 
       res.json(item);
     } catch (error: any) {
-      console.error("Error updating Instagram item action:", error);
+      logger.error("Error updating Instagram item action", { error: error.message });
       res.status(500).json({ message: "Failed to update Instagram item" });
     }
   });
@@ -109,7 +110,7 @@ export function registerInstagramItemsRoutes(app: Express) {
         status: "processing"
       });
     } catch (error: any) {
-      console.error("Error starting transcription:", error);
+      logger.error("Error starting transcription", { error: error.message });
       res.status(500).json({ message: "Failed to start transcription" });
     }
   });
@@ -177,7 +178,7 @@ export function registerInstagramItemsRoutes(app: Express) {
         qualityScore: result.qualityScore,
       });
     } catch (error: any) {
-      console.error("Error scoring Instagram item:", error.message);
+      logger.error("Error scoring Instagram item", { error: error.message });
       res.status(500).json({ message: "Failed to score Instagram item" });
     }
   });
