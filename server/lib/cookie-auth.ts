@@ -23,11 +23,12 @@ interface CookieOptions {
  * Get cookie options based on environment
  */
 function getCookieOptions(): CookieOptions {
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Only require secure cookies if HTTPS is enabled
+  const useHttps = process.env.USE_HTTPS === 'true';
 
   return {
     httpOnly: true,           // Cannot be accessed by JavaScript (XSS protection)
-    secure: isProduction,     // Only HTTPS in production
+    secure: useHttps,         // Only require HTTPS if explicitly enabled
     sameSite: 'lax',          // CSRF protection
     maxAge: COOKIE_MAX_AGE,
     path: '/',
@@ -45,9 +46,10 @@ export function setAuthCookie(res: Response, token: string): void {
  * Clear JWT cookie (logout)
  */
 export function clearAuthCookie(res: Response): void {
+  const useHttps = process.env.USE_HTTPS === 'true';
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: useHttps,
     sameSite: 'lax',
     path: '/',
   });
