@@ -107,7 +107,7 @@ function normalizeRssUrl(url: string): string {
     
     return url;
   } catch (error) {
-    logger.error(`[RSS] Error normalizing URL ${url}`, { url, error: error.message });
+    logger.error(`[RSS] Error normalizing URL ${url}`, { url, error: (error as Error).message });
     return url;
   }
 }

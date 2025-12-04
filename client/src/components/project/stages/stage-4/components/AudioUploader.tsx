@@ -59,7 +59,7 @@ function UploadedAudioPreview({
 
   return (
     <>
-      <audio ref={audioRef} src={audioUrl} onEnded={onEnded} />
+      <audio ref={audioRef as React.RefObject<HTMLAudioElement>} src={audioUrl} onEnded={onEnded} />
       <Card>
         <CardHeader>
           <CardTitle>Uploaded Audio</CardTitle>

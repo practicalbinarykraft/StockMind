@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getToken } from "@/lib/auth-context";
 import { queryClient } from "@/lib/query-client";
 import {
   Dialog,
@@ -100,10 +99,8 @@ export function RevisionDialog({
   }>({
     queryKey: ["auto-script-versions", script.id],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch(`/api/auto-scripts/${script.id}/versions`, {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         // If no versions yet, return empty
@@ -124,13 +121,9 @@ export function RevisionDialog({
   // Submit revision mutation
   const reviseMutation = useMutation({
     mutationFn: async () => {
-      const token = getToken();
       const res = await fetch(`/api/auto-scripts/${script.id}/revise`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           feedbackText: feedbackText.trim(),

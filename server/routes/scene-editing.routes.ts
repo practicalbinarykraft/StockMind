@@ -51,8 +51,8 @@ export function registerSceneEditingRoutes(app: Express) {
 
       return res.json(transformed);
     } catch (error: any) {
-      console.error('[Scene Recommendations] Error:', error);
-      return res.status(500).json({ message: error.message });
+      console.error('[Scene Recommendations] Error:', error.message);
+      return res.status(500).json({ message: 'Failed to load recommendations' });
     }
   });
 
@@ -160,8 +160,8 @@ export function registerSceneEditingRoutes(app: Express) {
         },
       });
     } catch (error: any) {
-      console.error('[Apply Scene Recommendation] Error:', error);
-      return res.status(500).json({ message: error.message });
+      console.error('[Apply Scene Recommendation] Error:', error.message);
+      return res.status(500).json({ message: 'Failed to apply recommendation' });
     }
   });
 

@@ -6,6 +6,7 @@ import { validateEnvironmentOrExit } from "./lib/env-validator";
 validateEnvironmentOrExit();
 
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initInstagramMonitor } from "./cron/instagram-monitor";
@@ -33,7 +34,10 @@ setupSecurity(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// 4. Request logging (Winston)
+// 4. Cookie parsing (for JWT in httpOnly cookies)
+app.use(cookieParser());
+
+// 5. Request logging (Winston)
 app.use(requestLogger);
 
 (async () => {

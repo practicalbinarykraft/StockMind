@@ -69,7 +69,7 @@ export function registerAudioRoutes(app: Express) {
         userId: req.userId,
         stack: error.stack
       });
-      res.status(500).json({ message: error.message || "Failed to upload audio" });
+      res.status(500).json({ message: "Failed to upload audio" });
     }
   });
 }

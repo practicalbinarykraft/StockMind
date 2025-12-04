@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
+import { logger } from "../lib/logger";
 import { scriptVersions, sceneRecommendations } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { ScriptVersionService } from "../services/script-version-service";
@@ -18,11 +19,11 @@ function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number):
   const recommendations: any[] = [];
 
   if (!analysis || !analysis.recommendations) {
-    console.log('[Extract Recommendations] No recommendations found in analysis');
+    logger.debug("No recommendations found in analysis");
     return recommendations;
   }
 
-  console.log(`[Extract Recommendations] Processing ${analysis.recommendations.length} recommendations for ${totalScenes} scenes`);
+  logger.debug("Processing recommendations", { count: analysis.recommendations.length, totalScenes });
 
   // Map recommendations to scenes using scene numbers (1-indexed)
   for (const rec of analysis.recommendations) {
@@ -48,13 +49,13 @@ function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number):
         confidence,
       });
 
-      console.log(`[Extract Recommendations] Added recommendation for scene #${sceneNumber}, area: ${rec.area}, priority: ${rec.priority}`);
+      logger.debug("Added recommendation", { sceneNumber, area: rec.area, priority: rec.priority });
     } else {
-      console.log(`[Extract Recommendations] Skipped recommendation - invalid sceneNumber: ${sceneNumber} (total scenes: ${totalScenes})`);
+      logger.debug("Skipped recommendation - invalid sceneNumber", { sceneNumber, totalScenes });
     }
   }
 
-  console.log(`[Extract Recommendations] Extracted ${recommendations.length} valid recommendations`);
+  logger.debug("Extracted valid recommendations", { count: recommendations.length });
   return recommendations;
 }
 
@@ -104,7 +105,7 @@ export function registerScriptVersionsRoutes(app: Express) {
         hasUnappliedRecommendations: recommendations.some(r => !r.applied),
       });
     } catch (error: any) {
-      console.error('[Script History] Error:', error);
+      logger.error("Script History error", { error: error.message });
       return apiResponse.serverError(res, error.message, error);
     }
   });
@@ -126,8 +127,8 @@ export function registerScriptVersionsRoutes(app: Express) {
       const versions = await storage.listScriptVersions(id);
       return res.json({ versions });
     } catch (error: any) {
-      console.error('[Script Versions] Error:', error);
-      return res.status(500).json({ message: error.message });
+      logger.error('[Script Versions] Error fetching versions', { error: error.message, projectId: req.params.id });
+      return res.status(500).json({ message: 'Failed to fetch script versions' });
     }
   });
 
@@ -152,7 +153,7 @@ export function registerScriptVersionsRoutes(app: Express) {
 
       return apiResponse.ok(res, { version });
     } catch (error: any) {
-      console.error('[Get Version] Error:', error);
+      logger.error("Get Version error", { error: error.message });
       return apiResponse.serverError(res, error.message);
     }
   });
@@ -211,7 +212,7 @@ export function registerScriptVersionsRoutes(app: Express) {
         recommendationsCount: recommendationsData.length,
       });
     } catch (error: any) {
-      console.error('[Create Initial Version] Error:', error);
+      logger.error("Create Initial Version error", { error: error.message });
       return apiResponse.serverError(res, error.message, error);
     }
   });
@@ -259,7 +260,7 @@ export function registerScriptVersionsRoutes(app: Express) {
           .where(eq(scriptVersions.id, versionId));
       });
 
-      console.log(`[Accept Version] Accepted candidate ${versionId} as current version`);
+      logger.info("Accepted candidate as current version", { versionId });
 
       // Return updated versions list
       const updatedVersions = await storage.getScriptVersions(projectId);
@@ -276,8 +277,8 @@ export function registerScriptVersionsRoutes(app: Express) {
       });
 
     } catch (error: any) {
-      console.error("[Accept Version] Error:", error);
-      return apiResponse.serverError(res, error.message || "Failed to accept version");
+      logger.error("Accept Version error", { error: error.message });
+      return apiResponse.serverError(res, "Failed to accept version");
     }
   });
 
@@ -317,7 +318,7 @@ export function registerScriptVersionsRoutes(app: Express) {
           .where(eq(scriptVersions.id, versionId));
       });
 
-      console.log(`[Delete Version] Deleted version ${versionId}`);
+      logger.info("Deleted script version", { versionId });
 
       // Return updated versions list
       const updatedVersions = await storage.getScriptVersions(projectId);
@@ -334,8 +335,8 @@ export function registerScriptVersionsRoutes(app: Express) {
       });
 
     } catch (error: any) {
-      console.error("[Delete Version] Error:", error);
-      return apiResponse.serverError(res, error.message || "Failed to delete version");
+      logger.error("Delete Version error", { error: error.message });
+      return apiResponse.serverError(res, "Failed to delete version");
     }
   });
 }

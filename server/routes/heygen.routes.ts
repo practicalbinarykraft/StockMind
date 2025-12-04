@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "../heygen-service";
 import { apiResponse } from "../lib/api-response";
+import { logger } from "../lib/logger";
 
 /**
  * HeyGen Avatar Video Generation routes
@@ -28,13 +29,13 @@ export function registerHeygenRoutes(app: Express) {
         });
       }
 
-      console.log(`[HeyGen] Fetching avatars for user ${userId}`);
+      logger.debug("Fetching HeyGen avatars", { userId });
       const avatars = await fetchHeyGenAvatars(apiKey.decryptedKey);
 
       res.json(avatars);
     } catch (error: any) {
-      console.error("Error fetching HeyGen avatars:", error);
-      res.status(500).json({ message: error.message || "Failed to fetch avatars" });
+      logger.error("Error fetching HeyGen avatars", { error: error.message });
+      res.status(500).json({ message: "Failed to fetch avatars" });
     }
   });
 
@@ -72,7 +73,7 @@ export function registerHeygenRoutes(app: Express) {
         });
       }
 
-      console.log(`[HeyGen] Generating video for user ${userId}, avatar ${avatarId}, mode: ${audioUrl ? 'audio' : 'text'}`);
+      logger.info("Generating HeyGen video", { userId, avatarId, mode: audioUrl ? 'audio' : 'text' });
       const videoId = await generateHeyGenVideo(apiKey.decryptedKey, {
         avatar_id: avatarId,
         script,
@@ -83,7 +84,7 @@ export function registerHeygenRoutes(app: Express) {
 
       res.json({ videoId });
     } catch (error: any) {
-      console.error("Error generating HeyGen video:", error);
+      logger.error("Error generating HeyGen video", { error: error.message });
 
       // Proper error handling: pass through provider status codes
       const heygenError = error as any;
@@ -120,14 +121,14 @@ export function registerHeygenRoutes(app: Express) {
         });
       }
 
-      console.log(`[HeyGen] Checking video status for ${videoId}`);
+      logger.debug("Checking HeyGen video status", { videoId });
       const status = await getHeyGenVideoStatus(apiKey.decryptedKey, videoId);
 
       // Use apiResponse for consistent JSON format
       return apiResponse.ok(res, status);
     } catch (error: any) {
-      console.error("Error checking HeyGen video status:", error);
-      return apiResponse.serverError(res, error.message || "Failed to check video status", error);
+      logger.error("Error checking HeyGen video status", { error: error.message, videoId: req.params.videoId });
+      return apiResponse.serverError(res, "Failed to check video status", error);
     }
   });
 }

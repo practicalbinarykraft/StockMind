@@ -17,7 +17,6 @@ import {
 import { useConveyorEvents, type AgentMessage } from "../hooks/use-conveyor-events";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
-import { getToken } from "@/lib/auth-context";
 
 interface AgentThinkingSidebarProps {
   className?: string;
@@ -37,11 +36,9 @@ export function AgentThinkingSidebar({ className }: AgentThinkingSidebarProps) {
   // Test mutation to trigger demo events
   const testMutation = useMutation({
     mutationFn: async () => {
-      const token = getToken();
       const res = await fetch("/api/conveyor/events/test", {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to trigger test");
       return res.json();

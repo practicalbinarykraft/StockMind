@@ -1,6 +1,17 @@
+import { useState } from "react"
 import { type Project } from "@shared/schema"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { 
   ArrowLeft,
@@ -27,12 +38,12 @@ import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
 
 const STAGES = [
-  { number: 1, title: "Source Selection", icon: Radio },
-  { number: 2, title: "Content Input", icon: Newspaper },
-  { number: 3, title: "Сценарий", icon: Sparkles },
-  { number: 4, title: "Voice Generation", icon: Mic },
-  { number: 5, title: "Avatar Selection", icon: Users },
-  { number: 6, title: "Final Export", icon: Download },
+  { number: 1, title: "Source Selection", icon: Radio, optional: false },
+  { number: 2, title: "Content Input", icon: Newspaper, optional: false },
+  { number: 3, title: "Сценарий", icon: Sparkles, optional: false },
+  { number: 4, title: "Voice Generation", icon: Mic, optional: true },
+  { number: 5, title: "Avatar Selection", icon: Users, optional: true },
+  { number: 6, title: "Final Export", icon: Download, optional: false },
 ]
 
 interface ProjectSidebarProps {
@@ -43,7 +54,11 @@ interface ProjectSidebarProps {
 export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
   const [, setLocation] = useLocation()
   const { toast } = useToast()
-  
+
+  // State for navigation warning dialog
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false)
+  const [pendingStageNavigation, setPendingStageNavigation] = useState<number | null>(null)
+
   const currentStage = project.currentStage
 
   // Fetch steps data to check which steps are skipped
@@ -111,22 +126,33 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
     // Can only navigate to completed stages (based on actual step data, not just currentStage)
     const isCompleted = isStepCompleted(stageNum) || stageNum < maxReachedStage
     if (!isCompleted && stageNum !== currentStage) return
-    
+
     // Don't navigate if already on this stage
     if (stageNum === currentStage) return
-    
-    // Show warning for early stages (1-4) when navigating back
+
+    // Show warning dialog for early stages (1-4) when navigating back
     if (stageNum < 5 && stageNum < maxReachedStage) {
-      const confirmed = window.confirm(
-        `⚠️ Внимание!\n\n` +
-        `Вы возвращаетесь на этап ${stageNum} (${STAGES.find(s => s.number === stageNum)?.title || 'Unknown'}).\n\n` +
-        `Изменения на ранних этапах могут повлиять на последующие этапы.\n\n` +
-        `Продолжить?`
-      )
-      if (!confirmed) return
+      setPendingStageNavigation(stageNum)
+      setShowNavigationWarning(true)
+      return
     }
-    
+
     navigateToStageMutation.mutate(stageNum)
+  }
+
+  // Handle confirmed navigation from dialog
+  const handleConfirmNavigation = () => {
+    if (pendingStageNavigation !== null) {
+      navigateToStageMutation.mutate(pendingStageNavigation)
+    }
+    setShowNavigationWarning(false)
+    setPendingStageNavigation(null)
+  }
+
+  // Handle cancel navigation from dialog
+  const handleCancelNavigation = () => {
+    setShowNavigationWarning(false)
+    setPendingStageNavigation(null)
   }
 
   return (
@@ -238,7 +264,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                   )}
                   
                   {/* Show source metadata for Stage 1 */}
-                  {stage.number === 1 && project.sourceType && project.sourceData && (
+                  {stage.number === 1 && project.sourceType && project.sourceData ? (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {project.sourceType === 'news' && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
@@ -258,18 +284,18 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
                           Custom
                         </Badge>
                       )}
-                      {project.sourceData.language && (
+                      {(project.sourceData as Record<string, any>).language && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">
-                          {project.sourceData.language}
+                          {(project.sourceData as Record<string, any>).language}
                         </Badge>
                       )}
-                      {typeof project.sourceData.aiScore === 'number' && (
+                      {typeof (project.sourceData as Record<string, any>).aiScore === 'number' && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                          {project.sourceData.aiScore}/100
+                          {(project.sourceData as Record<string, any>).aiScore}/100
                         </Badge>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )
@@ -297,13 +323,34 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
             Stage {currentStage} of {STAGES.length}
           </div>
           <div className="mt-2 h-2 bg-sidebar-border rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-primary transition-all duration-300"
               style={{ width: `${(currentStage / STAGES.length) * 100}%` }}
             />
           </div>
         </div>
       </div>
+
+      {/* Navigation Warning Dialog */}
+      <AlertDialog open={showNavigationWarning} onOpenChange={setShowNavigationWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Внимание!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы возвращаетесь на этап {pendingStageNavigation} ({STAGES.find(s => s.number === pendingStageNavigation)?.title || 'Unknown'}).
+              Изменения на ранних этапах могут повлиять на последующие этапы.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelNavigation}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmNavigation}>
+              Продолжить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

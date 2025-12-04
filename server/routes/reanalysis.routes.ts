@@ -61,11 +61,10 @@ export function registerReanalysisRoutes(app: Express) {
         throw err;
       }
 
-      console.log(`[reanalyze.start]`, {
+      logger.info("Reanalysis job started", {
         jobId: job.jobId,
         projectId,
-        idempotencyKey: idempotencyKey || null,
-        timestamp: new Date().toISOString()
+        idempotencyKey: idempotencyKey || null
       });
 
       // Start async processing
@@ -75,7 +74,7 @@ export function registerReanalysisRoutes(app: Express) {
           jobManager.updateJobProgress(job.jobId, 'hook', 0);
 
           const scenes = currentVersion.scenes as any || [];
-          console.log(`[Reanalyze] Job ${job.jobId} running - analyzing ${scenes.length} scenes`);
+          logger.debug("Reanalysis job running", { jobId: job.jobId, sceneCount: scenes.length });
 
           // Run advanced analysis with retry logic
           jobManager.updateJobProgress(job.jobId, 'structure', 20);
@@ -108,8 +107,8 @@ export function registerReanalysisRoutes(app: Express) {
                       sceneNumber: scene.sceneNumber,
                       score: sceneAnalysis.overallScore
                     };
-                  } catch (err) {
-                    console.error(`[Job ${job.jobId}] Scene ${scene.sceneNumber} analysis failed:`, err);
+                  } catch (err: any) {
+                    logger.error("Scene analysis failed", { jobId: job.jobId, sceneNumber: scene.sceneNumber, error: err.message });
                     return {
                       sceneNumber: scene.sceneNumber,
                       score: 0

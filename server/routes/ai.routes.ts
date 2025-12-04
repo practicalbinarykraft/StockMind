@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { analyzeScript, scoreText } from "../ai-services";
+import { logger } from "../lib/logger";
 
 /**
  * AI Analysis routes
@@ -33,12 +34,12 @@ export function registerAiRoutes(app: Express) {
         });
       }
 
-      console.log(`[AI] Analyzing script for format: ${format}`);
+      logger.debug("Analyzing script", { format });
       const analysis = await analyzeScript(apiKey.decryptedKey, format, content);
 
       res.json(analysis);
     } catch (error: any) {
-      console.error("Error analyzing script:", error);
+      logger.error("Error analyzing script", { error: error.message });
 
       // Check for authentication errors from Anthropic
       if (error.message?.includes('invalid x-api-key') || error.message?.includes('authentication')) {
@@ -47,7 +48,7 @@ export function registerAiRoutes(app: Express) {
         });
       }
 
-      res.status(500).json({ message: error.message || "Failed to analyze script" });
+      res.status(500).json({ message: "Failed to analyze script" });
     }
   });
 
@@ -75,13 +76,13 @@ export function registerAiRoutes(app: Express) {
         });
       }
 
-      console.log(`[AI] Scoring text (${text.length} chars)`);
+      logger.debug("Scoring text", { textLength: text.length });
       const result = await scoreText(apiKey.decryptedKey, text);
 
       res.json(result);
     } catch (error: any) {
-      console.error("Error scoring text:", error);
-      res.status(500).json({ message: error.message || "Failed to score text" });
+      logger.error("Error scoring text", { error: error.message });
+      res.status(500).json({ message: "Failed to score text" });
     }
   });
 }

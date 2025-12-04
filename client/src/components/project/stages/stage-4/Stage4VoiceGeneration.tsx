@@ -251,7 +251,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           {/* Audio Player */}
           {(serverAudioUrl || voiceGeneration.audioData) && (
             <AudioPlayer
-              ref={voiceGeneration.audioRef}
+              ref={voiceGeneration.audioRef as React.RefObject<HTMLAudioElement>}
               audioUrl={serverAudioUrl}
               audioData={voiceGeneration.audioData}
               isPlaying={voiceGeneration.isPlaying}

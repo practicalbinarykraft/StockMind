@@ -1,5 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getToken } from "./auth-context";
+
+/**
+ * API Client for React Query
+ *
+ * SECURITY: Authentication uses httpOnly cookies (automatic with credentials: 'include')
+ * No need to manually add Authorization headers - cookies are sent automatically
+ */
 
 export class ApiError extends Error {
   status: number;
@@ -18,40 +24,24 @@ async function throwIfResNotOk(res: Response) {
     // Try to parse JSON, but handle HTML error pages gracefully
     let body: any;
     const contentType = res.headers.get('content-type') || '';
-    
+
     if (contentType.includes('application/json')) {
       try {
         body = await res.json();
-      } catch (e) {
+      } catch {
         body = { message: res.statusText || 'Unknown error' };
       }
     } else {
       // Server returned HTML or other non-JSON content (likely an error page)
       const text = await res.text().catch(() => '');
-      body = { 
+      body = {
         message: res.statusText || 'Server error',
         details: text.includes('<!DOCTYPE') ? 'Server returned HTML error page' : text.substring(0, 200)
       };
     }
-    
+
     throw new ApiError(res.status, body);
   }
-}
-
-/**
- * Get authorization headers with JWT token
- */
-function getAuthHeaders(): HeadersInit {
-  const token = getToken();
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  return headers;
 }
 
 export async function apiRequest(
@@ -59,22 +49,18 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Always use getAuthHeaders to ensure token is included
-  const headers: HeadersInit = getAuthHeaders();
+  const headers: Record<string, string> = {};
 
-  // Override Content-Type for POST/PUT/PATCH requests with data
+  // Set Content-Type for requests with body
   if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
     headers["Content-Type"] = "application/json";
-  } else if (!data) {
-    // Remove Content-Type if no data (GET/DELETE requests)
-    delete (headers as any)["Content-Type"];
   }
 
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include", // Still include for compatibility
+    credentials: "include", // Sends httpOnly cookies automatically
   });
 
   await throwIfResNotOk(res);
@@ -87,16 +73,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const token = getToken();
-    const headers: HeadersInit = {};
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
     const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-      headers,
+      credentials: "include", // Sends httpOnly cookies automatically
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
@@ -115,7 +93,7 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,  // Disable to prevent logout on window focus
-      staleTime: 5 * 60 * 1000,  // ✅ 5 minutes (reasonable cache time)
+      staleTime: 5 * 60 * 1000,  // 5 minutes cache
       retry: false,
     },
     mutations: {

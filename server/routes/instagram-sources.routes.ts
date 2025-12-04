@@ -5,6 +5,7 @@ import { getUserId, normalizeInstagramUsername } from "../utils/route-helpers";
 import { insertInstagramSourceSchema } from "@shared/schema";
 import { scrapeInstagramReels, testApifyApiKey } from "../apify-service";
 import { downloadInstagramMediaBackground } from "../lib/instagram-background-tasks";
+import { logger } from "../lib/logger";
 import { z } from "zod";
 
 /**
@@ -20,8 +21,8 @@ export function registerInstagramSourcesRoutes(app: Express) {
 
       const sources = await storage.getInstagramSources(userId);
       res.json(sources);
-    } catch (error) {
-      console.error("Error fetching Instagram sources:", error);
+    } catch (error: any) {
+      logger.error("Error fetching Instagram sources", { error: error.message });
       res.status(500).json({ message: "Failed to fetch Instagram sources" });
     }
   });
@@ -47,8 +48,8 @@ export function registerInstagramSourcesRoutes(app: Express) {
 
       res.json(source);
     } catch (error: any) {
-      console.error("Error creating Instagram source:", error);
-      res.status(400).json({ message: error.message || "Failed to create Instagram source" });
+      logger.error("Error creating Instagram source", { error: error.message });
+      res.status(400).json({ message: "Failed to create Instagram source" });
     }
   });
 
@@ -61,8 +62,8 @@ export function registerInstagramSourcesRoutes(app: Express) {
       const { id } = req.params;
       await storage.deleteInstagramSource(id, userId);
       res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting Instagram source:", error);
+    } catch (error: any) {
+      logger.error("Error deleting Instagram source", { error: error.message });
       res.status(500).json({ message: "Failed to delete Instagram source" });
     }
   });
@@ -94,7 +95,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
       }
 
       // Test Apify API key before scraping
-      console.log(`[Instagram] Testing Apify API key before scraping...`);
+      logger.debug("Testing Apify API key before scraping");
       const isValidKey = await testApifyApiKey(apifyKey.decryptedKey);
 
       if (!isValidKey) {
@@ -109,7 +110,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
         parseError: null
       });
 
-      console.log(`[Instagram] Starting to parse @${source.username} (limit: ${resultsLimit})`);
+      logger.info("Starting Instagram parse", { username: source.username, resultsLimit });
 
       // Start scraping (this will take some time)
       const result = await scrapeInstagramReels(
@@ -119,7 +120,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
       );
 
       if (result.success) {
-        console.log(`[Instagram] Successfully parsed ${result.itemCount} Reels from @${source.username}`);
+        logger.info("Successfully parsed Instagram Reels", { username: source.username, itemCount: result.itemCount });
 
         // Save Reels to database
         let savedCount = 0;
@@ -167,15 +168,15 @@ export function registerInstagramSourcesRoutes(app: Express) {
 
           } catch (error: any) {
             if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
-              console.log(`[Instagram] Skipping duplicate Reel: ${reel.shortCode}`);
+              logger.debug("Skipping duplicate Reel", { shortCode: reel.shortCode });
               skippedCount++;
             } else {
-              console.error(`[Instagram] Error saving Reel ${reel.shortCode}:`, error.message);
+              logger.error("Error saving Reel", { shortCode: reel.shortCode, error: error.message });
             }
           }
         }
 
-        console.log(`[Instagram] Saved ${savedCount} new Reels, skipped ${skippedCount} duplicates`);
+        logger.info("Instagram parse completed", { savedCount, skippedCount });
 
         // Find the most recent Reel
         const latestReel = result.items.reduce((latest, current) => {
@@ -212,8 +213,8 @@ export function registerInstagramSourcesRoutes(app: Express) {
         });
       }
     } catch (error: any) {
-      console.error("Error parsing Instagram source:", error);
-      res.status(500).json({ message: error.message || "Failed to parse Instagram source" });
+      logger.error("Error parsing Instagram source", { error: error.message });
+      res.status(500).json({ message: "Failed to parse Instagram source" });
     }
   });
 }

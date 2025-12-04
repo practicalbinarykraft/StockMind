@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getToken } from "@/lib/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -82,10 +81,8 @@ export function AutoScriptCompareModal({
   }>({
     queryKey: ["auto-script-versions", scriptId],
     queryFn: async () => {
-      const token = getToken();
       const res = await fetch(`/api/auto-scripts/${scriptId}/versions`, {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         if (res.status === 404) {
@@ -100,11 +97,13 @@ export function AutoScriptCompareModal({
 
   const versions = versionsData?.versions || [];
 
-  // Auto-select versions on first load
-  if (versions.length >= 2 && !leftVersionId && !rightVersionId) {
-    setLeftVersionId(versions[1]?.id || "");
-    setRightVersionId(versions[0]?.id || "");
-  }
+  // Auto-select versions on first load (moved to useEffect to avoid setState in render)
+  useEffect(() => {
+    if (versions.length >= 2 && !leftVersionId && !rightVersionId) {
+      setLeftVersionId(versions[1]?.id || "");
+      setRightVersionId(versions[0]?.id || "");
+    }
+  }, [versions, leftVersionId, rightVersionId]);
 
   const leftVersion = versions.find((v) => v.id === leftVersionId);
   const rightVersion = versions.find((v) => v.id === rightVersionId);

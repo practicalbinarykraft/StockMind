@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { apiResponse } from "../lib/api-response";
+import { logger } from "../lib/logger";
 
 /**
  * Version Comparison routes
@@ -106,7 +107,7 @@ export function registerVersionComparisonRoutes(app: Express) {
       });
 
     } catch (error: any) {
-      console.error("[Compare Versions] Error:", error);
+      logger.error("Compare Versions error", { error: error.message });
       return apiResponse.serverError(res, error.message);
     }
   });
@@ -198,7 +199,7 @@ export function registerVersionComparisonRoutes(app: Express) {
       });
 
     } catch (error: any) {
-      console.error("[Compare Latest] Error:", error);
+      logger.error("Compare Latest error", { error: error.message });
       return apiResponse.serverError(res, error.message);
     }
   });
@@ -234,11 +235,11 @@ export function registerVersionComparisonRoutes(app: Express) {
       if (keep === 'candidate') {
         // Promote candidate to current
         await storage.promoteCandidate(projectId, candidateVersion.id);
-        console.log(`[Compare Choose] Promoted candidate ${candidateVersion.id} to current`);
+        logger.info("Promoted candidate to current", { candidateId: candidateVersion.id });
       } else {
         // Reject candidate
         await storage.rejectCandidate(projectId, candidateVersion.id);
-        console.log(`[Compare Choose] Rejected candidate ${candidateVersion.id}`);
+        logger.info("Rejected candidate version", { candidateId: candidateVersion.id });
       }
 
       return apiResponse.ok(res, {
@@ -247,7 +248,7 @@ export function registerVersionComparisonRoutes(app: Express) {
       });
 
     } catch (error: any) {
-      console.error("[Compare Choose] Error:", error);
+      logger.error("Compare Choose error", { error: error.message });
       return apiResponse.serverError(res, error.message);
     }
   });
@@ -276,7 +277,7 @@ export function registerVersionComparisonRoutes(app: Express) {
 
       // Reject candidate
       await storage.rejectCandidate(projectId, candidateVersion.id);
-      console.log(`[Cancel Candidate] Rejected candidate ${candidateVersion.id} for project ${projectId}`);
+      logger.info("Cancelled candidate draft", { candidateId: candidateVersion.id, projectId });
 
       return apiResponse.ok(res, {
         success: true,
@@ -284,7 +285,7 @@ export function registerVersionComparisonRoutes(app: Express) {
       });
 
     } catch (error: any) {
-      console.error("[Cancel Candidate] Error:", error);
+      logger.error("Cancel Candidate error", { error: error.message });
       return apiResponse.serverError(res, error.message);
     }
   });

@@ -107,7 +107,7 @@ function normalizeRssUrl(url: string): string {
     
     return url;
   } catch (error: any) {
-    logger.error(`[RSS] Error normalizing URL ${url}`, { url, error: error.message });
+    logger.error(`[RSS] Error normalizing URL ${url}`, { url });
     return url;
   }
 }
@@ -140,15 +140,15 @@ export function registerNewsRoutes(app: Express) {
       // Auto-score items without AI score in background
       const itemsWithoutScore = items.filter(item => item.aiScore === null);
       if (itemsWithoutScore.length > 0) {
-        console.log(`[AI] Found ${itemsWithoutScore.length} items without AI score, starting auto-scoring...`);
+        logger.debug("Starting auto-scoring for items without AI score", { count: itemsWithoutScore.length });
         scoreRssItems(itemsWithoutScore, userId).catch(err =>
-          console.error('[AI] Auto-scoring failed:', err)
+          logger.error("Auto-scoring failed", { error: err.message })
         );
       }
 
       res.json(enrichedItems);
-    } catch (error) {
-      console.error("Error fetching news items:", error);
+    } catch (error: any) {
+      logger.error("Error fetching news items", { error: error.message });
       res.status(500).json({ message: "Failed to fetch news items" });
     }
   });
@@ -173,8 +173,8 @@ export function registerNewsRoutes(app: Express) {
         viralityScore: item.viralityScore,
         aiComment: item.aiComment,
       });
-    } catch (error) {
-      console.error("Error fetching news item score:", error);
+    } catch (error: any) {
+      logger.error("Error fetching news item score", { error: error.message });
       res.status(500).json({ message: "Failed to fetch score" });
     }
   });
@@ -191,8 +191,8 @@ export function registerNewsRoutes(app: Express) {
       if (!updated) return res.status(404).json({ message: "News item not found" });
 
       res.json({ success: true, item: updated });
-    } catch (error) {
-      console.error("Error updating news item action:", error);
+    } catch (error: any) {
+      logger.error("Error updating news item action", { error: error.message });
       res.status(500).json({ message: "Failed to update news item" });
     }
   });
@@ -241,8 +241,8 @@ export function registerNewsRoutes(app: Express) {
       }
 
       res.json({ success: true, newItems: totalNew });
-    } catch (error) {
-      console.error("Error refreshing news:", error);
+    } catch (error: any) {
+      logger.error("Error refreshing news", { error: error.message });
       res.status(500).json({ message: "Failed to refresh news" });
     }
   });
@@ -308,7 +308,7 @@ export function registerNewsRoutes(app: Express) {
       if (item.fullContent && item.lastFetchedAt) {
         const age = Date.now() - new Date(item.lastFetchedAt).getTime();
         if (age < SIX_HOURS_MS && item.fullContent.length >= 500) {
-          console.log(`[Article Extractor] Using cached content for ${item.url} (${age / 1000}s old)`);
+          logger.debug("Using cached article content", { url: item.url, ageSeconds: Math.round(age / 1000) });
           return res.json({ success: true, content: item.fullContent, cached: true });
         }
       }
@@ -316,7 +316,7 @@ export function registerNewsRoutes(app: Express) {
       // Extract full content
       const result = await fetchAndExtract(item.url);
       if (!result.ok) {
-        console.warn(`[Article Extractor] Failed to extract ${item.url}: ${result.reason}`);
+        logger.warn("Failed to extract article", { url: item.url, reason: result.reason });
         return res.json({ success: false, error: result.reason, fallback: item.content });
       }
 
@@ -325,12 +325,12 @@ export function registerNewsRoutes(app: Express) {
         fullContent: result.content,
         lastFetchedAt: new Date(),
       });
-      console.log(`[Article Extractor] Successfully extracted and cached content for ${item.url}`);
+      logger.info("Successfully extracted and cached article content", { url: item.url });
 
       res.json({ success: true, content: result.content, cached: false });
     } catch (error: any) {
-      console.error("Error fetching full article content:", error);
-      res.status(500).json({ message: "Failed to fetch article content", error: error.message });
+      logger.error("Error fetching full article content", { error: error.message });
+      res.status(500).json({ message: "Failed to fetch article content" });
     }
   });
 
@@ -343,8 +343,7 @@ export function registerNewsRoutes(app: Express) {
       const sources = await storage.getRssSources(userId);
 
       if (startDate && endDate) {
-        console.log(`[Extended Parse] User requested date range: ${startDate} to ${endDate}`);
-        console.log('[Extended Parse] Note: RSS feeds typically only provide latest items');
+        logger.debug("Extended parse with date range", { startDate, endDate, note: "RSS feeds typically only provide latest items" });
       }
 
       let totalNew = 0;
@@ -386,8 +385,8 @@ export function registerNewsRoutes(app: Express) {
       }
 
       res.json({ success: true, newItems: totalNew, totalProcessed });
-    } catch (error) {
-      console.error("Error in extended refresh:", error);
+    } catch (error: any) {
+      logger.error("Error in extended refresh", { error: error.message });
       res.status(500).json({ message: "Failed to perform extended refresh" });
     }
   });
@@ -488,8 +487,8 @@ export function registerNewsRoutes(app: Express) {
 
       res.json(enrichedItems);
     } catch (error: any) {
-      console.error("Error fetching all news:", error);
-      res.status(500).json({ message: "Failed to fetch news", error: error.message });
+      logger.error("Error fetching all news", { error: error.message });
+      res.status(500).json({ message: "Failed to fetch news" });
     }
   });
 
@@ -513,8 +512,8 @@ export function registerNewsRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error adding to favorites:", error);
-      res.status(500).json({ message: "Failed to add to favorites", error: error.message });
+      logger.error("Error adding to favorites", { error: error.message });
+      res.status(500).json({ message: "Failed to add to favorites" });
     }
   });
 
@@ -536,8 +535,8 @@ export function registerNewsRoutes(app: Express) {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error removing from favorites:", error);
-      res.status(500).json({ message: "Failed to remove from favorites", error: error.message });
+      logger.error("Error removing from favorites", { error: error.message });
+      res.status(500).json({ message: "Failed to remove from favorites" });
     }
   });
 
@@ -567,8 +566,8 @@ export function registerNewsRoutes(app: Express) {
 
       res.json(enrichedItems);
     } catch (error: any) {
-      console.error("Error fetching favorites:", error);
-      res.status(500).json({ message: "Failed to fetch favorites", error: error.message });
+      logger.error("Error fetching favorites", { error: error.message });
+      res.status(500).json({ message: "Failed to fetch favorites" });
     }
   });
 }

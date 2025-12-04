@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest } from "@/lib/query-client"
-import { getToken } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import type { EnrichedRssItem } from "../utils/news-helpers"
 
@@ -260,13 +259,14 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
       })
       
       const score = analysisData.score || analysisData.overallScore || 'N/A'
-      const verdict = analysisData.verdict || 'moderate'
-      const verdictText = {
+      const verdict = (analysisData.verdict || 'moderate') as 'excellent' | 'good' | 'moderate' | 'weak'
+      const verdictMap: Record<string, string> = {
         excellent: 'Отлично',
         good: 'Хорошо',
         moderate: 'Умеренно',
         weak: 'Слабо'
-      }[verdict] || 'Умеренно'
+      }
+      const verdictText = verdictMap[verdict] || 'Умеренно'
       
       toast({
         title: "Анализ завершен",
@@ -396,14 +396,9 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
 
   const loadSavedAnalysisMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      console.log(`[useNewsAnalysis] Loading saved analysis for article ${itemId}`)
       try {
         const res = await fetch(`/api/news/${itemId}/analysis`, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${getToken()}`,
-            'Content-Type': 'application/json',
-          },
           credentials: 'include',
         })
         

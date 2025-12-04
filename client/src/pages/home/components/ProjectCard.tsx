@@ -10,15 +10,15 @@ import {
 import { Film, Clock, Layout, Instagram, MoreVertical, Edit, Trash2, RotateCcw } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
-import type { Project } from "@shared/schema"
+import type { EnrichedProject } from "../types"
 
 interface ProjectCardProps {
-  project: Project & { stats?: any }
+  project: EnrichedProject
   onNavigate: (projectId: string) => void
-  onDelete: (project: Project) => void
-  onRename: (project: Project) => void
-  onRestore: (project: Project) => void
-  onPermanentDelete: (project: Project) => void
+  onDelete: (project: EnrichedProject) => void
+  onRename: (project: EnrichedProject) => void
+  onRestore: (project: EnrichedProject) => void
+  onPermanentDelete: (project: EnrichedProject) => void
 }
 
 function getProgressColor(progress: number): string {
@@ -61,7 +61,7 @@ export function ProjectCard({
         {project.stats?.thumbnailUrl ? (
           <img
             src={project.stats.thumbnailUrl}
-            alt={(project as any).displayTitle || project.title || "Project"}
+            alt={project.displayTitle || project.title || "Project"}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -84,11 +84,11 @@ export function ProjectCard({
             onClick={() => onNavigate(project.id)}
           >
             <CardTitle className="text-base line-clamp-2 flex items-center gap-2">
-              {(project as any).sourceType === 'instagram' && (
+              {project.sourceType === 'instagram' && (
                 <Instagram className="h-4 w-4 text-primary flex-shrink-0" />
               )}
               <span className="line-clamp-2">
-                {(project as any).displayTitle || project.title || "Untitled Project"}
+                {project.displayTitle || project.title || "Untitled Project"}
               </span>
             </CardTitle>
           </div>
@@ -164,11 +164,11 @@ export function ProjectCard({
 }
 
 interface ProjectMenuProps {
-  project: Project
-  onDelete: (project: Project) => void
-  onRename: (project: Project) => void
-  onRestore: (project: Project) => void
-  onPermanentDelete: (project: Project) => void
+  project: EnrichedProject
+  onDelete: (project: EnrichedProject) => void
+  onRename: (project: EnrichedProject) => void
+  onRestore: (project: EnrichedProject) => void
+  onPermanentDelete: (project: EnrichedProject) => void
 }
 
 function ProjectMenu({ project, onDelete, onRename, onRestore, onPermanentDelete }: ProjectMenuProps) {

@@ -51,8 +51,8 @@ export function setupSentry(app: Express) {
     ]
   });
 
-  // Request handler must be first
-  app.use(Sentry.setupExpressErrorHandler(app));
+  // Setup Express error handler
+  Sentry.setupExpressErrorHandler(app);
 
   console.log('[Sentry] Error monitoring initialized');
 }

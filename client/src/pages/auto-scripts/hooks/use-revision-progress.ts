@@ -1,9 +1,9 @@
 /**
  * Hook for tracking revision progress
- * Отслеживает прогресс обработки ревизии через API
+ *
+ * Uses httpOnly cookies for authentication
  */
 import { useQuery } from "@tanstack/react-query";
-import { getToken } from "@/lib/auth-context";
 
 export interface RevisionProgress {
   currentStage: number;
@@ -51,10 +51,8 @@ export function useRevisionProgress(
         throw new Error("Conveyor item ID is required");
       }
 
-      const token = getToken();
       const res = await fetch(`/api/conveyor/items/${conveyorItemId}/progress`, {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (!res.ok) {

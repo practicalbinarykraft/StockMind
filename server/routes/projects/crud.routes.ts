@@ -10,14 +10,40 @@ export function registerProjectsCrudRoutes(app: Express) {
   const projectService = new ProjectService(storage)
 
   // GET /api/projects - Get all projects with enriched data
+  // Supports ?include=steps,currentVersion query param for batch loading
   app.get("/api/projects", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req)
       if (!userId) return res.status(401).json({ message: "Unauthorized" })
+
+      const includeParam = (req.query.include as string) || ""
+      const includes = includeParam.split(",").map(s => s.trim()).filter(Boolean)
+      const includeSteps = includes.includes("steps")
+      const includeCurrentVersion = includes.includes("currentVersion")
+
       const projects = await storage.getProjects(userId)
 
-      const enrichedProjects = await Promise.all(projects.map(async (project) => {
-        const steps = await storage.getProjectSteps(project.id)
+      // Batch fetch all steps (already needed for stats computation anyway)
+      const allProjectSteps = await Promise.all(
+        projects.map(p => storage.getProjectSteps(p.id))
+      )
+      const stepsMap = new Map(projects.map((p, i) => [p.id, allProjectSteps[i]]))
+
+      // Batch fetch current versions if requested
+      let versionsMap = new Map<string, any>()
+      if (includeCurrentVersion) {
+        const allVersions = await Promise.all(
+          projects.map(p => storage.getScriptVersions(p.id))
+        )
+        versionsMap = new Map(projects.map((p, i) => {
+          const versions = allVersions[i]
+          const current = versions.find(v => v.isCurrent) || versions[0] || null
+          return [p.id, current]
+        }))
+      }
+
+      const enrichedProjects = projects.map((project) => {
+        const steps = stepsMap.get(project.id) || []
 
         let autoTitle = project.title
         if (!autoTitle || autoTitle === "Untitled Project") {
@@ -49,12 +75,22 @@ export function registerProjectsCrudRoutes(app: Express) {
           thumbnailUrl: step5Data?.thumbnailUrl || null,
         }
 
-        return {
+        const result: any = {
           ...project,
           displayTitle: autoTitle || project.title || "Untitled Project",
           stats,
         }
-      }))
+
+        if (includeSteps) {
+          result.steps = steps
+        }
+
+        if (includeCurrentVersion) {
+          result.currentVersion = versionsMap.get(project.id) || null
+        }
+
+        return result
+      })
 
       res.json(enrichedProjects)
     } catch (error) {

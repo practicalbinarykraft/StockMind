@@ -227,11 +227,12 @@ export class ProjectsStorage implements IProjectsStorage {
 
         // Create Step 3 if step3Data is provided (contains cached analysis)
         if (step3Data) {
+          const step3DataObj = step3Data.data as Record<string, unknown> | undefined;
           console.log(`[ProjectsStorage] Creating Step 3 with data:`, {
             stepNumber: step3Data.stepNumber,
-            hasSourceAnalysis: !!step3Data.data?.sourceAnalysis,
-            hasRecommendedFormat: !!step3Data.data?.recommendedFormat,
-            dataKeys: step3Data.data ? Object.keys(step3Data.data) : []
+            hasSourceAnalysis: !!step3DataObj?.sourceAnalysis,
+            hasRecommendedFormat: !!step3DataObj?.recommendedFormat,
+            dataKeys: step3DataObj ? Object.keys(step3DataObj) : []
           });
           
           const [createdStep3] = await tx

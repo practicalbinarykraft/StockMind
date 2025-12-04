@@ -200,7 +200,8 @@ export async function verifyInstagramSourceOwnership(
       return;
     }
 
-    const source = await storage.getInstagramSource(sourceId, userId);
+    const sources = await storage.getInstagramSources(userId);
+    const source = sources.find(s => s.id === sourceId);
 
     if (!source) {
       logger.warn('Unauthorized Instagram source access attempt', {
@@ -247,7 +248,8 @@ export async function verifyRssSourceOwnership(
       return;
     }
 
-    const source = await storage.getRssSource(sourceId, userId);
+    const sources = await storage.getRssSources(userId);
+    const source = sources.find(s => s.id === sourceId);
 
     if (!source) {
       logger.warn('Unauthorized RSS source access attempt', {

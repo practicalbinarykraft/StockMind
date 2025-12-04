@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getToken } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
+
+/**
+ * SSE hook for Conveyor Events
+ *
+ * Authentication via httpOnly cookies (automatic with credentials: 'include')
+ */
 
 export interface ConveyorEvent {
   type: string;
@@ -33,11 +39,10 @@ export function useConveyorEvents() {
   const [isProcessing, setIsProcessing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { isAuthenticated } = useAuth();
 
   const connect = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      console.error("[SSE] No auth token available");
+    if (!isAuthenticated) {
       return;
     }
 
@@ -52,11 +57,8 @@ export function useConveyorEvents() {
     try {
       const response = await fetch("/api/conveyor/events", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "text/event-stream",
-        },
-        credentials: "include",
+        headers: { Accept: "text/event-stream" },
+        credentials: "include", // Sends httpOnly cookie automatically
         signal: abortController.signal,
       });
 
@@ -69,7 +71,6 @@ export function useConveyorEvents() {
       }
 
       setIsConnected(true);
-      console.log("[SSE] Connected to conveyor events");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -79,7 +80,6 @@ export function useConveyorEvents() {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log("[SSE] Stream ended");
           setIsConnected(false);
           // Attempt reconnection after 5 seconds
           reconnectTimeoutRef.current = setTimeout(() => connect(), 5000);
@@ -121,11 +121,8 @@ export function useConveyorEvents() {
               }
 
               setMessages((prev) => [...prev, newMessage].slice(-100));
-            } catch (e) {
+            } catch {
               // Ignore parse errors for heartbeats
-              if (!eventData.startsWith(":")) {
-                console.error("[SSE] Parse error:", e);
-              }
             }
             eventType = "";
             eventData = "";
@@ -133,16 +130,13 @@ export function useConveyorEvents() {
         }
       }
     } catch (error: any) {
-      if (error.name === "AbortError") {
-        console.log("[SSE] Connection aborted");
-      } else {
-        console.error("[SSE] Connection error:", error);
+      if (error.name !== "AbortError") {
         setIsConnected(false);
         // Attempt reconnection after 5 seconds
         reconnectTimeoutRef.current = setTimeout(() => connect(), 5000);
       }
     }
-  }, []);
+  }, [isAuthenticated]);
 
   const disconnect = useCallback(() => {
     if (abortControllerRef.current) {
@@ -162,28 +156,21 @@ export function useConveyorEvents() {
 
   // Load historical events from database
   const loadHistory = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      console.log("[History] No token, skipping history load");
+    if (!isAuthenticated) {
       return;
     }
 
     try {
       const response = await fetch("/api/conveyor/events/history?limit=50", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
-      // Check content-type to ensure it's JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        console.warn("[History] Endpoint returned non-JSON response. Server may need restart.");
         return;
       }
 
       if (!response.ok) {
-        console.warn("[History] Failed to load history:", response.status);
         return;
       }
 
@@ -201,20 +188,20 @@ export function useConveyorEvents() {
 
         if (historicalMessages.length > 0) {
           setMessages(historicalMessages);
-          console.log(`[History] Loaded ${historicalMessages.length} historical events`);
         }
       }
-    } catch (error) {
+    } catch {
       // Silently ignore - history loading is optional
-      console.warn("[History] Could not load historical events (this is normal if server was just updated)");
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Auto-connect on mount and load history
   useEffect(() => {
-    loadHistory().then(() => connect());
+    if (isAuthenticated) {
+      loadHistory().then(() => connect());
+    }
     return () => disconnect();
-  }, [connect, disconnect, loadHistory]);
+  }, [connect, disconnect, loadHistory, isAuthenticated]);
 
   return {
     messages,

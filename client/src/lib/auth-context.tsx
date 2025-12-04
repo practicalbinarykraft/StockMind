@@ -1,73 +1,151 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 /**
- * JWT Authentication Context
- * Manages JWT token storage and authentication state
+ * JWT Authentication Context (httpOnly Cookies)
+ *
+ * SECURITY: Token is stored in httpOnly cookie (not accessible via JS)
+ * Authentication state is determined by calling /api/auth/me
+ * Cookies are automatically sent with credentials: 'include'
  */
 
+interface User {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+}
+
 interface AuthContextType {
-  token: string | null;
-  setToken: (token: string | null) => void;
-  logout: () => void;
+  user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_STORAGE_KEY = 'jwt_token';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Initialize token from localStorage immediately (synchronously) to avoid race conditions
-  const [token, setTokenState] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(TOKEN_STORAGE_KEY);
-    }
-    return null;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Also sync on mount in case localStorage changed
+  /**
+   * Check current authentication status
+   */
+  const refreshAuth = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include', // Send cookies with request
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Check auth status on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (savedToken !== token) {
-      setTokenState(savedToken);
-    }
-  }, [token]);
+    refreshAuth();
+  }, [refreshAuth]);
 
-  const setToken = (newToken: string | null) => {
-    if (newToken) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
+  /**
+   * Login with email and password
+   */
+  const login = async (email: string, password: string): Promise<void> => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Cookie will be set by server
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Login failed');
     }
-    setTokenState(newToken);
+
+    const data = await response.json();
+    setUser(data.user);
   };
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    setTokenState(null);
+  /**
+   * Register new user
+   */
+  const register = async (
+    email: string,
+    password: string,
+    firstName?: string,
+    lastName?: string
+  ): Promise<void> => {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Cookie will be set by server
+      body: JSON.stringify({ email, password, firstName, lastName }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Registration failed');
+    }
+
+    const data = await response.json();
+    setUser(data.user);
   };
 
-  const value = {
-    token,
-    setToken,
+  /**
+   * Logout - clears the httpOnly cookie on server
+   */
+  const logout = async (): Promise<void> => {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    setUser(null);
+  };
+
+  const value: AuthContextType = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    register,
     logout,
-    isAuthenticated: !!token,
+    refreshAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuthToken() {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuthToken must be used within an AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
 
 /**
- * Get JWT token (for use outside React components)
+ * Legacy hook for backwards compatibility
+ * @deprecated Use useAuth() instead
  */
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+export function useAuthToken() {
+  const { isAuthenticated, logout } = useAuth();
+  return {
+    token: null, // Token is in httpOnly cookie, not accessible
+    setToken: () => {}, // No-op - server manages token
+    logout,
+    isAuthenticated,
+  };
 }
