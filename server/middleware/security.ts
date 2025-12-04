@@ -66,6 +66,9 @@ export function setupSecurity(app: Express) {
   app.use(cors(corsOptions));
 
   // Helmet security headers
+  // Check if HTTPS is enabled (via reverse proxy or direct)
+  const useHttps = process.env.USE_HTTPS === 'true';
+
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -78,10 +81,14 @@ export function setupSecurity(app: Express) {
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", 'blob:'],
         frameSrc: ["'none'"],
+        // Only upgrade to HTTPS if explicitly enabled
+        upgradeInsecureRequests: useHttps ? [] : null,
       },
     },
     crossOriginEmbedderPolicy: false, // Disabled for external API calls
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    // Disable HSTS for HTTP deployments (no SSL)
+    strictTransportSecurity: useHttps ? { maxAge: 31536000, includeSubDomains: true } : false,
   }));
 
   // Custom security headers
