@@ -31,13 +31,13 @@ export function NewsCard({
 
   return (
     <>
-      {/* {previewOpen && (
+      {previewOpen && (
         <ArticlePreviewModal
           isOpen={previewOpen}
           article={item}
           onClose={() => setPreviewOpen(false)}
         />
-      )} */}
+      )}
       <Card
         className={`relative cursor-pointer hover-elevate active-elevate-2 transition-all ${
           isDismissed ? "opacity-50" : ""
