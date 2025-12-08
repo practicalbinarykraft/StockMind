@@ -24,13 +24,10 @@ import { VideoScorePrediction } from "./VideoScorePrediction";
 
 export interface NewsListItemProps {
   item: EnrichedRssItem;
-  translation?: { text: string; language: "en" | "ru" };
   analysis?: any;
   isAnalyzing: boolean;
-  isTranslating: boolean;
   onSelect?: (item: EnrichedRssItem) => void;
   onDismiss?: (e: React.MouseEvent, itemId: string) => void;
-  onTranslate: (itemId: string, text: string) => void;
   onAnalyze: (item: EnrichedRssItem) => void;
   onCreateScript?: (item: EnrichedRssItem, analysis: any) => void;
   onToggleFavorite?: (isFavorite: boolean) => void;
@@ -43,13 +40,10 @@ export interface NewsListItemProps {
 
 export function NewsListItem({
   item,
-  translation,
   analysis,
   isAnalyzing,
-  isTranslating,
   onSelect,
   onDismiss,
-  onTranslate,
   onAnalyze,
   onCreateScript,
   onToggleFavorite,
@@ -66,20 +60,20 @@ export function NewsListItem({
   const isUsed = item.userAction === "selected";
 
   // Extract title and content from translation
-  const translatedTitle =
-    translation && currentLanguage === "ru"
-      ? translation.text.split("\n")[0] || item.title
-      : item.title;
+  // const translatedTitle =
+  //   translation && currentLanguage === "ru"
+  //     ? translation.text.split("\n")[0] || item.title
+  //     : item.title;
 
-  const translatedContent =
-    translation && currentLanguage === "ru"
-      ? translation.text.split("\n").slice(1).join("\n").trim() ||
-        item.content ||
-        ""
-      : item.content || "";
+  // const translatedContent =
+  //   translation && currentLanguage === "ru"
+  //     ? translation.text.split("\n").slice(1).join("\n").trim() ||
+  //       item.content ||
+  //       ""
+  //     : item.content || "";
 
-  const displayTitle = translatedTitle;
-  const displayContent = translatedContent;
+  // const displayTitle = translatedTitle;
+  // const displayContent = translatedContent;
 
   const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null;
 
@@ -130,43 +124,13 @@ export function NewsListItem({
                     </>
                   )}
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{displayTitle}</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Language Toggle - Two buttons that look like one switch */}
-                <div className="flex items-center border rounded-md overflow-hidden">
-                  <button
-                    onClick={() => setCurrentLanguage("ru")}
-                    disabled={isTranslating}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      currentLanguage === "ru"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background text-muted-foreground hover:bg-muted"
-                    }`}
-                    title="Переключить на русский"
-                  >
-                    RU
-                  </button>
-                  <div className="w-px bg-border" />
-                  <button
-                    onClick={() => setCurrentLanguage("en")}
-                    disabled={isTranslating}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      currentLanguage === "en"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background text-muted-foreground hover:bg-muted"
-                    }`}
-                    title="Switch to English"
-                  >
-                    EN
-                  </button>
-                </div>
+                <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
               </div>
             </div>
 
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-6">
-                {displayContent}
+                {item.content || ""}
               </p>
             </div>
 

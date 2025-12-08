@@ -28,39 +28,78 @@ export function SourcePreviewModal({
   content,
   projectId,
 }: SourcePreviewModalProps) {
-  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [translatedContent, setTranslatedContent] = useState<string | null>(
+    null
+  );
   const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const { toast } = useToast();
 
   const translateMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/projects/${projectId}/translate-content`, {
-        content,
-        title,
-        targetLanguage: "ru"
+      // Prepare text to translate (title + content, limit to 8000 chars for speed)
+      const textToTranslate = (title + "\n\n" + content).substring(0, 8000);
+
+      const res = await apiRequest("POST", "/api/news/translate", {
+        text: textToTranslate,
       });
-      return await res.json();
+      const response = await res.json();
+
+      // Handle both new format { success: true, data: {...} } and old format
+      const data = response.data || response;
+      const translated = data.translated || "";
+
+      // Split translated text back into title and content
+      const lines = translated.split("\n\n");
+      const translatedTitle = lines[0] || title;
+      const translatedContent = lines.slice(1).join("\n\n") || content;
+
+      return {
+        articleId: projectId,
+        targetLanguage: "ru",
+        translatedTitle,
+        translatedContent,
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      };
     },
     onSuccess: (data) => {
-      // Safe unwrapping for new API format: { success: true, data: { translatedContent: "..." } }
-      const content = data?.data?.translatedContent ?? data?.translatedContent;
-      const title = data?.data?.translatedTitle ?? data?.translatedTitle;
+      console.log("Translation success:", {
+        hasTitle: !!data.translatedTitle,
+        hasContent: !!data.translatedContent,
+        titleLength: data.translatedTitle?.length,
+        contentLength: data.translatedContent?.length,
+      });
+      const content = data?.translatedContent;
+      const title = data?.translatedTitle;
       setTranslatedContent(content);
       setTranslatedTitle(title);
       setShowTranslation(true);
       toast({
-        title: "Перевод выполнен",
-        description: `Заголовок и контент переведены на русский язык`,
+        title: "Статья переведена",
+        description: "Перевод выполнен успешно",
       });
     },
     onError: (error: any) => {
+      console.error("Translation error:", error);
+
+      // Check if it's a credit balance error
+      const errorMessage = error.message || error.toString();
+      const isCreditError =
+        errorMessage.includes("credit balance") ||
+        errorMessage.includes("Plans & Billing");
+
       toast({
-        title: "Ошибка перевода",
-        description: error.message || "Не удалось перевести контент",
-        variant: "destructive"
+        title: isCreditError
+          ? "Недостаточно кредитов Anthropic"
+          : "Ошибка перевода",
+        description: isCreditError
+          ? "Пополните баланс Anthropic API в Settings → API Keys"
+          : errorMessage,
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleTranslate = () => {
@@ -77,12 +116,17 @@ export function SourcePreviewModal({
     setShowTranslation(false);
   };
 
-  const displayContent = showTranslation && translatedContent ? translatedContent : content;
-  const displayTitle = showTranslation && translatedTitle ? translatedTitle : title;
+  const displayContent =
+    showTranslation && translatedContent ? translatedContent : content;
+  const displayTitle =
+    showTranslation && translatedTitle ? translatedTitle : title;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh]" data-testid="modal-source-preview">
+      <DialogContent
+        className="max-w-3xl max-h-[80vh]"
+        data-testid="modal-source-preview"
+      >
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="flex-1">{displayTitle}</DialogTitle>
@@ -103,7 +147,9 @@ export function SourcePreviewModal({
                   data-testid="button-translate"
                 >
                   <Languages className="h-4 w-4" />
-                  {translateMutation.isPending ? 'Переводим...' : 'Перевести на русский'}
+                  {translateMutation.isPending
+                    ? "Переводим..."
+                    : "Перевести на русский"}
                 </Button>
               ) : (
                 <Button

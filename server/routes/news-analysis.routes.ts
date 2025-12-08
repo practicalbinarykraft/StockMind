@@ -29,14 +29,20 @@ export function registerNewsAnalysisRoutes(app: Express) {
       }
 
       // Get Anthropic API key
-      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      const apiKey = await storage.getUserApiKey(userId, "anthropic");
       if (!apiKey) {
-        return apiResponse.badRequest(res, "Anthropic API key not configured. Please add it in Settings.");
+        return apiResponse.badRequest(
+          res,
+          "Anthropic API key not configured. Please add it in Settings."
+        );
       }
 
-      logger.info(`[Translate] Translating text (${text.length} chars) for user ${userId}`, {
-        articleId: articleId || 'not provided',
-      });
+      logger.info(
+        `[Translate] Translating text (${text.length} chars) for user ${userId}`,
+        {
+          articleId: articleId || "not provided",
+        }
+      );
       const startTime = Date.now();
 
       const translated = await translateToRussian(apiKey.decryptedKey, text);
@@ -49,42 +55,51 @@ export function registerNewsAnalysisRoutes(app: Express) {
         try {
           const translationData = {
             text: translated,
-            language: 'ru',
+            language: "ru",
             timestamp: new Date().toISOString(),
           };
-          
+
           await storage.updateRssItem(articleId, {
             articleTranslation: translationData as any,
           });
-          
-          logger.info(`[Translate] ✅ Translation saved to database for article ${articleId}`);
+
+          logger.info(
+            `[Translate] ✅ Translation saved to database for article ${articleId}`
+          );
         } catch (saveError: any) {
-          logger.error(`[Translate] ⚠️ Failed to save translation to database:`, {
-            articleId,
-            error: saveError.message,
-          });
+          logger.error(
+            `[Translate] ⚠️ Failed to save translation to database:`,
+            {
+              articleId,
+              error: saveError.message,
+            }
+          );
           // Don't fail the request if save fails, just log it
         }
-      }
+      } // добавить проверку по articleId, если есть берём из бд, а не запускаем перевод - добавить get запрос
 
       return apiResponse.ok(res, {
         original: text,
         translated,
-        language: 'ru',
+        language: "ru",
       });
     } catch (error: any) {
       logger.error("Error translating text:", {
         error: error.message,
         stack: error.stack,
       });
-      return apiResponse.serverError(res, error.message || "Failed to translate text", error);
+      return apiResponse.serverError(
+        res,
+        error.message || "Failed to translate text",
+        error
+      );
     }
   });
 
   /**
    * POST /api/news/analyze
    * Analyzes article's POTENTIAL to become a video script (Level 2)
-   * 
+   *
    * This analyzes the ARTICLE itself, NOT a script!
    * Evaluates:
    * - Can we create a hook from this article?
@@ -92,9 +107,9 @@ export function registerNewsAnalysisRoutes(app: Express) {
    * - What emotional angle can we use?
    * - What visuals can we show?
    * - What format would work best?
-   * 
+   *
    * DOES NOT analyze hook/CTA/structure (they don't exist yet!)
-   * 
+   *
    * Saves analysis result to database for persistence across page refreshes.
    */
   app.post("/api/news/analyze", requireAuth, async (req: any, res) => {
@@ -106,62 +121,84 @@ export function registerNewsAnalysisRoutes(app: Express) {
       if (!title || !content) {
         return apiResponse.badRequest(res, "Title and content are required");
       }
-      
+
       logger.info(`[Article Potential] Request received`, {
         hasArticleId: !!articleId,
-        articleId: articleId || 'not provided',
+        articleId: articleId || "not provided",
         titleLength: title?.length || 0,
         contentLength: content?.length || 0,
       });
 
       // Get Anthropic API key
-      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      const apiKey = await storage.getUserApiKey(userId, "anthropic");
       if (!apiKey) {
-        return apiResponse.badRequest(res, "Anthropic API key not configured. Please add it in Settings.");
+        return apiResponse.badRequest(
+          res,
+          "Anthropic API key not configured. Please add it in Settings."
+        );
       }
 
-      logger.info(`[Article Potential] Analyzing article: ${title.substring(0, 50)}...`, {
-        articleId: articleId || 'unknown',
-        userId,
-      });
+      logger.info(
+        `[Article Potential] Analyzing article: ${title.substring(0, 50)}...`,
+        {
+          articleId: articleId || "unknown",
+          userId,
+        }
+      );
       const startTime = Date.now();
 
-      const analysis = await analyzeArticlePotential(apiKey.decryptedKey, title, content);
+      const analysis = await analyzeArticlePotential(
+        apiKey.decryptedKey,
+        title,
+        content
+      );
 
       const duration = Date.now() - startTime;
-      
+
       // Save analysis to database if articleId is provided
       if (articleId) {
         try {
-          logger.info(`[Article Potential] Attempting to save analysis to database for article ${articleId}`);
+          logger.info(
+            `[Article Potential] Attempting to save analysis to database for article ${articleId}`
+          );
           const updated = await storage.updateRssItem(articleId, {
             articleAnalysis: analysis as any, // Store full analysis result
           });
           if (updated) {
-            logger.info(`[Article Potential] ✅ Analysis saved to database for article ${articleId}`, {
-              hasArticleAnalysis: !!(updated as any).articleAnalysis,
-              articleAnalysisType: typeof (updated as any).articleAnalysis,
-            });
+            logger.info(
+              `[Article Potential] ✅ Analysis saved to database for article ${articleId}`,
+              {
+                hasArticleAnalysis: !!(updated as any).articleAnalysis,
+                articleAnalysisType: typeof (updated as any).articleAnalysis,
+              }
+            );
           } else {
-            logger.warn(`[Article Potential] ⚠️ updateRssItem returned undefined for article ${articleId}`);
+            logger.warn(
+              `[Article Potential] ⚠️ updateRssItem returned undefined for article ${articleId}`
+            );
           }
         } catch (saveError: any) {
-          logger.error(`[Article Potential] ❌ Failed to save analysis to database:`, {
-            articleId,
-            error: saveError.message,
-            stack: saveError.stack,
-          });
+          logger.error(
+            `[Article Potential] ❌ Failed to save analysis to database:`,
+            {
+              articleId,
+              error: saveError.message,
+              stack: saveError.stack,
+            }
+          );
           // Don't fail the request if save fails, just log it
         }
       } else {
-        logger.warn(`[Article Potential] ⚠️ No articleId provided, analysis not saved to database`);
+        logger.warn(
+          `[Article Potential] ⚠️ No articleId provided, analysis not saved to database`
+        );
       }
 
       logger.info(`[Article Potential] Analysis completed in ${duration}ms`, {
         score: analysis.score,
         verdict: analysis.verdict,
         recommendedFormat: analysis.breakdown.recommendedFormat.format,
-        articleId: articleId || 'unknown',
+        articleId: articleId || "unknown",
         saved: !!articleId,
       });
 
@@ -177,7 +214,11 @@ export function registerNewsAnalysisRoutes(app: Express) {
         error: error.message,
         stack: error.stack,
       });
-      return apiResponse.serverError(res, error.message || "Failed to analyze article potential", error);
+      return apiResponse.serverError(
+        res,
+        error.message || "Failed to analyze article potential",
+        error
+      );
     }
   });
 
@@ -196,17 +237,26 @@ export function registerNewsAnalysisRoutes(app: Express) {
       }
 
       // Get Anthropic API key
-      const apiKey = await storage.getUserApiKey(userId, 'anthropic');
+      const apiKey = await storage.getUserApiKey(userId, "anthropic");
       if (!apiKey) {
-        return apiResponse.badRequest(res, "Anthropic API key not configured. Please add it in Settings.");
+        return apiResponse.badRequest(
+          res,
+          "Anthropic API key not configured. Please add it in Settings."
+        );
       }
 
-      logger.info(`[News Analysis Batch] Analyzing ${articles.length} articles`);
+      logger.info(
+        `[News Analysis Batch] Analyzing ${articles.length} articles`
+      );
       const startTime = Date.now();
 
       // Analyze articles in parallel (limit to 5 concurrent to avoid rate limits)
       const BATCH_SIZE = 5;
-      const results: Array<{ articleId: string; analysis: any; error?: string }> = [];
+      const results: Array<{
+        articleId: string;
+        analysis: any;
+        error?: string;
+      }> = [];
 
       for (let i = 0; i < articles.length; i += BATCH_SIZE) {
         const batch = articles.slice(i, i + BATCH_SIZE);
@@ -214,29 +264,37 @@ export function registerNewsAnalysisRoutes(app: Express) {
           try {
             const analysis = await analyzeArticlePotential(
               apiKey.decryptedKey,
-              article.title || '',
-              article.content || ''
+              article.title || "",
+              article.content || ""
             );
-            
+
             // Save analysis to database
             if (article.id) {
               try {
                 await storage.updateRssItem(article.id, {
                   articleAnalysis: analysis as any,
                 });
-                logger.debug(`[News Analysis Batch] Saved analysis for article ${article.id}`);
+                logger.debug(
+                  `[News Analysis Batch] Saved analysis for article ${article.id}`
+                );
               } catch (saveError: any) {
-                logger.error(`[News Analysis Batch] Failed to save analysis for article ${article.id}:`, saveError);
+                logger.error(
+                  `[News Analysis Batch] Failed to save analysis for article ${article.id}:`,
+                  saveError
+                );
                 // Don't fail the request if save fails
               }
             }
-            
+
             return {
               articleId: article.id,
               analysis,
             };
           } catch (error: any) {
-            logger.error(`[News Analysis Batch] Error analyzing article ${article.id}:`, error);
+            logger.error(
+              `[News Analysis Batch] Error analyzing article ${article.id}:`,
+              error
+            );
             return {
               articleId: article.id,
               analysis: null,
@@ -250,19 +308,21 @@ export function registerNewsAnalysisRoutes(app: Express) {
 
         // Small delay between batches to avoid rate limits
         if (i + BATCH_SIZE < articles.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
 
       const duration = Date.now() - startTime;
-      logger.info(`[News Analysis Batch] Completed ${results.length} analyses in ${duration}ms`);
+      logger.info(
+        `[News Analysis Batch] Completed ${results.length} analyses in ${duration}ms`
+      );
 
       return apiResponse.ok(res, {
         results,
         metadata: {
           totalArticles: articles.length,
-          successful: results.filter(r => !r.error).length,
-          failed: results.filter(r => r.error).length,
+          successful: results.filter((r) => !r.error).length,
+          failed: results.filter((r) => r.error).length,
           analysisTime: duration,
           timestamp: new Date().toISOString(),
         },
@@ -272,8 +332,11 @@ export function registerNewsAnalysisRoutes(app: Express) {
         error: error.message,
         stack: error.stack,
       });
-      return apiResponse.serverError(res, error.message || "Failed to analyze articles", error);
+      return apiResponse.serverError(
+        res,
+        error.message || "Failed to analyze articles",
+        error
+      );
     }
   });
 }
-

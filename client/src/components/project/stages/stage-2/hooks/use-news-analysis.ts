@@ -398,11 +398,6 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
     },
   });
 
-  const handleTranslate = (itemId: string, text: string) => {
-    // Manual translation - show toast
-    translateMutation.mutate({ itemId, text, showToast: true });
-  };
-
   const handleAnalyze = async (item: EnrichedRssItem) => {
     setAnalyzingItems((prev) => new Set(prev).add(item.id));
 
@@ -594,7 +589,6 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
     analyzeMutation,
     analyzeBatchMutation,
     loadSavedAnalysisMutation,
-    handleTranslate,
     handleAnalyze,
     handleAnalyzeAll,
     handleLoadSavedAnalysis,
