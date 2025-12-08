@@ -138,42 +138,41 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
         } already have translations)`
       );
 
-      // Translate articles in batches (max 3 at a time to avoid rate limits)
-      const batchSize = 3;
-      for (let i = 0; i < articlesToTranslate.length; i += batchSize) {
-        const batch = articlesToTranslate.slice(i, i + batchSize);
-        console.log("articles in for", articlesToTranslate.length);
-        if (i > 10) {
-          break;
+      if (articlesToTranslate.length < 10) {
+        // Translate articles in batches (max 3 at a time to avoid rate limits)
+        const batchSize = 3;
+        for (let i = 0; i < articlesToTranslate.length; i += batchSize) {
+          const batch = articlesToTranslate.slice(i, i + batchSize);
+          console.log("articles in for", articlesToTranslate.length);
+          // Add small delay between batches
+          setTimeout(() => {
+            batch.forEach((item) => {
+              // Translate only title + content (not fullContent)
+              const textToTranslate = `${item.title}\n\n${item.content}`;
+              // Auto-translation - don't show toast
+              translateMutation.mutate(
+                {
+                  itemId: item.id,
+                  text: textToTranslate,
+                  showToast: false,
+                },
+                {
+                  onSuccess: () => {
+                    console.log(
+                      `[useNewsAnalysis] ✅ Auto-translated article ${item.id}`
+                    );
+                  },
+                  onError: (error) => {
+                    console.warn(
+                      `[useNewsAnalysis] ⚠️ Failed to auto-translate article ${item.id}:`,
+                      error
+                    );
+                  },
+                }
+              );
+            });
+          }, i * 500); // 500ms delay between batches
         }
-        // Add small delay between batches
-        setTimeout(() => {
-          batch.forEach((item) => {
-            // Translate only title + content (not fullContent)
-            const textToTranslate = `${item.title}\n\n${item.content}`;
-            // Auto-translation - don't show toast
-            translateMutation.mutate(
-              {
-                itemId: item.id,
-                text: textToTranslate,
-                showToast: false,
-              },
-              {
-                onSuccess: () => {
-                  console.log(
-                    `[useNewsAnalysis] ✅ Auto-translated article ${item.id}`
-                  );
-                },
-                onError: (error) => {
-                  console.warn(
-                    `[useNewsAnalysis] ⚠️ Failed to auto-translate article ${item.id}:`,
-                    error
-                  );
-                },
-              }
-            );
-          });
-        }, i * 500); // 500ms delay between batches
       }
     }
   }, [filteredNews, translations]); // Run when articles change or translations are loaded
