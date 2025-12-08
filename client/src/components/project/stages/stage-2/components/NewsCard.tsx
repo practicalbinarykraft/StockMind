@@ -1,49 +1,58 @@
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ScoreBadge } from "@/components/score-badge"
-import { ArticlePreviewModal } from "@/components/shared/article-preview-modal"
-import { Check, ThumbsDown, Eye, Newspaper } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { ru } from "date-fns/locale"
-import type { EnrichedRssItem } from "../utils/news-helpers"
-import { getBadgeConfig } from "../utils/news-helpers"
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScoreBadge } from "@/components/score-badge";
+import { ArticlePreviewModal } from "@/components/shared/article-preview-modal";
+import { Check, ThumbsDown, Eye, Newspaper } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ru } from "date-fns/locale";
+import type { EnrichedRssItem } from "../utils/news-helpers";
+import { getBadgeConfig } from "../utils/news-helpers";
 
 interface NewsCardProps {
-  item: EnrichedRssItem
-  onSelect: (item: EnrichedRssItem) => void
-  onDismiss: (e: React.MouseEvent, itemId: string) => void
-  isDismissing?: boolean
+  item: EnrichedRssItem;
+  onSelect: (item: EnrichedRssItem) => void;
+  onDismiss: (e: React.MouseEvent, itemId: string) => void;
+  isDismissing?: boolean;
 }
 
-export function NewsCard({ item, onSelect, onDismiss, isDismissing }: NewsCardProps) {
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const badge = getBadgeConfig(item.freshnessLabel)
-  const isDismissed = item.userAction === 'dismissed'
-  const isUsed = item.userAction === 'selected'
+export function NewsCard({
+  item,
+  onSelect,
+  onDismiss,
+  isDismissing,
+}: NewsCardProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const badge = getBadgeConfig(item.freshnessLabel);
+  const isDismissed = item.userAction === "dismissed";
+  const isUsed = item.userAction === "selected";
 
   return (
     <>
-      {previewOpen && (
+      {/* {previewOpen && (
         <ArticlePreviewModal
           isOpen={previewOpen}
           article={item}
           onClose={() => setPreviewOpen(false)}
         />
-      )}
+      )} */}
       <Card
         className={`relative cursor-pointer hover-elevate active-elevate-2 transition-all ${
-          isDismissed ? 'opacity-50' : ''
-        } ${isUsed ? 'border-green-500 dark:border-green-600' : ''}`}
+          isDismissed ? "opacity-50" : ""
+        } ${isUsed ? "border-green-500 dark:border-green-600" : ""}`}
         onClick={() => !isDismissed && !isUsed && onSelect(item)}
         data-testid={`card-news-${item.id}`}
       >
         {/* Thumbnail */}
         {item.imageUrl && (
           <div className="relative h-40 overflow-hidden rounded-t-md">
-            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+            <img
+              src={item.imageUrl}
+              alt={item.title}
+              className="w-full h-full object-cover"
+            />
           </div>
         )}
 
@@ -55,13 +64,14 @@ export function NewsCard({ item, onSelect, onDismiss, isDismissing }: NewsCardPr
               {badge.label}
             </Badge>
             {(() => {
-              const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null;
-              
+              const score =
+                item.score ?? item.aiScore ?? item.freshnessScore ?? null;
+
               if (score !== null && score !== undefined) {
                 return <ScoreBadge score={score} size="sm" />;
               } else {
                 return (
-                  <div 
+                  <div
                     className="inline-flex items-center justify-center rounded-full font-semibold bg-muted text-muted-foreground text-xs px-2 py-0.5"
                     title="Анализ релевантности... Оценка появится автоматически"
                     data-testid={`badge-score-loading-${item.id}`}
@@ -90,7 +100,12 @@ export function NewsCard({ item, onSelect, onDismiss, isDismissing }: NewsCardPr
             {item.publishedAt && (
               <>
                 <span>•</span>
-                <span>{formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true, locale: ru })}</span>
+                <span>
+                  {formatDistanceToNow(new Date(item.publishedAt), {
+                    addSuffix: true,
+                    locale: ru,
+                  })}
+                </span>
               </>
             )}
           </div>
@@ -103,8 +118,8 @@ export function NewsCard({ item, onSelect, onDismiss, isDismissing }: NewsCardPr
                   size="sm"
                   className="flex-1"
                   onClick={(e) => {
-                    e.stopPropagation()
-                    onSelect(item)
+                    e.stopPropagation();
+                    onSelect(item);
                   }}
                   data-testid={`button-select-${item.id}`}
                 >
@@ -126,8 +141,8 @@ export function NewsCard({ item, onSelect, onDismiss, isDismissing }: NewsCardPr
                 variant="secondary"
                 className="w-full"
                 onClick={(e) => {
-                  e.stopPropagation()
-                  setPreviewOpen(true)
+                  e.stopPropagation();
+                  setPreviewOpen(true);
                 }}
                 data-testid={`button-preview-${item.id}`}
               >
@@ -146,6 +161,5 @@ export function NewsCard({ item, onSelect, onDismiss, isDismissing }: NewsCardPr
         </CardContent>
       </Card>
     </>
-  )
+  );
 }
-
