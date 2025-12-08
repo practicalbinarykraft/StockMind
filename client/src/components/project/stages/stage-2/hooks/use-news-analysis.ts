@@ -106,132 +106,132 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
 
   // Auto-translate articles on load (only title + content, not fullContent)
   // Only translate if translation doesn't exist in state AND not in database
-  useEffect(() => {
-    console.log("articles", filteredNews.length);
-    const articlesToTranslate = filteredNews.filter((item) => {
-      // Check if translation already exists in state
-      if (translations[item.id]) {
-        return false;
-      }
+  // useEffect(() => {
+  //   console.log("articles", filteredNews.length);
+  //   const articlesToTranslate = filteredNews.filter((item) => {
+  //     // Check if translation already exists in state
+  //     if (translations[item.id]) {
+  //       return false;
+  //     }
 
-      // Check if translation exists in database (from article.articleTranslation)
-      const dbTranslation = (item as any).articleTranslation;
-      if (
-        dbTranslation &&
-        dbTranslation.text &&
-        dbTranslation.language === "ru"
-      ) {
-        // Translation exists in DB but not in state - it will be loaded by the other useEffect
-        return false;
-      }
+  //     // Check if translation exists in database (from article.articleTranslation)
+  //     const dbTranslation = (item as any).articleTranslation;
+  //     if (
+  //       dbTranslation &&
+  //       dbTranslation.text &&
+  //       dbTranslation.language === "ru"
+  //     ) {
+  //       // Translation exists in DB but not in state - it will be loaded by the other useEffect
+  //       return false;
+  //     }
 
-      // Only translate if article has title and content
-      return item.title && item.content && item.content.length > 0;
-    });
+  //     // Only translate if article has title and content
+  //     return item.title && item.content && item.content.length > 0;
+  //   });
 
-    if (articlesToTranslate.length > 0) {
-      console.log(
-        `[useNewsAnalysis] Auto-translating ${
-          articlesToTranslate.length
-        } articles (${
-          filteredNews.length - articlesToTranslate.length
-        } already have translations)`
-      );
+  //   if (articlesToTranslate.length > 0) {
+  //     console.log(
+  //       `[useNewsAnalysis] Auto-translating ${
+  //         articlesToTranslate.length
+  //       } articles (${
+  //         filteredNews.length - articlesToTranslate.length
+  //       } already have translations)`
+  //     );
 
-      if (articlesToTranslate.length < 10) {
-        // Translate articles in batches (max 3 at a time to avoid rate limits)
-        const batchSize = 3;
-        for (let i = 0; i < articlesToTranslate.length; i += batchSize) {
-          const batch = articlesToTranslate.slice(i, i + batchSize);
-          console.log("articles in for", articlesToTranslate.length);
-          // Add small delay between batches
-          setTimeout(() => {
-            batch.forEach((item) => {
-              // Translate only title + content (not fullContent)
-              const textToTranslate = `${item.title}\n\n${item.content}`;
-              // Auto-translation - don't show toast
-              translateMutation.mutate(
-                {
-                  itemId: item.id,
-                  text: textToTranslate,
-                  showToast: false,
-                },
-                {
-                  onSuccess: () => {
-                    console.log(
-                      `[useNewsAnalysis] ✅ Auto-translated article ${item.id}`
-                    );
-                  },
-                  onError: (error) => {
-                    console.warn(
-                      `[useNewsAnalysis] ⚠️ Failed to auto-translate article ${item.id}:`,
-                      error
-                    );
-                  },
-                }
-              );
-            });
-          }, i * 500); // 500ms delay between batches
-        }
-      }
-    }
-  }, [filteredNews, translations]); // Run when articles change or translations are loaded
+  //     if (articlesToTranslate.length < 10) {
+  //       // Translate articles in batches (max 3 at a time to avoid rate limits)
+  //       const batchSize = 3;
+  //       for (let i = 0; i < articlesToTranslate.length; i += batchSize) {
+  //         const batch = articlesToTranslate.slice(i, i + batchSize);
+  //         console.log("articles in for", articlesToTranslate.length);
+  //         // Add small delay between batches
+  //         setTimeout(() => {
+  //           batch.forEach((item) => {
+  //             // Translate only title + content (not fullContent)
+  //             const textToTranslate = `${item.title}\n\n${item.content}`;
+  //             // Auto-translation - don't show toast
+  //             translateMutation.mutate(
+  //               {
+  //                 itemId: item.id,
+  //                 text: textToTranslate,
+  //                 showToast: false,
+  //               },
+  //               {
+  //                 onSuccess: () => {
+  //                   console.log(
+  //                     `[useNewsAnalysis] ✅ Auto-translated article ${item.id}`
+  //                   );
+  //                 },
+  //                 onError: (error) => {
+  //                   console.warn(
+  //                     `[useNewsAnalysis] ⚠️ Failed to auto-translate article ${item.id}:`,
+  //                     error
+  //                   );
+  //                 },
+  //               }
+  //             );
+  //           });
+  //         }, i * 500); // 500ms delay between batches
+  //       }
+  //     }
+  //   }
+  // }, [filteredNews, translations]); // Run when articles change or translations are loaded
 
-  const translateMutation = useMutation({
-    mutationFn: async ({
-      itemId,
-      text,
-      showToast = false,
-    }: {
-      itemId: string;
-      text: string;
-      showToast?: boolean;
-    }) => {
-      const res = await apiRequest("POST", "/api/news/translate", {
-        text,
-        articleId: itemId,
-      });
-      const response = await res.json();
-      // Handle both new format { success: true, data: {...} } and old format
-      return { ...(response.data || response), showToast };
-    },
-    onSuccess: (data: any, variables) => {
-      const translated = data.translated || data.data?.translated || "";
-      if (!translated) {
-        toast({
-          title: "Ошибка перевода",
-          description: "Перевод не получен от сервера",
-          variant: "destructive",
-        });
-        return;
-      }
+  // const translateMutation = useMutation({
+  //   mutationFn: async ({
+  //     itemId,
+  //     text,
+  //     showToast = false,
+  //   }: {
+  //     itemId: string;
+  //     text: string;
+  //     showToast?: boolean;
+  //   }) => {
+  //     const res = await apiRequest("POST", "/api/news/translate", {
+  //       text,
+  //       articleId: itemId,
+  //     });
+  //     const response = await res.json();
+  //     // Handle both new format { success: true, data: {...} } and old format
+  //     return { ...(response.data || response), showToast };
+  //   },
+  //   onSuccess: (data: any, variables) => {
+  //     const translated = data.translated || data.data?.translated || "";
+  //     if (!translated) {
+  //       toast({
+  //         title: "Ошибка перевода",
+  //         description: "Перевод не получен от сервера",
+  //         variant: "destructive",
+  //       });
+  //       return;
+  //     }
 
-      setTranslations((prev) => ({
-        ...prev,
-        [variables.itemId]: {
-          text: translated,
-          language: "ru" as const,
-        },
-      }));
+  //     setTranslations((prev) => ({
+  //       ...prev,
+  //       [variables.itemId]: {
+  //         text: translated,
+  //         language: "ru" as const,
+  //       },
+  //     }));
 
-      // Only show toast if this was a manual translation (showToast flag is true)
-      // Auto-translation happens silently in the background
-      if (data.showToast) {
-        toast({
-          title: "Перевод завершен",
-          description: "Статья переведена на русский",
-        });
-      }
-    },
-    onError: (error: Error) => {
-      console.error("Translation error:", error);
-      toast({
-        title: "Ошибка перевода",
-        description: error.message || "Не удалось перевести статью",
-        variant: "destructive",
-      });
-    },
-  });
+  //     // Only show toast if this was a manual translation (showToast flag is true)
+  //     // Auto-translation happens silently in the background
+  //     if (data.showToast) {
+  //       toast({
+  //         title: "Перевод завершен",
+  //         description: "Статья переведена на русский",
+  //       });
+  //     }
+  //   },
+  //   onError: (error: Error) => {
+  //     console.error("Translation error:", error);
+  //     toast({
+  //       title: "Ошибка перевода",
+  //       description: error.message || "Не удалось перевести статью",
+  //       variant: "destructive",
+  //     });
+  //   },
+  // });
 
   const analyzeMutation = useMutation({
     mutationFn: async ({
@@ -398,10 +398,10 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
     },
   });
 
-  const handleTranslate = (itemId: string, text: string) => {
-    // Manual translation - show toast
-    translateMutation.mutate({ itemId, text, showToast: true });
-  };
+  // const handleTranslate = (itemId: string, text: string) => {
+  //   // Manual translation - show toast
+  //   translateMutation.mutate({ itemId, text, showToast: true });
+  // };
 
   const handleAnalyze = async (item: EnrichedRssItem) => {
     setAnalyzingItems((prev) => new Set(prev).add(item.id));
@@ -590,11 +590,9 @@ export function useNewsAnalysis(filteredNews: EnrichedRssItem[]) {
     translations,
     analyses,
     analyzingItems,
-    translateMutation,
     analyzeMutation,
     analyzeBatchMutation,
     loadSavedAnalysisMutation,
-    handleTranslate,
     handleAnalyze,
     handleAnalyzeAll,
     handleLoadSavedAnalysis,
