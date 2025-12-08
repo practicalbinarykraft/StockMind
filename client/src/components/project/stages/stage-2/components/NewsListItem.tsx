@@ -1,33 +1,44 @@
-import { useState } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ScoreBadge } from "@/components/score-badge"
-import { ArticlePreviewModal } from "@/components/shared/article-preview-modal"
-import { Check, ThumbsDown, Eye, Newspaper, Languages, Sparkles, Loader2, RefreshCw, Play, Star } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { ru } from "date-fns/locale"
-import type { EnrichedRssItem } from "../utils/news-helpers"
-import { getBadgeConfig } from "../utils/news-helpers"
-import { VideoScorePrediction } from "./VideoScorePrediction"
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScoreBadge } from "@/components/score-badge";
+import { ArticlePreviewModal } from "@/components/shared/article-preview-modal";
+import {
+  Check,
+  ThumbsDown,
+  Eye,
+  Newspaper,
+  Languages,
+  Sparkles,
+  Loader2,
+  RefreshCw,
+  Play,
+  Star,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ru } from "date-fns/locale";
+import type { EnrichedRssItem } from "../utils/news-helpers";
+import { getBadgeConfig } from "../utils/news-helpers";
+import { VideoScorePrediction } from "./VideoScorePrediction";
 
 export interface NewsListItemProps {
-  item: EnrichedRssItem
-  translation?: { text: string; language: 'en' | 'ru' }
-  analysis?: any
-  isAnalyzing: boolean
-  isTranslating: boolean
-  onSelect?: (item: EnrichedRssItem) => void
-  onDismiss?: (e: React.MouseEvent, itemId: string) => void
-  onTranslate: (itemId: string, text: string) => void
-  onAnalyze: (item: EnrichedRssItem) => void
-  onCreateScript?: (item: EnrichedRssItem, analysis: any) => void
-  onToggleFavorite?: (isFavorite: boolean) => void
-  onLoadSavedAnalysis?: (itemId: string) => void
-  onShowSavedAnalysis?: (itemId: string) => void
-  isLoadingSavedAnalysis?: boolean
-  hasSavedAnalysis?: boolean
-  isDismissing?: boolean
+  item: EnrichedRssItem;
+  translation?: { text: string; language: "en" | "ru" };
+  analysis?: any;
+  isAnalyzing: boolean;
+  isTranslating: boolean;
+  onSelect?: (item: EnrichedRssItem) => void;
+  onDismiss?: (e: React.MouseEvent, itemId: string) => void;
+  onTranslate: (itemId: string, text: string) => void;
+  onAnalyze: (item: EnrichedRssItem) => void;
+  onCreateScript?: (item: EnrichedRssItem, analysis: any) => void;
+  onToggleFavorite?: (isFavorite: boolean) => void;
+  onLoadSavedAnalysis?: (itemId: string) => void;
+  onShowSavedAnalysis?: (itemId: string) => void;
+  isLoadingSavedAnalysis?: boolean;
+  hasSavedAnalysis?: boolean;
+  isDismissing?: boolean;
 }
 
 export function NewsListItem({
@@ -48,36 +59,44 @@ export function NewsListItem({
   hasSavedAnalysis,
   isDismissing,
 }: NewsListItemProps) {
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'ru'>('ru') // Default to Russian
-  const badge = getBadgeConfig(item.freshnessLabel)
-  const isDismissed = item.userAction === 'dismissed'
-  const isUsed = item.userAction === 'selected'
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState<"en" | "ru">("ru"); // Default to Russian
+  const badge = getBadgeConfig(item.freshnessLabel);
+  const isDismissed = item.userAction === "dismissed";
+  const isUsed = item.userAction === "selected";
 
   // Extract title and content from translation
-  const translatedTitle = translation && currentLanguage === 'ru'
-    ? translation.text.split('\n')[0] || item.title
-    : item.title
+  const translatedTitle =
+    translation && currentLanguage === "ru"
+      ? translation.text.split("\n")[0] || item.title
+      : item.title;
 
-  const translatedContent = translation && currentLanguage === 'ru'
-    ? translation.text.split('\n').slice(1).join('\n').trim() || item.content || ''
-    : item.content || ''
+  const translatedContent =
+    translation && currentLanguage === "ru"
+      ? translation.text.split("\n").slice(1).join("\n").trim() ||
+        item.content ||
+        ""
+      : item.content || "";
 
-  const displayTitle = translatedTitle
-  const displayContent = translatedContent
+  const displayTitle = translatedTitle;
+  const displayContent = translatedContent;
 
-  const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null
+  const score = item.score ?? item.aiScore ?? item.freshnessScore ?? null;
 
   return (
     <>
-      {previewOpen && (
+      {/* {previewOpen && (
         <ArticlePreviewModal
           isOpen={previewOpen}
           article={item}
           onClose={() => setPreviewOpen(false)}
         />
-      )}
-      <Card className={`${isDismissed ? 'opacity-50' : ''} ${isUsed ? 'border-green-500 dark:border-green-600' : ''}`}>
+      )} */}
+      <Card
+        className={`${isDismissed ? "opacity-50" : ""} ${
+          isUsed ? "border-green-500 dark:border-green-600" : ""
+        }`}
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
           {/* Left: Article Content */}
           <div className="space-y-4">
@@ -97,7 +116,10 @@ export function NewsListItem({
                     <>
                       <span className="text-xs text-muted-foreground">•</span>
                       <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(item.publishedAt), { addSuffix: true, locale: ru })}
+                        {formatDistanceToNow(new Date(item.publishedAt), {
+                          addSuffix: true,
+                          locale: ru,
+                        })}
                       </span>
                     </>
                   )}
@@ -114,12 +136,12 @@ export function NewsListItem({
                 {/* Language Toggle - Two buttons that look like one switch */}
                 <div className="flex items-center border rounded-md overflow-hidden">
                   <button
-                    onClick={() => setCurrentLanguage('ru')}
+                    onClick={() => setCurrentLanguage("ru")}
                     disabled={isTranslating}
                     className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      currentLanguage === 'ru'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:bg-muted'
+                      currentLanguage === "ru"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted"
                     }`}
                     title="Переключить на русский"
                   >
@@ -127,12 +149,12 @@ export function NewsListItem({
                   </button>
                   <div className="w-px bg-border" />
                   <button
-                    onClick={() => setCurrentLanguage('en')}
+                    onClick={() => setCurrentLanguage("en")}
                     disabled={isTranslating}
                     className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      currentLanguage === 'en'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:bg-muted'
+                      currentLanguage === "en"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted"
                     }`}
                     title="Switch to English"
                   >
@@ -224,20 +246,30 @@ export function NewsListItem({
               <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
                 {/* Overall Score */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Оценка потенциала:</span>
-                  <ScoreBadge score={analysis.score || analysis.overallScore || 0} />
+                  <span className="text-sm font-medium">
+                    Оценка потенциала:
+                  </span>
+                  <ScoreBadge
+                    score={analysis.score || analysis.overallScore || 0}
+                  />
                 </div>
 
                 {/* Verdict */}
                 {analysis.verdict && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Вердикт:</span>
+                    <span className="text-xs text-muted-foreground">
+                      Вердикт:
+                    </span>
                     <p className="text-sm font-medium capitalize">
-                      {analysis.verdict === 'excellent' ? 'Отлично' :
-                       analysis.verdict === 'good' ? 'Хорошо' :
-                       analysis.verdict === 'moderate' ? 'Умеренно' :
-                       analysis.verdict === 'weak' ? 'Слабо' :
-                       analysis.verdict}
+                      {analysis.verdict === "excellent"
+                        ? "Отлично"
+                        : analysis.verdict === "good"
+                        ? "Хорошо"
+                        : analysis.verdict === "moderate"
+                        ? "Умеренно"
+                        : analysis.verdict === "weak"
+                        ? "Слабо"
+                        : analysis.verdict}
                     </p>
                   </div>
                 )}
@@ -245,15 +277,29 @@ export function NewsListItem({
                 {/* Recommended Format */}
                 {analysis.breakdown?.recommendedFormat && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Рекомендуемый формат:</span>
+                    <span className="text-xs text-muted-foreground">
+                      Рекомендуемый формат:
+                    </span>
                     <p className="text-sm font-medium">
-                      {analysis.breakdown.recommendedFormat.format === 'news_update' ? 'News Update' :
-                       analysis.breakdown.recommendedFormat.format === 'explainer' ? 'Explainer' :
-                       analysis.breakdown.recommendedFormat.format === 'story' ? 'Story' :
-                       analysis.breakdown.recommendedFormat.format === 'comparison' ? 'Comparison' :
-                       analysis.breakdown.recommendedFormat.format === 'tutorial' ? 'Tutorial' :
-                       analysis.breakdown.recommendedFormat.format === 'trend' ? 'Trend' :
-                       analysis.breakdown.recommendedFormat.format}
+                      {analysis.breakdown.recommendedFormat.format ===
+                      "news_update"
+                        ? "News Update"
+                        : analysis.breakdown.recommendedFormat.format ===
+                          "explainer"
+                        ? "Explainer"
+                        : analysis.breakdown.recommendedFormat.format ===
+                          "story"
+                        ? "Story"
+                        : analysis.breakdown.recommendedFormat.format ===
+                          "comparison"
+                        ? "Comparison"
+                        : analysis.breakdown.recommendedFormat.format ===
+                          "tutorial"
+                        ? "Tutorial"
+                        : analysis.breakdown.recommendedFormat.format ===
+                          "trend"
+                        ? "Trend"
+                        : analysis.breakdown.recommendedFormat.format}
                     </p>
                   </div>
                 )}
@@ -262,7 +308,9 @@ export function NewsListItem({
                 {analysis.videoScorePrediction && (
                   <VideoScorePrediction
                     ifWellAdapted={analysis.videoScorePrediction.ifWellAdapted}
-                    ifPoorlyAdapted={analysis.videoScorePrediction.ifPoorlyAdapted}
+                    ifPoorlyAdapted={
+                      analysis.videoScorePrediction.ifPoorlyAdapted
+                    }
                     reasoning={analysis.videoScorePrediction.reasoning}
                   />
                 )}
@@ -270,7 +318,9 @@ export function NewsListItem({
                 {/* Strengths */}
                 {analysis.strengths && analysis.strengths.length > 0 && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Почему получится видео:</span>
+                    <span className="text-xs text-muted-foreground">
+                      Почему получится видео:
+                    </span>
                     <ul className="text-sm list-disc list-inside mt-1">
                       {analysis.strengths.map((s: string, i: number) => (
                         <li key={i}>{s}</li>
@@ -282,7 +332,9 @@ export function NewsListItem({
                 {/* Weaknesses */}
                 {analysis.weaknesses && analysis.weaknesses.length > 0 && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Что может быть сложно:</span>
+                    <span className="text-xs text-muted-foreground">
+                      Что может быть сложно:
+                    </span>
                     <ul className="text-sm list-disc list-inside mt-1">
                       {analysis.weaknesses.map((w: string, i: number) => (
                         <li key={i}>{w}</li>
@@ -292,111 +344,173 @@ export function NewsListItem({
                 )}
 
                 {/* Script Recommendations */}
-                {analysis.scriptRecommendations && analysis.scriptRecommendations.length > 0 && (
-                  <div>
-                    <span className="text-xs text-muted-foreground">Рекомендации для сценария:</span>
-                    <ul className="text-sm list-disc list-inside mt-1">
-                      {analysis.scriptRecommendations.slice(0, 3).map((r: string, i: number) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {analysis.scriptRecommendations &&
+                  analysis.scriptRecommendations.length > 0 && (
+                    <div>
+                      <span className="text-xs text-muted-foreground">
+                        Рекомендации для сценария:
+                      </span>
+                      <ul className="text-sm list-disc list-inside mt-1">
+                        {analysis.scriptRecommendations
+                          .slice(0, 3)
+                          .map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
 
                 {/* Breakdown Scores (if available) */}
                 {analysis.breakdown && (
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t">
                     {analysis.breakdown.hookPotential && (
                       <div>
-                        <span className="text-xs text-muted-foreground">Потенциал хука:</span>
-                        <p className="text-sm font-medium">{analysis.breakdown.hookPotential.score}/100</p>
+                        <span className="text-xs text-muted-foreground">
+                          Потенциал хука:
+                        </span>
+                        <p className="text-sm font-medium">
+                          {analysis.breakdown.hookPotential.score}/100
+                        </p>
                       </div>
                     )}
                     {analysis.breakdown.contentSufficiency && (
                       <div>
-                        <span className="text-xs text-muted-foreground">Достаточно контента:</span>
-                        <p className="text-sm font-medium">{analysis.breakdown.contentSufficiency.score}/100</p>
+                        <span className="text-xs text-muted-foreground">
+                          Достаточно контента:
+                        </span>
+                        <p className="text-sm font-medium">
+                          {analysis.breakdown.contentSufficiency.score}/100
+                        </p>
                       </div>
                     )}
                     {analysis.breakdown.emotionalAngle && (
                       <div>
-                        <span className="text-xs text-muted-foreground">Эмоциональный угол:</span>
-                        <p className="text-sm font-medium">{analysis.breakdown.emotionalAngle.score}/100</p>
+                        <span className="text-xs text-muted-foreground">
+                          Эмоциональный угол:
+                        </span>
+                        <p className="text-sm font-medium">
+                          {analysis.breakdown.emotionalAngle.score}/100
+                        </p>
                       </div>
                     )}
                     {analysis.breakdown.visualPotential && (
                       <div>
-                        <span className="text-xs text-muted-foreground">Визуальный потенциал:</span>
-                        <p className="text-sm font-medium">{analysis.breakdown.visualPotential.score}/100</p>
+                        <span className="text-xs text-muted-foreground">
+                          Визуальный потенциал:
+                        </span>
+                        <p className="text-sm font-medium">
+                          {analysis.breakdown.visualPotential.score}/100
+                        </p>
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* Legacy support: Show old format scores if present */}
-                {(analysis.hookScore !== undefined || analysis.structureScore !== undefined) && !analysis.breakdown && (
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-                    {analysis.hookScore !== undefined && (
-                      <div>
-                        <span className="text-xs text-muted-foreground">Hook:</span>
-                        <p className="text-sm font-medium">{analysis.hookScore}/100</p>
-                      </div>
-                    )}
-                    {analysis.structureScore !== undefined && (
-                      <div>
-                        <span className="text-xs text-muted-foreground">Структура:</span>
-                        <p className="text-sm font-medium">{analysis.structureScore}/100</p>
-                      </div>
-                    )}
-                    {analysis.emotionalScore !== undefined && (
-                      <div>
-                        <span className="text-xs text-muted-foreground">Эмоции:</span>
-                        <p className="text-sm font-medium">{analysis.emotionalScore}/100</p>
-                      </div>
-                    )}
-                    {analysis.ctaScore !== undefined && (
-                      <div>
-                        <span className="text-xs text-muted-foreground">CTA:</span>
-                        <p className="text-sm font-medium">{analysis.ctaScore}/100</p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {(analysis.hookScore !== undefined ||
+                  analysis.structureScore !== undefined) &&
+                  !analysis.breakdown && (
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                      {analysis.hookScore !== undefined && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">
+                            Hook:
+                          </span>
+                          <p className="text-sm font-medium">
+                            {analysis.hookScore}/100
+                          </p>
+                        </div>
+                      )}
+                      {analysis.structureScore !== undefined && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">
+                            Структура:
+                          </span>
+                          <p className="text-sm font-medium">
+                            {analysis.structureScore}/100
+                          </p>
+                        </div>
+                      )}
+                      {analysis.emotionalScore !== undefined && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">
+                            Эмоции:
+                          </span>
+                          <p className="text-sm font-medium">
+                            {analysis.emotionalScore}/100
+                          </p>
+                        </div>
+                      )}
+                      {analysis.ctaScore !== undefined && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">
+                            CTA:
+                          </span>
+                          <p className="text-sm font-medium">
+                            {analysis.ctaScore}/100
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 {/* Create Script Button - Show after analysis with recommended format */}
                 {analysis?.breakdown?.recommendedFormat && onCreateScript && (
                   <div className="mt-4 p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border border-primary/20">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Готов создать сценарий?</span>
+                      <span className="text-sm font-medium">
+                        Готов создать сценарий?
+                      </span>
                       <Badge variant="outline" className="text-xs">
-                        {analysis.breakdown.recommendedFormat.format === 'news_update' ? 'News Update' :
-                         analysis.breakdown.recommendedFormat.format === 'explainer' ? 'Explainer' :
-                         analysis.breakdown.recommendedFormat.format === 'story' ? 'Story' :
-                         analysis.breakdown.recommendedFormat.format === 'comparison' ? 'Comparison' :
-                         analysis.breakdown.recommendedFormat.format === 'tutorial' ? 'Tutorial' :
-                         analysis.breakdown.recommendedFormat.format === 'trend' ? 'Trend' :
-                         analysis.breakdown.recommendedFormat.format}
+                        {analysis.breakdown.recommendedFormat.format ===
+                        "news_update"
+                          ? "News Update"
+                          : analysis.breakdown.recommendedFormat.format ===
+                            "explainer"
+                          ? "Explainer"
+                          : analysis.breakdown.recommendedFormat.format ===
+                            "story"
+                          ? "Story"
+                          : analysis.breakdown.recommendedFormat.format ===
+                            "comparison"
+                          ? "Comparison"
+                          : analysis.breakdown.recommendedFormat.format ===
+                            "tutorial"
+                          ? "Tutorial"
+                          : analysis.breakdown.recommendedFormat.format ===
+                            "trend"
+                          ? "Trend"
+                          : analysis.breakdown.recommendedFormat.format}
                       </Badge>
                     </div>
                     {analysis.videoScorePrediction && (
                       <p className="text-xs text-muted-foreground mb-3">
-                        Прогноз качества: {analysis.videoScorePrediction.ifWellAdapted}
+                        Прогноз качества:{" "}
+                        {analysis.videoScorePrediction.ifWellAdapted}
                       </p>
                     )}
                     <div className="flex gap-2 mt-4">
                       {onToggleFavorite && (
-                        <Button 
+                        <Button
                           onClick={() => onToggleFavorite(!item.isFavorite)}
                           variant={item.isFavorite ? "default" : "outline"}
                           className="flex-1"
                           size="sm"
                         >
-                          <Star className={`h-4 w-4 mr-2 ${item.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                          {item.isFavorite ? 'В избранном' : 'Добавить в избранное'}
+                          <Star
+                            className={`h-4 w-4 mr-2 ${
+                              item.isFavorite
+                                ? "fill-yellow-400 text-yellow-400"
+                                : ""
+                            }`}
+                          />
+                          {item.isFavorite
+                            ? "В избранном"
+                            : "Добавить в избранное"}
                         </Button>
                       )}
                       {onCreateScript && (
-                        <Button 
+                        <Button
                           onClick={() => onCreateScript(item, analysis)}
                           className="flex-1"
                           size="sm"
@@ -419,6 +533,5 @@ export function NewsListItem({
         </div>
       </Card>
     </>
-  )
+  );
 }
-
