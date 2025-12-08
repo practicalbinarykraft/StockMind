@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,40 +33,58 @@ interface TranslationCache {
   };
 }
 
-export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreviewModalProps) {
+export function ArticlePreviewModal({
+  isOpen,
+  article,
+  onClose,
+}: ArticlePreviewModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [displayLang, setDisplayLang] = useState<"original" | "translated">("original");
-  
+  const [displayLang, setDisplayLang] = useState<"original" | "translated">(
+    "original"
+  );
+
   // Automatically fetch full content when modal opens if not already available
-  const { data: fullContentData, isLoading: isLoadingFullContent, error: fullContentError } = useQuery<{
+  const {
+    data: fullContentData,
+    isLoading: isLoadingFullContent,
+    error: fullContentError,
+  } = useQuery<{
     success: boolean;
     content?: string;
     cached?: boolean;
     error?: string;
     fallback?: string;
   }>({
-    queryKey: ['/api/news', article.id, 'full-content'],
+    queryKey: ["/api/news", article.id, "full-content"],
     queryFn: async () => {
-      const res = await apiRequest("POST", `/api/news/${article.id}/fetch-full-content`);
+      const res = await apiRequest(
+        "POST",
+        `/api/news/${article.id}/fetch-full-content`
+      );
       return await res.json();
     },
     enabled: isOpen && !article.fullContent,
     staleTime: 6 * 60 * 60 * 1000, // 6 hours
     retry: 1,
   });
-  
+
   // Check cached translation
   const { data: cachedTranslation } = useQuery<TranslationCache>({
-    queryKey: ['/api/news', article.id, 'translation', 'ru'],
+    queryKey: ["/api/news", article.id, "translation", "ru"],
     enabled: false, // We manually check the cache
   });
 
   // Reset to original when article changes
   useEffect(() => {
     // Check if we have cached translation for this article
-    const cached = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
-    
+    const cached = queryClient.getQueryData<TranslationCache>([
+      "/api/news",
+      article.id,
+      "translation",
+      "ru",
+    ]);
+
     if (cached && cached.translatedTitle && cached.translatedContent) {
       // We have a cached translation, show it
       setDisplayLang("translated");
@@ -70,30 +93,35 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
       setDisplayLang("original");
     }
   }, [article.id, queryClient]);
-  
+
   // Determine the content to display
-  const articleContent = fullContentData?.content || article.fullContent || article.content || "";
+  const articleContent =
+    fullContentData?.content || article.fullContent || article.content || "";
   const isUsingFallback = !fullContentData?.content && !article.fullContent;
 
   const translateMutation = useMutation({
     mutationFn: async () => {
       // Prepare text to translate (title + content, limit to 8000 chars for speed)
-      const textToTranslate = (article.title + '\n\n' + articleContent).substring(0, 8000);
-      
+      const textToTranslate = (
+        article.title +
+        "\n\n" +
+        articleContent
+      ).substring(0, 8000);
+
       const res = await apiRequest("POST", "/api/news/translate", {
         text: textToTranslate,
       });
       const response = await res.json();
-      
+
       // Handle both new format { success: true, data: {...} } and old format
       const data = response.data || response;
-      const translated = data.translated || '';
-      
+      const translated = data.translated || "";
+
       // Split translated text back into title and content
-      const lines = translated.split('\n\n');
+      const lines = translated.split("\n\n");
       const translatedTitle = lines[0] || article.title;
-      const translatedContent = lines.slice(1).join('\n\n') || articleContent;
-      
+      const translatedContent = lines.slice(1).join("\n\n") || articleContent;
+
       return {
         articleId: article.id,
         targetLanguage: "ru",
@@ -105,19 +133,22 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
       } as TranslationCache;
     },
     onSuccess: (data: TranslationCache) => {
-      console.log("Translation success:", { 
-        hasTitle: !!data.translatedTitle, 
+      console.log("Translation success:", {
+        hasTitle: !!data.translatedTitle,
         hasContent: !!data.translatedContent,
         titleLength: data.translatedTitle?.length,
-        contentLength: data.translatedContent?.length
+        contentLength: data.translatedContent?.length,
       });
-      
+
       // Cache the translation in React Query
-      queryClient.setQueryData(['/api/news', article.id, 'translation', 'ru'], data);
-      
+      queryClient.setQueryData(
+        ["/api/news", article.id, "translation", "ru"],
+        data
+      );
+
       // Switch to translated view
       setDisplayLang("translated");
-      
+
       toast({
         title: "Статья переведена",
         description: "Перевод выполнен успешно",
@@ -125,14 +156,18 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
     },
     onError: (error: any) => {
       console.error("Translation error:", error);
-      
+
       // Check if it's a credit balance error
       const errorMessage = error.message || error.toString();
-      const isCreditError = errorMessage.includes("credit balance") || errorMessage.includes("Plans & Billing");
-      
+      const isCreditError =
+        errorMessage.includes("credit balance") ||
+        errorMessage.includes("Plans & Billing");
+
       toast({
-        title: isCreditError ? "Недостаточно кредитов Anthropic" : "Ошибка перевода",
-        description: isCreditError 
+        title: isCreditError
+          ? "Недостаточно кредитов Anthropic"
+          : "Ошибка перевода",
+        description: isCreditError
           ? "Пополните баланс Anthropic API в Settings → API Keys"
           : errorMessage,
         variant: "destructive",
@@ -140,41 +175,51 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
     },
   });
 
-  const handleTranslate = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (displayLang === "translated") {
-      // Show original
-      setDisplayLang("original");
-    } else {
-      // Check if we have cached translation
-      const cached = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
-      
-      if (cached && cached.translatedTitle && cached.translatedContent) {
-        // We have cached translation, just show it
-        setDisplayLang("translated");
-      } else {
-        // No cached translation, fetch new one
-        translateMutation.mutate();
-      }
-    }
-  };
+  // const handleTranslate = (e: React.MouseEvent) => {
+  //   e.preventDefault();
+  //   e.stopPropagation();
+
+  //   if (displayLang === "translated") {
+  //     // Show original
+  //     setDisplayLang("original");
+  //   } else {
+  //     // Check if we have cached translation
+  //     const cached = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
+
+  //     if (cached && cached.translatedTitle && cached.translatedContent) {
+  //       // We have cached translation, just show it
+  //       setDisplayLang("translated");
+  //     } else {
+  //       // No cached translation, fetch new one
+  //       translateMutation.mutate();
+  //     }
+  //   }
+  // };
 
   // Get the translation from cache
-  const translation = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
+  const translation = queryClient.getQueryData<TranslationCache>([
+    "/api/news",
+    article.id,
+    "translation",
+    "ru",
+  ]);
 
-  const displayTitle = displayLang === "translated" && translation?.translatedTitle 
-    ? translation.translatedTitle 
-    : article.title;
-    
-  const displayContent = displayLang === "translated" && translation?.translatedContent 
-    ? translation.translatedContent 
-    : articleContent;
+  const displayTitle =
+    displayLang === "translated" && translation?.translatedTitle
+      ? translation.translatedTitle
+      : article.title;
+
+  const displayContent =
+    displayLang === "translated" && translation?.translatedContent
+      ? translation.translatedContent
+      : articleContent;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-article-preview">
+      <DialogContent
+        className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col"
+        data-testid="dialog-article-preview"
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <DialogTitle className="flex-1 pr-4">{displayTitle}</DialogTitle>
@@ -182,7 +227,7 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
               type="button"
               variant={displayLang === "translated" ? "default" : "secondary"}
               size="sm"
-              onClick={handleTranslate}
+              onClick={() => {}}
               disabled={translateMutation.isPending || isLoadingFullContent}
               className="shrink-0"
               data-testid="button-translate-article"
@@ -192,7 +237,9 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
                 ? "Перевод..."
                 : displayLang === "translated"
                 ? "Показать оригинал"
-                : translation ? "Показать перевод" : "Перевести"}
+                : translation
+                ? "Показать перевод"
+                : "Перевести"}
             </Button>
           </div>
 
@@ -242,7 +289,10 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
         )}
 
         {/* Article Content */}
-        <div className="flex-1 overflow-y-auto pr-2" data-testid="div-article-content">
+        <div
+          className="flex-1 overflow-y-auto pr-2"
+          data-testid="div-article-content"
+        >
           {/* Loading full content */}
           {isLoadingFullContent && (
             <div className="space-y-3">
@@ -257,7 +307,7 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
               <Skeleton className="h-4 w-5/6" />
             </div>
           )}
-          
+
           {/* Translation in progress */}
           {!isLoadingFullContent && translateMutation.isPending && (
             <div className="space-y-3">
@@ -272,23 +322,29 @@ export function ArticlePreviewModal({ isOpen, article, onClose }: ArticlePreview
               <Skeleton className="h-4 w-5/6" />
             </div>
           )}
-          
+
           {/* Content loaded */}
           {!isLoadingFullContent && !translateMutation.isPending && (
             <>
               {/* Warning if fetch failed or returned error */}
-              {(fullContentError || (fullContentData?.success === false && isUsingFallback)) && (
+              {(fullContentError ||
+                (fullContentData?.success === false && isUsingFallback)) && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    {fullContentError 
-                      ? `Ошибка загрузки полного текста: ${(fullContentError as Error).message}. Показан краткий анонс из RSS.`
-                      : `Не удалось извлечь полный текст статьи. Показан краткий анонс из RSS.${fullContentData?.error ? ` (${fullContentData.error})` : ''}`
-                    }
+                    {fullContentError
+                      ? `Ошибка загрузки полного текста: ${
+                          (fullContentError as Error).message
+                        }. Показан краткий анонс из RSS.`
+                      : `Не удалось извлечь полный текст статьи. Показан краткий анонс из RSS.${
+                          fullContentData?.error
+                            ? ` (${fullContentData.error})`
+                            : ""
+                        }`}
                   </AlertDescription>
                 </Alert>
               )}
-              
+
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <p className="whitespace-pre-wrap">{displayContent}</p>
               </div>
