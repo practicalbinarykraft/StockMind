@@ -99,102 +99,107 @@ export function ArticlePreviewModal({
     fullContentData?.content || article.fullContent || article.content || "";
   const isUsingFallback = !fullContentData?.content && !article.fullContent;
 
-  // const translateMutation = useMutation({
-  //   mutationFn: async () => {
-  //     // Prepare text to translate (title + content, limit to 8000 chars for speed)
-  //     const textToTranslate = (
-  //       article.title +
-  //       "\n\n" +
-  //       articleContent
-  //     ).substring(0, 8000);
+  const translateMutation = useMutation({
+    mutationFn: async () => {
+      // Prepare text to translate (title + content, limit to 8000 chars for speed)
+      const textToTranslate = (
+        article.title +
+        "\n\n" +
+        articleContent
+      ).substring(0, 8000);
 
-  //     const res = await apiRequest("POST", "/api/news/translate", {
-  //       text: textToTranslate,
-  //     });
-  //     const response = await res.json();
+      const res = await apiRequest("POST", "/api/news/translate", {
+        text: textToTranslate,
+      });
+      const response = await res.json();
 
-  //     // Handle both new format { success: true, data: {...} } and old format
-  //     const data = response.data || response;
-  //     const translated = data.translated || "";
+      // Handle both new format { success: true, data: {...} } and old format
+      const data = response.data || response;
+      const translated = data.translated || "";
 
-  //     // Split translated text back into title and content
-  //     const lines = translated.split("\n\n");
-  //     const translatedTitle = lines[0] || article.title;
-  //     const translatedContent = lines.slice(1).join("\n\n") || articleContent;
+      // Split translated text back into title and content
+      const lines = translated.split("\n\n");
+      const translatedTitle = lines[0] || article.title;
+      const translatedContent = lines.slice(1).join("\n\n") || articleContent;
 
-  //     return {
-  //       articleId: article.id,
-  //       targetLanguage: "ru",
-  //       translatedTitle,
-  //       translatedContent,
-  //       metadata: {
-  //         timestamp: new Date().toISOString(),
-  //       },
-  //     } as TranslationCache;
-  //   },
-  //   onSuccess: (data: TranslationCache) => {
-  //     console.log("Translation success:", {
-  //       hasTitle: !!data.translatedTitle,
-  //       hasContent: !!data.translatedContent,
-  //       titleLength: data.translatedTitle?.length,
-  //       contentLength: data.translatedContent?.length,
-  //     });
+      return {
+        articleId: article.id,
+        targetLanguage: "ru",
+        translatedTitle,
+        translatedContent,
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      } as TranslationCache;
+    },
+    onSuccess: (data: TranslationCache) => {
+      console.log("Translation success:", {
+        hasTitle: !!data.translatedTitle,
+        hasContent: !!data.translatedContent,
+        titleLength: data.translatedTitle?.length,
+        contentLength: data.translatedContent?.length,
+      });
 
-  //     // Cache the translation in React Query
-  //     queryClient.setQueryData(
-  //       ["/api/news", article.id, "translation", "ru"],
-  //       data
-  //     );
+      // Cache the translation in React Query
+      queryClient.setQueryData(
+        ["/api/news", article.id, "translation", "ru"],
+        data
+      );
 
-  //     // Switch to translated view
-  //     setDisplayLang("translated");
+      // Switch to translated view
+      setDisplayLang("translated");
 
-  //     toast({
-  //       title: "Статья переведена",
-  //       description: "Перевод выполнен успешно",
-  //     });
-  //   },
-  //   onError: (error: any) => {
-  //     console.error("Translation error:", error);
+      toast({
+        title: "Статья переведена",
+        description: "Перевод выполнен успешно",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Translation error:", error);
 
-  //     // Check if it's a credit balance error
-  //     const errorMessage = error.message || error.toString();
-  //     const isCreditError =
-  //       errorMessage.includes("credit balance") ||
-  //       errorMessage.includes("Plans & Billing");
+      // Check if it's a credit balance error
+      const errorMessage = error.message || error.toString();
+      const isCreditError =
+        errorMessage.includes("credit balance") ||
+        errorMessage.includes("Plans & Billing");
 
-  //     toast({
-  //       title: isCreditError
-  //         ? "Недостаточно кредитов Anthropic"
-  //         : "Ошибка перевода",
-  //       description: isCreditError
-  //         ? "Пополните баланс Anthropic API в Settings → API Keys"
-  //         : errorMessage,
-  //       variant: "destructive",
-  //     });
-  //   },
-  // });
+      toast({
+        title: isCreditError
+          ? "Недостаточно кредитов Anthropic"
+          : "Ошибка перевода",
+        description: isCreditError
+          ? "Пополните баланс Anthropic API в Settings → API Keys"
+          : errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
 
-  // const handleTranslate = (e: React.MouseEvent) => {
-  //   e.preventDefault();
-  //   e.stopPropagation();
+  const handleTranslate = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  //   if (displayLang === "translated") {
-  //     // Show original
-  //     setDisplayLang("original");
-  //   } else {
-  //     // Check if we have cached translation
-  //     const cached = queryClient.getQueryData<TranslationCache>(['/api/news', article.id, 'translation', 'ru']);
+    if (displayLang === "translated") {
+      // Show original
+      setDisplayLang("original");
+    } else {
+      // Check if we have cached translation
+      const cached = queryClient.getQueryData<TranslationCache>([
+        "/api/news",
+        article.id,
+        "translation",
+        "ru",
+      ]);
 
-  //     if (cached && cached.translatedTitle && cached.translatedContent) {
-  //       // We have cached translation, just show it
-  //       setDisplayLang("translated");
-  //     } else {
-  //       // No cached translation, fetch new one
-  //       translateMutation.mutate();
-  //     }
-  //   }
-  // };
+      if (cached && cached.translatedTitle && cached.translatedContent) {
+        // We have cached translation, just show it
+        setDisplayLang("translated");
+      } else {
+        // No cached translation, fetch new one
+        translateMutation.mutate();
+      }
+    }
+  };
 
   // Get the translation from cache
   const translation = queryClient.getQueryData<TranslationCache>([
@@ -227,12 +232,19 @@ export function ArticlePreviewModal({
               type="button"
               variant={displayLang === "translated" ? "default" : "secondary"}
               size="sm"
-              onClick={() => {}}
-              disabled={isLoadingFullContent}
+              onClick={handleTranslate}
+              disabled={translateMutation.isPending || isLoadingFullContent}
               className="shrink-0"
               data-testid="button-translate-article"
             >
               <Globe className="h-4 w-4 mr-2" />
+              {translateMutation.isPending
+                ? "Перевод..."
+                : displayLang === "translated"
+                ? "Показать оригинал"
+                : translation
+                ? "Показать перевод"
+                : "Перевести"}
             </Button>
           </div>
 
@@ -302,7 +314,7 @@ export function ArticlePreviewModal({
           )}
 
           {/* Translation in progress */}
-          {!isLoadingFullContent && (
+          {!isLoadingFullContent && translateMutation.isPending && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                 <Skeleton className="h-4 w-4 rounded-full" />
@@ -317,7 +329,7 @@ export function ArticlePreviewModal({
           )}
 
           {/* Content loaded */}
-          {!isLoadingFullContent && (
+          {!isLoadingFullContent && !translateMutation.isPending && (
             <>
               {/* Warning if fetch failed or returned error */}
               {(fullContentError ||
