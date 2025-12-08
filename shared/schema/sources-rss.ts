@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   pgTable,
   timestamp,
   varchar,
@@ -89,6 +90,8 @@ export const rssItems = pgTable("rss_items", {
   publishedAt: timestamp("published_at"),
   parsedAt: timestamp("parsed_at").defaultNow().notNull(),
 }, (table) => [
+  // Composite unique: same URL can exist for different sources (multi-user support)
+  uniqueIndex("rss_items_source_url_unique").on(table.sourceId, table.url),
   index("rss_items_source_id_idx").on(table.sourceId),
   index("rss_items_user_id_idx").on(table.userId),
   index("rss_items_ai_score_idx").on(table.aiScore),

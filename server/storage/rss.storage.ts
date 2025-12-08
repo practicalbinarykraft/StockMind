@@ -141,14 +141,15 @@ export class RssStorage implements IRssStorage {
   }
 
   /**
-   * Create RSS item only if URL doesn't exist (for background parsing)
-   * Returns the item if created, null if already exists
+   * Create RSS item only if (source_id, url) doesn't exist (for background parsing)
+   * Returns the item if created, null if already exists for this source
+   * Note: Same URL can exist for different sources (multi-user support)
    */
   async createRssItemIfNotExists(data: InsertRssItem): Promise<RssItem | null> {
     const result = await db
       .insert(rssItems)
       .values(data)
-      .onConflictDoNothing({ target: rssItems.url })
+      .onConflictDoNothing({ target: [rssItems.sourceId, rssItems.url] })
       .returning();
     return result.length > 0 ? result[0] : null;
   }
