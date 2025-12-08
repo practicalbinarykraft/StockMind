@@ -66,6 +66,7 @@ export function setupSecurity(app: Express) {
   app.use(cors(corsOptions));
 
   // Helmet security headers
+  // Note: HSTS and upgrade-insecure-requests disabled until SSL is configured
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -78,8 +79,10 @@ export function setupSecurity(app: Express) {
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", 'blob:'],
         frameSrc: ["'none'"],
+        upgradeInsecureRequests: null, // Disable until HTTPS is configured
       },
     },
+    hsts: false, // Disable HSTS until SSL certificate is installed
     crossOriginEmbedderPolicy: false, // Disabled for external API calls
     crossOriginResourcePolicy: { policy: "cross-origin" }
   }));
