@@ -85,13 +85,13 @@ export function NewsListItem({
 
   return (
     <>
-      {/* {previewOpen && (
+      {previewOpen && (
         <ArticlePreviewModal
           isOpen={previewOpen}
           article={item}
           onClose={() => setPreviewOpen(false)}
         />
-      )} */}
+      )}
       <Card
         className={`${isDismissed ? "opacity-50" : ""} ${
           isUsed ? "border-green-500 dark:border-green-600" : ""
