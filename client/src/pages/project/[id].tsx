@@ -66,6 +66,7 @@ export default function ProjectWorkflow() {
     queryKey: ["/api/projects", projectId, "steps"],
     enabled: !!projectId && !authLoading && isAuthenticated,
     staleTime: 0, // Force fresh data
+    gcTime: 0, // Clear cache immediately
   });
 
   // Redirect to login if not authenticated (after all hooks)
