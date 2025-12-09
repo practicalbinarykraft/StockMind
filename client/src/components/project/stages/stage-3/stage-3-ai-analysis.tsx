@@ -376,31 +376,31 @@ export function Stage3AIAnalysis({
   const useNewFlow =
     !STAGE3_MAGIC_UI || (currentStepState === "load" && !generatedData);
 
-  if (useNewFlow) {
-    if (currentStepState === "load") {
-      return (
-        <CreateScriptScreen
-          project={project}
-          stepData={stepData}
-          onGenerate={handleGenerateFromStep3_1}
-          isLoading={false}
-        />
-      );
-    }
+  // if (useNewFlow) {
+  //   if (currentStepState === "load") {
+  //     return (
+  //       <CreateScriptScreen
+  //         project={project}
+  //         stepData={stepData}
+  //         onGenerate={handleGenerateFromStep3_1}
+  //         isLoading={false}
+  //       />
+  //     );
+  //   }
 
-    if (currentStepState === "constructor" && generatedData) {
-      return (
-        <Step3_2_Constructor
-          project={project}
-          step3Data={step3Data}
-          scenes={generatedData.scenes}
-          variants={generatedData.variants}
-          onBack={() => setCurrentStepState("load")}
-          onComplete={handleCompleteFromStep3_2}
-        />
-      );
-    }
-  }
+  //   if (currentStepState === "constructor" && generatedData) {
+  //     return (
+  //       <Step3_2_Constructor
+  //         project={project}
+  //         step3Data={step3Data}
+  //         scenes={generatedData.scenes}
+  //         variants={generatedData.variants}
+  //         onBack={() => setCurrentStepState("load")}
+  //         onComplete={handleCompleteFromStep3_2}
+  //       />
+  //     );
+  //   }
+  // }
 
   // MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
   if (STAGE3_MAGIC_UI && !hasScript) {
