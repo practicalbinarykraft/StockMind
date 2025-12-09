@@ -230,7 +230,7 @@ export function CreateScriptScreen({
         queryKey: ["/api/projects", project.id, "steps"],
       });
       setIsGenerating(false);
-      setLocation(`project/${project.id}`);
+      setLocation(`/project/${project.id}`);
     },
     onError: (error: Error) => {
       toast({
