@@ -104,6 +104,7 @@ export function useNewsMutations(project: Project) {
       await queryClient.refetchQueries({
         queryKey: ["/api/projects", project.id, "steps"],
       });
+      //analysisData
 
       toast({
         title: "Переход к созданию сценария",
