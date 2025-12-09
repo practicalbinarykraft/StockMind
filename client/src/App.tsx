@@ -1,34 +1,36 @@
-import { Switch, Route } from "wouter"
-import { queryClient } from "./lib/query-client"
-import { QueryClientProvider } from "@tanstack/react-query"
-import { Toaster } from "@/components/ui/toaster"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/lib/auth-context"
-import { useAuth } from "@/hooks/use-auth"
-import { PrivateRoute } from "@/components/auth/private-route"
-import NotFound from "@/pages/not-found"
-import Landing from "@/pages/landing"
-import Home from "@/pages/home"
-import Settings from "@/pages/settings"
-import NewProject from "@/pages/project/new"
-import ProjectWorkflow from "@/pages/project/[id]"
-import InstagramReels from "@/pages/instagram-reels"
-import { LoginForm } from "@/components/auth/login-form"
-import NewsAll from "@/pages/news/all"
-import ScriptsAll from "@/pages/scripts/all"
-import ScriptCreate from "@/pages/scripts/create"
-import AutoScripts from "@/pages/auto-scripts"
-import ConveyorDashboard from "@/pages/conveyor"
+import { Switch, Route } from "wouter";
+import { queryClient } from "./lib/query-client";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/lib/auth-context";
+import { useAuth } from "@/hooks/use-auth";
+import { PrivateRoute } from "@/components/auth/private-route";
+import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing";
+import Home from "@/pages/home";
+import Settings from "@/pages/settings";
+import NewProject from "@/pages/project/new";
+import ProjectWorkflow from "@/pages/project/[id]";
+import InstagramReels from "@/pages/instagram-reels";
+import { LoginForm } from "@/components/auth/login-form";
+import NewsAll from "@/pages/news/all";
+import ScriptsAll from "@/pages/scripts/all";
+import ScriptCreate from "@/pages/scripts/create";
+import AutoScripts from "@/pages/auto-scripts";
+import ConveyorDashboard from "@/pages/conveyor";
 
 function Router() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth();
 
   return (
     <Switch>
       <Route path="/login" component={LoginForm} />
       <Route path="/">
-        {() => isAuthenticated ? <PrivateRoute component={Home} /> : <Landing />}
+        {() =>
+          isAuthenticated ? <PrivateRoute component={Home} /> : <Landing />
+        }
       </Route>
       <Route path="/settings">
         {() => <PrivateRoute component={Settings} />}
@@ -62,7 +64,7 @@ function Router() {
       </Route>
       <Route component={NotFound} />
     </Switch>
-  )
+  );
 }
 
 function App() {
@@ -77,7 +79,7 @@ function App() {
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
-  )
+  );
 }
 
-export default App
+export default App;

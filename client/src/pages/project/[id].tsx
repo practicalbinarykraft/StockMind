@@ -26,16 +26,18 @@ export default function ProjectWorkflow() {
     error: projectError,
   } = useQuery<Project>({
     queryFn: async () => {
-      return await apiRequest("GET", `/api/projects/${projectId}`).then((res) =>
-        res.json()
+      const data = await apiRequest("GET", `/api/projects/${projectId}`).then(
+        (res) => res.json()
       );
+      console.log("projects", data);
+      return data;
     },
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId && !authLoading && isAuthenticated,
     staleTime: 0, // Always fetch fresh data
     gcTime: 0, // Clear cache immediately
     refetchOnMount: true, // Always refetch when component mounts
-    refetchOnWindowFocus: false, // Don't refetch on window focus
+    // refetchOnWindowFocus: false, // Don't refetch on window focus
     // Use cached data if available, but still refetch in background
     placeholderData: (previousData) => previousData,
   });
@@ -54,9 +56,12 @@ export default function ProjectWorkflow() {
 
   const { data: steps } = useQuery<ProjectStep[]>({
     queryFn: async () => {
-      return await apiRequest("GET", `/api/projects/${projectId}/steps`).then(
-        (res) => res.json()
-      );
+      const data = await apiRequest(
+        "GET",
+        `/api/projects/${projectId}/steps`
+      ).then((res) => res.json());
+      console.log("steps", data);
+      return data;
     },
     queryKey: ["/api/projects", projectId, "steps"],
     enabled: !!projectId && !authLoading && isAuthenticated,
