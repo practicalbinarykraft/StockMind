@@ -1,7 +1,7 @@
-import { useState } from "react"
-import { type Project } from "@shared/schema"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react";
+import { type Project } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,9 +11,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
-import { 
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import {
   ArrowLeft,
   FileText,
   Newspaper,
@@ -31,11 +31,11 @@ import {
   FileCode,
   Settings,
   FastForward,
-} from "lucide-react"
-import { useLocation } from "wouter"
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/query-client"
-import { useToast } from "@/hooks/use-toast"
+} from "lucide-react";
+import { useLocation } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/query-client";
+import { useToast } from "@/hooks/use-toast";
 
 const STAGES = [
   { number: 1, title: "Source Selection", icon: Radio, optional: false },
@@ -44,116 +44,125 @@ const STAGES = [
   { number: 4, title: "Voice Generation", icon: Mic, optional: true },
   { number: 5, title: "Avatar Selection", icon: Users, optional: true },
   { number: 6, title: "Final Export", icon: Download, optional: false },
-]
+];
 
 interface ProjectSidebarProps {
-  project: Project
-  onClose?: () => void
+  project: Project;
+  onClose?: () => void;
 }
 
 export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
-  const [, setLocation] = useLocation()
-  const { toast } = useToast()
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   // State for navigation warning dialog
-  const [showNavigationWarning, setShowNavigationWarning] = useState(false)
-  const [pendingStageNavigation, setPendingStageNavigation] = useState<number | null>(null)
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [pendingStageNavigation, setPendingStageNavigation] = useState<
+    number | null
+  >(null);
 
-  const currentStage = project.currentStage
+  const currentStage = project.currentStage;
 
   // Fetch steps data to check which steps are skipped
   const { data: stepsData } = useQuery({
     queryKey: ["/api/projects", project.id, "steps"],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${project.id}/steps`)
-      if (!res.ok) throw new Error("Failed to fetch steps")
-      return await res.json()
-    }
-  })
+      const res = await fetch(`/api/projects/${project.id}/steps`);
+      if (!res.ok) throw new Error("Failed to fetch steps");
+      return await res.json();
+    },
+  });
+
+  console.log("project-sidebar", currentStage);
 
   // Helper function to check if a step is skipped
   const isStepSkipped = (stepNumber: number) => {
-    if (!stepsData) return false
-    const step = stepsData.find((s: any) => s.stepNumber === stepNumber)
-    return !!step?.skipReason
-  }
+    if (!stepsData) return false;
+    const step = stepsData.find((s: any) => s.stepNumber === stepNumber);
+    return !!step?.skipReason;
+  };
 
   // Helper function to check if a step is completed (has data or completedAt)
   const isStepCompleted = (stepNumber: number) => {
-    if (!stepsData) return false
-    const step = stepsData.find((s: any) => s.stepNumber === stepNumber)
-    return !!(step?.completedAt || step?.data || step?.skipReason)
-  }
+    if (!stepsData) return false;
+    const step = stepsData.find((s: any) => s.stepNumber === stepNumber);
+    return !!(step?.completedAt || step?.data || step?.skipReason);
+  };
 
   // Calculate maximum reached stage from steps data (not just currentStage)
   // This ensures that completed stages remain accessible even when navigating back
-  const maxReachedStage = stepsData 
+  const maxReachedStage = stepsData
     ? Math.max(
         currentStage,
         ...stepsData
           .filter((s: any) => s.completedAt || s.data || s.skipReason)
           .map((s: any) => s.stepNumber)
       )
-    : currentStage
+    : currentStage;
 
   const getStageStatus = (stageNum: number) => {
     // Use maxReachedStage instead of currentStage to determine completed stages
-    if (isStepCompleted(stageNum) || stageNum < maxReachedStage) return "completed"
-    if (stageNum === currentStage) return "current"
-    return "locked"
-  }
+    if (isStepCompleted(stageNum) || stageNum < maxReachedStage)
+      return "completed";
+    if (stageNum === currentStage) return "current";
+    return "locked";
+  };
 
   // Mutation to navigate to a different stage (all completed stages 1-8)
   const navigateToStageMutation = useMutation({
     mutationFn: async (stage: number) => {
-      return apiRequest("PATCH", `/api/projects/${project.id}/stage`, { stage })
+      return apiRequest("PATCH", `/api/projects/${project.id}/stage`, {
+        stage,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] })
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] })
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id],
+      });
     },
     onError: (error: Error) => {
       toast({
         title: "Ошибка навигации",
         description: error.message,
         variant: "destructive",
-      })
+      });
     },
-  })
+  });
 
   // Handle stage click
   const handleStageClick = (stageNum: number) => {
     // Can only navigate to completed stages (based on actual step data, not just currentStage)
-    const isCompleted = isStepCompleted(stageNum) || stageNum < maxReachedStage
-    if (!isCompleted && stageNum !== currentStage) return
+    const isCompleted = isStepCompleted(stageNum) || stageNum < maxReachedStage;
+    if (!isCompleted && stageNum !== currentStage) return;
 
     // Don't navigate if already on this stage
-    if (stageNum === currentStage) return
+    if (stageNum === currentStage) return;
 
     // Show warning dialog for early stages (1-4) when navigating back
     if (stageNum < 5 && stageNum < maxReachedStage) {
-      setPendingStageNavigation(stageNum)
-      setShowNavigationWarning(true)
-      return
+      setPendingStageNavigation(stageNum);
+      setShowNavigationWarning(true);
+      return;
     }
 
-    navigateToStageMutation.mutate(stageNum)
-  }
+    navigateToStageMutation.mutate(stageNum);
+  };
 
   // Handle confirmed navigation from dialog
   const handleConfirmNavigation = () => {
     if (pendingStageNavigation !== null) {
-      navigateToStageMutation.mutate(pendingStageNavigation)
+      navigateToStageMutation.mutate(pendingStageNavigation);
     }
-    setShowNavigationWarning(false)
-    setPendingStageNavigation(null)
-  }
+    setShowNavigationWarning(false);
+    setPendingStageNavigation(null);
+  };
 
   // Handle cancel navigation from dialog
   const handleCancelNavigation = () => {
-    setShowNavigationWarning(false)
-    setPendingStageNavigation(null)
-  }
+    setShowNavigationWarning(false);
+    setPendingStageNavigation(null);
+  };
 
   return (
     <div className="w-64 border-r bg-sidebar flex flex-col h-full pointer-events-auto">
@@ -168,7 +177,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          
+
           {/* Close button for mobile */}
           {onClose && (
             <Button
@@ -194,17 +203,18 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-2">
           {STAGES.map((stage) => {
-            const Icon = stage.icon
-            const status = getStageStatus(stage.number)
-            const isActive = stage.number === currentStage
+            const Icon = stage.icon;
+            const status = getStageStatus(stage.number);
+            const isActive = stage.number === currentStage;
             // Use actual step completion data, not just currentStage comparison
-            const isCompleted = isStepCompleted(stage.number) || stage.number < maxReachedStage
+            const isCompleted =
+              isStepCompleted(stage.number) || stage.number < maxReachedStage;
             // Only lock stages that haven't been reached yet
-            const isLocked = stage.number > maxReachedStage
-            const isSkipped = isStepSkipped(stage.number)
-            
+            const isLocked = stage.number > maxReachedStage;
+            const isSkipped = isStepSkipped(stage.number);
+
             // All completed stages are navigable (with warning for early stages 1-4)
-            const isNavigable = (isCompleted || isActive) && !isActive
+            const isNavigable = (isCompleted || isActive) && !isActive;
 
             return (
               <div
@@ -221,10 +231,12 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
               >
                 <div className="relative">
                   {isCompleted ? (
-                    <div className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-full text-white",
-                      isSkipped ? "bg-muted-foreground" : "bg-chart-2"
-                    )}>
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-white",
+                        isSkipped ? "bg-muted-foreground" : "bg-chart-2"
+                      )}
+                    >
                       {isSkipped ? (
                         <FastForward className="h-4 w-4" />
                       ) : (
@@ -248,57 +260,86 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <Icon className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/70"
-                    )} />
-                    <span className={cn(
-                      "text-sm font-medium truncate",
-                      isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/70"
-                    )}>
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        isActive
+                          ? "text-sidebar-foreground"
+                          : "text-sidebar-foreground/70"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-sm font-medium truncate",
+                        isActive
+                          ? "text-sidebar-foreground"
+                          : "text-sidebar-foreground/70"
+                      )}
+                    >
                       {stage.title}
                     </span>
                   </div>
                   {stage.optional && (
-                    <span className="text-xs text-sidebar-foreground/50">Optional</span>
+                    <span className="text-xs text-sidebar-foreground/50">
+                      Optional
+                    </span>
                   )}
-                  
+
                   {/* Show source metadata for Stage 1 */}
-                  {stage.number === 1 && project.sourceType && project.sourceData ? (
+                  {stage.number === 1 &&
+                  project.sourceType &&
+                  project.sourceData ? (
                     <div className="mt-1.5 flex flex-wrap gap-1">
-                      {project.sourceType === 'news' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                      {project.sourceType === "news" && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
                           <Radio className="h-2.5 w-2.5 mr-1" />
                           News
                         </Badge>
                       )}
-                      {project.sourceType === 'instagram' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                      {project.sourceType === "instagram" && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
                           <Instagram className="h-2.5 w-2.5 mr-1" />
                           Reel
                         </Badge>
                       )}
-                      {project.sourceType === 'custom' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                      {project.sourceType === "custom" && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
                           <FileCode className="h-2.5 w-2.5 mr-1" />
                           Custom
                         </Badge>
                       )}
                       {(project.sourceData as Record<string, any>).language && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-4 uppercase"
+                        >
                           {(project.sourceData as Record<string, any>).language}
                         </Badge>
                       )}
-                      {typeof (project.sourceData as Record<string, any>).aiScore === 'number' && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                          {(project.sourceData as Record<string, any>).aiScore}/100
+                      {typeof (project.sourceData as Record<string, any>)
+                        .aiScore === "number" && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
+                          {(project.sourceData as Record<string, any>).aiScore}
+                          /100
                         </Badge>
                       )}
                     </div>
                   ) : null}
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       </div>
@@ -310,7 +351,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
           variant="outline"
           size="sm"
           className="w-full gap-2"
-          onClick={() => setLocation('/settings')}
+          onClick={() => setLocation("/settings")}
           data-testid="button-settings"
         >
           <Settings className="h-4 w-4" />
@@ -332,13 +373,18 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
       </div>
 
       {/* Navigation Warning Dialog */}
-      <AlertDialog open={showNavigationWarning} onOpenChange={setShowNavigationWarning}>
+      <AlertDialog
+        open={showNavigationWarning}
+        onOpenChange={setShowNavigationWarning}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Внимание!</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы возвращаетесь на этап {pendingStageNavigation} ({STAGES.find(s => s.number === pendingStageNavigation)?.title || 'Unknown'}).
-              Изменения на ранних этапах могут повлиять на последующие этапы.
+              Вы возвращаетесь на этап {pendingStageNavigation} (
+              {STAGES.find((s) => s.number === pendingStageNavigation)?.title ||
+                "Unknown"}
+              ). Изменения на ранних этапах могут повлиять на последующие этапы.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -352,5 +398,5 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }
