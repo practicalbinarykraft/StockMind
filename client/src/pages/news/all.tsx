@@ -34,7 +34,7 @@ export default function NewsAll() {
   const [statusFilter, setStatusFilter] = useState<"all">("all");
 
   const [page, setPage] = useState(1);
-  const perPage = 30;
+  const perPage = 50;
 
   // Fetch all articles
   const { data: articles, isLoading } = useQuery<RssItem[]>({
