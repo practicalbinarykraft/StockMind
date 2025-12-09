@@ -21,6 +21,7 @@ import type { EnrichedRssItem } from "@/components/project/stages/stage-2/utils/
 import { useNewsAnalysis } from "@/components/project/stages/stage-2/hooks/use-news-analysis";
 import { useNewsMutations } from "./hooks/use-news-mutations";
 import { useToast } from "@/hooks/use-toast";
+import Pagination from "./pagination";
 
 export default function NewsAll() {
   const [, setLocation] = useLocation();
@@ -31,6 +32,9 @@ export default function NewsAll() {
   const [sortBy, setSortBy] = useState<"date" | "score">("date");
   const [viewMode, setViewMode] = useState<"all" | "favorites">("all");
   const [statusFilter, setStatusFilter] = useState<"all">("all");
+
+  const [page, setPage] = useState(1);
+  const perPage = 30;
 
   // Fetch all articles
   const { data: articles, isLoading } = useQuery<RssItem[]>({
@@ -216,6 +220,13 @@ export default function NewsAll() {
     return filteredArticles.map(enrichArticle);
   }, [filteredArticles]);
 
+  const totalPages = Math.ceil(enrichedFilteredArticles.length / perPage);
+
+  const paginatedArticles = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return enrichedFilteredArticles.slice(start, start + perPage);
+  }, [enrichedFilteredArticles, page]);
+
   // Use news analysis hook
   const {
     analyses,
@@ -351,10 +362,10 @@ export default function NewsAll() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {enrichedFilteredArticles.map((article) => {
+            {paginatedArticles.map((article) => {
               const analysis = analyses[article.id];
               const isAnalyzing = analyzingItems.has(article.id);
-              const isTranslating = false; // Translation state can be added if needed
+              // Translation state can be added if needed
               // Check if article has saved analysis in DB (even if not loaded in state)
               // We'll show the button if analysis is not in state, and let the API check if it exists
               const hasSavedAnalysis = !analysis && !isAnalyzing; // Show button if no analysis in state and not currently analyzing
@@ -385,12 +396,17 @@ export default function NewsAll() {
           </div>
         )}
 
-        {/* Stats */}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+        {/* Stats
         {articles && (
           <div className="mt-6 text-sm text-muted-foreground">
             Showing {filteredArticles.length} of {articles.length} articles
           </div>
-        )}
+        )} */}
       </div>
     </Layout>
   );
