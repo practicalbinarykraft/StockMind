@@ -95,7 +95,13 @@ export function useNewsMutations(project: Project) {
       await queryClient.invalidateQueries({
         queryKey: ["/api/projects", project.id],
       });
+      await queryClient.refetchQueries({
+        queryKey: ["/api/projects", project.id],
+      });
       await queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id, "steps"],
+      });
+      await queryClient.refetchQueries({
         queryKey: ["/api/projects", project.id, "steps"],
       });
 

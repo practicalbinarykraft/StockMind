@@ -1,26 +1,35 @@
-import { useParams, useLocation } from "wouter"
-import { useQuery } from "@tanstack/react-query"
-import type { Project, ProjectStep } from "@shared/schema"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, Home } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ProjectSidebar } from "@/components/project/project-sidebar"
-import { StageContent } from "@/components/project/stage-content"
-import { ProjectLayout } from "@/components/layout/project-layout"
-import { useAuth } from "@/hooks/use-auth"
-import { useToast } from "@/hooks/use-toast"
-import { useState, useEffect } from "react"
-import { ApiError } from "@/lib/query-client"
+import { useParams, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Project, ProjectStep } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Home } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ProjectSidebar } from "@/components/project/project-sidebar";
+import { StageContent } from "@/components/project/stage-content";
+import { ProjectLayout } from "@/components/layout/project-layout";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { ApiError, apiRequest } from "@/lib/query-client";
 
 export default function ProjectWorkflow() {
-  const params = useParams()
-  const [, setLocation] = useLocation()
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const { toast } = useToast()
-  const projectId = params.id
+  const params = useParams();
+  const [, setLocation] = useLocation();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const projectId = params.id;
 
   // All hooks must be called unconditionally before any early returns
-  const { data: project, isLoading: projectLoading, error: projectError } = useQuery<Project>({
+  const {
+    data: project,
+    isLoading: projectLoading,
+    error: projectError,
+  } = useQuery<Project>({
+    queryFn: async () => {
+      return await apiRequest("GET", `/api/projects/${projectId}`).then((res) =>
+        res.json()
+      );
+    },
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId && !authLoading && isAuthenticated,
     staleTime: 0, // Always fetch fresh data
@@ -29,7 +38,7 @@ export default function ProjectWorkflow() {
     refetchOnWindowFocus: false, // Don't refetch on window focus
     // Use cached data if available, but still refetch in background
     placeholderData: (previousData) => previousData,
-  })
+  });
 
   // Debug log to see what project data we receive
   useEffect(() => {
@@ -38,17 +47,23 @@ export default function ProjectWorkflow() {
         id: project.id,
         currentStage: project.currentStage,
         status: project.status,
-        sourceType: project.sourceType
+        sourceType: project.sourceType,
       });
     }
   }, [project]);
 
   const { data: steps } = useQuery<ProjectStep[]>({
+    queryFn: async () => {
+      return await apiRequest("GET", `/api/projects/${projectId}/steps`).then(
+        (res) => res.json()
+      );
+    },
     queryKey: ["/api/projects", projectId, "steps"],
     enabled: !!projectId && !authLoading && isAuthenticated,
-    staleTime: 0,  // Force fresh data
-    gcTime: 0,     // Clear cache immediately
-  })
+    staleTime: 0, // Force fresh data
+    gcTime: 0, // Clear cache immediately
+    refetchOnMount: true,
+  });
 
   // Redirect to login if not authenticated (after all hooks)
   useEffect(() => {
@@ -57,16 +72,16 @@ export default function ProjectWorkflow() {
         title: "Unauthorized",
         description: "Redirecting to login...",
         variant: "destructive",
-      })
+      });
       setTimeout(() => {
-        window.location.href = "/api/login"
-      }, 500)
+        window.location.href = "/api/login";
+      }, 500);
     }
-  }, [authLoading, isAuthenticated, toast])
+  }, [authLoading, isAuthenticated, toast]);
 
   // Show nothing while redirecting
   if (!authLoading && !isAuthenticated) {
-    return null
+    return null;
   }
 
   // Handle errors with proper status codes
@@ -155,7 +170,7 @@ export default function ProjectWorkflow() {
           </div>
         </div>
       </ProjectLayout>
-    )
+    );
   }
 
   if (!project) {
@@ -172,11 +187,11 @@ export default function ProjectWorkflow() {
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   // Скрываем ProjectSidebar на этапе 1 (Source Selection)
-  const showProjectSidebar = project.currentStage > 1
+  const showProjectSidebar = project.currentStage > 1;
 
   return (
     <ProjectLayout>
@@ -194,5 +209,5 @@ export default function ProjectWorkflow() {
         </div>
       </div>
     </ProjectLayout>
-  )
+  );
 }
