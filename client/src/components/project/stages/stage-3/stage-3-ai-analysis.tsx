@@ -125,6 +125,9 @@ export function Stage3AIAnalysis({
   const [showFormatModal, setShowFormatModal] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState<"ru" | "en">("ru");
 
+  // Feature flag check
+  const STAGE3_MAGIC_UI = true;
+
   // Get content from step data
   const content =
     stepData?.content || stepData?.text || stepData?.transcription || "";
@@ -214,6 +217,7 @@ export function Stage3AIAnalysis({
       selectedVariants,
       editedScenes,
       variantScores,
+      STAGE3_MAGIC_UI,
       hasScript,
       scriptVersionsQuery,
       candidateVersion,
@@ -369,36 +373,37 @@ export function Stage3AIAnalysis({
 
   // NEW FLOW: CreateScriptScreen (unified) + Constructor
   // Check if we should use new unified flow
-  const useNewFlow = currentStepState === "load" && !generatedData;
+  const useNewFlow =
+    !STAGE3_MAGIC_UI || (currentStepState === "load" && !generatedData);
 
-  // if (useNewFlow) {
-  //   // if (currentStepState === "load") {
-  //   //   return (
-  //   //     <CreateScriptScreen
-  //   //       project={project}
-  //   //       stepData={stepData}
-  //   //       onGenerate={handleGenerateFromStep3_1}
-  //   //       isLoading={false}
-  //   //     />
-  //   //   );
-  //   // }
+  if (useNewFlow) {
+    if (currentStepState === "load") {
+      return (
+        <CreateScriptScreen
+          project={project}
+          stepData={stepData}
+          onGenerate={handleGenerateFromStep3_1}
+          isLoading={false}
+        />
+      );
+    }
 
-  //   if (currentStepState === "constructor" && generatedData) {
-  //     return (
-  //       <Step3_2_Constructor
-  //         project={project}
-  //         step3Data={step3Data}
-  //         scenes={generatedData.scenes}
-  //         variants={generatedData.variants}
-  //         onBack={() => setCurrentStepState("load")}
-  //         onComplete={handleCompleteFromStep3_2}
-  //       />
-  //     );
-  //   }
-  // }
+    if (currentStepState === "constructor" && generatedData) {
+      return (
+        <Step3_2_Constructor
+          project={project}
+          step3Data={step3Data}
+          scenes={generatedData.scenes}
+          variants={generatedData.variants}
+          onBack={() => setCurrentStepState("load")}
+          onComplete={handleCompleteFromStep3_2}
+        />
+      );
+    }
+  }
 
   // MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
-  if (!hasScript) {
+  if (STAGE3_MAGIC_UI && !hasScript) {
     return (
       <SourceReviewMode
         project={project}
@@ -426,7 +431,7 @@ export function Stage3AIAnalysis({
   }
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
-  if (hasScript) {
+  if (STAGE3_MAGIC_UI && hasScript) {
     return (
       <SceneEditorMode
         project={project}

@@ -13,6 +13,7 @@ export function useSaveMutations(
   selectedVariants: Record<number, number>,
   editedScenes: Record<number, string>,
   variantScores: Record<string, number>,
+  STAGE3_MAGIC_UI: boolean,
   hasScript: boolean,
   scriptVersionsQuery: any,
   candidateVersion: any,
@@ -79,7 +80,7 @@ export function useSaveMutations(
   const handleProceed = async () => {
     // For STAGE3_MAGIC_UI: check activeVersion (candidate or current) metrics
     // For old UI: check global advancedAnalysis/analysis states
-    if (hasScript) {
+    if (STAGE3_MAGIC_UI && hasScript) {
       const current = scriptVersionsQuery.data?.currentVersion;
       const candidate = candidateVersion;
       const activeVersion = candidate ?? current;
