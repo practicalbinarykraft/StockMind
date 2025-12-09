@@ -1,35 +1,96 @@
-import { useState } from "react"
-import { type Project } from "@shared/schema"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Sparkles, Lightbulb, FileText, Link2, BookOpen, Newspaper, Instagram, ChevronDown, ChevronUp, Settings, ArrowLeft, Loader2, Globe } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
-import { useLocation } from "wouter"
-import { useMutation } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/query-client"
+import { useState } from "react";
+import { type Project } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sparkles,
+  Lightbulb,
+  FileText,
+  Link2,
+  BookOpen,
+  Newspaper,
+  Instagram,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  ArrowLeft,
+  Loader2,
+  Globe,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/query-client";
 
 interface CreateScriptScreenProps {
-  project: Project
-  stepData: any
-  onGenerate: (data: { sourceContent: string; format: string; customPrompt?: string; sourceType: string }) => void
-  onBack?: () => void
-  isLoading?: boolean
+  project: Project;
+  stepData: any;
+  onGenerate: (data: {
+    sourceContent: string;
+    format: string;
+    customPrompt?: string;
+    sourceType: string;
+  }) => void;
+  onBack?: () => void;
+  isLoading?: boolean;
 }
 
-type SourceType = "idea" | "text" | "url" | "library" | null
+type SourceType = "idea" | "text" | "url" | "library" | null;
 
 const FORMATS = [
-  { value: "news_update", label: "News Update", icon: "📰", duration: "15-20 сек", description: "Новостной формат" },
-  { value: "hook_story", label: "Hook & Story", icon: "🎯", duration: "30-45 сек", description: "Хук + история" },
-  { value: "explainer", label: "Explainer", icon: "📊", duration: "45-60 сек", description: "Объясняющий формат" },
-  { value: "listicle", label: "Топ-5", icon: "📋", duration: "45-60 сек", description: "Список" },
-  { value: "comparison", label: "A vs B", icon: "🆚", duration: "30-45 сек", description: "Сравнение" },
-  { value: "shock", label: "Шок", icon: "😱", duration: "15-30 сек", description: "Шокирующий контент" },
-]
+  {
+    value: "news_update",
+    label: "News Update",
+    icon: "📰",
+    duration: "15-20 сек",
+    description: "Новостной формат",
+  },
+  {
+    value: "hook_story",
+    label: "Hook & Story",
+    icon: "🎯",
+    duration: "30-45 сек",
+    description: "Хук + история",
+  },
+  {
+    value: "explainer",
+    label: "Explainer",
+    icon: "📊",
+    duration: "45-60 сек",
+    description: "Объясняющий формат",
+  },
+  {
+    value: "listicle",
+    label: "Топ-5",
+    icon: "📋",
+    duration: "45-60 сек",
+    description: "Список",
+  },
+  {
+    value: "comparison",
+    label: "A vs B",
+    icon: "🆚",
+    duration: "30-45 сек",
+    description: "Сравнение",
+  },
+  {
+    value: "shock",
+    label: "Шок",
+    icon: "😱",
+    duration: "15-30 сек",
+    description: "Шокирующий контент",
+  },
+];
 
 const EXAMPLE_IDEAS = [
   "iPhone 16 батарея",
@@ -40,9 +101,9 @@ const EXAMPLE_IDEAS = [
   "Tesla новости",
   "Метавселенная",
   "Web3",
-]
+];
 
-const TRENDING_TOPICS = EXAMPLE_IDEAS
+const TRENDING_TOPICS = EXAMPLE_IDEAS;
 
 export function CreateScriptScreen({
   project,
@@ -51,30 +112,40 @@ export function CreateScriptScreen({
   onBack,
   isLoading = false,
 }: CreateScriptScreenProps) {
-  const { toast } = useToast()
-  const [, setLocation] = useLocation()
-  
-  const [selectedSource, setSelectedSource] = useState<SourceType>(null)
-  const [ideaText, setIdeaText] = useState("")
-  const [customText, setCustomText] = useState("")
-  const [url, setUrl] = useState("")
-  const [format, setFormat] = useState<string | null>(null)
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
-  const [customPrompt, setCustomPrompt] = useState("")
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [parsedUrlContent, setParsedUrlContent] = useState<{ title: string; source: string; wordCount: number } | null>(null)
-  const [isParsingUrl, setIsParsingUrl] = useState(false)
-  const [showAllFormats, setShowAllFormats] = useState(false)
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  const [selectedSource, setSelectedSource] = useState<SourceType>(null);
+  const [ideaText, setIdeaText] = useState("");
+  const [customText, setCustomText] = useState("");
+  const [url, setUrl] = useState("");
+  const [format, setFormat] = useState<string | null>(null);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [parsedUrlContent, setParsedUrlContent] = useState<{
+    title: string;
+    source: string;
+    wordCount: number;
+  } | null>(null);
+  const [isParsingUrl, setIsParsingUrl] = useState(false);
+  const [showAllFormats, setShowAllFormats] = useState(false);
 
   // Mutation for handling source selection and navigation
   const handleSourceAndGenerate = useMutation({
-    mutationFn: async (data: { sourceContent: string; format: string; customPrompt?: string; sourceType: string }) => {
+    mutationFn: async (data: {
+      sourceContent: string;
+      format: string;
+      customPrompt?: string;
+      sourceType: string;
+    }) => {
       // Determine target stage based on source type
       // For News/Instagram - go to stage 2 (content selection)
       // For others (idea, text, url, library) - go directly to stage 3 (constructor)
-      const isNewsOrInstagram = data.sourceType === "news" || data.sourceType === "instagram"
-      const targetStage = isNewsOrInstagram ? 2 : 3
+      const isNewsOrInstagram =
+        data.sourceType === "news" || data.sourceType === "instagram";
+      const targetStage = isNewsOrInstagram ? 2 : 3;
 
       // Save step 1 data
       await apiRequest("POST", `/api/projects/${project.id}/steps`, {
@@ -86,13 +157,13 @@ export function CreateScriptScreen({
           customPrompt: data.customPrompt,
         },
         completedAt: new Date().toISOString(),
-      })
+      });
 
       // Update project stage and source type
       await apiRequest("PATCH", `/api/projects/${project.id}`, {
         currentStage: targetStage,
         sourceType: data.sourceType,
-      })
+      });
 
       // If going directly to stage 3 (not News/Instagram), also create step 2 as skipped
       if (targetStage === 3) {
@@ -103,19 +174,23 @@ export function CreateScriptScreen({
             skipReason: `${data.sourceType} - content input skipped`,
           },
           completedAt: new Date().toISOString(),
-        })
+        });
 
         // Generate variants immediately for non-News/Instagram sources
         // Call the generation API using apiRequest (which handles auth automatically)
         try {
-          const res = await apiRequest("POST", "/api/scripts/generate-variants", {
-            sourceText: data.sourceContent,
-            prompt: data.customPrompt || "",
-            format: data.format,
-          })
+          const res = await apiRequest(
+            "POST",
+            "/api/scripts/generate-variants",
+            {
+              sourceText: data.sourceContent,
+              prompt: data.customPrompt || "",
+              format: data.format,
+            }
+          );
 
-          const response = await res.json()
-          const result = response.data || response
+          const response = await res.json();
+          const result = response.data || response;
 
           // Save step 3 data with generated variants and step: "constructor"
           await apiRequest("POST", `/api/projects/${project.id}/steps`, {
@@ -130,56 +205,63 @@ export function CreateScriptScreen({
               },
               step: "constructor",
             },
-          })
+          });
 
           // Call onGenerate callback if provided (for navigation)
           if (onGenerate) {
-            await onGenerate(data)
+            await onGenerate(data);
           }
         } catch (error: any) {
-          console.error("Generation error:", error)
+          console.error("Generation error:", error);
           toast({
             title: "Ошибка генерации",
             description: error.message || "Не удалось сгенерировать варианты",
             variant: "destructive",
-          })
-          throw error // Re-throw to prevent navigation on error
+          });
+          throw error; // Re-throw to prevent navigation on error
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
-      setIsGenerating(false)
+      queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id, "steps"],
+      });
+      setIsGenerating(false);
+      setLocation(`project/${project.id}`);
     },
     onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось создать проект",
         variant: "destructive",
-      })
-      setIsGenerating(false)
+      });
+      setIsGenerating(false);
     },
-  })
+  });
 
   // Get content based on selected source
   const getContent = () => {
     switch (selectedSource) {
       case "idea":
-        return ideaText
+        return ideaText;
       case "text":
-        return customText
+        return customText;
       case "url":
         // For URL, use parsed content if available, otherwise use URL
-        return parsedUrlContent ? `${parsedUrlContent.title}\n${parsedUrlContent.source}` : url
+        return parsedUrlContent
+          ? `${parsedUrlContent.title}\n${parsedUrlContent.source}`
+          : url;
       case "library":
-        return selectedTopics.join(", ")
+        return selectedTopics.join(", ");
       default:
-        return ""
+        return "";
     }
-  }
+  };
 
-  const content = getContent()
+  const content = getContent();
 
   const handleGenerate = () => {
     if (!selectedSource) {
@@ -187,8 +269,8 @@ export function CreateScriptScreen({
         title: "Ошибка",
         description: "Выберите источник контента",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (!content.trim()) {
@@ -196,8 +278,8 @@ export function CreateScriptScreen({
         title: "Ошибка",
         description: "Введите контент для генерации",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (!format) {
@@ -205,18 +287,18 @@ export function CreateScriptScreen({
         title: "Ошибка",
         description: "Выберите формат сценария",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsGenerating(true)
+    setIsGenerating(true);
     handleSourceAndGenerate.mutate({
       sourceContent: content,
       format,
       customPrompt: customPrompt.trim() || undefined,
       sourceType: selectedSource,
-    })
-  }
+    });
+  };
 
   // Handle News/Instagram navigation
   const handleNewsClick = () => {
@@ -224,24 +306,24 @@ export function CreateScriptScreen({
       sourceContent: "",
       format: "news_update",
       sourceType: "news",
-    })
-  }
+    });
+  };
 
   const handleInstagramClick = () => {
     handleSourceAndGenerate.mutate({
       sourceContent: "",
       format: "news_update",
       sourceType: "instagram",
-    })
-  }
+    });
+  };
 
   const handleTopicClick = (topic: string) => {
     if (selectedTopics.includes(topic)) {
-      setSelectedTopics(selectedTopics.filter((t) => t !== topic))
+      setSelectedTopics(selectedTopics.filter((t) => t !== topic));
     } else {
-      setSelectedTopics([...selectedTopics, topic])
+      setSelectedTopics([...selectedTopics, topic]);
     }
-  }
+  };
 
   // Handle URL parsing
   const handleParseUrl = async () => {
@@ -250,47 +332,47 @@ export function CreateScriptScreen({
         title: "Ошибка",
         description: "Введите URL",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsParsingUrl(true)
+    setIsParsingUrl(true);
     try {
       // TODO: Implement actual URL parsing API
       // For now, simulate parsing
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
       // Mock parsed content
       setParsedUrlContent({
         title: "Заголовок статьи",
         source: new URL(url).hostname,
         wordCount: 847,
-      })
-      
+      });
+
       toast({
         title: "Контент загружен",
         description: "Статья успешно извлечена",
-      })
+      });
     } catch (error: any) {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось загрузить контент",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsParsingUrl(false)
+      setIsParsingUrl(false);
     }
-  }
+  };
 
   // Calculate text stats for "Свой текст"
-  const textStats = customText.trim() 
+  const textStats = customText.trim()
     ? {
         words: customText.split(/\s+/).filter(Boolean).length,
         chars: customText.length,
       }
-    : null
+    : null;
 
-  const canGenerate = selectedSource && content.trim().length > 0 && format
+  const canGenerate = selectedSource && content.trim().length > 0 && format;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -333,7 +415,9 @@ export function CreateScriptScreen({
               <div className="text-xs text-muted-foreground">Опишу тему</div>
               {selectedSource === "idea" && (
                 <div className="mt-2">
-                  <Badge variant="default" className="text-xs">✓</Badge>
+                  <Badge variant="default" className="text-xs">
+                    ✓
+                  </Badge>
                 </div>
               )}
             </button>
@@ -352,7 +436,9 @@ export function CreateScriptScreen({
               <div className="text-xs text-muted-foreground">Вставлю текст</div>
               {selectedSource === "text" && (
                 <div className="mt-2">
-                  <Badge variant="default" className="text-xs">✓</Badge>
+                  <Badge variant="default" className="text-xs">
+                    ✓
+                  </Badge>
                 </div>
               )}
             </button>
@@ -368,10 +454,14 @@ export function CreateScriptScreen({
             >
               <div className="text-2xl mb-2">🔗</div>
               <div className="font-medium text-sm mb-1">Ссылка</div>
-              <div className="text-xs text-muted-foreground">URL статьи/видео</div>
+              <div className="text-xs text-muted-foreground">
+                URL статьи/видео
+              </div>
               {selectedSource === "url" && (
                 <div className="mt-2">
-                  <Badge variant="default" className="text-xs">✓</Badge>
+                  <Badge variant="default" className="text-xs">
+                    ✓
+                  </Badge>
                 </div>
               )}
             </button>
@@ -388,12 +478,16 @@ export function CreateScriptScreen({
               <div className="text-2xl mb-2">📚</div>
               <div className="font-medium text-sm mb-1 flex items-center gap-1">
                 Библиотека
-                <Badge variant="secondary" className="text-xs">PRO ⭐</Badge>
+                <Badge variant="secondary" className="text-xs">
+                  PRO ⭐
+                </Badge>
               </div>
               <div className="text-xs text-muted-foreground">Готовые темы</div>
               {selectedSource === "library" && (
                 <div className="mt-2">
-                  <Badge variant="default" className="text-xs">✓</Badge>
+                  <Badge variant="default" className="text-xs">
+                    ✓
+                  </Badge>
                 </div>
               )}
             </button>
@@ -405,7 +499,9 @@ export function CreateScriptScreen({
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">или выберите источник</span>
+              <span className="bg-background px-2 text-muted-foreground">
+                или выберите источник
+              </span>
             </div>
           </div>
 
@@ -421,10 +517,16 @@ export function CreateScriptScreen({
                     <Newspaper className="h-5 w-5 text-primary" />
                     <div>
                       <div className="font-medium">Новости</div>
-                      <div className="text-xs text-muted-foreground">247 статей • 12 hot</div>
+                      <div className="text-xs text-muted-foreground">
+                        247 статей • 12 hot
+                      </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" disabled={handleSourceAndGenerate.isPending}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={handleSourceAndGenerate.isPending}
+                  >
                     Выбрать →
                   </Button>
                 </div>
@@ -441,10 +543,16 @@ export function CreateScriptScreen({
                     <Instagram className="h-5 w-5 text-primary" />
                     <div>
                       <div className="font-medium">Instagram Reels</div>
-                      <div className="text-xs text-muted-foreground">Транскрипции рилсов</div>
+                      <div className="text-xs text-muted-foreground">
+                        Транскрипции рилсов
+                      </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" disabled={handleSourceAndGenerate.isPending}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={handleSourceAndGenerate.isPending}
+                  >
                     Выбрать →
                   </Button>
                 </div>
@@ -512,7 +620,9 @@ export function CreateScriptScreen({
                   </div>
                   {textStats && (
                     <div className="p-3 bg-muted rounded-lg">
-                      <div className="text-sm font-medium mb-1">📊 Определено:</div>
+                      <div className="text-sm font-medium mb-1">
+                        📊 Определено:
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {textStats.words} слов • {textStats.chars} символов
                       </div>
@@ -531,15 +641,15 @@ export function CreateScriptScreen({
                       <Input
                         value={url}
                         onChange={(e) => {
-                          setUrl(e.target.value)
-                          setParsedUrlContent(null) // Reset on change
+                          setUrl(e.target.value);
+                          setParsedUrlContent(null); // Reset on change
                         }}
                         placeholder="https://example.com/article"
                         type="url"
                         className="flex-1"
                       />
-                      <Button 
-                        onClick={handleParseUrl} 
+                      <Button
+                        onClick={handleParseUrl}
                         disabled={isParsingUrl || !url.trim()}
                       >
                         {isParsingUrl ? (
@@ -550,26 +660,30 @@ export function CreateScriptScreen({
                       </Button>
                     </div>
                   </div>
-                  
+
                   {parsedUrlContent && (
                     <Card>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <Globe className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm mb-1">{parsedUrlContent.title}</p>
+                            <p className="font-medium text-sm mb-1">
+                              {parsedUrlContent.title}
+                            </p>
                             <p className="text-xs text-muted-foreground">
-                              {parsedUrlContent.source} • {parsedUrlContent.wordCount} слов
+                              {parsedUrlContent.source} •{" "}
+                              {parsedUrlContent.wordCount} слов
                             </p>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   )}
-                  
+
                   {!parsedUrlContent && (
                     <p className="text-xs text-muted-foreground">
-                      Вставьте ссылку на статью или видео. Мы извлечём контент автоматически.
+                      Вставьте ссылку на статью или видео. Мы извлечём контент
+                      автоматически.
                     </p>
                   )}
                 </div>
@@ -614,13 +728,14 @@ export function CreateScriptScreen({
                   >
                     <div className="text-xl mb-1">{fmt.icon}</div>
                     <div className="font-medium text-xs mb-1">{fmt.label}</div>
-                    <div className="text-xs text-muted-foreground">{fmt.duration}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {fmt.duration}
+                    </div>
                   </button>
                 ))}
               </div>
             </CardContent>
           </Card>
-
 
           {/* Advanced Settings Layer */}
           <Card>
@@ -668,11 +783,18 @@ export function CreateScriptScreen({
             )}
             <Button
               onClick={handleGenerate}
-              disabled={!canGenerate || isLoading || handleSourceAndGenerate.isPending || isGenerating}
+              disabled={
+                !canGenerate ||
+                isLoading ||
+                handleSourceAndGenerate.isPending ||
+                isGenerating
+              }
               size="lg"
               className="gap-2"
             >
-              {(isLoading || handleSourceAndGenerate.isPending || isGenerating) ? (
+              {isLoading ||
+              handleSourceAndGenerate.isPending ||
+              isGenerating ? (
                 <>
                   <Sparkles className="h-4 w-4 animate-pulse" />
                   Создание...
@@ -688,6 +810,5 @@ export function CreateScriptScreen({
         </>
       )}
     </div>
-  )
+  );
 }
-
