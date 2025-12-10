@@ -15,7 +15,10 @@ const scriptVersionService = new ScriptVersionService(storage);
 /**
  * Helper: Extract scene recommendations from advanced analysis
  */
-function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number): any[] {
+function extractRecommendationsFromAnalysis(
+  analysis: any,
+  totalScenes: number
+): any[] {
   const recommendations: any[] = [];
 
   if (!analysis || !analysis.recommendations) {
@@ -23,7 +26,10 @@ function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number):
     return recommendations;
   }
 
-  logger.debug("Processing recommendations", { count: analysis.recommendations.length, totalScenes });
+  logger.debug("Processing recommendations", {
+    count: analysis.recommendations.length,
+    totalScenes,
+  });
 
   // Map recommendations to scenes using scene numbers (1-indexed)
   for (const rec of analysis.recommendations) {
@@ -38,24 +44,33 @@ function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number):
 
       recommendations.push({
         sceneId: sceneNumber, // sceneId is just the scene number (1, 2, 3...), not a database PK
-        priority: rec.priority || 'medium',
-        area: rec.area || 'general',
-        currentText: rec.current || '',
-        suggestedText: rec.suggested || '',
-        reasoning: rec.reasoning || '',
-        expectedImpact: rec.expectedImpact || '',
-        sourceAgent: rec.area || 'general',
+        priority: rec.priority || "medium",
+        area: rec.area || "general",
+        currentText: rec.current || "",
+        suggestedText: rec.suggested || "",
+        reasoning: rec.reasoning || "",
+        expectedImpact: rec.expectedImpact || "",
+        sourceAgent: rec.area || "general",
         scoreDelta,
         confidence,
       });
 
-      logger.debug("Added recommendation", { sceneNumber, area: rec.area, priority: rec.priority });
+      logger.debug("Added recommendation", {
+        sceneNumber,
+        area: rec.area,
+        priority: rec.priority,
+      });
     } else {
-      logger.debug("Skipped recommendation - invalid sceneNumber", { sceneNumber, totalScenes });
+      logger.debug("Skipped recommendation - invalid sceneNumber", {
+        sceneNumber,
+        totalScenes,
+      });
     }
   }
 
-  logger.debug("Extracted valid recommendations", { count: recommendations.length });
+  logger.debug("Extracted valid recommendations", {
+    count: recommendations.length,
+  });
   return recommendations;
 }
 
@@ -64,281 +79,319 @@ function extractRecommendationsFromAnalysis(analysis: any, totalScenes: number):
  * Handles version history, CRUD operations, and version restoration
  */
 export function registerScriptVersionsRoutes(app: Express) {
-
   /**
    * GET /api/projects/:id/script-history
    * Get script version history and recommendations for a project
    * Single source of truth for script versions and recommendations
    */
-  app.get("/api/projects/:id/script-history", requireAuth, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const userId = getUserId(req);
+  app.get(
+    "/api/projects/:id/script-history",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const userId = getUserId(req);
 
-      const project = await storage.getProjectById(id);
-      if (!project || project.userId !== userId) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
+        const project = await storage.getProjectById(id);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
 
-      // Get all versions
-      const versions = await storage.getScriptVersions(id);
+        // Get all versions
+        const versions = await storage.getScriptVersions(id);
 
-      // Get current version
-      const currentVersion = versions.find(v => v.isCurrent) || versions[0];
+        // Get current version
+        const currentVersion = versions.find((v) => v.isCurrent) || versions[0];
 
-      if (!currentVersion) {
+        if (!currentVersion) {
+          return apiResponse.ok(res, {
+            currentVersion: null,
+            versions: [],
+            recommendations: [],
+            hasUnappliedRecommendations: false,
+          });
+        }
+
+        // Get recommendations for current version
+        const recommendations = await storage.getSceneRecommendations(
+          currentVersion.id
+        );
+
         return apiResponse.ok(res, {
-          currentVersion: null,
-          versions: [],
-          recommendations: [],
-          hasUnappliedRecommendations: false,
+          currentVersion,
+          versions,
+          recommendations,
+          hasUnappliedRecommendations: recommendations.some((r) => !r.applied),
         });
+      } catch (error: any) {
+        logger.error("Script History error", { error: error.message });
+        return apiResponse.serverError(res, error.message, error);
       }
-
-      // Get recommendations for current version
-      const recommendations = await storage.getSceneRecommendations(currentVersion.id);
-
-      return apiResponse.ok(res, {
-        currentVersion,
-        versions,
-        recommendations,
-        hasUnappliedRecommendations: recommendations.some(r => !r.applied),
-      });
-    } catch (error: any) {
-      logger.error("Script History error", { error: error.message });
-      return apiResponse.serverError(res, error.message, error);
     }
-  });
+  );
 
   /**
    * GET /api/projects/:id/script-versions
    * Get all script versions for frontend
    */
-  app.get("/api/projects/:id/script-versions", requireAuth, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const userId = getUserId(req);
+  app.get(
+    "/api/projects/:id/script-versions",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const userId = getUserId(req);
 
-      const project = await storage.getProjectById(id);
-      if (!project || project.userId !== userId) {
-        return res.status(403).json({ message: 'Forbidden' });
+        const project = await storage.getProjectById(id);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        const versions = await storage.listScriptVersions(id);
+        return res.json({ versions });
+      } catch (error: any) {
+        logger.error("[Script Versions] Error fetching versions", {
+          error: error.message,
+          projectId: req.params.id,
+        });
+        return res
+          .status(500)
+          .json({ message: "Failed to fetch script versions" });
       }
-
-      const versions = await storage.listScriptVersions(id);
-      return res.json({ versions });
-    } catch (error: any) {
-      logger.error('[Script Versions] Error fetching versions', { error: error.message, projectId: req.params.id });
-      return res.status(500).json({ message: 'Failed to fetch script versions' });
     }
-  });
+  );
 
   /**
    * GET /api/projects/:id/versions/:versionId
    * Get a specific version by ID
    */
-  app.get("/api/projects/:id/versions/:versionId", requireAuth, async (req: any, res) => {
-    try {
-      const { id: projectId, versionId } = req.params;
-      const userId = getUserId(req);
+  app.get(
+    "/api/projects/:id/versions/:versionId",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const { id: projectId, versionId } = req.params;
+        const userId = getUserId(req);
 
-      const project = await storage.getProjectById(projectId);
-      if (!project || project.userId !== userId) {
-        return res.status(403).json({ message: 'Forbidden' });
+        const project = await storage.getProjectById(projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        const version = await storage.getScriptVersionById(versionId);
+        if (!version || version.projectId !== projectId) {
+          return apiResponse.notFound(res, "Version not found");
+        }
+
+        return apiResponse.ok(res, { version });
+      } catch (error: any) {
+        logger.error("Get Version error", { error: error.message });
+        return apiResponse.serverError(res, error.message);
       }
-
-      const version = await storage.getScriptVersionById(versionId);
-      if (!version || version.projectId !== projectId) {
-        return apiResponse.notFound(res, "Version not found");
-      }
-
-      return apiResponse.ok(res, { version });
-    } catch (error: any) {
-      logger.error("Get Version error", { error: error.message });
-      return apiResponse.serverError(res, error.message);
     }
-  });
+  );
 
   /**
    * POST /api/projects/:id/create-initial-version
    * Create initial script version from analysis
    */
-  app.post("/api/projects/:id/create-initial-version", requireAuth, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const { scenes, analysisResult, analysisScore } = req.body;
-      const userId = getUserId(req);
+  app.post(
+    "/api/projects/:id/create-initial-version",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { scenes, analysisResult, analysisScore } = req.body;
+        const userId = getUserId(req);
 
-      const project = await storage.getProjectById(id);
-      if (!project || project.userId !== userId) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
+        const project = await storage.getProjectById(id);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
 
-      // Check if version already exists
-      const existingVersion = await storage.getCurrentScriptVersion(id);
-      if (existingVersion) {
-        return apiResponse.ok(res, {
-          version: existingVersion,
-          message: 'Version already exists',
+        // Check if version already exists
+        const existingVersion = await storage.getCurrentScriptVersion(id);
+        if (existingVersion) {
+          return apiResponse.ok(res, {
+            version: existingVersion,
+            message: "Version already exists",
+          });
+        }
+
+        // Create initial version
+        const newVersion = await scriptVersionService.createVersion({
+          projectId: id,
+          scenes,
+          createdBy: "system",
+          changes: {
+            type: "initial",
+            description: "Initial version from AI analysis",
+          },
+          analysisResult,
+          analysisScore,
         });
+
+        // Extract and create recommendations
+        const recommendationsData = extractRecommendationsFromAnalysis(
+          analysisResult,
+          scenes
+        );
+
+        if (recommendationsData.length > 0) {
+          const recommendations = recommendationsData.map((rec) => ({
+            ...rec,
+            scriptVersionId: newVersion.id,
+          }));
+
+          await storage.createSceneRecommendations(recommendations);
+        }
+
+        return apiResponse.ok(res, {
+          version: newVersion,
+          recommendationsCount: recommendationsData.length,
+        });
+      } catch (error: any) {
+        logger.error("Create Initial Version error", { error: error.message });
+        return apiResponse.serverError(res, error.message, error);
       }
-
-      // Create initial version
-      const newVersion = await scriptVersionService.createVersion({
-        projectId: id,
-        scenes,
-        createdBy: 'system',
-        changes: {
-          type: 'initial',
-          description: 'Initial version from AI analysis',
-        },
-        analysisResult,
-        analysisScore,
-      });
-
-      // Extract and create recommendations
-      const recommendationsData = extractRecommendationsFromAnalysis(analysisResult, scenes);
-
-      if (recommendationsData.length > 0) {
-        const recommendations = recommendationsData.map(rec => ({
-          ...rec,
-          scriptVersionId: newVersion.id,
-        }));
-
-        await storage.createSceneRecommendations(recommendations);
-      }
-
-      return apiResponse.ok(res, {
-        version: newVersion,
-        recommendationsCount: recommendationsData.length,
-      });
-    } catch (error: any) {
-      logger.error("Create Initial Version error", { error: error.message });
-      return apiResponse.serverError(res, error.message, error);
     }
-  });
+  );
 
   /**
    * PUT /api/projects/:id/versions/:versionId/accept
    * Accept candidate version and make it current
    */
-  app.put("/api/projects/:id/versions/:versionId/accept", requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+  app.put(
+    "/api/projects/:id/versions/:versionId/accept",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req);
+        if (!userId) return apiResponse.unauthorized(res);
 
-      const { id: projectId, versionId } = req.params;
+        const { id: projectId, versionId } = req.params;
 
-      // Validate project exists
-      const project = await storage.getProject(projectId, userId);
-      if (!project) return apiResponse.notFound(res, "Project not found");
+        // Validate project exists
+        const project = await storage.getProject(projectId, userId);
+        if (!project) return apiResponse.notFound(res, "Project not found");
 
-      // Get the version to accept
-      const versions = await storage.getScriptVersions(projectId);
-      const versionToAccept = versions.find(v => v.id === versionId);
+        // Get the version to accept
+        const versions = await storage.getScriptVersions(projectId);
+        const versionToAccept = versions.find((v) => v.id === versionId);
 
-      if (!versionToAccept) {
-        return apiResponse.notFound(res, "Version not found");
+        if (!versionToAccept) {
+          return apiResponse.notFound(res, "Version not found");
+        }
+
+        if (!versionToAccept.isCandidate) {
+          return apiResponse.badRequest(
+            res,
+            "Can only accept candidate versions"
+          );
+        }
+
+        // Transaction: set all is_current=false, then set this one to current
+        await db.transaction(async (tx) => {
+          // Clear all current flags
+          await tx
+            .update(scriptVersions)
+            .set({ isCurrent: false })
+            .where(eq(scriptVersions.projectId, projectId));
+
+          // Set this version as current (no longer candidate)
+          await tx
+            .update(scriptVersions)
+            .set({
+              isCurrent: true,
+              isCandidate: false,
+            })
+            .where(eq(scriptVersions.id, versionId));
+        });
+
+        logger.info("Accepted candidate as current version", { versionId });
+
+        // Return updated versions list
+        const updatedVersions = await storage.getScriptVersions(projectId);
+        const currentVersion = updatedVersions.find((v) => v.isCurrent);
+        const recommendations = currentVersion
+          ? await storage.getSceneRecommendations(currentVersion.id)
+          : [];
+
+        return apiResponse.ok(res, {
+          currentVersion,
+          versions: updatedVersions,
+          recommendations,
+          message: "Version accepted successfully",
+        });
+      } catch (error: any) {
+        logger.error("Accept Version error", { error: error.message });
+        return apiResponse.serverError(res, "Failed to accept version");
       }
-
-      if (!versionToAccept.isCandidate) {
-        return apiResponse.badRequest(res, "Can only accept candidate versions");
-      }
-
-      // Transaction: set all is_current=false, then set this one to current
-      await db.transaction(async (tx) => {
-        // Clear all current flags
-        await tx.update(scriptVersions)
-          .set({ isCurrent: false })
-          .where(eq(scriptVersions.projectId, projectId));
-
-        // Set this version as current (no longer candidate)
-        await tx.update(scriptVersions)
-          .set({
-            isCurrent: true,
-            isCandidate: false,
-          })
-          .where(eq(scriptVersions.id, versionId));
-      });
-
-      logger.info("Accepted candidate as current version", { versionId });
-
-      // Return updated versions list
-      const updatedVersions = await storage.getScriptVersions(projectId);
-      const currentVersion = updatedVersions.find(v => v.isCurrent);
-      const recommendations = currentVersion
-        ? await storage.getSceneRecommendations(currentVersion.id)
-        : [];
-
-      return apiResponse.ok(res, {
-        currentVersion,
-        versions: updatedVersions,
-        recommendations,
-        message: "Version accepted successfully"
-      });
-
-    } catch (error: any) {
-      logger.error("Accept Version error", { error: error.message });
-      return apiResponse.serverError(res, "Failed to accept version");
     }
-  });
+  );
 
   /**
    * DELETE /api/projects/:id/versions/:versionId
    * Delete/reject candidate version
    */
-  app.delete("/api/projects/:id/versions/:versionId", requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+  app.delete(
+    "/api/projects/:id/versions/:versionId",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req);
+        if (!userId) return apiResponse.unauthorized(res);
 
-      const { id: projectId, versionId } = req.params;
+        const { id: projectId, versionId } = req.params;
 
-      // Validate project exists
-      const project = await storage.getProject(projectId, userId);
-      if (!project) return apiResponse.notFound(res, "Project not found");
+        // Validate project exists
+        const project = await storage.getProject(projectId, userId);
+        if (!project) return apiResponse.notFound(res, "Project not found");
 
-      // Get the version to delete
-      const versions = await storage.getScriptVersions(projectId);
-      const versionToDelete = versions.find(v => v.id === versionId);
+        // Get the version to delete
+        const versions = await storage.getScriptVersions(projectId);
+        const versionToDelete = versions.find((v) => v.id === versionId);
 
-      if (!versionToDelete) {
-        return apiResponse.notFound(res, "Version not found");
+        if (!versionToDelete) {
+          return apiResponse.notFound(res, "Version not found");
+        }
+
+        if (versionToDelete.isCurrent) {
+          return apiResponse.badRequest(res, "Cannot delete current version");
+        }
+
+        // Delete version and its recommendations
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(sceneRecommendations)
+            .where(eq(sceneRecommendations.scriptVersionId, versionId));
+
+          await tx
+            .delete(scriptVersions)
+            .where(eq(scriptVersions.id, versionId));
+        });
+
+        logger.info("Deleted script version", { versionId });
+
+        // Return updated versions list
+        const updatedVersions = await storage.getScriptVersions(projectId);
+        const currentVersion = updatedVersions.find((v) => v.isCurrent);
+        const recommendations = currentVersion
+          ? await storage.getSceneRecommendations(currentVersion.id)
+          : [];
+
+        return apiResponse.ok(res, {
+          currentVersion,
+          versions: updatedVersions,
+          recommendations,
+          message: "Version deleted successfully",
+        });
+      } catch (error: any) {
+        logger.error("Delete Version error", { error: error.message });
+        return apiResponse.serverError(res, "Failed to delete version");
       }
-
-      if (versionToDelete.isCurrent) {
-        return apiResponse.badRequest(res, "Cannot delete current version");
-      }
-
-      // Delete version and its recommendations
-      await db.transaction(async (tx) => {
-        await tx.delete(sceneRecommendations)
-          .where(eq(sceneRecommendations.scriptVersionId, versionId));
-
-        await tx.delete(scriptVersions)
-          .where(eq(scriptVersions.id, versionId));
-      });
-
-      logger.info("Deleted script version", { versionId });
-
-      // Return updated versions list
-      const updatedVersions = await storage.getScriptVersions(projectId);
-      const currentVersion = updatedVersions.find(v => v.isCurrent);
-      const recommendations = currentVersion
-        ? await storage.getSceneRecommendations(currentVersion.id)
-        : [];
-
-      return apiResponse.ok(res, {
-        currentVersion,
-        versions: updatedVersions,
-        recommendations,
-        message: "Version deleted successfully"
-      });
-
-    } catch (error: any) {
-      logger.error("Delete Version error", { error: error.message });
-      return apiResponse.serverError(res, "Failed to delete version");
     }
-  });
+  );
 }
 
 export { extractRecommendationsFromAnalysis };
