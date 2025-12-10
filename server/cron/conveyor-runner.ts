@@ -20,47 +20,47 @@ let isRunning = false;
  */
 export function initConveyorRunner() {
   // Run every 15 minutes
-  cron.schedule("*/15 * * * *", async () => {
-    if (isRunning) {
-      logger.info("[Conveyor Runner] Already running, skipping");
-      return;
-    }
+  // cron.schedule("*/15 * * * *", async () => {
+  //   if (isRunning) {
+  //     logger.info("[Conveyor Runner] Already running, skipping");
+  //     return;
+  //   }
 
-    isRunning = true;
-    logger.info("[Conveyor Runner] Starting...");
+  //   isRunning = true;
+  //   logger.info("[Conveyor Runner] Starting...");
 
-    try {
-      await runConveyor();
-    } catch (error: any) {
-      logger.error("[Conveyor Runner] Error", { error: error.message });
-    } finally {
-      isRunning = false;
-    }
-  });
+  //   try {
+  //     await runConveyor();
+  //   } catch (error: any) {
+  //     logger.error("[Conveyor Runner] Error", { error: error.message });
+  //   } finally {
+  //     isRunning = false;
+  //   }
+  // });
 
-  // Reset daily counts at midnight UTC
-  cron.schedule("0 0 * * *", async () => {
-    const resetTime = new Date();
-    logger.info("[Conveyor Runner] Resetting daily counts", {
-      timezone: process.env.CRON_TZ || 'UTC',
-      resetTime: resetTime.toISOString(),
-    });
-    await conveyorSettingsStorage.resetDailyCounts();
-  }, {
-    timezone: process.env.CRON_TZ || 'UTC'
-  });
+  // // Reset daily counts at midnight UTC
+  // cron.schedule("0 0 * * *", async () => {
+  //   const resetTime = new Date();
+  //   logger.info("[Conveyor Runner] Resetting daily counts", {
+  //     timezone: process.env.CRON_TZ || 'UTC',
+  //     resetTime: resetTime.toISOString(),
+  //   });
+  //   await conveyorSettingsStorage.resetDailyCounts();
+  // }, {
+  //   timezone: process.env.CRON_TZ || 'UTC'
+  // });
 
-  // Reset monthly costs on 1st of month UTC
-  cron.schedule("0 0 1 * *", async () => {
-    const resetTime = new Date();
-    logger.info("[Conveyor Runner] Resetting monthly costs", {
-      timezone: process.env.CRON_TZ || 'UTC',
-      resetTime: resetTime.toISOString(),
-    });
-    await conveyorSettingsStorage.resetMonthlyCosts();
-  }, {
-    timezone: process.env.CRON_TZ || 'UTC'
-  });
+  // // Reset monthly costs on 1st of month UTC
+  // cron.schedule("0 0 1 * *", async () => {
+  //   const resetTime = new Date();
+  //   logger.info("[Conveyor Runner] Resetting monthly costs", {
+  //     timezone: process.env.CRON_TZ || 'UTC',
+  //     resetTime: resetTime.toISOString(),
+  //   });
+  //   await conveyorSettingsStorage.resetMonthlyCosts();
+  // }, {
+  //   timezone: process.env.CRON_TZ || 'UTC'
+  // });
 
   logger.info("[Conveyor Runner] Initialized");
 }
@@ -73,10 +73,14 @@ async function runConveyor(): Promise<void> {
   try {
     const stuckCount = await conveyorItemsStorage.markStuckItemsAsFailed(60);
     if (stuckCount > 0) {
-      logger.warn(`[Conveyor Runner] Marked ${stuckCount} stuck items as failed`);
+      logger.warn(
+        `[Conveyor Runner] Marked ${stuckCount} stuck items as failed`
+      );
     }
   } catch (error: any) {
-    logger.error("[Conveyor Runner] Failed to clean up stuck items", { error: error.message });
+    logger.error("[Conveyor Runner] Failed to clean up stuck items", {
+      error: error.message,
+    });
   }
 
   // Get all users with enabled conveyor
@@ -150,14 +154,20 @@ async function processUserConveyor(
     return;
   }
 
-  logger.info(`[Conveyor Runner] Found ${items.length} items for user ${userId}`);
+  logger.info(
+    `[Conveyor Runner] Found ${items.length} items for user ${userId}`
+  );
 
   // Calculate how many we can process
   const remainingDaily = settings.dailyLimit - settings.itemsProcessedToday;
   const estimatedCostPerItem = 0.14;
   const remainingBudget = monthlyBudget - currentCost;
   const remainingByBudget = Math.floor(remainingBudget / estimatedCostPerItem);
-  const maxToProcess = Math.min(remainingDaily, remainingByBudget, items.length);
+  const maxToProcess = Math.min(
+    remainingDaily,
+    remainingByBudget,
+    items.length
+  );
 
   if (maxToProcess <= 0) {
     logger.info(`[Conveyor Runner] No capacity for user ${userId}`);
@@ -206,19 +216,28 @@ async function processUserConveyor(
     if (!updatedSettings) break;
 
     if (updatedSettings.itemsProcessedToday >= updatedSettings.dailyLimit) {
-      logger.info(`[Conveyor Runner] User ${userId} hit daily limit during processing`);
+      logger.info(
+        `[Conveyor Runner] User ${userId} hit daily limit during processing`
+      );
       break;
     }
 
-    if (Number(updatedSettings.currentMonthCost) >= Number(updatedSettings.monthlyBudgetLimit)) {
-      logger.info(`[Conveyor Runner] User ${userId} hit budget limit during processing`);
+    if (
+      Number(updatedSettings.currentMonthCost) >=
+      Number(updatedSettings.monthlyBudgetLimit)
+    ) {
+      logger.info(
+        `[Conveyor Runner] User ${userId} hit budget limit during processing`
+      );
       break;
     }
   }
 
   // Log and notify about skipped items
   if (skipped > 0) {
-    logger.info(`[Conveyor Runner] Skipped ${skipped} already processed items for user ${userId}`);
+    logger.info(
+      `[Conveyor Runner] Skipped ${skipped} already processed items for user ${userId}`
+    );
 
     if (processed === 0) {
       // All items were skipped - notify user (stage 1 = Scout)
@@ -231,11 +250,14 @@ async function processUserConveyor(
     }
   }
 
-  logger.info(`[Conveyor Runner] Processed ${processed} items for user ${userId}`, {
-    processed,
-    skipped,
-    total: items.length,
-  });
+  logger.info(
+    `[Conveyor Runner] Processed ${processed} items for user ${userId}`,
+    {
+      processed,
+      skipped,
+      total: items.length,
+    }
+  );
 }
 
 /**
@@ -271,7 +293,12 @@ export async function processSpecificItem(
   userId: string,
   sourceType: "news" | "instagram",
   sourceItemId: string
-): Promise<{ success: boolean; itemId?: string; scriptId?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  itemId?: string;
+  scriptId?: string;
+  error?: string;
+}> {
   const settings = await conveyorSettingsStorage.getSettings(userId);
 
   if (!settings) {
@@ -279,7 +306,9 @@ export async function processSpecificItem(
   }
 
   // Check limits
-  if (Number(settings.currentMonthCost) >= Number(settings.monthlyBudgetLimit)) {
+  if (
+    Number(settings.currentMonthCost) >= Number(settings.monthlyBudgetLimit)
+  ) {
     return { success: false, error: "Monthly budget limit reached" };
   }
 

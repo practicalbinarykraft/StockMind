@@ -1,7 +1,10 @@
-import cron from 'node-cron';
-import { storage } from '../storage';
-import { logger } from '../lib/logger';
-import { AnalyticsScraper, calculateEngagementRate } from '../services/analytics-scraper';
+import cron from "node-cron";
+import { storage } from "../storage";
+import { logger } from "../lib/logger";
+import {
+  AnalyticsScraper,
+  calculateEngagementRate,
+} from "../services/analytics-scraper";
 
 /**
  * Process analytics fetch queue
@@ -9,31 +12,33 @@ import { AnalyticsScraper, calculateEngagementRate } from '../services/analytics
 async function processAnalyticsQueue() {
   try {
     const pendingTasks = await storage.getPendingTasks();
-    
+
     if (pendingTasks.length === 0) {
       return;
     }
 
-    logger.info(`[Analytics Cron] Processing ${pendingTasks.length} pending tasks`);
+    logger.info(
+      `[Analytics Cron] Processing ${pendingTasks.length} pending tasks`
+    );
 
     for (const { task, analytics } of pendingTasks) {
       try {
         // Update task status to processing
         await storage.updateFetchTask(task.id, {
-          status: 'processing',
+          status: "processing",
           startedAt: new Date(),
         });
 
         // Get user's Apify API key
-        const apifyKey = await storage.getUserApiKey(analytics.userId, 'apify');
+        const apifyKey = await storage.getUserApiKey(analytics.userId, "apify");
         if (!apifyKey) {
-          throw new Error('Apify API key not configured');
+          throw new Error("Apify API key not configured");
         }
 
         // Fetch stats
         const scraper = new AnalyticsScraper(apifyKey.decryptedKey);
         const stats = await scraper.fetchPostStats(
-          analytics.platform as 'instagram' | 'tiktok' | 'youtube',
+          analytics.platform as "instagram" | "tiktok" | "youtube",
           analytics.postUrl
         );
 
@@ -57,12 +62,14 @@ async function processAnalyticsQueue() {
 
         // Update analytics
         const nextFetchAt = new Date();
-        nextFetchAt.setHours(nextFetchAt.getHours() + analytics.updateIntervalHours);
+        nextFetchAt.setHours(
+          nextFetchAt.getHours() + analytics.updateIntervalHours
+        );
 
         await storage.updateAnalytics(analytics.id, {
           lastFetchedAt: new Date(),
           nextFetchAt,
-          status: 'active',
+          status: "active",
           lastError: null,
         });
 
@@ -71,25 +78,30 @@ async function processAnalyticsQueue() {
 
         // Complete task
         await storage.updateFetchTask(task.id, {
-          status: 'completed',
+          status: "completed",
           completedAt: new Date(),
           apifyRunId: `run_${Date.now()}`,
         });
 
-        logger.info(`[Analytics Cron] Successfully updated analytics ${analytics.id}`);
+        logger.info(
+          `[Analytics Cron] Successfully updated analytics ${analytics.id}`
+        );
       } catch (error: any) {
-        logger.error(`[Analytics Cron] Error processing task ${task.id}:`, error);
+        logger.error(
+          `[Analytics Cron] Error processing task ${task.id}:`,
+          error
+        );
 
         // Update task with error
         await storage.updateFetchTask(task.id, {
-          status: 'failed',
+          status: "failed",
           errorMessage: error.message,
           retryCount: (task.retryCount || 0) + 1,
         });
 
         // Update analytics with error
         await storage.updateAnalytics(analytics.id, {
-          status: 'error',
+          status: "error",
           lastError: error.message,
         });
 
@@ -102,7 +114,7 @@ async function processAnalyticsQueue() {
       }
     }
   } catch (error: any) {
-    logger.error('[Analytics Cron] Error processing queue:', error);
+    logger.error("[Analytics Cron] Error processing queue:", error);
   }
 }
 
@@ -117,20 +129,26 @@ async function scheduleDueAnalytics() {
       return;
     }
 
-    logger.info(`[Analytics Cron] Scheduling ${dueAnalytics.length} analytics updates`);
+    logger.info(
+      `[Analytics Cron] Scheduling ${dueAnalytics.length} analytics updates`
+    );
 
     for (const analytics of dueAnalytics) {
       // Check if there's already a pending task
       const pendingTasks = await storage.getPendingTasks();
-      const hasPendingTask = pendingTasks.some(t => t.analytics.id === analytics.id);
+      const hasPendingTask = pendingTasks.some(
+        (t) => t.analytics.id === analytics.id
+      );
 
       if (!hasPendingTask) {
         await storage.createFetchTask(analytics.id, new Date());
-        logger.info(`[Analytics Cron] Scheduled fetch for analytics ${analytics.id}`);
+        logger.info(
+          `[Analytics Cron] Scheduled fetch for analytics ${analytics.id}`
+        );
       }
     }
   } catch (error: any) {
-    logger.error('[Analytics Cron] Error scheduling analytics:', error);
+    logger.error("[Analytics Cron] Error scheduling analytics:", error);
   }
 }
 
@@ -140,20 +158,21 @@ async function scheduleDueAnalytics() {
  */
 export function initAnalyticsUpdater() {
   // Schedule due analytics and process queue every 15 minutes
-  cron.schedule('*/15 * * * *', async () => {
-    logger.info('[Analytics Cron] Starting analytics update check...');
-    
-    try {
-      // First, schedule any due analytics
-      await scheduleDueAnalytics();
-      
-      // Then, process the queue
-      await processAnalyticsQueue();
-    } catch (error: any) {
-      logger.error('[Analytics Cron] Error in cron job:', error);
-    }
-  });
+  // cron.schedule('*/15 * * * *', async () => {
+  //   logger.info('[Analytics Cron] Starting analytics update check...');
 
-  logger.info('[Analytics Cron] Analytics updater cron job initialized (runs every 15 minutes)');
+  //   try {
+  //     // First, schedule any due analytics
+  //     await scheduleDueAnalytics();
+
+  //     // Then, process the queue
+  //     await processAnalyticsQueue();
+  //   } catch (error: any) {
+  //     logger.error('[Analytics Cron] Error in cron job:', error);
+  //   }
+  // });
+
+  logger.info(
+    "[Analytics Cron] Analytics updater cron job initialized (runs every 15 minutes)"
+  );
 }
-
