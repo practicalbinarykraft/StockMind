@@ -17,7 +17,6 @@ import { useCachedAnalysis } from "./hooks/use-cached-analysis";
 import { useSaveMutations } from "./hooks/use-save-mutations";
 
 // Import components
-import { SourceReviewMode } from "./components/SourceReviewMode";
 import { SceneEditorMode } from "./components/SceneEditorMode";
 import { LegacyAnalysisMode } from "./components/LegacyAnalysisMode";
 import { Step3_1_LoadSource } from "./components/Step3_1_LoadSource";
