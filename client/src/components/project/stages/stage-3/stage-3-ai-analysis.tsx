@@ -377,16 +377,16 @@ export function Stage3AIAnalysis({
     !STAGE3_MAGIC_UI || (currentStepState === "load" && !generatedData);
 
   if (useNewFlow) {
-    if (currentStepState === "load") {
-      return (
-        <CreateScriptScreen
-          project={project}
-          stepData={stepData}
-          onGenerate={handleGenerateFromStep3_1}
-          isLoading={false}
-        />
-      );
-    }
+    // if (currentStepState === "load") {
+    //   return (
+    //     <CreateScriptScreen
+    //       project={project}
+    //       stepData={stepData}
+    //       onGenerate={handleGenerateFromStep3_1}
+    //       isLoading={false}
+    //     />
+    //   );
+    // }
 
     if (currentStepState === "constructor" && generatedData) {
       return (
