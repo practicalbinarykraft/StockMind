@@ -24,7 +24,7 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
-          Анализ исходника kzzk
+          Анализ исходника
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
