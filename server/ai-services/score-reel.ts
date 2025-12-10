@@ -16,17 +16,26 @@ export async function scoreInstagramReel(
     views: number | null;
   }
 ): Promise<ReelScoreResult> {
-  const sanitizedTranscription = transcription.substring(0, 3000).replaceAll('"', '\\"');
+  const sanitizedTranscription = transcription
+    .substring(0, 3000)
+    .replaceAll('"', '\\"');
   const sanitizedCaption = caption ? caption.replaceAll('"', '\\"') : null;
 
-  const captionText = sanitizedCaption ? `\nCaption: "${sanitizedCaption}"` : '';
+  const captionText = sanitizedCaption
+    ? `\nCaption: "${sanitizedCaption}"`
+    : "";
   // Fix views=0 issue - check for null/undefined explicitly
-  const hasViews = engagementMetrics?.views !== null && engagementMetrics?.views !== undefined;
+  const hasViews =
+    engagementMetrics?.views !== null && engagementMetrics?.views !== undefined;
   const metricsText = engagementMetrics
-    ? `\nEngagement: ${engagementMetrics.likes} likes, ${engagementMetrics.comments} comments${hasViews ? `, ${engagementMetrics.views} views` : ''}`
-    : '';
+    ? `\nEngagement: ${engagementMetrics.likes} likes, ${
+        engagementMetrics.comments
+      } comments${hasViews ? `, ${engagementMetrics.views} views` : ""}`
+    : "";
 
-  const prompt = SECURITY_PREFIX + `You are analyzing an Instagram Reel for its viral potential and content quality.
+  const prompt =
+    SECURITY_PREFIX +
+    `You are analyzing an Instagram Reel for its viral potential and content quality.
 
 Video Transcription (speech-to-text): "${sanitizedTranscription}"${captionText}${metricsText}
 
@@ -52,15 +61,25 @@ Respond in JSON format:
   "qualityScore": <0-100>
 }`;
 
+  console.log(`[AI] score reel`);
   const result = await callClaudeJson<ReelScoreResult>(apiKey, prompt, {
-    maxTokens: MAX_TOKENS_MED
+    maxTokens: MAX_TOKENS_MED,
   });
 
   return {
     score: Math.min(100, Math.max(0, result.score)),
     comment: result.comment || "Оценка контента Reels",
-    freshnessScore: typeof result.freshnessScore === 'number' ? Math.min(100, Math.max(0, result.freshnessScore)) : undefined,
-    viralityScore: typeof result.viralityScore === 'number' ? Math.min(100, Math.max(0, result.viralityScore)) : undefined,
-    qualityScore: typeof result.qualityScore === 'number' ? Math.min(100, Math.max(0, result.qualityScore)) : undefined,
+    freshnessScore:
+      typeof result.freshnessScore === "number"
+        ? Math.min(100, Math.max(0, result.freshnessScore))
+        : undefined,
+    viralityScore:
+      typeof result.viralityScore === "number"
+        ? Math.min(100, Math.max(0, result.viralityScore))
+        : undefined,
+    qualityScore:
+      typeof result.qualityScore === "number"
+        ? Math.min(100, Math.max(0, result.qualityScore))
+        : undefined,
   };
 }

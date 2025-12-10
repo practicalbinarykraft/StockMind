@@ -14,7 +14,9 @@ async function repairScriptAnalysis(
 
   const sanitizedContent = content.substring(0, 3000).replaceAll('"', '\\"');
 
-  const repairPrompt = SECURITY_PREFIX + `CRITICAL: Your previous response did not contain valid scenes array. This is attempt ${attemptNumber}/2.
+  const repairPrompt =
+    SECURITY_PREFIX +
+    `CRITICAL: Your previous response did not contain valid scenes array. This is attempt ${attemptNumber}/2.
 
 You MUST return a valid JSON with a "scenes" array containing 3-5 scenes.
 
@@ -39,6 +41,9 @@ MANDATORY JSON structure - DO NOT deviate:
 }
 
 Return ONLY valid JSON. The "scenes" field is REQUIRED and MUST be an array with at least 3 items.`;
+  console.log(
+    `[AI] [analyzeScript] Generating script for ${repairPrompt.length}`
+  );
 
   const result = await callClaudeJson<any>(apiKey, repairPrompt, {
     maxTokens: MAX_TOKENS_LONG,
@@ -63,11 +68,13 @@ Return ONLY valid JSON. The "scenes" field is REQUIRED and MUST be an array with
 export async function analyzeScript(
   apiKey: string,
   format: string,
-  content: string,
+  content: string
 ): Promise<ScriptAnalysis> {
   const sanitizedContent = content.substring(0, 4000).replaceAll('"', '\\"');
 
-  const prompt = SECURITY_PREFIX + `You are a professional video script analyzer creating viral short-form video scripts (Instagram Reels, TikTok, YouTube Shorts).
+  const prompt =
+    SECURITY_PREFIX +
+    `You are a professional video script analyzer creating viral short-form video scripts (Instagram Reels, TikTok, YouTube Shorts).
 
 Content: "${sanitizedContent}"
 Format: ${format}
@@ -158,7 +165,7 @@ Respond ONLY in valid JSON:
   "overallComment": "<1-2 sentence analysis in Russian>"
 }`;
 
-  console.log(`[analyzeScript] Generating script for format: ${format}`);
+  console.log(`[AI] [analyzeScript] Generating script for format: ${format}`);
   const rawResult = await callClaudeJson<any>(apiKey, prompt, {
     maxTokens: MAX_TOKENS_LONG,
     timeoutMs: 120_000, // 2 minutes timeout for script generation
@@ -171,37 +178,53 @@ Respond ONLY in valid JSON:
 
   // If no scenes after normalization, attempt repair (up to 2 attempts)
   if (normalizedScenes.length === 0) {
-    console.warn(`[analyzeScript] No scenes found after normalization. Attempting repair...`);
+    console.warn(
+      `[analyzeScript] No scenes found after normalization. Attempting repair...`
+    );
 
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const repaired = await repairScriptAnalysis(apiKey, format, content, attempt);
+        const repaired = await repairScriptAnalysis(
+          apiKey,
+          format,
+          content,
+          attempt
+        );
         if (repaired.scenes.length >= 3) {
-          console.log(`[analyzeScript] Repair successful on attempt ${attempt}: ${repaired.scenes.length} scenes`);
+          console.log(
+            `[analyzeScript] Repair successful on attempt ${attempt}: ${repaired.scenes.length} scenes`
+          );
           return repaired;
         }
-        console.warn(`[analyzeScript] Repair attempt ${attempt} generated only ${repaired.scenes.length} scenes (minimum 3 required)`);
+        console.warn(
+          `[analyzeScript] Repair attempt ${attempt} generated only ${repaired.scenes.length} scenes (minimum 3 required)`
+        );
       } catch (error) {
-        console.error(`[analyzeScript] Repair attempt ${attempt} failed:`, error);
+        console.error(
+          `[analyzeScript] Repair attempt ${attempt} failed:`,
+          error
+        );
       }
     }
 
     // All repair attempts failed
-    const error: any = new Error('NO_SCENES');
-    error.code = 'NO_SCENES';
+    const error: any = new Error("NO_SCENES");
+    error.code = "NO_SCENES";
     error.details = {
-      message: 'AI не смог создать сценарий после нескольких попыток',
+      message: "AI не смог создать сценарий после нескольких попыток",
       rawResponse: rawResult,
       suggestions: [
-        'Попробуйте другой формат видео',
-        'Упростите исходный контент',
-        'Повторите попытку через несколько секунд'
-      ]
+        "Попробуйте другой формат видео",
+        "Упростите исходный контент",
+        "Повторите попытку через несколько секунд",
+      ],
     };
     throw error;
   }
 
-  console.log(`[analyzeScript] Successfully generated ${normalizedScenes.length} scenes`);
+  console.log(
+    `[analyzeScript] Successfully generated ${normalizedScenes.length} scenes`
+  );
 
   return {
     format: rawResult.format || format,

@@ -4,7 +4,7 @@ import type { NewsScoreResult } from "./base/types";
 
 /**
  * Quick score a news article for viral potential (Level 1)
- * 
+ *
  * Fast evaluation for filtering articles during RSS parsing.
  * Uses specific criteria with weights:
  * - Specific facts/numbers: 0-35 points
@@ -15,12 +15,17 @@ import type { NewsScoreResult } from "./base/types";
 export async function scoreNewsItem(
   apiKey: string,
   title: string,
-  content: string,
+  content: string
 ): Promise<NewsScoreResult> {
-  const sanitizedTitle = title.replaceAll('"', '\\"').replaceAll('\n', ' ');
-  const sanitizedContent = content.substring(0, 3000).replaceAll('"', '\\"').replaceAll('\n', ' ');
+  const sanitizedTitle = title.replaceAll('"', '\\"').replaceAll("\n", " ");
+  const sanitizedContent = content
+    .substring(0, 3000)
+    .replaceAll('"', '\\"')
+    .replaceAll("\n", " ");
 
-  const prompt = SECURITY_PREFIX + `You are quickly evaluating a news article for its potential to become a viral short-form video (TikTok, Instagram Reels, YouTube Shorts).
+  const prompt =
+    SECURITY_PREFIX +
+    `You are quickly evaluating a news article for its potential to become a viral short-form video (TikTok, Instagram Reels, YouTube Shorts).
 
 Article Title: "${sanitizedTitle}"
 Content: "${sanitizedContent}"
@@ -58,9 +63,9 @@ Respond in JSON format:
   "score": <number 0-100>,
   "comment": "<2-3 specific reasons in Russian, format: 'Интересно потому что: 1. [reason], 2. [reason], 3. [reason]'>"
 }`;
-
+  console.log(`[AI] score news`);
   const result = await callClaudeJson<NewsScoreResult>(apiKey, prompt, {
-    maxTokens: MAX_TOKENS_SHORT
+    maxTokens: MAX_TOKENS_SHORT,
   });
 
   return {

@@ -6,11 +6,13 @@ import { SECURITY_PREFIX, MAX_TOKENS_SHORT } from "./base/constants";
  */
 export async function scoreText(
   apiKey: string,
-  text: string,
+  text: string
 ): Promise<{ score: number }> {
   const sanitizedText = text.substring(0, 1000).replaceAll('"', '\\"');
 
-  const prompt = SECURITY_PREFIX + `You are analyzing a video script scene for its viral potential in short-form video content.
+  const prompt =
+    SECURITY_PREFIX +
+    `You are analyzing a video script scene for its viral potential in short-form video content.
 
 Scene Text: "${sanitizedText}"
 
@@ -32,8 +34,9 @@ Respond ONLY with JSON format (no markdown, no backticks):
   "score": <number 0-100>
 }`;
 
+  console.log(`[AI] score text`);
   const result = await callClaudeJson<{ score: number }>(apiKey, prompt, {
-    maxTokens: MAX_TOKENS_SHORT
+    maxTokens: MAX_TOKENS_SHORT,
   });
 
   return {

@@ -17,9 +17,16 @@ export async function generateSceneRecommendations(
     tone?: string;
   }
 ): Promise<SceneRecommendation[]> {
-  const { format = 'Hook&Story', language = 'ru', goal = 'maximize retention and saves', tone = 'neutral' } = context || {};
+  const {
+    format = "Hook&Story",
+    language = "ru",
+    goal = "maximize retention and saves",
+    tone = "neutral",
+  } = context || {};
 
-  console.log(`[generateSceneRecommendations] Analyzing ${scenes.length} scenes...`);
+  console.log(
+    `[generateSceneRecommendations] Analyzing ${scenes.length} scenes...`
+  );
 
   // Limit parallelism to avoid rate limits (process 2-3 scenes at a time)
   const BATCH_SIZE = 2;
@@ -29,7 +36,9 @@ export async function generateSceneRecommendations(
     const batch = scenes.slice(i, i + BATCH_SIZE);
 
     const batchPromises = batch.map(async (scene) => {
-      const prompt = SECURITY_PREFIX + `You are a short-form video script doctor.
+      const prompt =
+        SECURITY_PREFIX +
+        `You are a short-form video script doctor.
 You improve one scene at a time for TikTok/IG Reels/Shorts.
 Return strict JSON.
 
@@ -55,38 +64,48 @@ Return JSON with this EXACT structure:
 }`;
 
       try {
+        console.log(`[AI] scene recomendations`);
         const result = await callClaudeJson<any>(apiKey, prompt, {
           maxTokens: 512,
-          timeoutMs: 20_000
+          timeoutMs: 20_000,
         });
 
         return {
           sceneNumber: scene.sceneNumber,
           area: normalizeArea(result.area), // Normalize to ensure frontend compatibility
-          priority: result.priority || 'medium',
+          priority: result.priority || "medium",
           current: scene.text,
           suggested: result.suggestedText || scene.text,
-          reasoning: result.rationale || '',
-          expectedImpact: result.delta ? `+${result.delta} points` : '+10 points',
-          delta: result.delta || 10
+          reasoning: result.rationale || "",
+          expectedImpact: result.delta
+            ? `+${result.delta} points`
+            : "+10 points",
+          delta: result.delta || 10,
         };
       } catch (error: any) {
-        console.error(`[generateSceneRecommendations] Failed for scene ${scene.sceneNumber}:`, error.message);
+        console.error(
+          `[generateSceneRecommendations] Failed for scene ${scene.sceneNumber}:`,
+          error.message
+        );
         // Return null for failed scenes, filter later
         return null;
       }
     });
 
     const batchResults = await Promise.all(batchPromises);
-    const validResults = batchResults.filter(r => r !== null) as SceneRecommendation[];
+    const validResults = batchResults.filter(
+      (r) => r !== null
+    ) as SceneRecommendation[];
     allRecommendations.push(...validResults);
 
     // Small delay between batches to avoid rate limits
     if (i + BATCH_SIZE < scenes.length) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
 
-  console.log(`[generateSceneRecommendations] Generated ${allRecommendations.length}/${scenes.length} recommendations`);
+  console.log(
+    `[generateSceneRecommendations] Generated ${allRecommendations.length}/${scenes.length} recommendations`
+  );
   return allRecommendations;
 }
