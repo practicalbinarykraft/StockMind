@@ -78,7 +78,7 @@ interface RejectionCategory {
 }
 
 export default function AutoScriptsPage() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -198,7 +198,7 @@ export default function AutoScriptsPage() {
       });
       setSelectedScript(null);
       if (data.projectId) {
-        setLocation(`/project/${data.projectId}`);
+        navigate(`/project/${data.projectId}`);
       }
     },
     onError: (error: Error) => {
@@ -515,7 +515,7 @@ export default function AutoScriptsPage() {
               <p className="text-muted-foreground mb-4">
                 Content Factory пока не создал новых сценариев
               </p>
-              <Button variant="outline" onClick={() => setLocation("/settings")}>
+              <Button variant="outline" onClick={() => navigate("/settings")}>
                 Настроить Content Factory
               </Button>
             </CardContent>

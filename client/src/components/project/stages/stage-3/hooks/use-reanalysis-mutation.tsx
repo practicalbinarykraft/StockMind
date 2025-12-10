@@ -98,7 +98,7 @@ export function useReanalysisMutation(
           description: "Создаём версию… ~10–60 сек",
         });
       }
-      console.log(`reanalyze job: ${jobId}/// pr: ${jobId}`);
+      console.log(`reanalyze job: ${jobId}/// pr: ${projectId}`);
       // Save jobId to localStorage for recovery
       localStorage.setItem("reanalyzeJobId", jobId);
       localStorage.setItem("reanalyzeProjectId", jobId);

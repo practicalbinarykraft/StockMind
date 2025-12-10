@@ -1,13 +1,36 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowRight, Check, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  ArrowRight,
+  Check,
+  TrendingUp,
+  TrendingDown,
+  ChevronRight,
+} from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -49,33 +72,52 @@ interface ReanalyzeCompareModalProps {
   onClose: () => void;
 }
 
-export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCompareModalProps) {
-  const [selectedChoice, setSelectedChoice] = useState<'before' | 'after' | null>(null);
+export function ReanalyzeCompareModal({
+  projectId,
+  open,
+  onClose,
+}: ReanalyzeCompareModalProps) {
+  const [selectedChoice, setSelectedChoice] = useState<
+    "before" | "after" | null
+  >(null);
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
 
   // Fetch comparison data
-  const { data, isLoading } = useQuery<{ success: boolean; data: CompareData }>({
-    queryKey: ['/api/projects', projectId, 'reanalyze/compare'],
-    enabled: open,
-  });
+  const { data, isLoading } = useQuery<{ success: boolean; data: CompareData }>(
+    {
+      queryKey: ["/api/projects", projectId, "reanalyze/compare"],
+      enabled: open,
+    }
+  );
 
   const compareData = data?.data;
 
   // Choose version mutation
   const chooseMutation = useMutation({
-    mutationFn: async (choice: 'before' | 'after') => {
-      const response = await apiRequest('POST', `/api/projects/${projectId}/reanalyze/choose`, { choice });
+    mutationFn: async (choice: "before" | "after") => {
+      const response = await apiRequest(
+        "POST",
+        `/api/projects/${projectId}/reanalyze/choose`,
+        { choice }
+      );
       return response;
     },
     onSuccess: (_, choice) => {
       toast({
         title: "Версия сохранена",
-        description: choice === 'before' ? "Сохранена версия ДО" : "Сохранена версия ПОСЛЕ",
+        description:
+          choice === "before"
+            ? "Сохранена версия ДО"
+            : "Сохранена версия ПОСЛЕ",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'script-history'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'scene-recommendations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/projects", projectId, "script-history"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/projects", projectId, "scene-recommendations"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
     },
     onError: (error: Error) => {
       toast({
@@ -116,7 +158,7 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
     chooseMutation.mutate(selectedChoice, {
       onSuccess: () => {
         onClose();
-        setLocation(`/projects/${projectId}`);
+        navigate(`/projects/${projectId}`);
         toast({
           title: "Переход к озвучке",
           description: "Версия сохранена, можно переходить к озвучке",
@@ -129,8 +171,7 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
     if (delta > 0) {
       return (
         <Badge variant="default" className="bg-green-600 text-white">
-          <TrendingUp className="w-3 h-3 mr-1" />
-          +{delta}
+          <TrendingUp className="w-3 h-3 mr-1" />+{delta}
         </Badge>
       );
     } else if (delta < 0) {
@@ -182,16 +223,24 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
           <div className="flex items-center justify-center gap-4">
             <div className="text-center">
               <div className="text-sm text-muted-foreground mb-1">До</div>
-              <div className={`text-4xl font-bold ${getScoreColor(compareData.before.metrics.overallScore)}`}>
+              <div
+                className={`text-4xl font-bold ${getScoreColor(
+                  compareData.before.metrics.overallScore
+                )}`}
+              >
                 {compareData.before.metrics.overallScore}
               </div>
             </div>
-            
+
             <ArrowRight className="w-8 h-8 text-muted-foreground" />
-            
+
             <div className="text-center">
               <div className="text-sm text-muted-foreground mb-1">После</div>
-              <div className={`text-4xl font-bold ${getScoreColor(compareData.after.metrics.overallScore)}`}>
+              <div
+                className={`text-4xl font-bold ${getScoreColor(
+                  compareData.after.metrics.overallScore
+                )}`}
+              >
                 {compareData.after.metrics.overallScore}
               </div>
             </div>
@@ -203,30 +252,43 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
 
           {/* Breakdown Metrics */}
           <div className="grid grid-cols-4 gap-4 mt-4">
-            {['hookScore', 'structureScore', 'emotionalScore', 'ctaScore'].map((key) => {
-              const label = {
-                hookScore: 'Хук',
-                structureScore: 'Структура',
-                emotionalScore: 'Эмоции',
-                ctaScore: 'CTA'
-              }[key];
-              
-              const beforeVal = compareData.before.metrics[key as keyof CompareMetrics] as number || 0;
-              const afterVal = compareData.after.metrics[key as keyof CompareMetrics] as number || 0;
-              const delta = afterVal - beforeVal;
+            {["hookScore", "structureScore", "emotionalScore", "ctaScore"].map(
+              (key) => {
+                const label = {
+                  hookScore: "Хук",
+                  structureScore: "Структура",
+                  emotionalScore: "Эмоции",
+                  ctaScore: "CTA",
+                }[key];
 
-              return (
-                <div key={key} className="text-center p-2 bg-background rounded-lg">
-                  <div className="text-xs text-muted-foreground mb-1">{label}</div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-sm">{beforeVal}</span>
-                    <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-sm font-semibold">{afterVal}</span>
-                    <span className="text-xs">{getDeltaBadge(delta)}</span>
+                const beforeVal =
+                  (compareData.before.metrics[
+                    key as keyof CompareMetrics
+                  ] as number) || 0;
+                const afterVal =
+                  (compareData.after.metrics[
+                    key as keyof CompareMetrics
+                  ] as number) || 0;
+                const delta = afterVal - beforeVal;
+
+                return (
+                  <div
+                    key={key}
+                    className="text-center p-2 bg-background rounded-lg"
+                  >
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {label}
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-sm">{beforeVal}</span>
+                      <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-sm font-semibold">{afterVal}</span>
+                      <span className="text-xs">{getDeltaBadge(delta)}</span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              }
+            )}
           </div>
         </div>
 
@@ -235,17 +297,27 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
           <div className="grid grid-cols-2 gap-6 pb-6">
             {/* Before Column */}
             <div>
-              <Card className={`border-2 ${selectedChoice === 'before' ? 'border-primary' : 'border-border'}`}>
+              <Card
+                className={`border-2 ${
+                  selectedChoice === "before"
+                    ? "border-primary"
+                    : "border-border"
+                }`}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>До пересчета</CardTitle>
                     <Button
                       data-testid="button-choose-before"
-                      variant={selectedChoice === 'before' ? 'default' : 'outline'}
+                      variant={
+                        selectedChoice === "before" ? "default" : "outline"
+                      }
                       size="sm"
-                      onClick={() => setSelectedChoice('before')}
+                      onClick={() => setSelectedChoice("before")}
                     >
-                      {selectedChoice === 'before' && <Check className="w-4 h-4 mr-2" />}
+                      {selectedChoice === "before" && (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
                       Сохранить ДО
                     </Button>
                   </div>
@@ -259,12 +331,17 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
                     <h4 className="text-sm font-semibold mb-2">Сцены</h4>
                     <Accordion type="single" collapsible className="w-full">
                       {compareData.before.scenes.map((scene) => (
-                        <AccordionItem key={scene.sceneNumber} value={`before-${scene.sceneNumber}`}>
+                        <AccordionItem
+                          key={scene.sceneNumber}
+                          value={`before-${scene.sceneNumber}`}
+                        >
                           <AccordionTrigger className="text-sm">
                             Сцена {scene.sceneNumber}
                           </AccordionTrigger>
                           <AccordionContent>
-                            <p className="text-sm text-muted-foreground">{scene.text}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {scene.text}
+                            </p>
                           </AccordionContent>
                         </AccordionItem>
                       ))}
@@ -275,7 +352,9 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
 
                   {/* Review */}
                   <div>
-                    <h4 className="text-sm font-semibold mb-2">Финальная рецензия</h4>
+                    <h4 className="text-sm font-semibold mb-2">
+                      Финальная рецензия
+                    </h4>
                     <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
                       {compareData.before.review}
                     </div>
@@ -286,17 +365,27 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
 
             {/* After Column */}
             <div>
-              <Card className={`border-2 ${selectedChoice === 'after' ? 'border-primary' : 'border-border'}`}>
+              <Card
+                className={`border-2 ${
+                  selectedChoice === "after"
+                    ? "border-primary"
+                    : "border-border"
+                }`}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>После пересчета</CardTitle>
                     <Button
                       data-testid="button-choose-after"
-                      variant={selectedChoice === 'after' ? 'default' : 'outline'}
+                      variant={
+                        selectedChoice === "after" ? "default" : "outline"
+                      }
                       size="sm"
-                      onClick={() => setSelectedChoice('after')}
+                      onClick={() => setSelectedChoice("after")}
                     >
-                      {selectedChoice === 'after' && <Check className="w-4 h-4 mr-2" />}
+                      {selectedChoice === "after" && (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
                       Сохранить ПОСЛЕ
                     </Button>
                   </div>
@@ -310,9 +399,14 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
                     <h4 className="text-sm font-semibold mb-2">Сцены</h4>
                     <Accordion type="single" collapsible className="w-full">
                       {compareData.after.scenes.map((scene) => {
-                        const sceneDiff = compareData.diff.perScene.find(s => s.sceneNumber === scene.sceneNumber);
+                        const sceneDiff = compareData.diff.perScene.find(
+                          (s) => s.sceneNumber === scene.sceneNumber
+                        );
                         return (
-                          <AccordionItem key={scene.sceneNumber} value={`after-${scene.sceneNumber}`}>
+                          <AccordionItem
+                            key={scene.sceneNumber}
+                            value={`after-${scene.sceneNumber}`}
+                          >
                             <AccordionTrigger className="text-sm">
                               <div className="flex items-center gap-2">
                                 <span>Сцена {scene.sceneNumber}</span>
@@ -320,7 +414,9 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
                               </div>
                             </AccordionTrigger>
                             <AccordionContent>
-                              <p className="text-sm text-muted-foreground">{scene.text}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {scene.text}
+                              </p>
                             </AccordionContent>
                           </AccordionItem>
                         );
@@ -332,7 +428,9 @@ export function ReanalyzeCompareModal({ projectId, open, onClose }: ReanalyzeCom
 
                   {/* Review */}
                   <div>
-                    <h4 className="text-sm font-semibold mb-2">Финальная рецензия</h4>
+                    <h4 className="text-sm font-semibold mb-2">
+                      Финальная рецензия
+                    </h4>
                     <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
                       {compareData.after.review}
                     </div>

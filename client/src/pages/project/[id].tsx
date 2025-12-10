@@ -14,7 +14,7 @@ import { ApiError, apiRequest } from "@/lib/query-client";
 
 export default function ProjectWorkflow() {
   const params = useParams();
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const projectId = params.id;
@@ -111,7 +111,7 @@ export default function ProjectWorkflow() {
               Этот проект принадлежит другому пользователю.
             </p>
             <div className="flex gap-3 justify-center">
-              <Button onClick={() => setLocation("/")} variant="outline">
+              <Button onClick={() => navigate("/")} variant="outline">
                 <Home className="h-4 w-4 mr-2" />
                 На главную
               </Button>
@@ -130,7 +130,7 @@ export default function ProjectWorkflow() {
             <p className="text-muted-foreground mb-6">
               Возможно, он был удалён или ID указан неверно.
             </p>
-            <Button onClick={() => setLocation("/")}>
+            <Button onClick={() => navigate("/")}>
               <Home className="h-4 w-4 mr-2" />
               На главную
             </Button>
@@ -147,7 +147,7 @@ export default function ProjectWorkflow() {
           <p className="text-muted-foreground mb-6">
             {error.message || "Не удалось загрузить проект"}
           </p>
-          <Button onClick={() => setLocation("/")}>
+          <Button onClick={() => navigate("/")}>
             <Home className="h-4 w-4 mr-2" />
             На главную
           </Button>
@@ -185,7 +185,7 @@ export default function ProjectWorkflow() {
           <p className="text-muted-foreground mb-6">
             Не удалось загрузить данные проекта.
           </p>
-          <Button onClick={() => setLocation("/")}>
+          <Button onClick={() => navigate("/")}>
             <Home className="h-4 w-4 mr-2" />
             На главную
           </Button>

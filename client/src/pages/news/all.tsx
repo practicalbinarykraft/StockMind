@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import Pagination from "./pagination";
 
 export default function NewsAll() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -92,7 +92,7 @@ export default function NewsAll() {
       });
 
       // Navigate to scripts library
-      setLocation("/scripts");
+      navigate("/scripts");
 
       // Invalidate scripts query
       queryClient.invalidateQueries({ queryKey: ["/api/scripts"] });

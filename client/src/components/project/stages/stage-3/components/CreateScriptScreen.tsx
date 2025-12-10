@@ -113,7 +113,7 @@ export function CreateScriptScreen({
   isLoading = false,
 }: CreateScriptScreenProps) {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
 
   const [selectedSource, setSelectedSource] = useState<SourceType>(null);
   const [ideaText, setIdeaText] = useState("");
@@ -230,7 +230,7 @@ export function CreateScriptScreen({
         queryKey: ["/api/projects", project.id, "steps"],
       });
       setIsGenerating(false);
-      setLocation(`/project/${project.id}`);
+      navigate(`/project/${project.id}`);
     },
     onError: (error: Error) => {
       toast({

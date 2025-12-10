@@ -52,7 +52,7 @@ interface ProjectSidebarProps {
 }
 
 export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
 
   // State for navigation warning dialog
@@ -172,7 +172,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation("/")}
+            onClick={() => navigate("/")}
             data-testid="button-back-home"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -351,7 +351,7 @@ export function ProjectSidebar({ project, onClose }: ProjectSidebarProps) {
           variant="outline"
           size="sm"
           className="w-full gap-2"
-          onClick={() => setLocation("/settings")}
+          onClick={() => navigate("/settings")}
           data-testid="button-settings"
         >
           <Settings className="h-4 w-4" />

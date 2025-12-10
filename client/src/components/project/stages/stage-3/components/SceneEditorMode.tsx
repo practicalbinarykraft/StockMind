@@ -1,32 +1,40 @@
-import { type Project } from "@shared/schema"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Edit2, GitCompareArrows, CheckCircle, X, Info, AlertCircle } from "lucide-react"
-import { SourceSummaryBar } from "../../../source-summary-bar"
-import { ReanalysisProgressCard } from "../../../reanalysis-progress-card"
-import { SceneEditor } from "@/components/project/scene-editor"
-import { CompareModal } from "../../../compare-modal"
-import { CandidateVersionBanner } from "./CandidateVersionBanner"
+import { type Project } from "@shared/schema";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Loader2,
+  Edit2,
+  GitCompareArrows,
+  CheckCircle,
+  X,
+  Info,
+  AlertCircle,
+} from "lucide-react";
+import { SourceSummaryBar } from "../../../source-summary-bar";
+import { ReanalysisProgressCard } from "../../../reanalysis-progress-card";
+import { SceneEditor } from "@/components/project/scene-editor";
+import { CompareModal } from "../../../compare-modal";
+import { CandidateVersionBanner } from "./CandidateVersionBanner";
 
 interface SceneEditorModeProps {
-  project: Project
-  sourceData: any
-  scriptVersionsQuery: any
-  candidateVersion: any
-  reanalyzeJobId: string | null
-  jobStatus: any
-  lastSubmittedPayload: any
-  hasCandidate: boolean
-  compareOpen: boolean
-  targetLanguage: 'ru' | 'en'
-  reanalyzeMutation: any
-  acceptMutation: any
-  rejectMutation: any
-  updateProjectMutation: any
-  setCompareOpen: (open: boolean) => void
-  handleOpenCompare: () => void
-  handleProceed: () => void
+  project: Project;
+  sourceData: any;
+  scriptVersionsQuery: any;
+  candidateVersion: any;
+  reanalyzeJobId: string | null;
+  jobStatus: any;
+  lastSubmittedPayload: any;
+  hasCandidate: boolean;
+  compareOpen: boolean;
+  targetLanguage: "ru" | "en";
+  reanalyzeMutation: any;
+  acceptMutation: any;
+  rejectMutation: any;
+  updateProjectMutation: any;
+  setCompareOpen: (open: boolean) => void;
+  handleOpenCompare: () => void;
+  handleProceed: () => void;
 }
 
 export function SceneEditorMode({
@@ -46,19 +54,19 @@ export function SceneEditorMode({
   updateProjectMutation,
   setCompareOpen,
   handleOpenCompare,
-  handleProceed
+  handleProceed,
 }: SceneEditorModeProps) {
-  const current = scriptVersionsQuery.data?.currentVersion
-  const candidate = candidateVersion
+  const current = scriptVersionsQuery.data?.currentVersion;
+  const candidate = candidateVersion;
 
   // Show candidate if it exists (user just saved it), otherwise show current
-  const versionToRender = candidate ?? current
+  const versionToRender = candidate ?? current;
 
   // Extend sourceData with script language for Scene Editor mode
   const editorSourceData = {
     ...sourceData,
-    scriptLanguage: versionToRender?.scriptLanguage || targetLanguage || 'ru'
-  }
+    scriptLanguage: versionToRender?.scriptLanguage || targetLanguage || "ru",
+  };
 
   if (scriptVersionsQuery.isLoading) {
     return (
@@ -72,7 +80,7 @@ export function SceneEditorMode({
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   if (!versionToRender) {
@@ -85,7 +93,7 @@ export function SceneEditorMode({
           </AlertDescription>
         </Alert>
       </div>
-    )
+    );
   }
 
   return (
@@ -103,7 +111,7 @@ export function SceneEditorMode({
       <div className="space-y-4">
         <SourceSummaryBar source={editorSourceData} projectId={project.id} />
 
-        {/* Reanalysis Progress Card */}
+        {/* Reanalysis Progress Card // убрать*/}
         {jobStatus && (
           <ReanalysisProgressCard
             status={jobStatus.status}
@@ -113,13 +121,13 @@ export function SceneEditorMode({
             canRetry={jobStatus.canRetry}
             onRetry={() => {
               if (lastSubmittedPayload.current) {
-                reanalyzeMutation.mutate(lastSubmittedPayload.current)
+                reanalyzeMutation.mutate(lastSubmittedPayload.current);
               }
             }}
           />
         )}
 
-        {/* Candidate Version Banner */}
+        {/* Candidate Version Banner // убрать*/}
         {hasCandidate && candidate && (
           <CandidateVersionBanner
             candidate={candidate}
@@ -136,8 +144,8 @@ export function SceneEditorMode({
             scenes={versionToRender.scenes}
             activeVersionId={versionToRender.id}
             onReanalyze={(scenes, fullScript) => {
-              if (reanalyzeMutation.isPending) return
-              reanalyzeMutation.mutate({ scenes, fullScript })
+              if (reanalyzeMutation.isPending) return;
+              reanalyzeMutation.mutate({ scenes, fullScript });
             }}
             onOpenCompare={handleOpenCompare}
             hasCandidate={hasCandidate}
@@ -160,15 +168,13 @@ export function SceneEditorMode({
                 Сохраняем...
               </>
             ) : (
-              <>
-                Перейти к озвучке
-              </>
+              <>Перейти к озвучке</>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Compare Modal */}
+      {/* Compare Modal // убрать*/}
       <CompareModal
         open={compareOpen}
         onClose={() => setCompareOpen(false)}
@@ -178,5 +184,5 @@ export function SceneEditorMode({
         onNavigateToVoice={handleProceed}
       />
     </div>
-  )
+  );
 }

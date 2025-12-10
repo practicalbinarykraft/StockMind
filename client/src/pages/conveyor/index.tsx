@@ -115,7 +115,7 @@ const STATUS_CONFIG: Record<string, { icon: any; color: string; label: string }>
 };
 
 export default function ConveyorDashboard() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -291,7 +291,7 @@ export default function ConveyorDashboard() {
             )}
             <Button
               variant="outline"
-              onClick={() => setLocation("/settings")}
+              onClick={() => navigate("/settings")}
               className="gap-2"
             >
               <Settings className="h-4 w-4" />
@@ -367,7 +367,7 @@ export default function ConveyorDashboard() {
           {/* Pending Review */}
           <Card
             className="cursor-pointer hover:border-primary transition-colors"
-            onClick={() => setLocation("/auto-scripts")}
+            onClick={() => navigate("/auto-scripts")}
           >
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2">
@@ -481,7 +481,7 @@ export default function ConveyorDashboard() {
                       <div
                         key={script.id}
                         className="p-2 rounded border cursor-pointer hover:bg-muted/50"
-                        onClick={() => setLocation("/auto-scripts")}
+                        onClick={() => navigate("/auto-scripts")}
                       >
                         <div className="font-medium text-sm line-clamp-1">
                           {script.title}
@@ -500,7 +500,7 @@ export default function ConveyorDashboard() {
                       <Button
                         variant="ghost"
                         className="w-full text-sm"
-                        onClick={() => setLocation("/auto-scripts")}
+                        onClick={() => navigate("/auto-scripts")}
                       >
                         Показать все ({dashboard.pendingReview.count})
                       </Button>
