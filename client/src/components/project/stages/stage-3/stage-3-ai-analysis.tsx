@@ -399,106 +399,107 @@ export function Stage3AIAnalysis({
       onComplete={handleCompleteFromStep3_2}
     />
   );
+  // }
+  // }
+
+  // MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
+  //   if (!hasScript) {
+  //     return (
+  //       <SourceReviewMode
+  //         project={project}
+  //         stepData={stepData}
+  //         sourceData={sourceData}
+  //         hasScript={hasScript}
+  //         shouldAnalyze={shouldAnalyze}
+  //         handleStartAnalysis={handleStartAnalysis}
+  //         sourceAnalysisQuery={sourceAnalysisQuery}
+  //         handleGenerateScript={handleGenerateScript}
+  //         generateMutation={generateMutation}
+  //         targetLanguage={targetLanguage}
+  //         setTargetLanguage={setTargetLanguage}
+  //         showFormatModal={showFormatModal}
+  //         setShowFormatModal={setShowFormatModal}
+  //         compareOpen={compareOpen}
+  //         setCompareOpen={setCompareOpen}
+  //         currentVersion={currentVersion}
+  //         candidateVersion={candidateVersion}
+  //         reanalyzeJobId={reanalyzeJobId}
+  //         jobStatus={jobStatus}
+  //         handleProceed={handleProceed}
+  //       />
+  //     );
+  //   }
+
+  //   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
+  //   if (hasScript) {
+  //     return (
+  //       <SceneEditorMode
+  //         project={project}
+  //         sourceData={sourceData}
+  //         scriptVersionsQuery={scriptVersionsQuery}
+  //         candidateVersion={candidateVersion}
+  //         reanalyzeJobId={reanalyzeJobId}
+  //         jobStatus={jobStatus}
+  //         lastSubmittedPayload={lastSubmittedPayload}
+  //         hasCandidate={hasCandidate}
+  //         compareOpen={compareOpen}
+  //         targetLanguage={targetLanguage}
+  //         reanalyzeMutation={reanalyzeMutation}
+  //         acceptMutation={acceptMutation}
+  //         rejectMutation={rejectMutation}
+  //         updateProjectMutation={updateProjectMutation}
+  //         setCompareOpen={setCompareOpen}
+  //         handleOpenCompare={handleOpenCompare}
+  //         handleProceed={handleProceed}
+  //       />
+  //     );
+  //   }
+
+  //   // MODE 3: Legacy Analysis Mode (when feature flag is off OR script exists)
+  //   return (
+  //     <LegacyAnalysisMode
+  //       project={project}
+  //       stepData={stepData}
+  //       content={content}
+  //       selectedFormat={selectedFormat}
+  //       setSelectedFormat={setSelectedFormat}
+  //       analysis={analysis}
+  //       advancedAnalysis={advancedAnalysis}
+  //       analysisTime={analysisTime}
+  //       analyzeMutation={analyzeMutation}
+  //       advancedAnalyzeMutation={advancedAnalyzeMutation}
+  //       scoreVariantMutation={scoreVariantMutation}
+  //       handleAnalyze={handleAnalyze}
+  //       confirmReanalyze={confirmReanalyze}
+  //       reanalyzeDialogOpen={reanalyzeDialogOpen}
+  //       setReanalyzeDialogOpen={setReanalyzeDialogOpen}
+  //       editedScenes={editedScenes}
+  //       setEditedScenes={setEditedScenes}
+  //       isEditing={isEditing}
+  //       setIsEditing={setIsEditing}
+  //       selectedVariants={selectedVariants}
+  //       setSelectedVariants={setSelectedVariants}
+  //       variantScores={variantScores}
+  //       setVariantScores={setVariantScores}
+  //       scoringVariant={scoringVariant}
+  //       setScoringVariant={setScoringVariant}
+  //       updateProjectMutation={updateProjectMutation}
+  //       handleProceed={handleProceed}
+  //       hasCandidate={hasCandidate}
+  //       currentVersion={currentVersion}
+  //       candidateVersion={candidateVersion}
+  //       compareOpen={compareOpen}
+  //       setCompareOpen={setCompareOpen}
+  //       handleOpenCompare={handleOpenCompare}
+  //       reanalyzeJobId={reanalyzeJobId}
+  //       jobStatus={jobStatus}
+  //       recoveryModalOpen={recoveryModalOpen}
+  //       setRecoveryModalOpen={setRecoveryModalOpen}
+  //       recoveryError={recoveryError}
+  //       failedFormatId={failedFormatId}
+  //       generateMutation={generateMutation}
+  //       toast={toast}
+  //     />
+  //   );
+  // }
 }
-// }
-
-// MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
-//   if (!hasScript) {
-//     return (
-//       <SourceReviewMode
-//         project={project}
-//         stepData={stepData}
-//         sourceData={sourceData}
-//         hasScript={hasScript}
-//         shouldAnalyze={shouldAnalyze}
-//         handleStartAnalysis={handleStartAnalysis}
-//         sourceAnalysisQuery={sourceAnalysisQuery}
-//         handleGenerateScript={handleGenerateScript}
-//         generateMutation={generateMutation}
-//         targetLanguage={targetLanguage}
-//         setTargetLanguage={setTargetLanguage}
-//         showFormatModal={showFormatModal}
-//         setShowFormatModal={setShowFormatModal}
-//         compareOpen={compareOpen}
-//         setCompareOpen={setCompareOpen}
-//         currentVersion={currentVersion}
-//         candidateVersion={candidateVersion}
-//         reanalyzeJobId={reanalyzeJobId}
-//         jobStatus={jobStatus}
-//         handleProceed={handleProceed}
-//       />
-//     );
-//   }
-
-//   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
-//   if (hasScript) {
-//     return (
-//       <SceneEditorMode
-//         project={project}
-//         sourceData={sourceData}
-//         scriptVersionsQuery={scriptVersionsQuery}
-//         candidateVersion={candidateVersion}
-//         reanalyzeJobId={reanalyzeJobId}
-//         jobStatus={jobStatus}
-//         lastSubmittedPayload={lastSubmittedPayload}
-//         hasCandidate={hasCandidate}
-//         compareOpen={compareOpen}
-//         targetLanguage={targetLanguage}
-//         reanalyzeMutation={reanalyzeMutation}
-//         acceptMutation={acceptMutation}
-//         rejectMutation={rejectMutation}
-//         updateProjectMutation={updateProjectMutation}
-//         setCompareOpen={setCompareOpen}
-//         handleOpenCompare={handleOpenCompare}
-//         handleProceed={handleProceed}
-//       />
-//     );
-//   }
-
-//   // MODE 3: Legacy Analysis Mode (when feature flag is off OR script exists)
-//   return (
-//     <LegacyAnalysisMode
-//       project={project}
-//       stepData={stepData}
-//       content={content}
-//       selectedFormat={selectedFormat}
-//       setSelectedFormat={setSelectedFormat}
-//       analysis={analysis}
-//       advancedAnalysis={advancedAnalysis}
-//       analysisTime={analysisTime}
-//       analyzeMutation={analyzeMutation}
-//       advancedAnalyzeMutation={advancedAnalyzeMutation}
-//       scoreVariantMutation={scoreVariantMutation}
-//       handleAnalyze={handleAnalyze}
-//       confirmReanalyze={confirmReanalyze}
-//       reanalyzeDialogOpen={reanalyzeDialogOpen}
-//       setReanalyzeDialogOpen={setReanalyzeDialogOpen}
-//       editedScenes={editedScenes}
-//       setEditedScenes={setEditedScenes}
-//       isEditing={isEditing}
-//       setIsEditing={setIsEditing}
-//       selectedVariants={selectedVariants}
-//       setSelectedVariants={setSelectedVariants}
-//       variantScores={variantScores}
-//       setVariantScores={setVariantScores}
-//       scoringVariant={scoringVariant}
-//       setScoringVariant={setScoringVariant}
-//       updateProjectMutation={updateProjectMutation}
-//       handleProceed={handleProceed}
-//       hasCandidate={hasCandidate}
-//       currentVersion={currentVersion}
-//       candidateVersion={candidateVersion}
-//       compareOpen={compareOpen}
-//       setCompareOpen={setCompareOpen}
-//       handleOpenCompare={handleOpenCompare}
-//       reanalyzeJobId={reanalyzeJobId}
-//       jobStatus={jobStatus}
-//       recoveryModalOpen={recoveryModalOpen}
-//       setRecoveryModalOpen={setRecoveryModalOpen}
-//       recoveryError={recoveryError}
-//       failedFormatId={failedFormatId}
-//       generateMutation={generateMutation}
-//       toast={toast}
-//     />
-//   );
-// }
