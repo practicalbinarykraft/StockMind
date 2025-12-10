@@ -387,7 +387,7 @@ export function Stage3AIAnalysis({
   //   //     />
   //   //   );
   //   // }
-  if (generatedData) {
+  if (currentStepState === "constructor" && generatedData) {
     return (
       <Step3_2_Constructor
         project={project}
@@ -449,6 +449,20 @@ export function Stage3AIAnalysis({
         handleProceed={handleProceed}
       />
     );
+  }
+
+  if (currentStepState === "load") {
+    //   //   return (
+    //   //     <CreateScriptScreen
+    //   //       project={project}
+    //   //       stepData={stepData}
+    //   //       onGenerate={handleGenerateFromStep3_1}
+    //   //       isLoading={false}
+    //   //     />
+    //   //   );
+    //   // }
+
+    return <>нету нифига</>;
   }
 
   return <>нету нифига</>;
