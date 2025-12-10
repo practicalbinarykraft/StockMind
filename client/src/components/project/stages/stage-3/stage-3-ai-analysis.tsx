@@ -126,7 +126,7 @@ export function Stage3AIAnalysis({
   const [targetLanguage, setTargetLanguage] = useState<"ru" | "en">("ru");
 
   // Feature flag check
-  const STAGE3_MAGIC_UI = true;
+  const STAGE3_MAGIC_UI = false;
 
   // Get content from step data
   const content =
