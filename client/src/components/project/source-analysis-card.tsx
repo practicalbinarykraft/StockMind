@@ -24,7 +24,7 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
-          Анализ исходника
+          Анализ исходника kzzk
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -45,7 +45,11 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
             </div>
             <ul className="text-sm space-y-1">
               {analysis.strengths.map((strength, i) => (
-                <li key={i} className="flex items-start gap-2" data-testid={`strength-${i}`}>
+                <li
+                  key={i}
+                  className="flex items-start gap-2"
+                  data-testid={`strength-${i}`}
+                >
                   <span className="text-green-600 dark:text-green-500">✓</span>
                   <span>{strength}</span>
                 </li>
@@ -59,7 +63,11 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
             <div className="text-sm font-medium mb-1.5">Темы:</div>
             <div className="flex gap-2 flex-wrap">
               {analysis.topics.map((topic, i) => (
-                <Badge key={i} variant="secondary" data-testid={`badge-topic-${i}`}>
+                <Badge
+                  key={i}
+                  variant="secondary"
+                  data-testid={`badge-topic-${i}`}
+                >
                   {topic}
                 </Badge>
               ))}
@@ -70,7 +78,9 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
         {analysis.sentiment && (
           <div>
             <div className="text-sm font-medium mb-1.5">Тональность:</div>
-            <Badge variant="outline" data-testid="badge-sentiment">{analysis.sentiment}</Badge>
+            <Badge variant="outline" data-testid="badge-sentiment">
+              {analysis.sentiment}
+            </Badge>
           </div>
         )}
 
@@ -78,7 +88,7 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
           <div>
             <div className="text-sm font-medium mb-1.5">Ключевые слова:</div>
             <div className="text-sm text-muted-foreground">
-              {analysis.keywords.join(', ')}
+              {analysis.keywords.join(", ")}
             </div>
           </div>
         )}
@@ -91,7 +101,9 @@ export function SourceAnalysisCard({ analysis }: SourceAnalysisCardProps) {
             </div>
             <ul className="text-sm text-destructive list-disc list-inside space-y-1">
               {analysis.risks.map((risk, i) => (
-                <li key={i} data-testid={`risk-${i}`}>{risk}</li>
+                <li key={i} data-testid={`risk-${i}`}>
+                  {risk}
+                </li>
               ))}
             </ul>
           </div>
