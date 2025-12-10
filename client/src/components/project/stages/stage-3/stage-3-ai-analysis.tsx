@@ -386,18 +386,19 @@ export function Stage3AIAnalysis({
   //   //     />
   //   //   );
   //   // }
-
-  // if (currentStepState === "constructor" && generatedData) {
-  return (
-    <Step3_2_Constructor
-      project={project}
-      step3Data={step3Data}
-      scenes={generatedData ? generatedData.scenes : []}
-      variants={generatedData ? generatedData.variants : []}
-      onBack={() => setCurrentStepState("load")}
-      onComplete={handleCompleteFromStep3_2}
-    />
-  );
+  if (generatedData) {
+    return (
+      <Step3_2_Constructor
+        project={project}
+        step3Data={step3Data}
+        scenes={generatedData.scenes}
+        variants={generatedData.variants}
+        onBack={() => setCurrentStepState("load")}
+        onComplete={handleCompleteFromStep3_2}
+      />
+    );
+  }
+  return <>нету нифига</>;
   // }
   // }
 
