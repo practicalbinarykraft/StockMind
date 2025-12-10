@@ -403,7 +403,7 @@ export function Stage3AIAnalysis({
   }
 
   // MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
-  if (STAGE3_MAGIC_UI && !hasScript) {
+  if (!hasScript) {
     return (
       <SourceReviewMode
         project={project}
@@ -431,7 +431,7 @@ export function Stage3AIAnalysis({
   }
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
-  if (STAGE3_MAGIC_UI && hasScript) {
+  if (hasScript) {
     return (
       <SceneEditorMode
         project={project}
