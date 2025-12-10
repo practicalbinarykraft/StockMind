@@ -1,4 +1,7 @@
-import type { HookAnalysis, HookBreakdown } from "@shared/advanced-analysis-types";
+import type {
+  HookAnalysis,
+  HookBreakdown,
+} from "@shared/advanced-analysis-types";
 import { callClaude } from "../base/claude-client";
 import { extractOpening } from "../base/helpers";
 
@@ -91,6 +94,7 @@ Respond ONLY in valid JSON format:
   ]
 }`;
 
+  console.log(`[AI] agent hook`);
   const result = await callClaude(apiKey, prompt, { maxTokens: 2048 });
 
   return {
@@ -101,7 +105,7 @@ Respond ONLY in valid JSON format:
       type: result.type,
       criteria: result.criteria,
       currentHook: result.currentHook,
-      improvements: result.improvements
-    } as HookBreakdown
+      improvements: result.improvements,
+    } as HookBreakdown,
   };
 }

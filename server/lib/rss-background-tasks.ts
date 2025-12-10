@@ -280,8 +280,6 @@ export async function parseRssSource(
       });
     }
 
-    console.log(createdItems.length);
-
     // Trigger AI scoring in background
     scoreRssItems(createdItems, userId).catch((err) =>
       console.error("AI scoring failed:", err)

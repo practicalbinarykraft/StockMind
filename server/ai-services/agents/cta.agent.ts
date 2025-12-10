@@ -1,4 +1,7 @@
-import type { CTAAnalysis, CTABreakdown } from "@shared/advanced-analysis-types";
+import type {
+  CTAAnalysis,
+  CTABreakdown,
+} from "@shared/advanced-analysis-types";
 import { callClaude } from "../base/claude-client";
 
 /**
@@ -75,10 +78,11 @@ Respond ONLY in valid JSON format:
   }
 }`;
 
+  console.log(`[AI] cta agent`);
   const result = await callClaude(apiKey, prompt, { maxTokens: 1536 });
 
   return {
     ctaScore: result.ctaScore,
-    breakdown: result.breakdown as CTABreakdown
+    breakdown: result.breakdown as CTABreakdown,
   };
 }

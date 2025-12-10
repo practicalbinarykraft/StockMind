@@ -9,13 +9,17 @@ export async function generateAiPrompt(
   shotInstructions: string,
   sceneText?: string
 ): Promise<string> {
-  const sanitizedInstructions = shotInstructions.substring(0, 500).replaceAll('"', '\\"');
-  const sanitizedScene = sceneText ? sceneText.substring(0, 500).replaceAll('"', '\\"') : undefined;
+  const sanitizedInstructions = shotInstructions
+    .substring(0, 500)
+    .replaceAll('"', '\\"');
+  const sanitizedScene = sceneText
+    ? sceneText.substring(0, 500).replaceAll('"', '\\"')
+    : undefined;
 
   const prompt = `You are a professional video production assistant. Generate a detailed visual prompt for B-roll stock footage based on these shot instructions.
 
 Shot Instructions: "${sanitizedInstructions}"
-${sanitizedScene ? `Scene Context: "${sanitizedScene}"` : ''}
+${sanitizedScene ? `Scene Context: "${sanitizedScene}"` : ""}
 
 Create a concise, visual prompt for stock video generation that:
 1. Describes the main visual elements
@@ -27,6 +31,7 @@ Keep it under 200 characters. Focus on visuals only, no text or narration.
 
 Respond with ONLY the prompt text, nothing else.`;
 
+  console.log(`[AI] generate prompt`);
   const anthropic = new Anthropic({ apiKey });
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",

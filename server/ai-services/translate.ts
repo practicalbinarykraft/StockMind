@@ -12,12 +12,16 @@ export async function translateToRussian(
   // Limit to reasonable size for translation (8000 chars = ~2000 words)
   // This is enough for most articles while keeping response time reasonable
   const MAX_TEXT_LENGTH = 8000;
-  const sanitizedText = text.length > MAX_TEXT_LENGTH 
-    ? text.substring(0, MAX_TEXT_LENGTH) + "\n\n[... текст обрезан для ускорения перевода ...]"
-    : text;
+  const sanitizedText =
+    text.length > MAX_TEXT_LENGTH
+      ? text.substring(0, MAX_TEXT_LENGTH) +
+        "\n\n[... текст обрезан для ускорения перевода ...]"
+      : text;
 
   // Escape quotes for JSON safety
-  const escapedText = sanitizedText.replaceAll('"', '\\"').replaceAll('\n', '\\n');
+  const escapedText = sanitizedText
+    .replaceAll('"', '\\"')
+    .replaceAll("\n", "\\n");
 
   const prompt = `You are a professional translator. Translate the following English text to Russian.
 
@@ -33,6 +37,8 @@ English text:
 
 Russian translation:`;
 
+  console.log(`[AI] translate`);
+
   const anthropic = new Anthropic({ apiKey });
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
@@ -46,6 +52,5 @@ Russian translation:`;
   }
 
   // Restore line breaks
-  return textContent.text.trim().replaceAll('\\n', '\n');
+  return textContent.text.trim().replaceAll("\\n", "\n");
 }
-

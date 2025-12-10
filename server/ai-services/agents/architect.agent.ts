@@ -17,7 +17,7 @@ export async function synthesizeAnalysis(
   structureAnalysis: StructureAnalysis,
   emotionalAnalysis: EmotionalAnalysis,
   ctaAnalysis: CTAAnalysis,
-  contentType: 'news' | 'instagram_reel' | 'custom_script'
+  contentType: "news" | "instagram_reel" | "custom_script"
 ): Promise<AdvancedScoreResult> {
   const prompt = `You are the Architect - master AI strategist synthesizing multi-agent content analysis.
 
@@ -41,7 +41,7 @@ EMOTIONAL ANALYST:
 CTA ANALYST:
 - Score: ${ctaAnalysis.ctaScore}/100
 - Has CTA: ${ctaAnalysis.breakdown.presence.hasCTA}
-- Type: ${ctaAnalysis.breakdown.presence.type || 'none'}
+- Type: ${ctaAnalysis.breakdown.presence.type || "none"}
 
 Content type: ${contentType}
 
@@ -95,9 +95,11 @@ Respond ONLY in valid JSON format:
   }
 }`;
 
+  console.log(`[AI] agent architect`);
+
   const result = await callClaude(apiKey, prompt, {
-    model: "claude-sonnet-4-5",  // Use Sonnet 4.5 for synthesis
-    maxTokens: 3072
+    model: "claude-sonnet-4-5", // Use Sonnet 4.5 for synthesis
+    maxTokens: 3072,
   });
 
   return {
@@ -113,12 +115,12 @@ Respond ONLY in valid JSON format:
       hook: hookAnalysis.breakdown,
       structure: structureAnalysis.breakdown,
       emotional: emotionalAnalysis.breakdown,
-      cta: ctaAnalysis.breakdown
+      cta: ctaAnalysis.breakdown,
     },
     strengths: result.strengths,
     weaknesses: result.weaknesses,
     recommendations: result.recommendations,
     viralPatterns: result.viralPatterns,
-    predictedMetrics: result.predictedMetrics
+    predictedMetrics: result.predictedMetrics,
   };
 }

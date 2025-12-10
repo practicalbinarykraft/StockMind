@@ -1,4 +1,7 @@
-import type { StructureAnalysis, StructureBreakdown } from "@shared/advanced-analysis-types";
+import type {
+  StructureAnalysis,
+  StructureBreakdown,
+} from "@shared/advanced-analysis-types";
 import { callClaude } from "../base/claude-client";
 import { estimateWordCount } from "../base/helpers";
 
@@ -15,11 +18,13 @@ export async function analyzeStructure(
   }
 ): Promise<StructureAnalysis> {
   const wordCount = estimateWordCount(content);
-  const estimatedDuration = metadata?.duration || (wordCount / 3); // ~180 WPM = 3 words/sec
+  const estimatedDuration = metadata?.duration || wordCount / 3; // ~180 WPM = 3 words/sec
   const wpm = Math.round((wordCount / estimatedDuration) * 60);
 
   const scenesText = metadata?.scenes
-    ? metadata.scenes.map((s, i) => `Scene ${i + 1} (${s.duration}s): "${s.text}"`).join('\n')
+    ? metadata.scenes
+        .map((s, i) => `Scene ${i + 1} (${s.duration}s): "${s.text}"`)
+        .join("\n")
     : `Full content: "${content}"`;
 
   const prompt = `You are a Structure Analyst for short-form video content.
@@ -102,11 +107,11 @@ Respond ONLY in valid JSON format:
     ]
   }
 }`;
-
+  console.log(`[AI] agent structure`);
   const result = await callClaude(apiKey, prompt, { maxTokens: 2048 });
 
   return {
     structureScore: result.structureScore,
-    breakdown: result.breakdown as StructureBreakdown
+    breakdown: result.breakdown as StructureBreakdown,
   };
 }

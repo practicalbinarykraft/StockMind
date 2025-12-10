@@ -1,8 +1,8 @@
-import cron from 'node-cron';
-import { parseRssSource } from '../lib/rss-background-tasks';
-import { logCronJob } from '../lib/logger-helpers';
-import { logger } from '../lib/logger';
-import type { IStorage } from '../storage';
+import cron from "node-cron";
+import { parseRssSource } from "../lib/rss-background-tasks";
+import { logCronJob } from "../lib/logger-helpers";
+import { logger } from "../lib/logger";
+import type { IStorage } from "../storage";
 
 let storageInstance: IStorage;
 let isRunning = false;
@@ -15,22 +15,22 @@ export function initRssMonitor(storage: IStorage) {
   storageInstance = storage;
 
   // Run every 15 minutes
-  cron.schedule('*/15 * * * *', async () => {
-    logCronJob('rssMonitor', 'started', { scheduledTime: new Date() });
-    await checkAllSources();
-  }, {
-    timezone: process.env.CRON_TZ || 'UTC'
-  });
+  // cron.schedule('*/15 * * * *', async () => {
+  //   logCronJob('rssMonitor', 'started', { scheduledTime: new Date() });
+  //   await checkAllSources();
+  // }, {
+  //   timezone: process.env.CRON_TZ || 'UTC'
+  // });
 
-  logger.info('RSS Monitor cron job initialized', { schedule: 'every 15 minutes' });
+  // logger.info('RSS Monitor cron job initialized', { schedule: 'every 15 minutes' });
 
-  // Run immediately on startup (non-blocking)
-  checkAllSources().catch((error) => {
-    logger.error('RSS Monitor startup check failed', {
-      error: error.message,
-      stack: error.stack
-    });
-  });
+  // // Run immediately on startup (non-blocking)
+  // checkAllSources().catch((error) => {
+  //   logger.error('RSS Monitor startup check failed', {
+  //     error: error.message,
+  //     stack: error.stack
+  //   });
+  // });
 }
 
 /**
@@ -38,7 +38,7 @@ export function initRssMonitor(storage: IStorage) {
  */
 async function checkAllSources() {
   if (isRunning) {
-    logger.warn('[RSS Monitor] Skipped: previous run still active');
+    logger.warn("[RSS Monitor] Skipped: previous run still active");
     return;
   }
 
@@ -46,17 +46,19 @@ async function checkAllSources() {
   const startTime = Date.now();
 
   try {
-    logger.info('[RSS Monitor] Starting RSS sources check...');
+    logger.info("[RSS Monitor] Starting RSS sources check...");
 
     // Get all active RSS sources across all users
     const activeSources = await storageInstance.getAllActiveRssSources();
-    
+
     if (activeSources.length === 0) {
-      logger.info('[RSS Monitor] No active RSS sources found');
+      logger.info("[RSS Monitor] No active RSS sources found");
       return;
     }
 
-    logger.info(`[RSS Monitor] Found ${activeSources.length} active RSS sources to check`);
+    logger.info(
+      `[RSS Monitor] Found ${activeSources.length} active RSS sources to check`
+    );
 
     // Parse each active source
     // Check if source needs parsing (not parsed in last 10 minutes to avoid spam)
@@ -69,17 +71,25 @@ async function checkAllSources() {
     for (const source of activeSources) {
       try {
         // Check if source was recently parsed
-        const lastParsed = source.lastParsed ? new Date(source.lastParsed).getTime() : 0;
+        const lastParsed = source.lastParsed
+          ? new Date(source.lastParsed).getTime()
+          : 0;
         const timeSinceLastParse = now - lastParsed;
 
         if (timeSinceLastParse < minIntervalMs) {
           skippedCount++;
-          logger.debug(`[RSS Monitor] Skipping ${source.name} (parsed ${Math.round(timeSinceLastParse / 1000 / 60)} minutes ago)`);
+          logger.debug(
+            `[RSS Monitor] Skipping ${source.name} (parsed ${Math.round(
+              timeSinceLastParse / 1000 / 60
+            )} minutes ago)`
+          );
           continue;
         }
 
-        logger.info(`[RSS Monitor] Parsing source: ${source.name} (${source.url})`);
-        
+        logger.info(
+          `[RSS Monitor] Parsing source: ${source.name} (${source.url})`
+        );
+
         // Parse source in background (don't await to allow parallel parsing)
         parseRssSource(source.id, source.url, source.userId)
           .then(() => {
@@ -89,38 +99,38 @@ async function checkAllSources() {
           .catch((error) => {
             logger.error(`[RSS Monitor] ❌ Failed to parse ${source.name}`, {
               error: error.message,
-              sourceId: source.id
+              sourceId: source.id,
             });
           });
 
         // Small delay between sources to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error: any) {
         logger.error(`[RSS Monitor] Error processing source ${source.name}`, {
           error: error.message,
-          sourceId: source.id
+          sourceId: source.id,
         });
       }
     }
 
-    logger.info(`[RSS Monitor] Processing complete: ${parsedCount} parsed, ${skippedCount} skipped`);
-
+    logger.info(
+      `[RSS Monitor] Processing complete: ${parsedCount} parsed, ${skippedCount} skipped`
+    );
   } catch (error: any) {
-    logCronJob('rssMonitor', 'failed', {
+    logCronJob("rssMonitor", "failed", {
       error: error.message,
       stack: error.stack,
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     });
-    
-    logger.error('[RSS Monitor] Error during RSS check', {
+
+    logger.error("[RSS Monitor] Error during RSS check", {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
   } finally {
     isRunning = false;
     const duration = Date.now() - startTime;
-    logCronJob('rssMonitor', 'completed', { duration });
+    logCronJob("rssMonitor", "completed", { duration });
     logger.info(`[RSS Monitor] Completed in ${duration}ms`);
   }
 }
@@ -128,14 +138,18 @@ async function checkAllSources() {
 /**
  * Parse a specific RSS source (can be called manually or from cron)
  */
-export async function parseActiveRssSource(sourceId: string, url: string, userId: string) {
+export async function parseActiveRssSource(
+  sourceId: string,
+  url: string,
+  userId: string
+) {
   try {
     logger.info(`[RSS Monitor] Parsing source ${sourceId} for user ${userId}`);
     await parseRssSource(sourceId, url, userId);
   } catch (error: any) {
     logger.error(`[RSS Monitor] Failed to parse source ${sourceId}`, {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
     throw error;
   }

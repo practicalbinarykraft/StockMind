@@ -1,4 +1,7 @@
-import type { EmotionalAnalysis, EmotionalBreakdown } from "@shared/advanced-analysis-types";
+import type {
+  EmotionalAnalysis,
+  EmotionalBreakdown,
+} from "@shared/advanced-analysis-types";
 import { callClaude } from "../base/claude-client";
 
 /**
@@ -66,11 +69,11 @@ Respond ONLY in valid JSON format:
     }
   }
 }`;
-
+  console.log(`[AI] agent emotional`);
   const result = await callClaude(apiKey, prompt, { maxTokens: 1536 });
 
   return {
     emotionalScore: result.emotionalScore,
-    breakdown: result.breakdown as EmotionalBreakdown
+    breakdown: result.breakdown as EmotionalBreakdown,
   };
 }
