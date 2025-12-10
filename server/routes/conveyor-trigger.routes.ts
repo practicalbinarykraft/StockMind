@@ -7,7 +7,10 @@ import { z } from "zod";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { logger } from "../lib/logger";
-import { triggerConveyorForUser, processSpecificItem } from "../cron/conveyor-runner";
+import {
+  triggerConveyorForUser,
+  processSpecificItem,
+} from "../cron/conveyor-runner";
 import { conveyorItemsStorage } from "../storage/conveyor-items.storage";
 import { conveyorSettingsStorage } from "../storage/conveyor-settings.storage";
 import { conveyorOrchestrator } from "../conveyor/conveyor-orchestrator";
@@ -51,7 +54,10 @@ export function registerConveyorTriggerRoutes(app: Express) {
           logger.info("Manual conveyor trigger completed", { userId, result });
         })
         .catch((error) => {
-          logger.error("Manual conveyor trigger failed", { userId, error: error.message });
+          logger.error("Manual conveyor trigger failed", {
+            userId,
+            error: error.message,
+          });
         });
 
       res.json({
@@ -67,7 +73,7 @@ export function registerConveyorTriggerRoutes(app: Express) {
     }
   });
 
-  // POST /api/conveyor/process-item - Process specific item
+  // POST /api/conveyor/process-item - Process specific item /// antropic
   app.post("/api/conveyor/process-item", requireAuth, async (req: any, res) => {
     try {
       const userId = getUserId(req);
@@ -75,9 +81,17 @@ export function registerConveyorTriggerRoutes(app: Express) {
 
       const { sourceType, sourceItemId } = processItemSchema.parse(req.body);
 
-      logger.info("Processing specific item", { userId, sourceType, sourceItemId });
+      logger.info("Processing specific item", {
+        userId,
+        sourceType,
+        sourceItemId,
+      });
 
-      const result = await processSpecificItem(userId, sourceType, sourceItemId);
+      const result = await processSpecificItem(
+        userId,
+        sourceType,
+        sourceItemId
+      );
 
       if (result.success) {
         res.json({
@@ -108,82 +122,94 @@ export function registerConveyorTriggerRoutes(app: Express) {
     }
   });
 
-  // POST /api/conveyor/items/:id/retry - Retry failed item
-  app.post("/api/conveyor/items/:id/retry", requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  // POST /api/conveyor/items/:id/retry - Retry failed item // antropic
+  app.post(
+    "/api/conveyor/items/:id/retry",
+    requireAuth,
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req);
+        if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-      const { id } = req.params;
+        const { id } = req.params;
 
-      // Get item
-      const item = await conveyorItemsStorage.getById(id);
-      if (!item) {
-        return res.status(404).json({ message: "Item not found" });
-      }
+        // Get item
+        const item = await conveyorItemsStorage.getById(id);
+        if (!item) {
+          return res.status(404).json({ message: "Item not found" });
+        }
 
-      if (item.userId !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+        if (item.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
 
-      if (item.status !== "failed") {
-        return res.status(400).json({
-          message: `Item is not failed (status: ${item.status})`,
-        });
-      }
+        if (item.status !== "failed") {
+          return res.status(400).json({
+            message: `Item is not failed (status: ${item.status})`,
+          });
+        }
 
-      // Check retry limit
-      if (item.retryCount >= 3) {
-        return res.status(400).json({
-          message: "Maximum retry limit reached (3)",
-        });
-      }
+        // Check retry limit
+        if (item.retryCount >= 3) {
+          return res.status(400).json({
+            message: "Maximum retry limit reached (3)",
+          });
+        }
 
-      // Get API key
-      const apiKeyRecord = await storage.getUserApiKey(userId, "anthropic");
-      if (!apiKeyRecord) {
-        return res.status(400).json({
-          message: "No Anthropic API key configured",
-        });
-      }
+        // Get API key
+        const apiKeyRecord = await storage.getUserApiKey(userId, "anthropic");
+        if (!apiKeyRecord) {
+          return res.status(400).json({
+            message: "No Anthropic API key configured",
+          });
+        }
 
-      // Increment retry count and reset status
-      await conveyorItemsStorage.incrementRetry(id);
+        // Increment retry count and reset status
+        await conveyorItemsStorage.incrementRetry(id);
 
-      // Get source data and re-process
-      const sourceData = item.sourceData as any;
-      if (!sourceData) {
-        return res.status(400).json({
-          message: "Source data not found for retry",
-        });
-      }
+        // Get source data and re-process
+        const sourceData = item.sourceData as any;
+        if (!sourceData) {
+          return res.status(400).json({
+            message: "Source data not found for retry",
+          });
+        }
 
-      logger.info("Retrying failed item", { userId, itemId: id, attempt: item.retryCount + 1 });
-
-      // Process async
-      conveyorOrchestrator
-        .processItem(userId, sourceData, apiKeyRecord.decryptedKey)
-        .then((result) => {
-          logger.info("Retry completed", { userId, itemId: id, result });
-        })
-        .catch((error) => {
-          logger.error("Retry failed", { userId, itemId: id, error: error.message });
+        logger.info("Retrying failed item", {
+          userId,
+          itemId: id,
+          attempt: item.retryCount + 1,
         });
 
-      res.json({
-        success: true,
-        message: "Retry started",
-        retryCount: item.retryCount + 1,
-      });
-    } catch (error: any) {
-      logger.error("Error retrying item", {
-        userId: getUserId(req),
-        itemId: req.params.id,
-        error: error.message,
-      });
-      res.status(500).json({ message: "Failed to retry item" });
+        // Process async
+        conveyorOrchestrator
+          .processItem(userId, sourceData, apiKeyRecord.decryptedKey)
+          .then((result) => {
+            logger.info("Retry completed", { userId, itemId: id, result });
+          })
+          .catch((error) => {
+            logger.error("Retry failed", {
+              userId,
+              itemId: id,
+              error: error.message,
+            });
+          });
+
+        res.json({
+          success: true,
+          message: "Retry started",
+          retryCount: item.retryCount + 1,
+        });
+      } catch (error: any) {
+        logger.error("Error retrying item", {
+          userId: getUserId(req),
+          itemId: req.params.id,
+          error: error.message,
+        });
+        res.status(500).json({ message: "Failed to retry item" });
+      }
     }
-  });
+  );
 
   // DELETE /api/conveyor/items/:id - Delete/cancel item
   app.delete("/api/conveyor/items/:id", requireAuth, async (req: any, res) => {
