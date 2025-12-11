@@ -21,6 +21,7 @@ import { useNewsAnalysis } from "./stage-2/hooks/use-news-analysis";
 import { useNewsMutations } from "./stage-2/hooks/use-news-mutations";
 import type { RssItem } from "@shared/schema";
 import type { EnrichedRssItem } from "./stage-2/utils/news-helpers";
+import { useAppStore } from "@/hooks/use-app-store";
 
 interface Stage2Props {
   project: Project;
@@ -29,8 +30,9 @@ interface Stage2Props {
 
 export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const { toast } = useToast();
-  const sourceChoice = stepData?.sourceChoice || project.sourceType;
+  const { setStore } = useAppStore();
 
+  const sourceChoice = stepData?.sourceChoice || project.sourceType;
   // Custom script state
   const [customText, setCustomText] = useState("");
 
@@ -274,6 +276,7 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
         scriptRecommendations: analysis?.scriptRecommendations || [],
         videoScorePrediction: analysis?.videoScorePrediction,
       });
+      setStore({ myValue: "external-source" });
     } catch (error: any) {
       console.error("Error creating script:", error);
       toast({

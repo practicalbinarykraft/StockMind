@@ -23,6 +23,7 @@ import { Step3_1_LoadSource } from "./components/Step3_1_LoadSource";
 import { Step3_2_Constructor } from "./components/Step3_2_Constructor";
 import { CreateScriptScreen } from "./components/CreateScriptScreen";
 import { SourceReviewMode } from "./components/SourceReviewMode";
+import { useAppStore } from "@/hooks/use-app-store";
 
 export function Stage3AIAnalysis({
   project,
@@ -30,6 +31,7 @@ export function Stage3AIAnalysis({
   step3Data,
 }: Stage3Props) {
   const { toast } = useToast();
+  const { store } = useAppStore();
 
   // Determine current step: if step3Data has generatedVariants or step === "constructor", we're on step 3.2
   // Check both step3Data.data (from DB) and step3Data directly (from props)
@@ -387,7 +389,11 @@ export function Stage3AIAnalysis({
   //   //     />
   //   //   );
   //   // }
-  if (currentStepState === "constructor" && generatedData) {
+  if (
+    currentStepState === "constructor" &&
+    generatedData &&
+    store.myValue === "own-idea"
+  ) {
     return (
       <Step3_2_Constructor
         project={project}
@@ -399,7 +405,7 @@ export function Stage3AIAnalysis({
       />
     );
   }
-  if (!hasScript && currentStepState !== "constructor" && !generatedData) {
+  if (!hasScript && store.myValue === "external-source") {
     return (
       <SourceReviewMode
         project={project}
@@ -427,7 +433,7 @@ export function Stage3AIAnalysis({
   }
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
-  if (hasScript) {
+  if (hasScript && store.myValue === "external-source") {
     return (
       <SceneEditorMode
         project={project}

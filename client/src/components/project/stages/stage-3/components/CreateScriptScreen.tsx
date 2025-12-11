@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/query-client";
+import { useAppStore } from "@/hooks/use-app-store";
 
 interface CreateScriptScreenProps {
   project: Project;
@@ -114,6 +115,7 @@ export function CreateScriptScreen({
 }: CreateScriptScreenProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { setStore } = useAppStore();
 
   const [selectedSource, setSelectedSource] = useState<SourceType>(null);
   const [ideaText, setIdeaText] = useState("");
@@ -230,6 +232,7 @@ export function CreateScriptScreen({
         queryKey: ["/api/projects", project.id, "steps"],
       });
       setIsGenerating(false);
+      setStore({ myValue: "own-idea" });
       navigate(`/project/${project.id}`);
     },
     onError: (error: Error) => {
