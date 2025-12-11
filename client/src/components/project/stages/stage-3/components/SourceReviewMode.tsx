@@ -36,7 +36,7 @@ interface SourceReviewModeProps {
   candidateVersion: any;
   reanalyzeJobId: string | null;
   jobStatus: any;
-  handleProceed: () => void;
+  handleProceed: (res: any | null) => void;
 }
 
 export function SourceReviewMode({

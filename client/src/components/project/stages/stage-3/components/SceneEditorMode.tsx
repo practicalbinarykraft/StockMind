@@ -34,7 +34,7 @@ interface SceneEditorModeProps {
   updateProjectMutation: any;
   setCompareOpen: (open: boolean) => void;
   handleOpenCompare: () => void;
-  handleProceed: () => void;
+  handleProceed: (res: any | null) => void;
 }
 
 export function SceneEditorMode({

@@ -1,16 +1,28 @@
-import { useState, useMemo, useEffect } from "react"
-import { type Project } from "@shared/schema"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, Sparkles, RefreshCw, Edit, CheckCircle2 } from "lucide-react"
-import { SceneEditor, type Scene } from "@/components/scripts/scene-editor"
-import { SceneVariantCard } from "@/components/scripts/scene-variant-card"
-import { useMutation } from "@tanstack/react-query"
-import { apiRequest } from "@/lib/query-client"
-import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
+import { useState, useMemo, useEffect } from "react";
+import { type Project } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  ArrowLeft,
+  Sparkles,
+  RefreshCw,
+  Edit,
+  CheckCircle2,
+} from "lucide-react";
+import { SceneEditor, type Scene } from "@/components/scripts/scene-editor";
+import { SceneVariantCard } from "@/components/scripts/scene-variant-card";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -28,22 +40,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Step3_2_ConstructorProps {
-  project: Project
-  step3Data: any
-  scenes: Scene[]
-  variants: Record<number, Array<{ id: string; text: string; score?: number }>>
-  onBack: () => void
+  project: Project;
+  step3Data: any;
+  scenes: Scene[];
+  variants: Record<number, Array<{ id: string; text: string; score?: number }>>;
+  onBack: () => void;
   onComplete: (finalScript: {
-    scenes: Scene[]
-    selectedVariants: Record<number, string>
-    totalWords: number
-    duration: number
-    aiScore?: number
-  }) => void
+    scenes: Scene[];
+    selectedVariants: Record<number, string>;
+    totalWords: number;
+    duration: number;
+    aiScore?: number;
+  }) => void;
 }
 
 export function Step3_2_Constructor({
@@ -54,56 +66,65 @@ export function Step3_2_Constructor({
   onBack,
   onComplete,
 }: Step3_2_ConstructorProps) {
-  const { toast } = useToast()
+  const { toast } = useToast();
   // Initialize from step3Data if available (restore progress)
-  const initialSelectedVariants = step3Data?.finalScript?.selectedVariants || step3Data?.selectedVariants || {}
-  
-  const [scenes, setScenes] = useState<Scene[]>(initialScenes)
-  const [variants, setVariants] = useState(initialVariants)
-  const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0)
-  const [selectedVariants, setSelectedVariants] = useState<Record<number, string>>(initialSelectedVariants)
-  const [showBackWarning, setShowBackWarning] = useState(false)
-  const [finalScore, setFinalScore] = useState<number | null>(step3Data?.finalScript?.aiScore || null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [showCustomVariantDialog, setShowCustomVariantDialog] = useState(false)
-  const [customVariantText, setCustomVariantText] = useState("")
+  const initialSelectedVariants =
+    step3Data?.finalScript?.selectedVariants ||
+    step3Data?.selectedVariants ||
+    {};
+
+  const [scenes, setScenes] = useState<Scene[]>(initialScenes);
+  const [variants, setVariants] = useState(initialVariants);
+  const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0);
+  const [selectedVariants, setSelectedVariants] = useState<
+    Record<number, string>
+  >(initialSelectedVariants);
+  const [showBackWarning, setShowBackWarning] = useState(false);
+  const [finalScore, setFinalScore] = useState<number | null>(
+    step3Data?.finalScript?.aiScore || null
+  );
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showCustomVariantDialog, setShowCustomVariantDialog] = useState(false);
+  const [customVariantText, setCustomVariantText] = useState("");
 
   // Calculate progress
-  const completedScenes = Object.keys(selectedVariants).length
-  const totalScenes = scenes.length
-  const progress = totalScenes > 0 ? (completedScenes / totalScenes) * 100 : 0
+  const completedScenes = Object.keys(selectedVariants).length;
+  const totalScenes = scenes.length;
+  const progress = totalScenes > 0 ? (completedScenes / totalScenes) * 100 : 0;
 
   // Get current scene variants
-  const currentVariants = variants[selectedSceneIndex] || []
+  const currentVariants = variants[selectedSceneIndex] || [];
 
   // Restore scene texts from selected variants on mount
   useEffect(() => {
     if (Object.keys(initialSelectedVariants).length > 0) {
       const restoredScenes = scenes.map((scene, index) => {
-        const variantId = initialSelectedVariants[index]
+        const variantId = initialSelectedVariants[index];
         if (variantId) {
           // Find variant text
-          const variant = variants[index]?.find((v) => v.id === variantId)
+          const variant = variants[index]?.find((v) => v.id === variantId);
           if (variant) {
-            return { ...scene, text: variant.text }
+            return { ...scene, text: variant.text };
           }
         }
-        return scene
-      })
-      setScenes(restoredScenes)
-      
+        return scene;
+      });
+      setScenes(restoredScenes);
+
       // Set active scene to first uncompleted
-      const firstUncompleted = restoredScenes.findIndex((_, idx) => !initialSelectedVariants[idx])
+      const firstUncompleted = restoredScenes.findIndex(
+        (_, idx) => !initialSelectedVariants[idx]
+      );
       if (firstUncompleted !== -1) {
-        setSelectedSceneIndex(firstUncompleted)
+        setSelectedSceneIndex(firstUncompleted);
       }
     }
-  }, []) // Only on mount
+  }, []); // Only on mount
 
   // Check if all scenes are selected
   const allScenesSelected = useMemo(() => {
-    return scenes.every((_, index) => selectedVariants[index] !== undefined)
-  }, [scenes, selectedVariants])
+    return scenes.every((_, index) => selectedVariants[index] !== undefined);
+  }, [scenes, selectedVariants]);
 
   // Save progress to step3Data
   const saveProgress = async (newSelectedVariants: Record<number, string>) => {
@@ -114,154 +135,158 @@ export function Step3_2_Constructor({
           ...step3Data,
           selectedVariants: newSelectedVariants,
         },
-      })
+      });
+      setSelectedVariants(newSelectedVariants);
     } catch (error) {
-      console.error("Failed to save progress:", error)
+      console.error("Failed to save progress:", error);
       // Не показываем ошибку пользователю - это промежуточное сохранение
     }
-  }
+  };
 
   // Handle variant selection
   const handleSelectVariant = async (variantId: string) => {
     const newSelectedVariants = {
       ...selectedVariants,
       [selectedSceneIndex]: variantId,
-    }
-    
-    setSelectedVariants(newSelectedVariants)
+    };
+
+    setSelectedVariants(newSelectedVariants);
 
     // Update scene text with selected variant
-    const variant = currentVariants.find((v) => v.id === variantId)
+    const variant = currentVariants.find((v) => v.id === variantId);
     if (variant) {
       setScenes((prev) =>
         prev.map((scene, index) =>
-          index === selectedSceneIndex ? { ...scene, text: variant.text } : scene
+          index === selectedSceneIndex
+            ? { ...scene, text: variant.text }
+            : scene
         )
-      )
+      );
     }
 
     // Save progress
-    await saveProgress(newSelectedVariants)
+    await saveProgress(newSelectedVariants);
 
     // Auto-advance to next scene if not last
     if (selectedSceneIndex < scenes.length - 1) {
       setTimeout(() => {
-        setSelectedSceneIndex(selectedSceneIndex + 1)
-      }, 300)
+        setSelectedSceneIndex(selectedSceneIndex + 1);
+      }, 300);
     } else {
       // Last scene selected - analyze final script
-      analyzeFinalScript()
+      await saveProgress(newSelectedVariants);
+      analyzeFinalScript();
     }
-  }
+  };
 
   // Handle custom variant (user writes their own)
   const handleCustomVariant = async (customText: string) => {
-    if (!customText.trim()) return
+    if (!customText.trim()) return;
 
-    const customVariantId = `custom-${selectedSceneIndex}-${Date.now()}`
+    const customVariantId = `custom-${selectedSceneIndex}-${Date.now()}`;
     const newSelectedVariants = {
       ...selectedVariants,
       [selectedSceneIndex]: customVariantId,
-    }
+    };
 
-    setSelectedVariants(newSelectedVariants)
-    
+    setSelectedVariants(newSelectedVariants);
+
     // Update scene text
     setScenes((prev) =>
       prev.map((scene, index) =>
         index === selectedSceneIndex ? { ...scene, text: customText } : scene
       )
-    )
+    );
 
     // Add custom variant to variants list
     setVariants((prev) => ({
       ...prev,
       [selectedSceneIndex]: [
         ...(prev[selectedSceneIndex] || []),
-        { id: customVariantId, text: customText, score: undefined }
-      ]
-    }))
+        { id: customVariantId, text: customText, score: undefined },
+      ],
+    }));
 
     // Save progress
-    await saveProgress(newSelectedVariants)
-    setShowCustomVariantDialog(false)
+    await saveProgress(newSelectedVariants);
+    setShowCustomVariantDialog(false);
 
     // Auto-advance
     if (selectedSceneIndex < scenes.length - 1) {
       setTimeout(() => {
-        setSelectedSceneIndex(selectedSceneIndex + 1)
-      }, 300)
+        setSelectedSceneIndex(selectedSceneIndex + 1);
+      }, 300);
     } else {
-      analyzeFinalScript()
+      analyzeFinalScript();
     }
-  }
+  };
 
   // Analyze final script after all scenes selected
   const analyzeFinalScript = async () => {
-    setIsAnalyzing(true)
+    setIsAnalyzing(true);
     try {
-      const finalScriptText = scenes.map((s) => s.text).join("\n\n")
-      
+      const finalScriptText = scenes.map((s) => s.text).join("\n\n");
+
       // Call analysis API
       const res = await apiRequest("POST", "/api/ai/analyze-script", {
         format: step3Data?.format || "news_update",
         content: finalScriptText,
-      })
+      });
 
-      const data = await res.json()
-      const score = data.overallScore || data.score || null
-      setFinalScore(score)
+      const data = await res.json();
+      const score = data.overallScore || data.score || null;
+      setFinalScore(score);
     } catch (error) {
-      console.error("Failed to analyze script:", error)
+      console.error("Failed to analyze script:", error);
       toast({
         title: "Ошибка анализа",
         description: "Не удалось проанализировать сценарий",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsAnalyzing(false)
+      setIsAnalyzing(false);
     }
-  }
+  };
 
   // Regenerate variants for current scene
   const regenerateVariantsMutation = useMutation({
     mutationFn: async () => {
-      const currentScene = scenes[selectedSceneIndex]
+      const currentScene = scenes[selectedSceneIndex];
       const res = await apiRequest("POST", "/api/scripts/generate-variants", {
         sourceText: currentScene.text,
         prompt: step3Data?.customPrompt || "",
         format: step3Data?.format || "news_update",
-      })
+      });
 
-      const data = await res.json()
-      return data.data || data
+      const data = await res.json();
+      return data.data || data;
     },
     onSuccess: (data) => {
-      const newVariants = data.variants?.[0] || []
+      const newVariants = data.variants?.[0] || [];
       setVariants((prev) => ({
         ...prev,
         [selectedSceneIndex]: newVariants,
-      }))
+      }));
       toast({
         title: "Варианты обновлены",
         description: "Новые варианты для текущей сцены сгенерированы",
-      })
+      });
     },
     onError: () => {
       toast({
         title: "Ошибка",
         description: "Не удалось сгенерировать новые варианты",
         variant: "destructive",
-      })
+      });
     },
-  })
+  });
 
   // Calculate totals
   const totalWords = scenes.reduce(
     (sum, scene) => sum + scene.text.split(/\s+/).filter(Boolean).length,
     0
-  )
-  const totalDuration = Math.ceil(totalWords / 2.5)
+  );
+  const totalDuration = Math.ceil(totalWords / 2.5);
 
   // Handle complete
   const handleComplete = () => {
@@ -271,22 +296,22 @@ export function Step3_2_Constructor({
       totalWords,
       duration: totalDuration,
       aiScore: finalScore || undefined,
-    })
-  }
+    });
+  };
 
   // Handle back with warning
   const handleBackClick = () => {
     if (completedScenes > 0) {
-      setShowBackWarning(true)
+      setShowBackWarning(true);
     } else {
-      onBack()
+      onBack();
     }
-  }
+  };
 
   const confirmBack = () => {
-    setShowBackWarning(false)
-    onBack()
-  }
+    setShowBackWarning(false);
+    onBack();
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -297,7 +322,9 @@ export function Step3_2_Constructor({
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Сценарий</h1>
-          <p className="text-muted-foreground">Шаг 2 из 2: Соберите идеальный сценарий из вариантов</p>
+          <p className="text-muted-foreground">
+            Шаг 2 из 2: Соберите идеальный сценарий из вариантов
+          </p>
         </div>
         <div className="text-sm text-muted-foreground">
           Прогресс: {completedScenes}/{totalScenes} сцен
@@ -326,8 +353,8 @@ export function Step3_2_Constructor({
             </CardHeader>
             <CardContent className="space-y-4">
               {scenes.map((scene, index) => {
-                const isSelected = index === selectedSceneIndex
-                const isCompleted = selectedVariants[index] !== undefined
+                const isSelected = index === selectedSceneIndex;
+                const isCompleted = selectedVariants[index] !== undefined;
 
                 return (
                   <div
@@ -345,7 +372,11 @@ export function Step3_2_Constructor({
                       <div className="flex items-center gap-2">
                         <span className="font-medium">Scene {index + 1}</span>
                         <Badge variant="outline">
-                          {scene.type === "hook" ? "Hook" : scene.type === "cta" ? "CTA" : "Body"}
+                          {scene.type === "hook"
+                            ? "Hook"
+                            : scene.type === "cta"
+                            ? "CTA"
+                            : "Body"}
                         </Badge>
                         {isCompleted && (
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -361,11 +392,13 @@ export function Step3_2_Constructor({
                       <p className="text-sm mt-2 line-clamp-2">{scene.text}</p>
                     ) : (
                       <p className="text-sm text-muted-foreground mt-2">
-                        {isSelected ? "Выберите вариант справа" : "Ожидает выбора"}
+                        {isSelected
+                          ? "Выберите вариант справа"
+                          : "Ожидает выбора"}
                       </p>
                     )}
                   </div>
-                )
+                );
               })}
             </CardContent>
           </Card>
@@ -377,7 +410,8 @@ export function Step3_2_Constructor({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Итого:</span>
                   <span className="font-medium">
-                    {totalScenes} сцен • {totalWords} слов • ~{totalDuration} сек
+                    {totalScenes} сцен • {totalWords} слов • ~{totalDuration}{" "}
+                    сек
                   </span>
                 </div>
               </div>
@@ -391,7 +425,9 @@ export function Step3_2_Constructor({
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Варианты: Scene {selectedSceneIndex + 1}</CardTitle>
+                  <CardTitle>
+                    Варианты: Scene {selectedSceneIndex + 1}
+                  </CardTitle>
                   <CardDescription>
                     Выберите лучший вариант для этой сцены
                   </CardDescription>
@@ -402,10 +438,12 @@ export function Step3_2_Constructor({
                   onClick={() => regenerateVariantsMutation.mutate()}
                   disabled={regenerateVariantsMutation.isPending}
                 >
-                  <RefreshCw className={cn(
-                    "h-4 w-4 mr-2",
-                    regenerateVariantsMutation.isPending && "animate-spin"
-                  )} />
+                  <RefreshCw
+                    className={cn(
+                      "h-4 w-4 mr-2",
+                      regenerateVariantsMutation.isPending && "animate-spin"
+                    )}
+                  />
                   Другие варианты
                 </Button>
               </div>
@@ -417,8 +455,9 @@ export function Step3_2_Constructor({
                 </div>
               ) : (
                 currentVariants.map((variant, index) => {
-                  const label = String.fromCharCode(65 + index) // A, B, C
-                  const isSelected = selectedVariants[selectedSceneIndex] === variant.id
+                  const label = String.fromCharCode(65 + index); // A, B, C
+                  const isSelected =
+                    selectedVariants[selectedSceneIndex] === variant.id;
 
                   return (
                     <SceneVariantCard
@@ -428,7 +467,7 @@ export function Step3_2_Constructor({
                       isSelected={isSelected}
                       onSelect={() => handleSelectVariant(variant.id)}
                     />
-                  )
+                  );
                 })
               )}
             </CardContent>
@@ -443,7 +482,9 @@ export function Step3_2_Constructor({
               <CardContent>
                 <div className="space-y-4">
                   <div className="text-center">
-                    <div className="text-4xl font-bold mb-2">{finalScore}/100</div>
+                    <div className="text-4xl font-bold mb-2">
+                      {finalScore}/100
+                    </div>
                     <Badge
                       variant={
                         finalScore >= 80
@@ -503,13 +544,16 @@ export function Step3_2_Constructor({
           <AlertDialogHeader>
             <AlertDialogTitle>Вернуться на предыдущий шаг?</AlertDialogTitle>
             <AlertDialogDescription>
-              Если вернуться на предыдущий шаг, собранный сценарий будет потерян.
-              Вы уверены?
+              Если вернуться на предыдущий шаг, собранный сценарий будет
+              потерян. Вы уверены?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBack} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmBack}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Вернуться
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -517,14 +561,14 @@ export function Step3_2_Constructor({
       </AlertDialog>
 
       {/* Custom Variant Dialog */}
-      <Dialog 
-        open={showCustomVariantDialog} 
+      <Dialog
+        open={showCustomVariantDialog}
         onOpenChange={(open) => {
-          setShowCustomVariantDialog(open)
+          setShowCustomVariantDialog(open);
           if (open) {
-            setCustomVariantText(scenes[selectedSceneIndex]?.text || "")
+            setCustomVariantText(scenes[selectedSceneIndex]?.text || "");
           } else {
-            setCustomVariantText("")
+            setCustomVariantText("");
           }
         }}
       >
@@ -543,7 +587,7 @@ export function Step3_2_Constructor({
               onChange={(e) => setCustomVariantText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.ctrlKey) {
-                  handleCustomVariant(customVariantText)
+                  handleCustomVariant(customVariantText);
                 }
               }}
             />
@@ -552,24 +596,31 @@ export function Step3_2_Constructor({
                 {customVariantText.split(/\s+/).filter(Boolean).length} слов
               </span>
               <span>
-                ~{Math.ceil(customVariantText.split(/\s+/).filter(Boolean).length / 2.5)} сек
+                ~
+                {Math.ceil(
+                  customVariantText.split(/\s+/).filter(Boolean).length / 2.5
+                )}{" "}
+                сек
               </span>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCustomVariantDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowCustomVariantDialog(false)}
+            >
               Отмена
             </Button>
             <Button
               onClick={() => {
                 if (customVariantText.trim()) {
-                  handleCustomVariant(customVariantText.trim())
+                  handleCustomVariant(customVariantText.trim());
                 } else {
                   toast({
                     title: "Ошибка",
                     description: "Введите текст для варианта",
                     variant: "destructive",
-                  })
+                  });
                 }
               }}
             >
@@ -579,6 +630,5 @@ export function Step3_2_Constructor({
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
-

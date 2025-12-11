@@ -23,7 +23,7 @@ export function useSaveMutations(
 
   // Save step data mutation
   const saveStepMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (res: any | null) => {
       // Save data based on current analysis mode
       const dataToSave =
         analysisMode === "advanced"
@@ -31,17 +31,19 @@ export function useSaveMutations(
               analysisMode: "advanced",
               advancedAnalysis,
               analysisTime,
-              selectedFormat,
+              selectedFormat: selectedFormat || res.data.format,
             }
           : {
               analysisMode: "simple",
-              selectedFormat,
-              selectedVariants,
+              selectedFormat: selectedFormat || res.data.format,
+              selectedVariants:
+                selectedVariants || res.data.finalScript.selectedVariants,
               editedScenes,
               variantScores,
-              overallScore: analysis?.overallScore,
+              overallScore:
+                analysis?.overallScore || res.data.finalScript.aiScore,
               overallComment: analysis?.overallComment,
-              scenes: analysis?.scenes,
+              scenes: analysis?.scenes || res.data.finalScript.scenes,
             };
 
       return await apiRequest("POST", `/api/projects/${projectId}/steps`, {
@@ -53,7 +55,7 @@ export function useSaveMutations(
 
   // Update project stage mutation
   const updateProjectMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (res: any | null) => {
       return await apiRequest("PATCH", `/api/projects/${projectId}`, {
         currentStage: 4,
       });
@@ -77,27 +79,51 @@ export function useSaveMutations(
     },
   });
 
-  const handleProceed = async (res: any) => {
+  const handleProceed = async (res: any | null) => {
     // For STAGE3_MAGIC_UI: check activeVersion (candidate or current) metrics
     // For old UI: check global advancedAnalysis/analysis states
-    if (res.data.finalScript) {
-      try {
-        // Save step data first
-        await saveStepMutation.mutateAsync();
-        // Then update project stage (which will trigger navigation via refetch)
-        await updateProjectMutation.mutateAsync();
-      } catch (error: any) {
+    if (hasScript) {
+      const current = scriptVersionsQuery.data?.currentVersion;
+      const candidate = candidateVersion;
+      const activeVersion = candidate ?? current;
+
+      // Soft warning if analysis pending, but allow proceeding
+      if (activeVersion && !activeVersion.metrics && reanalyzeJobId) {
+        toast({
+          title: "Анализ ещё выполняется",
+          description:
+            "Можно продолжить озвучку сейчас, анализ завершится в фоне.",
+        });
+        // Continue anyway - don't block
+      }
+    } else {
+      // Old UI logic: check global states
+      if (!advancedAnalysis && !analysis) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: error.message || "Failed to save and proceed",
+          description: "Please complete the analysis first",
         });
+        return;
       }
-    } else {
+    }
+
+    try {
+      if (res) {
+        // Save step data first
+        await saveStepMutation.mutateAsync(res);
+        // Then update project stage (which will trigger navigation via refetch)
+        await updateProjectMutation.mutateAsync(res);
+      } else {
+        await saveStepMutation.mutateAsync(null);
+        // Then update project stage (which will trigger navigation via refetch)
+        await updateProjectMutation.mutateAsync(null);
+      }
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "нет сценария",
+        description: error.message || "Failed to save and proceed",
       });
     }
   };
