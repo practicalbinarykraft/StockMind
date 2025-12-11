@@ -399,32 +399,32 @@ export function Stage3AIAnalysis({
       />
     );
   }
-  // if (!hasScript ) {
-  //   return (
-  //     <SourceReviewMode
-  //       project={project}
-  //       stepData={stepData}
-  //       sourceData={sourceData}
-  //       hasScript={hasScript}
-  //       shouldAnalyze={shouldAnalyze}
-  //       handleStartAnalysis={handleStartAnalysis}
-  //       sourceAnalysisQuery={sourceAnalysisQuery}
-  //       handleGenerateScript={handleGenerateScript}
-  //       generateMutation={generateMutation}
-  //       targetLanguage={targetLanguage}
-  //       setTargetLanguage={setTargetLanguage}
-  //       showFormatModal={showFormatModal}
-  //       setShowFormatModal={setShowFormatModal}
-  //       compareOpen={compareOpen}
-  //       setCompareOpen={setCompareOpen}
-  //       currentVersion={currentVersion}
-  //       candidateVersion={candidateVersion}
-  //       reanalyzeJobId={reanalyzeJobId}
-  //       jobStatus={jobStatus}
-  //       handleProceed={handleProceed}
-  //     />
-  //   );
-  // }
+  if (!hasScript && currentStepState !== "constructor" && !generatedData) {
+    return (
+      <SourceReviewMode
+        project={project}
+        stepData={stepData}
+        sourceData={sourceData}
+        hasScript={hasScript}
+        shouldAnalyze={shouldAnalyze}
+        handleStartAnalysis={handleStartAnalysis}
+        sourceAnalysisQuery={sourceAnalysisQuery}
+        handleGenerateScript={handleGenerateScript}
+        generateMutation={generateMutation}
+        targetLanguage={targetLanguage}
+        setTargetLanguage={setTargetLanguage}
+        showFormatModal={showFormatModal}
+        setShowFormatModal={setShowFormatModal}
+        compareOpen={compareOpen}
+        setCompareOpen={setCompareOpen}
+        currentVersion={currentVersion}
+        candidateVersion={candidateVersion}
+        reanalyzeJobId={reanalyzeJobId}
+        jobStatus={jobStatus}
+        handleProceed={handleProceed}
+      />
+    );
+  }
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
   if (hasScript) {
