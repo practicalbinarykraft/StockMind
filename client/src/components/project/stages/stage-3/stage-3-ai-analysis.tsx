@@ -36,24 +36,46 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
     step3DataContent?.step === "constructor"
   );
 
+  // Debug log
+  console.log("[Stage3AIAnalysis] Received data:", {
+    projectId: project.id,
+    sourceType: project.sourceType,
+    hasStepData: !!stepData,
+    hasStep3Data: !!step3Data,
+    step3DataContent,
+    hasGeneratedVariants,
+  });
+
   // Initialize state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedData, setGeneratedData] = useState<{
     scenes: any[];
     variants: Record<number, Array<{ id: string; text: string; score?: number }>>;
-  } | null>(
-    step3DataContent?.generatedVariants
-      ? {
-          scenes: step3DataContent.generatedVariants.scenes || step3DataContent.scenes || [],
-          variants: step3DataContent.generatedVariants.variants || step3DataContent.variants || {},
-        }
-      : null
-  );
+  } | null>(null);
 
-  // Get content from step data (step 2)
+  // Update generatedData when step3Data changes (e.g., after navigation)
+  useEffect(() => {
+    if (step3DataContent?.generatedVariants) {
+      console.log("[Stage3AIAnalysis] Found generatedVariants, updating state:", {
+        scenes: step3DataContent.generatedVariants.scenes?.length,
+        variantsKeys: Object.keys(step3DataContent.generatedVariants.variants || {}),
+      });
+      setGeneratedData({
+        scenes: step3DataContent.generatedVariants.scenes || step3DataContent.scenes || [],
+        variants: step3DataContent.generatedVariants.variants || step3DataContent.variants || {},
+      });
+    }
+  }, [step3Data, step3DataContent?.generatedVariants]);
+
+  // Get content from step data (step 2 or step 3)
+  // For own-idea/text/url: content is saved in step 3 by CreateScriptScreen
+  // For news/instagram: content is saved in step 2 by proceedMutation
   const getSourceContent = () => {
     return (
+      // Check step 3 data first (for own-idea/text/url)
+      step3DataContent?.sourceContent ||
+      // Then check step 2 data (for news/instagram)
       stepData?.content ||
       stepData?.text ||
       stepData?.transcription ||
@@ -193,16 +215,20 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
 
   // Auto-generate variants for news/instagram if not already generated
   useEffect(() => {
-    if (!hasGeneratedVariants && !generatedData && !isGenerating) {
-      // Check if this is a news/instagram source that needs generation
-      const sourceType = project.sourceType;
-      const hasContent = !!getSourceContent();
-
-      if ((sourceType === "news" || sourceType === "instagram") && hasContent) {
-        generateVariants();
-      }
+    // Skip if already have variants or currently generating
+    if (generatedData || isGenerating) {
+      return;
     }
-  }, [hasGeneratedVariants, project.sourceType]);
+
+    // Check if this is a news/instagram source that needs generation
+    const sourceType = project.sourceType;
+    const hasContent = !!getSourceContent();
+
+    if ((sourceType === "news" || sourceType === "instagram") && hasContent) {
+      console.log("[Stage3AIAnalysis] Auto-generating variants for", sourceType);
+      generateVariants();
+    }
+  }, [generatedData, isGenerating, project.sourceType]);
 
   // Handle completion from Constructor
   const handleComplete = async (finalScript: {

@@ -224,11 +224,18 @@ export function CreateScriptScreen({
         }
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // Invalidate AND refetch to ensure fresh data before navigation
+      await queryClient.invalidateQueries({
         queryKey: ["/api/projects", project.id],
       });
-      queryClient.invalidateQueries({
+      await queryClient.refetchQueries({
+        queryKey: ["/api/projects", project.id],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id, "steps"],
+      });
+      await queryClient.refetchQueries({
         queryKey: ["/api/projects", project.id, "steps"],
       });
       setIsGenerating(false);
