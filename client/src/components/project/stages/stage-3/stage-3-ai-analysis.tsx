@@ -1,310 +1,158 @@
 import { useState, useEffect } from "react";
-import { type AdvancedScoreResult } from "@shared/advanced-analysis-types";
+import { type Project } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/query-client";
-
-// Import all hooks
-import { type Stage3Props, type AIAnalysis } from "./types/analysis-types";
-import { useScriptVersions } from "./hooks/use-script-versions";
-import { useVersionMutations } from "./hooks/use-version-mutations";
-import { useReanalysisMutation } from "./hooks/use-reanalysis-mutation";
-import { useReanalysisPolling } from "./hooks/use-reanalysis-polling";
-import { useSourceAnalysis } from "./hooks/use-source-analysis";
-import { useGenerateScript } from "./hooks/use-generate-script";
-import { useAdvancedAnalysis } from "./hooks/use-advanced-analysis";
-import { useLegacyAnalysis } from "./hooks/use-legacy-analysis";
-import { useCachedAnalysis } from "./hooks/use-cached-analysis";
-import { useSaveMutations } from "./hooks/use-save-mutations";
-
-// Import components
-import { SceneEditorMode } from "./components/SceneEditorMode";
-import { LegacyAnalysisMode } from "./components/LegacyAnalysisMode";
-import { Step3_1_LoadSource } from "./components/Step3_1_LoadSource";
+import { apiRequest, queryClient } from "@/lib/query-client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, Sparkles, ArrowLeft } from "lucide-react";
 import { Step3_2_Constructor } from "./components/Step3_2_Constructor";
-import { CreateScriptScreen } from "./components/CreateScriptScreen";
-import { SourceReviewMode } from "./components/SourceReviewMode";
-import { useAppStore } from "@/hooks/use-app-store";
 
-export function Stage3AIAnalysis({
-  project,
-  stepData,
-  step3Data,
-}: Stage3Props) {
+interface Stage3Props {
+  project: Project;
+  stepData: any; // step 2 data (content, title, etc.)
+  step3Data: any; // step 3 data (generatedVariants, etc.)
+}
+
+/**
+ * Unified Stage 3: Script Construction
+ * 
+ * Works for all source types:
+ * - News: generates variants from article content
+ * - Instagram: generates variants from transcription
+ * - Own idea/text/url: uses already generated variants from CreateScriptScreen
+ * 
+ * Design based on Step3_2_Constructor - two column layout with scene structure and variants
+ */
+export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) {
   const { toast } = useToast();
-  const { store } = useAppStore();
 
-  // Determine current step: if step3Data has generatedVariants or step === "constructor", we're on step 3.2
-  // Check both step3Data.data (from DB) and step3Data directly (from props)
+  // Get step3 data content (may be nested in .data from DB)
   const step3DataContent = step3Data?.data || step3Data;
+
+  // Check if we have generated variants
   const hasGeneratedVariants = !!(
     step3DataContent?.generatedVariants ||
     step3DataContent?.step === "constructor"
   );
 
-  const currentStep = hasGeneratedVariants ? "constructor" : "load";
-
-  // Initialize generatedData from step3Data if available
-  const initialGeneratedData = step3DataContent?.generatedVariants
-    ? {
-        scenes:
-          step3DataContent.generatedVariants.scenes ||
-          step3DataContent.scenes ||
-          [],
-        variants:
-          step3DataContent.generatedVariants.variants ||
-          step3DataContent.variants ||
-          {},
-      }
-    : null;
-
-  // State management
-  const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
-  const [currentStepState, setCurrentStepState] = useState<
-    "load" | "constructor"
-  >(currentStep);
+  // Initialize state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedData, setGeneratedData] = useState<{
     scenes: any[];
-    variants: Record<
-      number,
-      Array<{ id: string; text: string; score?: number }>
-    >;
-  } | null>(initialGeneratedData);
+    variants: Record<number, Array<{ id: string; text: string; score?: number }>>;
+  } | null>(
+    step3DataContent?.generatedVariants
+      ? {
+          scenes: step3DataContent.generatedVariants.scenes || step3DataContent.scenes || [],
+          variants: step3DataContent.generatedVariants.variants || step3DataContent.variants || {},
+        }
+      : null
+  );
 
-  // Update currentStepState when step3Data changes
-  useEffect(() => {
-    const step3DataContent = step3Data?.data || step3Data;
-    const hasGeneratedVariants = !!(
-      step3DataContent?.generatedVariants ||
-      step3DataContent?.step === "constructor"
+  // Get content from step data (step 2)
+  const getSourceContent = () => {
+    return (
+      stepData?.content ||
+      stepData?.text ||
+      stepData?.transcription ||
+      stepData?.sourceContent ||
+      ""
     );
-    if (hasGeneratedVariants && currentStepState === "load") {
-      setCurrentStepState("constructor");
-      const newGeneratedData = step3DataContent?.generatedVariants
-        ? {
-            scenes:
-              step3DataContent.generatedVariants.scenes ||
-              step3DataContent.scenes ||
-              [],
-            variants:
-              step3DataContent.generatedVariants.variants ||
-              step3DataContent.variants ||
-              {},
-          }
-        : null;
-      if (newGeneratedData) {
-        setGeneratedData(newGeneratedData);
-      }
-    }
-  }, [step3Data]);
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [reanalyzeJobId, setReanalyzeJobId] = useState<string | null>(null);
-  const [jobStatus, setJobStatus] = useState<any>(null);
-  const [advancedAnalysis, setAdvancedAnalysis] =
-    useState<AdvancedScoreResult | null>(null);
-  const [analysisMode, setAnalysisMode] = useState<"simple" | "advanced">(
-    "advanced"
-  );
-  // Initialize selectedFormat from stepData if available (from analysis recommendation)
-  const [selectedFormat, setSelectedFormat] = useState<string>(
-    stepData?.recommendedFormat || stepData?.selectedFormat || "news"
-  );
-  const [selectedVariants, setSelectedVariants] = useState<
-    Record<number, number>
-  >({});
-  const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
-  const [recoveryError, setRecoveryError] = useState<any>(null);
-  const [failedFormatId, setFailedFormatId] = useState<string | null>(null);
-  const [editedScenes, setEditedScenes] = useState<Record<number, string>>({});
-  const [isEditing, setIsEditing] = useState<number | null>(null);
-  const [reanalyzeDialogOpen, setReanalyzeDialogOpen] = useState(false);
-  const [variantScores, setVariantScores] = useState<Record<string, number>>(
-    {}
-  );
-  const [scoringVariant, setScoringVariant] = useState<string | null>(null);
-  const [analysisTime, setAnalysisTime] = useState<number | undefined>(
-    undefined
-  );
-  const [showFormatModal, setShowFormatModal] = useState(false);
-  const [targetLanguage, setTargetLanguage] = useState<"ru" | "en">("ru");
-
-  // Feature flag check
-  const STAGE3_MAGIC_UI = true;
-
-  // Get content from step data
-  const content =
-    stepData?.content || stepData?.text || stepData?.transcription || "";
-
-  // Use all hooks
-  const {
-    scriptVersionsQuery,
-    hasScript,
-    hasCandidate,
-    currentVersion,
-    candidateVersion,
-  } = useScriptVersions(project);
-  const { acceptMutation, rejectMutation } = useVersionMutations(project.id);
-  const { reanalyzeMutation, lastSubmittedPayload } = useReanalysisMutation(
-    project.id,
-    setReanalyzeJobId,
-    setJobStatus,
-    setCompareOpen
-  );
-
-  useReanalysisPolling(
-    project.id,
-    reanalyzeJobId,
-    setReanalyzeJobId,
-    setJobStatus,
-    setCompareOpen,
-    lastSubmittedPayload
-  );
-
-  const {
-    shouldAnalyze,
-    setShouldAnalyze,
-    sourceAnalysisQuery,
-    handleStartAnalysis,
-    sourceData,
-  } = useSourceAnalysis(project, hasScript, content, stepData);
-
-  const { generateMutation, handleGenerateScript } = useGenerateScript(
-    project.id,
-    targetLanguage,
-    scriptVersionsQuery,
-    setRecoveryError,
-    setFailedFormatId,
-    setRecoveryModalOpen
-  );
-
-  const { advancedAnalyzeMutation } = useAdvancedAnalysis(
-    project,
-    stepData,
-    content,
-    selectedFormat,
-    setAdvancedAnalysis,
-    setAnalysisTime
-  );
-
-  const { analyzeMutation, scoreVariantMutation } = useLegacyAnalysis(
-    project.id,
-    content,
-    setAnalysis,
-    setSelectedFormat,
-    setVariantScores,
-    setScoringVariant
-  );
-
-  useCachedAnalysis(
-    project.id,
-    step3Data,
-    setShouldAnalyze,
-    setAdvancedAnalysis,
-    setAnalysisMode,
-    setAnalysisTime,
-    setSelectedFormat,
-    setAnalysis,
-    setSelectedVariants,
-    setEditedScenes,
-    setVariantScores
-  );
-
-  const { saveStepMutation, updateProjectMutation, handleProceed } =
-    useSaveMutations(
-      project.id,
-      analysisMode,
-      advancedAnalysis,
-      analysisTime,
-      selectedFormat,
-      analysis,
-      selectedVariants,
-      editedScenes,
-      variantScores,
-      STAGE3_MAGIC_UI,
-      hasScript,
-      scriptVersionsQuery,
-      candidateVersion,
-      reanalyzeJobId
-    );
-
-  // Helper functions
-  const handleAnalyze = () => {
-    if (advancedAnalysis || analysis) {
-      setReanalyzeDialogOpen(true);
-    } else {
-      if (analysisMode === "advanced") {
-        advancedAnalyzeMutation.mutate();
-      } else {
-        analyzeMutation.mutate(selectedFormat);
-      }
-    }
   };
 
-  const confirmReanalyze = () => {
-    setReanalyzeDialogOpen(false);
-    if (analysisMode === "advanced") {
-      advancedAnalyzeMutation.mutate();
-    } else {
-      analyzeMutation.mutate(selectedFormat);
-    }
-  };
-
-  const handleOpenCompare = () => {
-    console.log(
-      "[Compare] Click - hasCandidate:",
-      hasCandidate,
-      "jobRunning:",
-      !!reanalyzeJobId
+  // Get format from step data
+  const getFormat = () => {
+    return (
+      step3DataContent?.format ||
+      stepData?.format ||
+      stepData?.recommendedFormat ||
+      "news_update"
     );
-    setCompareOpen(true);
   };
 
-  // Handle Step 3.1: Generate script variants with timeout
-  const handleGenerateFromStep3_1 = async (data: {
-    sourceContent: string;
-    format: string;
-    customPrompt?: string;
-  }) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout
-
+  // Proceed to next stage (Stage 4 - Voice Generation)
+  const handleProceedToVoice = async () => {
     try {
-      // Create fetch with abort signal
-      const token = localStorage.getItem("token");
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const fetchRes = await fetch("/api/scripts/generate-variants", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          sourceText: data.sourceContent,
-          prompt: data.customPrompt || "",
-          format: data.format,
-        }),
-        signal: controller.signal,
+      // Update project to stage 4
+      await apiRequest("PATCH", `/api/projects/${project.id}`, {
+        currentStage: 4,
       });
 
-      clearTimeout(timeoutId);
+      // Invalidate and refetch to trigger navigation
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id],
+      });
+      await queryClient.refetchQueries({
+        queryKey: ["/api/projects", project.id],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id, "steps"],
+      });
 
-      if (!fetchRes.ok) {
-        const error = await fetchRes.json();
+      toast({
+        title: "Сценарий сохранён",
+        description: "Переход к озвучке...",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось перейти к озвучке",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Generate variants for news/instagram when entering Stage 3
+  const generateVariants = async () => {
+    const content = getSourceContent();
+    const format = getFormat();
+    const customPrompt = step3DataContent?.customPrompt || "";
+
+    if (!content) {
+      toast({
+        title: "Ошибка",
+        description: "Нет контента для генерации сценария",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(10);
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setGenerationProgress((prev) => Math.min(prev + 10, 90));
+      }, 500);
+
+      // Generate variants
+      const res = await apiRequest("POST", "/api/scripts/generate-variants", {
+        sourceText: content,
+        prompt: customPrompt,
+        format: format,
+      });
+
+      clearInterval(progressInterval);
+      setGenerationProgress(95);
+
+      if (!res.ok) {
+        const error = await res.json();
         throw new Error(error.error || "Не удалось сгенерировать варианты");
       }
 
-      const response = await fetchRes.json();
+      const response = await res.json();
       const result = response.data || response;
 
-      // Save step 3.1 data
+      // Save to step 3
       await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 3,
         data: {
-          sourceContent: data.sourceContent,
-          format: data.format,
-          customPrompt: data.customPrompt,
+          sourceContent: content,
+          format: format,
+          customPrompt: customPrompt,
           generatedVariants: {
             scenes: result.scenes || [],
             variants: result.variants || {},
@@ -313,38 +161,51 @@ export function Stage3AIAnalysis({
         },
       });
 
+      setGenerationProgress(100);
+
+      // Update state with generated data
       setGeneratedData({
         scenes: result.scenes || [],
         variants: result.variants || {},
       });
-      setCurrentStepState("constructor");
+
+      // Invalidate queries to refresh data
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/projects", project.id, "steps"],
+      });
 
       toast({
         title: "Сценарий сгенерирован",
-        description: "Выберите варианты для каждой сцены",
+        description: `Создано ${result.scenes?.length || 0} сцен. Выберите варианты для каждой сцены.`,
       });
     } catch (error: any) {
-      clearTimeout(timeoutId);
-
-      if (error.name === "AbortError" || error.message?.includes("aborted")) {
-        toast({
-          title: "Генерация отменена",
-          description:
-            "Генерация заняла слишком много времени. Попробуйте ещё раз или уменьшите объём текста.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Ошибка генерации",
-          description: error.message || "Не удалось сгенерировать варианты",
-          variant: "destructive",
-        });
-      }
+      console.error("Generation error:", error);
+      toast({
+        title: "Ошибка генерации",
+        description: error.message || "Не удалось сгенерировать варианты",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+      setGenerationProgress(0);
     }
   };
 
-  // Handle Step 3.2: Complete script
-  const handleCompleteFromStep3_2 = async (finalScript: {
+  // Auto-generate variants for news/instagram if not already generated
+  useEffect(() => {
+    if (!hasGeneratedVariants && !generatedData && !isGenerating) {
+      // Check if this is a news/instagram source that needs generation
+      const sourceType = project.sourceType;
+      const hasContent = !!getSourceContent();
+
+      if ((sourceType === "news" || sourceType === "instagram") && hasContent) {
+        generateVariants();
+      }
+    }
+  }, [hasGeneratedVariants, project.sourceType]);
+
+  // Handle completion from Constructor
+  const handleComplete = async (finalScript: {
     scenes: any[];
     selectedVariants: Record<number, string>;
     totalWords: number;
@@ -352,22 +213,18 @@ export function Stage3AIAnalysis({
     aiScore?: number;
   }) => {
     try {
-      // Save final script
-      const res = await apiRequest(
-        "POST",
-        `/api/projects/${project.id}/steps`,
-        {
-          stepNumber: 3,
-          data: {
-            ...step3Data,
-            finalScript,
-            completed: true,
-          },
-        }
-      ).then((res) => res.json());
+      // Save final script to step 3
+      await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 3,
+        data: {
+          ...step3DataContent,
+          finalScript,
+          completed: true,
+        },
+      });
 
-      // Proceed to next stage
-      handleProceed(res);
+      // Proceed to next stage (voice generation)
+      await handleProceedToVoice();
     } catch (error: any) {
       toast({
         title: "Ошибка сохранения",
@@ -377,156 +234,155 @@ export function Stage3AIAnalysis({
     }
   };
 
-  // NEW FLOW: CreateScriptScreen (unified) + Constructor
-  // Check if we should use new unified flow
-  const useNewFlow =
-    !STAGE3_MAGIC_UI || (currentStepState === "load" && !generatedData);
+  // Handle back - regenerate variants
+  const handleBack = () => {
+    setGeneratedData(null);
+  };
 
-  // if (useNewFlow) {
-  //   // if (currentStepState === "load") {
-  //   //   return (
-  //   //     <CreateScriptScreen
-  //   //       project={project}
-  //   //       stepData={stepData}
-  //   //       onGenerate={handleGenerateFromStep3_1}
-  //   //       isLoading={false}
-  //   //     />
-  //   //   );
-  //   // }
-  if (
-    currentStepState === "constructor" &&
-    generatedData &&
-    store.myValue === "own-idea"
-  ) {
+  // === RENDERING ===
+
+  // Mode 1: Generating variants - show loading state
+  if (isGenerating) {
     return (
-      <Step3_2_Constructor
-        project={project}
-        step3Data={step3Data}
-        scenes={generatedData.scenes}
-        variants={generatedData.variants}
-        onBack={() => setCurrentStepState("load")}
-        onComplete={handleCompleteFromStep3_2}
-      />
-    );
-  }
-  if (!hasScript && store.myValue === "external-source") {
-    return (
-      <SourceReviewMode
-        project={project}
-        stepData={stepData}
-        sourceData={sourceData}
-        hasScript={hasScript}
-        shouldAnalyze={shouldAnalyze}
-        handleStartAnalysis={handleStartAnalysis}
-        sourceAnalysisQuery={sourceAnalysisQuery}
-        handleGenerateScript={handleGenerateScript}
-        generateMutation={generateMutation}
-        targetLanguage={targetLanguage}
-        setTargetLanguage={setTargetLanguage}
-        showFormatModal={showFormatModal}
-        setShowFormatModal={setShowFormatModal}
-        compareOpen={compareOpen}
-        setCompareOpen={setCompareOpen}
-        currentVersion={currentVersion}
-        candidateVersion={candidateVersion}
-        reanalyzeJobId={reanalyzeJobId}
-        jobStatus={jobStatus}
-        handleProceed={handleProceed}
-      />
+      <div className="max-w-4xl mx-auto space-y-6 p-8">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="h-6 w-6 animate-pulse text-primary" />
+              Создание сценария
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              AI анализирует контент и генерирует варианты сцен
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center gap-6">
+              <Loader2 className="h-16 w-16 animate-spin text-primary" />
+              <div className="text-center space-y-2">
+                <p className="text-lg font-medium">Генерация вариантов...</p>
+                <p className="text-sm text-muted-foreground">
+                  Это может занять 15-30 секунд
+                </p>
+              </div>
+              <div className="w-full max-w-md space-y-2">
+                <Progress value={generationProgress} />
+                <p className="text-xs text-muted-foreground text-center">
+                  {generationProgress}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
-  if (hasScript && store.myValue === "external-source") {
+  // Mode 2: No variants and no content - show error/prompt
+  if (!generatedData && !getSourceContent()) {
     return (
-      <SceneEditorMode
-        project={project}
-        sourceData={sourceData}
-        scriptVersionsQuery={scriptVersionsQuery}
-        candidateVersion={candidateVersion}
-        reanalyzeJobId={reanalyzeJobId}
-        jobStatus={jobStatus}
-        lastSubmittedPayload={lastSubmittedPayload}
-        hasCandidate={hasCandidate}
-        compareOpen={compareOpen}
-        targetLanguage={targetLanguage}
-        reanalyzeMutation={reanalyzeMutation}
-        acceptMutation={acceptMutation}
-        rejectMutation={rejectMutation}
-        updateProjectMutation={updateProjectMutation}
-        setCompareOpen={setCompareOpen}
-        handleOpenCompare={handleOpenCompare}
-        handleProceed={handleProceed}
-      />
+      <div className="max-w-4xl mx-auto space-y-6 p-8">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">Создание сценария</h1>
+            <p className="text-muted-foreground">
+              Не найден контент для создания сценария
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center gap-4">
+              <Sparkles className="h-12 w-12 text-muted-foreground" />
+              <div className="text-center space-y-2">
+                <p className="font-medium">Контент не найден</p>
+                <p className="text-sm text-muted-foreground">
+                  Вернитесь на предыдущий шаг и выберите источник контента
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => window.history.back()}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Вернуться назад
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  if (currentStepState === "load") {
-    //   //   return (
-    //   //     <CreateScriptScreen
-    //   //       project={project}
-    //   //       stepData={stepData}
-    //   //       onGenerate={handleGenerateFromStep3_1}
-    //   //       isLoading={false}
-    //   //     />
-    //   //   );
-    //   // }
+  // Mode 3: Has content but no variants - show generate button
+  if (!generatedData && getSourceContent()) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 p-8">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="h-6 w-6" />
+              Создание сценария
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Готово к генерации вариантов сцен
+            </p>
+          </div>
+        </div>
 
-    return <>нету нифига</>;
+        {/* Source preview */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Исходный материал</CardTitle>
+            <CardDescription>
+              {project.sourceType === "news" && "Статья из новостей"}
+              {project.sourceType === "instagram" && "Транскрипция рилса"}
+              {project.sourceType === "custom" && "Пользовательский текст"}
+              {!project.sourceType && "Контент для сценария"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm line-clamp-6 text-muted-foreground whitespace-pre-wrap">
+              {getSourceContent().slice(0, 500)}
+              {getSourceContent().length > 500 && "..."}
+            </div>
+            <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+              <span>
+                {getSourceContent().split(/\s+/).filter(Boolean).length} слов
+              </span>
+              <span>•</span>
+              <span>Формат: {getFormat()}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-center">
+          <Button
+            size="lg"
+            onClick={generateVariants}
+            className="gap-2"
+          >
+            <Sparkles className="h-5 w-5" />
+            Сгенерировать сценарий
+          </Button>
+        </div>
+      </div>
+    );
   }
 
-  return <>нету нифига</>;
-  // }
-  // }
-
-  // MODE 1: Source review mode (STAGE3_MAGIC_UI enabled, no script yet)
-  //
-
-  //   // MODE 3: Legacy Analysis Mode (when feature flag is off OR script exists)
-  //   return (
-  //     <LegacyAnalysisMode
-  //       project={project}
-  //       stepData={stepData}
-  //       content={content}
-  //       selectedFormat={selectedFormat}
-  //       setSelectedFormat={setSelectedFormat}
-  //       analysis={analysis}
-  //       advancedAnalysis={advancedAnalysis}
-  //       analysisTime={analysisTime}
-  //       analyzeMutation={analyzeMutation}
-  //       advancedAnalyzeMutation={advancedAnalyzeMutation}
-  //       scoreVariantMutation={scoreVariantMutation}
-  //       handleAnalyze={handleAnalyze}
-  //       confirmReanalyze={confirmReanalyze}
-  //       reanalyzeDialogOpen={reanalyzeDialogOpen}
-  //       setReanalyzeDialogOpen={setReanalyzeDialogOpen}
-  //       editedScenes={editedScenes}
-  //       setEditedScenes={setEditedScenes}
-  //       isEditing={isEditing}
-  //       setIsEditing={setIsEditing}
-  //       selectedVariants={selectedVariants}
-  //       setSelectedVariants={setSelectedVariants}
-  //       variantScores={variantScores}
-  //       setVariantScores={setVariantScores}
-  //       scoringVariant={scoringVariant}
-  //       setScoringVariant={setScoringVariant}
-  //       updateProjectMutation={updateProjectMutation}
-  //       handleProceed={handleProceed}
-  //       hasCandidate={hasCandidate}
-  //       currentVersion={currentVersion}
-  //       candidateVersion={candidateVersion}
-  //       compareOpen={compareOpen}
-  //       setCompareOpen={setCompareOpen}
-  //       handleOpenCompare={handleOpenCompare}
-  //       reanalyzeJobId={reanalyzeJobId}
-  //       jobStatus={jobStatus}
-  //       recoveryModalOpen={recoveryModalOpen}
-  //       setRecoveryModalOpen={setRecoveryModalOpen}
-  //       recoveryError={recoveryError}
-  //       failedFormatId={failedFormatId}
-  //       generateMutation={generateMutation}
-  //       toast={toast}
-  //     />
-  //   );
-  // }
+  // Mode 4: Has variants - show Constructor
+  return (
+    <Step3_2_Constructor
+      project={project}
+      step3Data={step3DataContent}
+      scenes={generatedData!.scenes}
+      variants={generatedData!.variants}
+      onBack={handleBack}
+      onComplete={handleComplete}
+    />
+  );
 }
