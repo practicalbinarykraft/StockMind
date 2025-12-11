@@ -427,29 +427,29 @@ export function Stage3AIAnalysis({
   }
 
   // MODE 2: Scene editor mode (STAGE3_MAGIC_UI enabled, script exists)
-  if (hasScript) {
-    return (
-      <SceneEditorMode
-        project={project}
-        sourceData={sourceData}
-        scriptVersionsQuery={scriptVersionsQuery}
-        candidateVersion={candidateVersion}
-        reanalyzeJobId={reanalyzeJobId}
-        jobStatus={jobStatus}
-        lastSubmittedPayload={lastSubmittedPayload}
-        hasCandidate={hasCandidate}
-        compareOpen={compareOpen}
-        targetLanguage={targetLanguage}
-        reanalyzeMutation={reanalyzeMutation}
-        acceptMutation={acceptMutation}
-        rejectMutation={rejectMutation}
-        updateProjectMutation={updateProjectMutation}
-        setCompareOpen={setCompareOpen}
-        handleOpenCompare={handleOpenCompare}
-        handleProceed={handleProceed}
-      />
-    );
-  }
+  // if (hasScript) {
+  //   return (
+  //     <SceneEditorMode
+  //       project={project}
+  //       sourceData={sourceData}
+  //       scriptVersionsQuery={scriptVersionsQuery}
+  //       candidateVersion={candidateVersion}
+  //       reanalyzeJobId={reanalyzeJobId}
+  //       jobStatus={jobStatus}
+  //       lastSubmittedPayload={lastSubmittedPayload}
+  //       hasCandidate={hasCandidate}
+  //       compareOpen={compareOpen}
+  //       targetLanguage={targetLanguage}
+  //       reanalyzeMutation={reanalyzeMutation}
+  //       acceptMutation={acceptMutation}
+  //       rejectMutation={rejectMutation}
+  //       updateProjectMutation={updateProjectMutation}
+  //       setCompareOpen={setCompareOpen}
+  //       handleOpenCompare={handleOpenCompare}
+  //       handleProceed={handleProceed}
+  //     />
+  //   );
+  // }
 
   if (currentStepState === "load") {
     //   //   return (
