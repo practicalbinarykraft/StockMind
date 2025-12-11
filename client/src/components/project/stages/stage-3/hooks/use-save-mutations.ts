@@ -26,25 +26,25 @@ export function useSaveMutations(
     mutationFn: async (res: any | null) => {
       // Save data based on current analysis mode
       const dataToSave =
-        analysisMode === "advanced"
-          ? {
-              analysisMode: "advanced",
-              advancedAnalysis,
-              analysisTime,
-              selectedFormat: selectedFormat || res.data.format,
-            }
-          : {
-              analysisMode: "simple",
-              selectedFormat: selectedFormat || res.data.format,
-              selectedVariants:
-                selectedVariants || res.data.finalScript.selectedVariants,
-              editedScenes,
-              variantScores,
-              overallScore:
-                analysis?.overallScore || res.data.finalScript.aiScore,
-              overallComment: analysis?.overallComment,
-              scenes: analysis?.scenes || res.data.finalScript.scenes,
-            };
+        // analysisMode === "advanced"
+        //   ? {
+        //       analysisMode: "advanced",
+        //       advancedAnalysis,
+        //       analysisTime,
+        //       selectedFormat: selectedFormat || res.data.format,
+        //     }
+        //   :
+        {
+          analysisMode: "simple",
+          selectedFormat: selectedFormat || res.data.format,
+          selectedVariants:
+            selectedVariants || res.data.finalScript.selectedVariants,
+          editedScenes,
+          variantScores,
+          overallScore: analysis?.overallScore || res.data.finalScript.aiScore,
+          overallComment: analysis?.overallComment,
+          scenes: analysis?.scenes || res.data.finalScript.scenes,
+        };
 
       return await apiRequest("POST", `/api/projects/${projectId}/steps`, {
         stepNumber: 3,
