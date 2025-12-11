@@ -77,45 +77,27 @@ export function useSaveMutations(
     },
   });
 
-  const handleProceed = async () => {
+  const handleProceed = async (res: any) => {
     // For STAGE3_MAGIC_UI: check activeVersion (candidate or current) metrics
     // For old UI: check global advancedAnalysis/analysis states
-    if (STAGE3_MAGIC_UI && hasScript) {
-      const current = scriptVersionsQuery.data?.currentVersion;
-      const candidate = candidateVersion;
-      const activeVersion = candidate ?? current;
-
-      // Soft warning if analysis pending, but allow proceeding
-      if (activeVersion && !activeVersion.metrics && reanalyzeJobId) {
-        toast({
-          title: "Анализ ещё выполняется",
-          description:
-            "Можно продолжить озвучку сейчас, анализ завершится в фоне.",
-        });
-        // Continue anyway - don't block
-      }
-    } else {
-      // Old UI logic: check global states
-      if (!advancedAnalysis && !analysis) {
+    if (res.data.finalScript) {
+      try {
+        // Save step data first
+        await saveStepMutation.mutateAsync();
+        // Then update project stage (which will trigger navigation via refetch)
+        await updateProjectMutation.mutateAsync();
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Please complete the analysis first",
+          description: error.message || "Failed to save and proceed",
         });
-        return;
       }
-    }
-
-    try {
-      // Save step data first
-      await saveStepMutation.mutateAsync();
-      // Then update project stage (which will trigger navigation via refetch)
-      await updateProjectMutation.mutateAsync();
-    } catch (error: any) {
+    } else {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to save and proceed",
+        description: "нет сценария",
       });
     }
   };

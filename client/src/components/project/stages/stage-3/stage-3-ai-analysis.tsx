@@ -353,17 +353,21 @@ export function Stage3AIAnalysis({
   }) => {
     try {
       // Save final script
-      await apiRequest("POST", `/api/projects/${project.id}/steps`, {
-        stepNumber: 3,
-        data: {
-          ...step3Data,
-          finalScript,
-          completed: true,
-        },
-      });
+      const res = await apiRequest(
+        "POST",
+        `/api/projects/${project.id}/steps`,
+        {
+          stepNumber: 3,
+          data: {
+            ...step3Data,
+            finalScript,
+            completed: true,
+          },
+        }
+      ).then((res) => res.json());
 
       // Proceed to next stage
-      handleProceed();
+      handleProceed(res);
     } catch (error: any) {
       toast({
         title: "Ошибка сохранения",
