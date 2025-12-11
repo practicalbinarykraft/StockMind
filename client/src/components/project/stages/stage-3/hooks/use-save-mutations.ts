@@ -82,31 +82,31 @@ export function useSaveMutations(
   const handleProceed = async (res: any | null) => {
     // For STAGE3_MAGIC_UI: check activeVersion (candidate or current) metrics
     // For old UI: check global advancedAnalysis/analysis states
-    if (hasScript) {
-      const current = scriptVersionsQuery.data?.currentVersion;
-      const candidate = candidateVersion;
-      const activeVersion = candidate ?? current;
+    // if (hasScript) {
+    //   const current = scriptVersionsQuery.data?.currentVersion;
+    //   const candidate = candidateVersion;
+    //   const activeVersion = candidate ?? current;
 
-      // Soft warning if analysis pending, but allow proceeding
-      if (activeVersion && !activeVersion.metrics && reanalyzeJobId) {
-        toast({
-          title: "Анализ ещё выполняется",
-          description:
-            "Можно продолжить озвучку сейчас, анализ завершится в фоне.",
-        });
-        // Continue anyway - don't block
-      }
-    } else {
-      // Old UI logic: check global states
-      if (!advancedAnalysis && !analysis) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Please complete the analysis first",
-        });
-        return;
-      }
-    }
+    //   // Soft warning if analysis pending, but allow proceeding
+    //   if (activeVersion && !activeVersion.metrics && reanalyzeJobId) {
+    //     toast({
+    //       title: "Анализ ещё выполняется",
+    //       description:
+    //         "Можно продолжить озвучку сейчас, анализ завершится в фоне.",
+    //     });
+    //     // Continue anyway - don't block
+    //   }
+    // } else {
+    //   // Old UI logic: check global states
+    //   if (!advancedAnalysis && !analysis) {
+    //     toast({
+    //       variant: "destructive",
+    //       title: "Error",
+    //       description: "Please complete the analysis first",
+    //     });
+    //     return;
+    //   }
+    // }
 
     try {
       if (res) {
