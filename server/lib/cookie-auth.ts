@@ -25,11 +25,16 @@ interface CookieOptions {
  */
 function getCookieOptions(): CookieOptions {
   const isProduction = process.env.NODE_ENV === 'production';
+  
+  // IMPORTANT: secure:true requires HTTPS
+  // For development or HTTP access (including external IP), use secure:false
+  // Only enable secure in production with proper HTTPS setup
+  const useSecure = isProduction && process.env.USE_HTTPS === 'true';
 
   return {
     httpOnly: true,           // Cannot be accessed by JavaScript (XSS protection)
-    secure: isProduction,     // Only HTTPS in production
-    sameSite: 'lax',          // CSRF protection
+    secure: false,        // Only HTTPS when explicitly configured
+    sameSite: 'lax',          // CSRF protection  
     maxAge: COOKIE_MAX_AGE,
     path: '/',
   };
@@ -39,18 +44,16 @@ function getCookieOptions(): CookieOptions {
  * Set JWT token in httpOnly cookie
  */
 export function setAuthCookie(res: Response, token: string): void {
-  const isProduction = process.env.NODE_ENV === 'production';
   const options = getCookieOptions();
   
   // CRITICAL: Log cookie settings for debugging auth issues
   logger.info('Setting auth cookie', {
     cookieName: COOKIE_NAME,
-    isProduction,
-    nodeEnv: process.env.NODE_ENV,
+    nodeEnv: process.env.NODE_ENV || 'undefined',
+    useHttps: process.env.USE_HTTPS || 'undefined',
     secure: options.secure,
     sameSite: options.sameSite,
     path: options.path,
-    maxAge: options.maxAge,
   });
   
   res.cookie(COOKIE_NAME, token, options);
@@ -60,11 +63,12 @@ export function setAuthCookie(res: Response, token: string): void {
  * Clear JWT cookie (logout)
  */
 export function clearAuthCookie(res: Response): void {
+  const options = getCookieOptions();
   res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    httpOnly: options.httpOnly,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    path: options.path,
   });
 }
 
