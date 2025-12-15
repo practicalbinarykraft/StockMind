@@ -53,7 +53,10 @@ export async function requireAuth(
       logger.warn('No auth token found', {
         path: req.path,
         cookies: req.cookies,
-        cookieHeader: req.headers.cookie,
+        cookieHeader: req.headers.cookie || 'EMPTY',
+        host: req.headers.host,
+        origin: req.headers.origin || 'NONE',
+        referer: req.headers.referer || 'NONE',
       });
       res.status(401).json({
         message: 'Authentication required'

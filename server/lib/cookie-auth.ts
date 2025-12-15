@@ -39,11 +39,20 @@ function getCookieOptions(): CookieOptions {
  * Set JWT token in httpOnly cookie
  */
 export function setAuthCookie(res: Response, token: string): void {
+  const isProduction = process.env.NODE_ENV === 'production';
   const options = getCookieOptions();
-  logger.debug('Setting auth cookie', {
+  
+  // CRITICAL: Log cookie settings for debugging auth issues
+  logger.info('Setting auth cookie', {
     cookieName: COOKIE_NAME,
-    options: { ...options, token: '[REDACTED]' },
+    isProduction,
+    nodeEnv: process.env.NODE_ENV,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    path: options.path,
+    maxAge: options.maxAge,
   });
+  
   res.cookie(COOKIE_NAME, token, options);
 }
 
