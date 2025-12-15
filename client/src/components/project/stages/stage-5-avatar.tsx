@@ -219,8 +219,8 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     console.log(`🎬 Starting polling for video: ${videoId}`)
     
     let pollCount = 0
-    const MAX_POLLS = 120 // 120 polls * 3 seconds = 6 minutes max
-    const POLL_INTERVAL = 3000 // 3 seconds
+    const MAX_POLLS = 20 // 20 polls * 30 seconds = 10 minutes max
+    const POLL_INTERVAL = 30000 // 30 seconds (reduced to avoid server overload)
     
     // Start polling with a local interval reference
     const intervalId = setInterval(async () => {
@@ -234,7 +234,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
         setVideoStatus(prevStatus => ({
           ...prevStatus,
           status: 'failed',
-          error_message: 'Video generation timeout. Please try again or check HeyGen dashboard.'
+          error_message: 'Video generation timeout (10 min). Please check HeyGen dashboard or try again later.'
         }))
         return
       }
@@ -522,11 +522,14 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <div className="flex items-center gap-3">
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     <span className="text-sm">
-                      {videoStatus.status === 'pending' ? 'Initializing...' : 'Generating video...'}
+                      {videoStatus.status === 'pending' ? 'Initializing video generation...' : 'HeyGen is generating your video...'}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    This may take 1-2 minutes. Please wait...
+                    Video generation typically takes 2-5 minutes. Status is checked every 30 seconds.
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    You can safely leave this page - progress will be saved automatically.
                   </p>
                 </div>
               ) : videoStatus.status === 'completed' ? (
