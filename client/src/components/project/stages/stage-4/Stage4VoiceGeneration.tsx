@@ -84,14 +84,12 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             finalScript,
             selectedVoice,
             audioUrl: serverAudioUrl,
-            versionId: activeVersion?.id,
           }
         : {
             mode: "upload",
             audioUrl: serverAudioUrl || stage4Data?.data?.audioUrl,
             filename: audioUpload.uploadedFile?.name || stage4Data?.data?.filename,
             filesize: audioUpload.uploadedFile?.size || stage4Data?.data?.filesize,
-            versionId: activeVersion?.id,
           }
 
       return await apiRequest("POST", `/api/projects/${project.id}/steps`, {

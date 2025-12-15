@@ -2,13 +2,12 @@ import { useState, useRef } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
-import type { ScriptVersion } from "../types"
 
 interface UseVoiceGenerationProps {
   projectId: string
   finalScript: string
   selectedVoice: string
-  activeVersion: ScriptVersion | undefined
+  activeVersion: undefined
   onAudioGenerated: (audioUrl: string) => void
 }
 
@@ -92,7 +91,6 @@ export function useVoiceGeneration({
           finalScript,
           selectedVoice,
           audioUrl: uploadData.audioUrl,
-          versionId: activeVersion?.id,
         }
 
         await apiRequest("POST", `/api/projects/${projectId}/steps`, {
