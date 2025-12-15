@@ -41,7 +41,7 @@ export function LoginForm() {
         });
       }
       // Redirect to home page
-      window.location.href = "/";
+      // window.location.href = "/";
     } catch (error: any) {
       toast({
         title: isLogin ? "Login failed" : "Registration failed",
