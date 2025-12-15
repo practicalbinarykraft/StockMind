@@ -1,10 +1,19 @@
 import type { Express } from "express";
+import axios from "axios";
 import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "../heygen-service";
 import { apiResponse } from "../lib/api-response";
 import { logger } from "../lib/logger";
+
+// Allowed domains for image proxying (security measure)
+const ALLOWED_IMAGE_DOMAINS = [
+  'files.heygen.ai',
+  'files2.heygen.ai',
+  'resource.heygen.ai',
+  'api.heygen.com'
+];
 
 /**
  * HeyGen Avatar Video Generation routes
@@ -129,6 +138,76 @@ export function registerHeygenRoutes(app: Express) {
     } catch (error: any) {
       logger.error("Error checking HeyGen video status", { error: error.message, videoId: req.params.videoId });
       return apiResponse.serverError(res, "Failed to check video status", error);
+    }
+  });
+
+  /**
+   * GET /api/heygen/image-proxy
+   * Proxies HeyGen avatar images to avoid CORS and hotlinking issues
+   * Query: url - The HeyGen image URL to proxy
+   */
+  app.get("/api/heygen/image-proxy", requireAuth, async (req: any, res) => {
+    try {
+      const { url } = req.query;
+
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: "Image URL is required" });
+      }
+
+      // Validate URL is from allowed HeyGen domains
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        return res.status(400).json({ message: "Invalid URL format" });
+      }
+
+      if (!ALLOWED_IMAGE_DOMAINS.includes(parsedUrl.hostname)) {
+        logger.warn("Blocked image proxy attempt to disallowed domain", { 
+          hostname: parsedUrl.hostname,
+          url 
+        });
+        return res.status(403).json({ message: "Domain not allowed for proxying" });
+      }
+
+      logger.debug("Proxying HeyGen image", { url: url.substring(0, 100) });
+
+      // Fetch the image from HeyGen
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 15000, // 15 second timeout
+        headers: {
+          'Accept': 'image/*',
+          'User-Agent': 'StockMind/1.0'
+        }
+      });
+
+      // Set appropriate headers for the response
+      const contentType = response.headers['content-type'] || 'image/webp';
+      res.set({
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        'X-Content-Type-Options': 'nosniff'
+      });
+
+      res.send(Buffer.from(response.data));
+    } catch (error: any) {
+      // Handle specific axios errors
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          logger.error("Image proxy timeout", { url: req.query.url });
+          return res.status(504).json({ message: "Image fetch timeout" });
+        }
+        if (error.response?.status === 404) {
+          return res.status(404).json({ message: "Image not found" });
+        }
+      }
+      
+      logger.error("Error proxying HeyGen image", { 
+        error: error.message, 
+        url: req.query.url 
+      });
+      return res.status(500).json({ message: "Failed to fetch image" });
     }
   });
 }

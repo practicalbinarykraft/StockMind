@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward } from "lucide-react"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff } from "lucide-react"
+import { useAvatarImages } from "./stage-5/hooks"
 
 interface Stage5Props {
   project: Project
@@ -75,6 +76,58 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     queryKey: ["/api/heygen/avatars"],
     enabled: !!script, // Only fetch if we have a script
   })
+
+  // Prepare image URLs for the hook
+  const imageUrlsForHook = useMemo(() => {
+    if (!avatars) return []
+    return avatars.map(avatar => ({
+      id: avatar.avatar_id,
+      url: avatar.preview_image_url
+    }))
+  }, [avatars])
+
+  // Use avatar images hook for proxy loading and tracking
+  const {
+    getProxiedUrl,
+    isImageFailed,
+    markLoaded,
+    markError,
+    allImagesLoaded,
+    loadingProgress
+  } = useAvatarImages(imageUrlsForHook, { preloadCount: 9 })
+
+  // Save selected avatar mutation (for persistence)
+  const saveSelectedAvatarMutation = useMutation({
+    mutationFn: async (avatarId: string) => {
+      return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 5,
+        data: {
+          selectedAvatar: avatarId,
+          // Preserve existing data
+          ...(step5Data?.videoId && { videoId: step5Data.videoId }),
+          ...(step5Data?.videoUrl && { videoUrl: step5Data.videoUrl }),
+          ...(step5Data?.status && { status: step5Data.status })
+        }
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps", 5] })
+    }
+  })
+
+  // Handle avatar selection with auto-save
+  const handleAvatarSelect = (avatarId: string) => {
+    setSelectedAvatar(avatarId)
+    // Auto-save selection (debounced by mutation)
+    saveSelectedAvatarMutation.mutate(avatarId)
+  }
+
+  // Restore selected avatar from saved data
+  useEffect(() => {
+    if (step5Data?.selectedAvatar && !selectedAvatar) {
+      setSelectedAvatar(step5Data.selectedAvatar)
+    }
+  }, [step5Data?.selectedAvatar, selectedAvatar])
 
   // Video generation mutation
   const generateVideoMutation = useMutation({
@@ -348,6 +401,34 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   }
 
   const handleCreateVideo = async () => {
+    // Validate required data before generation
+    if (!selectedAvatar) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Пожалуйста, выберите аватар для создания видео"
+      })
+      return
+    }
+    
+    if (!script) {
+      toast({
+        variant: "destructive", 
+        title: "Ошибка",
+        description: "Скрипт не найден. Пожалуйста, завершите предыдущие этапы"
+      })
+      return
+    }
+    
+    if (!audioUrl && !voiceId) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка", 
+        description: "Аудио или голос не найдены. Пожалуйста, завершите этап 4"
+      })
+      return
+    }
+    
     generateVideoMutation.mutate()
   }
 
@@ -531,19 +612,28 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
         )}
 
         {/* Avatars Grid */}
-        {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="aspect-video w-full mb-3" />
-                  <Skeleton className="h-5 w-3/4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-6 w-20" />
-                </CardContent>
-              </Card>
-            ))}
+        {isLoading || (!allImagesLoaded && avatars && avatars.length > 0) ? (
+          <div className="space-y-4">
+            {/* Loading progress indicator */}
+            {avatars && avatars.length > 0 && (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span>Loading avatar images... {loadingProgress.percentage}%</span>
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="aspect-video w-full mb-3 animate-pulse" />
+                    <Skeleton className="h-5 w-3/4" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-6 w-20" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         ) : error ? (
           <Alert variant="destructive">
@@ -563,68 +653,80 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <Badge variant="secondary">{filteredMyAvatars.length}</Badge>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredMyAvatars.slice(0, 9).map(avatar => (
-                    <Card
-                      key={avatar.avatar_id}
-                      className={`cursor-pointer transition-all hover-elevate ${
-                        selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
-                      }`}
-                      onClick={() => setSelectedAvatar(avatar.avatar_id)}
-                      data-testid={`card-avatar-${avatar.avatar_id}`}
-                    >
-                      <CardHeader>
-                        {avatar.preview_image_url ? (
-                          <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
-                            <img
-                              src={avatar.preview_image_url}
-                              alt={avatar.avatar_name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
-                            <Users className="h-16 w-16 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex items-start justify-between gap-2">
-                          <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
-                          {selectedAvatar === avatar.avatar_id && (
-                            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="secondary">
-                            {avatar.gender || "Unknown"}
-                          </Badge>
-                          {avatar.preview_video_url && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handlePreview(avatar.avatar_id, avatar.preview_video_url)
-                              }}
-                              data-testid={`button-preview-${avatar.avatar_id}`}
-                            >
-                              {previewingAvatar === avatar.avatar_id ? (
-                                <>
-                                  <Pause className="h-3 w-3 mr-1" />
-                                  Stop
-                                </>
+                  {filteredMyAvatars.slice(0, 9).map(avatar => {
+                    const proxiedUrl = getProxiedUrl(avatar.avatar_id)
+                    const isFailed = isImageFailed(avatar.avatar_id)
+                    
+                    return (
+                      <Card
+                        key={avatar.avatar_id}
+                        className={`cursor-pointer transition-all hover-elevate ${
+                          selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
+                        }`}
+                        onClick={() => handleAvatarSelect(avatar.avatar_id)}
+                        data-testid={`card-avatar-${avatar.avatar_id}`}
+                      >
+                        <CardHeader>
+                          {proxiedUrl && !isFailed ? (
+                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
+                              <img
+                                src={proxiedUrl}
+                                alt={avatar.avatar_name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                onLoad={() => markLoaded(avatar.avatar_id)}
+                                onError={() => markError(avatar.avatar_id)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
+                              {isFailed ? (
+                                <ImageOff className="h-12 w-12 text-muted-foreground" />
                               ) : (
-                                <>
-                                  <Play className="h-3 w-3 mr-1" />
-                                  Preview
-                                </>
+                                <Users className="h-16 w-16 text-muted-foreground" />
                               )}
-                            </Button>
+                            </div>
                           )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
+                            {selectedAvatar === avatar.avatar_id && (
+                              <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                            )}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant="secondary">
+                              {avatar.gender || "Unknown"}
+                            </Badge>
+                            {avatar.preview_video_url && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePreview(avatar.avatar_id, avatar.preview_video_url)
+                                }}
+                                data-testid={`button-preview-${avatar.avatar_id}`}
+                              >
+                                {previewingAvatar === avatar.avatar_id ? (
+                                  <>
+                                    <Pause className="h-3 w-3 mr-1" />
+                                    Stop
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-3 w-3 mr-1" />
+                                    Preview
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -638,68 +740,80 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <Badge variant="secondary">{filteredPublicAvatars.length}</Badge>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredPublicAvatars.slice(0, 9).map(avatar => (
-                    <Card
-                      key={avatar.avatar_id}
-                      className={`cursor-pointer transition-all hover-elevate ${
-                        selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
-                      }`}
-                      onClick={() => setSelectedAvatar(avatar.avatar_id)}
-                      data-testid={`card-avatar-${avatar.avatar_id}`}
-                    >
-                      <CardHeader>
-                        {avatar.preview_image_url ? (
-                          <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
-                            <img
-                              src={avatar.preview_image_url}
-                              alt={avatar.avatar_name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
-                            <Users className="h-16 w-16 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex items-start justify-between gap-2">
-                          <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
-                          {selectedAvatar === avatar.avatar_id && (
-                            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="secondary">
-                            {avatar.gender || "Unknown"}
-                          </Badge>
-                          {avatar.preview_video_url && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handlePreview(avatar.avatar_id, avatar.preview_video_url)
-                              }}
-                              data-testid={`button-preview-${avatar.avatar_id}`}
-                            >
-                              {previewingAvatar === avatar.avatar_id ? (
-                                <>
-                                  <Pause className="h-3 w-3 mr-1" />
-                                  Stop
-                                </>
+                  {filteredPublicAvatars.slice(0, 9).map(avatar => {
+                    const proxiedUrl = getProxiedUrl(avatar.avatar_id)
+                    const isFailed = isImageFailed(avatar.avatar_id)
+                    
+                    return (
+                      <Card
+                        key={avatar.avatar_id}
+                        className={`cursor-pointer transition-all hover-elevate ${
+                          selectedAvatar === avatar.avatar_id ? "ring-2 ring-primary" : ""
+                        }`}
+                        onClick={() => handleAvatarSelect(avatar.avatar_id)}
+                        data-testid={`card-avatar-${avatar.avatar_id}`}
+                      >
+                        <CardHeader>
+                          {proxiedUrl && !isFailed ? (
+                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
+                              <img
+                                src={proxiedUrl}
+                                alt={avatar.avatar_name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                onLoad={() => markLoaded(avatar.avatar_id)}
+                                onError={() => markError(avatar.avatar_id)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
+                              {isFailed ? (
+                                <ImageOff className="h-12 w-12 text-muted-foreground" />
                               ) : (
-                                <>
-                                  <Play className="h-3 w-3 mr-1" />
-                                  Preview
-                                </>
+                                <Users className="h-16 w-16 text-muted-foreground" />
                               )}
-                            </Button>
+                            </div>
                           )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-base">{avatar.avatar_name}</CardTitle>
+                            {selectedAvatar === avatar.avatar_id && (
+                              <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                            )}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant="secondary">
+                              {avatar.gender || "Unknown"}
+                            </Badge>
+                            {avatar.preview_video_url && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePreview(avatar.avatar_id, avatar.preview_video_url)
+                                }}
+                                data-testid={`button-preview-${avatar.avatar_id}`}
+                              >
+                                {previewingAvatar === avatar.avatar_id ? (
+                                  <>
+                                    <Pause className="h-3 w-3 mr-1" />
+                                    Stop
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-3 w-3 mr-1" />
+                                    Preview
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -721,26 +835,45 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   No script found. Please complete previous stages first.
                 </AlertDescription>
               </Alert>
+            ) : !audioUrl && !voiceId ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No audio or voice found. Please generate or upload audio in Stage 4 first.
+                </AlertDescription>
+              </Alert>
             ) : (
-              <Button
-                size="lg"
-                className="w-full gap-2"
-                onClick={handleCreateVideo}
-                disabled={!selectedAvatar || generateVideoMutation.isPending}
-                data-testid="button-create-video"
-              >
-                {generateVideoMutation.isPending ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                    Creating Video...
-                  </>
-                ) : (
-                  <>
-                    <Users className="h-5 w-5" />
-                    Create Video with Selected Avatar
-                  </>
+              <div className="space-y-3">
+                {!selectedAvatar && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    Select an avatar above to create your video
+                  </p>
                 )}
-              </Button>
+                <Button
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={handleCreateVideo}
+                  disabled={!selectedAvatar || generateVideoMutation.isPending}
+                  data-testid="button-create-video"
+                >
+                  {generateVideoMutation.isPending ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      Creating Video...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-5 w-5" />
+                      Create Video with Selected Avatar
+                    </>
+                  )}
+                </Button>
+                {selectedAvatar && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Using {audioUrl ? "uploaded audio" : "voice generation"} • Avatar will be saved automatically
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
