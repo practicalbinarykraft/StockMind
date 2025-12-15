@@ -17,15 +17,15 @@ export function useNewsMutations(project: Project) {
       return await res.json();
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news/all"] });
       toast({
-        title: "News Refreshed",
-        description: `Found ${data.newItems || 0} new articles`,
+        title: "Парсинг завершен",
+        description: `Добавлено новых статей: ${data.newItems || 0}`,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Refresh Failed",
+        title: "Ошибка парсинга",
         description: error.message,
         variant: "destructive",
       });
@@ -42,7 +42,7 @@ export function useNewsMutations(project: Project) {
       return await res.json();
     },
     onSuccess: (data: any, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news/all"] });
       const message =
         variables.startDate && variables.endDate
           ? `Parsed ${data.totalProcessed || 0} items, ${
@@ -50,13 +50,13 @@ export function useNewsMutations(project: Project) {
             } new (RSS feeds may not support full date range)`
           : `Loaded ${data.newItems || 0} new articles`;
       toast({
-        title: "Extended Parsing Complete",
+        title: "Расширенный парсинг завершен",
         description: message,
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Extended Parse Failed",
+        title: "Ошибка парсинга",
         description: error.message,
         variant: "destructive",
       });
@@ -70,10 +70,10 @@ export function useNewsMutations(project: Project) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news/all"] });
       toast({
-        title: "Article Dismissed",
-        description: "This article won't be shown again",
+        title: "Статья отклонена",
+        description: "Эта статья больше не будет показана",
       });
     },
   });
