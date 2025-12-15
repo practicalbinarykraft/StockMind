@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { type Project } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ import { useNewsMutations } from "./stage-2/hooks/use-news-mutations";
 import type { RssItem } from "@shared/schema";
 import type { EnrichedRssItem } from "./stage-2/utils/news-helpers";
 import { useAppStore } from "@/hooks/use-app-store";
+import Pagination from "@/pages/news/pagination";
 
 interface Stage2Props {
   project: Project;
@@ -41,6 +42,10 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [scoreFilter, setScoreFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"date" | "score">("date");
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const perPage = 50;
 
   // Fetch RSS sources for filter
   const { data: sources } = useQuery({
@@ -91,6 +96,11 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
       score: article.aiScore ?? null,
     };
   };
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, sourceFilter, scoreFilter, sortBy]);
 
   // Filter articles (same logic as All Articles)
   const filteredArticles = useMemo(() => {
@@ -154,6 +164,14 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const enrichedFilteredArticles = useMemo(() => {
     return filteredArticles.map(enrichArticle);
   }, [filteredArticles, articles]); // Include articles to ensure stability
+
+  // Pagination calculations
+  const totalPages = Math.ceil(enrichedFilteredArticles.length / perPage);
+
+  const paginatedArticles = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return enrichedFilteredArticles.slice(start, start + perPage);
+  }, [enrichedFilteredArticles, page]);
 
   // Use news analysis hook
   const {
@@ -410,7 +428,7 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
             </Card>
           ) : (
             <div className="space-y-4">
-              {enrichedFilteredArticles.map((article) => {
+              {paginatedArticles.map((article) => {
                 const analysis = analyses[article.id];
                 const isAnalyzing = analyzingItems.has(article.id);
                 const hasSavedAnalysis = !analysis && !isAnalyzing;
@@ -441,10 +459,18 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
             </div>
           )}
 
+          {/* Pagination */}
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+
           {/* Stats */}
           {articles && (
             <div className="mt-6 text-sm text-muted-foreground">
-              Showing {filteredArticles.length} of {articles.length} articles
+              Showing {paginatedArticles.length} of {filteredArticles.length} articles
+              {filteredArticles.length !== articles.length && ` (filtered from ${articles.length})`}
             </div>
           )}
         </div>
