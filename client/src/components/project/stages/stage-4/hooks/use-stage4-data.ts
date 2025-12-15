@@ -112,18 +112,91 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
     return { myVoices: my, publicVoices: pub }
   }, [voices])
 
-  // Restore state from Stage 4 saved data
+  // Load script from Stage 3 data (PRIMARY SOURCE for all project types)
+  // This contains the user-selected scene variants from Step3_2_Constructor
+  // This effect runs FIRST to establish the finalScript from step 3 data
   useEffect(() => {
-    const isActiveVersionReady = activeVersion !== undefined ||
-                                  (scriptData !== undefined && !activeVersion)
+    // Skip if already have script (either from previous load or from stage 4 saved data)
+    if (finalScript) return
 
+    if (stepData) {
+      // Try different data structures from Stage 3:
+      // Priority 1: finalScript.scenes - from Step3_2_Constructor completion (user-selected variants!)
+      // Priority 2: scenes - legacy format  
+      // Priority 3: generatedVariants.scenes - if not completed yet
+      // Priority 4: text - raw text
+      // Priority 5: sourceContent - original content
+      let defaultScript = ""
+      let source = ""
+      
+      // Priority 1: finalScript.scenes (from Step3_2_Constructor - CONTAINS USER-SELECTED VARIANTS)
+      if (stepData.finalScript?.scenes?.length > 0) {
+        defaultScript = stepData.finalScript.scenes.map((s: any) => s.text).join("\n\n")
+        source = "finalScript.scenes (user-selected variants)"
+      }
+      // Priority 2: Direct scenes array
+      else if (stepData.scenes?.length > 0) {
+        defaultScript = stepData.scenes.map((s: any) => s.text).join("\n\n")
+        source = "scenes"
+      }
+      // Priority 3: generatedVariants.scenes (work in progress)
+      else if (stepData.generatedVariants?.scenes?.length > 0) {
+        defaultScript = stepData.generatedVariants.scenes.map((s: any) => s.text).join("\n\n")
+        source = "generatedVariants.scenes"
+      }
+      // Priority 4: Raw text
+      else if (stepData.text) {
+        defaultScript = stepData.text
+        source = "text"
+      }
+      // Priority 5: sourceContent (original content)
+      else if (stepData.sourceContent) {
+        defaultScript = stepData.sourceContent
+        source = "sourceContent"
+      }
+
+      if (defaultScript) {
+        console.log("[Stage4] Loading script from step 3 data (" + source + "):", defaultScript.slice(0, 100) + "...")
+        setFinalScript(defaultScript)
+      }
+    }
+  }, [stepData, finalScript])
+
+  // Fallback to activeVersion if no step 3 data available
+  // This is a fallback for legacy projects that don't have step 3 data
+  useEffect(() => {
+    if (finalScript) return
+
+    // Only use activeVersion as fallback if no stepData or stepData has no usable content
+    const hasStepDataContent = stepData?.finalScript?.scenes?.length > 0 ||
+                               stepData?.scenes?.length > 0 ||
+                               stepData?.generatedVariants?.scenes?.length > 0 ||
+                               stepData?.text ||
+                               stepData?.sourceContent
+
+    if (hasStepDataContent) return // Step data should have been loaded by the previous effect
+
+    if (activeVersion?.scenes) {
+      const versionScript = activeVersion.scenes.map((s) => s.text).join("\n\n")
+      if (versionScript) {
+        console.log("[Stage4] Fallback: Loading script from activeVersion:", versionScript.slice(0, 100) + "...")
+        setFinalScript(versionScript)
+      }
+    }
+  }, [activeVersion?.id, activeVersion?.scenes, finalScript, stepData])
+
+  // Restore state from Stage 4 saved data (voice, audio, mode)
+  // This runs AFTER script loading to restore UI state like selected voice and audio URL
+  useEffect(() => {
     const savedStepData = stage4Data?.data as Stage4StepData | undefined
-    if (savedStepData && savedStepData.mode && !hasRestoredRef.current && isActiveVersionReady) {
+    if (savedStepData && savedStepData.mode && !hasRestoredRef.current) {
       hasRestoredRef.current = true
       setMode(savedStepData.mode)
 
       if (savedStepData.mode === "generate") {
-        if (savedStepData.finalScript) {
+        // Only restore finalScript if we don't have one from step 3 data
+        // (Stage 4 might have an older/edited version, but step 3 data is authoritative)
+        if (savedStepData.finalScript && !finalScript) {
           setFinalScript(savedStepData.finalScript)
         }
         if (savedStepData.selectedVoice) setSelectedVoice(savedStepData.selectedVoice)
@@ -134,64 +207,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
         }
       }
     }
-  }, [stage4Data, activeVersion?.id, scriptData])
-
-  // Update finalScript from active version if no saved data (for news/instagram projects)
-  useEffect(() => {
-    if (hasRestoredRef.current || finalScript) return
-
-    if (activeVersion?.scenes) {
-      const versionScript = activeVersion.scenes.map((s) => s.text).join("\n\n")
-      if (versionScript) {
-        console.log("[Stage4] Loading script from activeVersion:", versionScript.slice(0, 100) + "...")
-        setFinalScript(versionScript)
-      }
-    }
-  }, [activeVersion?.id, activeVersion?.scenes, finalScript])
-
-  // Fallback to Stage 3 data (from Step3_2_Constructor or other sources)
-  // This is the primary source for own-idea/text/url projects
-  useEffect(() => {
-    // Skip if already restored from saved data or have script
-    if (hasRestoredRef.current || finalScript) return
-    // Skip if activeVersion has scenes (for news/instagram projects)
-    if (activeVersion?.scenes && activeVersion.scenes.length > 0) return
-
-    if (stepData) {
-      // Try different data structures from Stage 3:
-      // 1. finalScript.scenes - from Step3_2_Constructor completion
-      // 2. scenes - legacy format
-      // 3. generatedVariants.scenes - if not completed yet
-      // 4. text - raw text
-      let defaultScript = ""
-      
-      // Priority 1: finalScript.scenes (from Step3_2_Constructor)
-      if (stepData.finalScript?.scenes?.length > 0) {
-        defaultScript = stepData.finalScript.scenes.map((s: any) => s.text).join("\n\n")
-      }
-      // Priority 2: Direct scenes array
-      else if (stepData.scenes?.length > 0) {
-        defaultScript = stepData.scenes.map((s: any) => s.text).join("\n\n")
-      }
-      // Priority 3: generatedVariants.scenes (work in progress)
-      else if (stepData.generatedVariants?.scenes?.length > 0) {
-        defaultScript = stepData.generatedVariants.scenes.map((s: any) => s.text).join("\n\n")
-      }
-      // Priority 4: Raw text
-      else if (stepData.text) {
-        defaultScript = stepData.text
-      }
-      // Priority 5: sourceContent (original content)
-      else if (stepData.sourceContent) {
-        defaultScript = stepData.sourceContent
-      }
-
-      if (defaultScript) {
-        console.log("[Stage4] Loading script from step 3 data:", defaultScript.slice(0, 100) + "...")
-        setFinalScript(defaultScript)
-      }
-    }
-  }, [stepData, finalScript, activeVersion])
+  }, [stage4Data, finalScript])
 
   // Set default voice
   useEffect(() => {
