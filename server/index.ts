@@ -107,8 +107,9 @@ app.use(requestLogger);
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  // Use localhost on macOS to avoid ENOTSUP error, 0.0.0.0 for production
-  const host = process.env.NODE_ENV === 'production' ? "0.0.0.0" : "127.0.0.1";
+  // Use 0.0.0.0 to allow connections from both localhost and 127.0.0.1
+  // This ensures cookies work correctly regardless of how user accesses the app
+  const host = "0.0.0.0";
   server.listen(port, host, () => {
     logger.info(`🚀 Server running on port ${port}`, {
       environment: process.env.NODE_ENV || 'development',

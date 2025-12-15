@@ -33,11 +33,28 @@ export async function requireAuth(
   try {
     // First try to get token from httpOnly cookie (more secure)
     // Fall back to Authorization header (for API clients)
-    const cookieToken = req.cookies?.[getAuthCookieName()];
+    const cookieName = getAuthCookieName();
+    const cookieToken = req.cookies?.[cookieName];
     const headerToken = extractToken(req.headers.authorization);
     const token = cookieToken || headerToken;
 
+    // Debug logging for authentication issues
+    logger.debug('Auth middleware check', {
+      path: req.path,
+      hasCookieParser: !!req.cookies,
+      cookieKeys: req.cookies ? Object.keys(req.cookies) : [],
+      expectedCookieName: cookieName,
+      hasCookieToken: !!cookieToken,
+      hasHeaderToken: !!headerToken,
+      cookieHeader: req.headers.cookie,
+    });
+
     if (!token) {
+      logger.warn('No auth token found', {
+        path: req.path,
+        cookies: req.cookies,
+        cookieHeader: req.headers.cookie,
+      });
       res.status(401).json({
         message: 'Authentication required'
       });

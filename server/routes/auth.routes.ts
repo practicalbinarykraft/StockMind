@@ -65,7 +65,12 @@ router.post('/register', async (req, res) => {
     // Set token in httpOnly cookie (secure, not accessible via JS)
     setAuthCookie(res, token);
 
-    logger.info('User registered successfully', { userId: newUser.id });
+    logger.info('User registered successfully', { userId: newUser.id, cookieSet: true });
+
+    // Debug: Log response headers being sent
+    logger.debug('Register response headers', {
+      setCookie: res.getHeader('Set-Cookie'),
+    });
 
     // Return user data (token is in cookie, not in response body)
     res.status(201).json({
@@ -158,7 +163,13 @@ router.post('/login', async (req, res) => {
 
     logger.info('User logged in successfully', {
       userId: user.id,
-      email: user.email
+      email: user.email,
+      cookieSet: true,
+    });
+
+    // Debug: Log response headers being sent
+    logger.debug('Login response headers', {
+      setCookie: res.getHeader('Set-Cookie'),
     });
 
     // Return user data (token is in cookie, not in response body)

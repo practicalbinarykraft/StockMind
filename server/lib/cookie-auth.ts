@@ -6,6 +6,7 @@
  */
 
 import type { Response } from 'express';
+import { logger } from './logger';
 
 // Cookie configuration
 const COOKIE_NAME = 'jwt_token';
@@ -38,7 +39,12 @@ function getCookieOptions(): CookieOptions {
  * Set JWT token in httpOnly cookie
  */
 export function setAuthCookie(res: Response, token: string): void {
-  res.cookie(COOKIE_NAME, token, getCookieOptions());
+  const options = getCookieOptions();
+  logger.debug('Setting auth cookie', {
+    cookieName: COOKIE_NAME,
+    options: { ...options, token: '[REDACTED]' },
+  });
+  res.cookie(COOKIE_NAME, token, options);
 }
 
 /**
