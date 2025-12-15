@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff } from "lucide-react"
-import { useAvatarImages } from "./stage-5/hooks"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff, Download, Loader2 } from "lucide-react"
+import { useAvatarImages, useProxiedVideo } from "./stage-5/hooks"
 
 interface Stage5Props {
   project: Project
@@ -44,6 +44,18 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const [generatedVideoId, setGeneratedVideoId] = useState<string | null>(null)
   const [videoStatus, setVideoStatus] = useState<VideoStatus | null>(null)
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+
+  // Hook for proxied video loading with loading state
+  const {
+    videoUrl: proxiedVideoUrl,
+    isLoading: isVideoLoading,
+    isLoaded: isVideoLoaded,
+    hasError: hasVideoError,
+    errorMessage: videoErrorMessage,
+    onVideoLoaded,
+    onVideoError,
+    downloadVideo
+  } = useProxiedVideo(videoStatus?.video_url)
 
   // Get script and voice from Stage 4 data
   const script = stepData?.finalScript || ""
@@ -543,31 +555,63 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   {videoStatus.video_url && (
                     <div className="space-y-3">
                       <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                        <video
-                          src={videoStatus.video_url}
-                          controls
-                          className="w-full h-full"
-                          data-testid="video-generated"
-                        />
+                        {/* Loading overlay */}
+                        {isVideoLoading && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                            <div className="flex flex-col items-center gap-2">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              <span className="text-sm text-muted-foreground">Loading video...</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Error state */}
+                        {hasVideoError && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                            <div className="flex flex-col items-center gap-2 text-center p-4">
+                              <AlertCircle className="h-8 w-8 text-destructive" />
+                              <span className="text-sm text-destructive">{videoErrorMessage || 'Failed to load video'}</span>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => window.location.reload()}
+                              >
+                                Retry
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Video player */}
+                        {proxiedVideoUrl && (
+                          <video
+                            src={proxiedVideoUrl}
+                            controls
+                            preload="metadata"
+                            className="w-full h-full"
+                            onLoadedData={onVideoLoaded}
+                            onError={() => onVideoError('Video playback error')}
+                            data-testid="video-generated"
+                          />
+                        )}
                       </div>
+                      
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            if (videoStatus.video_url) {
-                              window.open(videoStatus.video_url, '_blank')
-                            }
-                          }}
+                          onClick={() => downloadVideo(`heygen-video-${generatedVideoId || 'export'}.mp4`)}
+                          disabled={!isVideoLoaded}
                           data-testid="button-download-video"
                         >
+                          <Download className="h-4 w-4 mr-2" />
                           Download Video
                         </Button>
                         <Button
                           size="sm"
                           className="gap-2 ml-auto"
                           onClick={() => continueToStage6Mutation.mutate()}
-                          disabled={continueToStage6Mutation.isPending}
+                          disabled={continueToStage6Mutation.isPending || !isVideoLoaded}
                           data-testid="button-continue-stage6"
                         >
                           Continue to Final Export
