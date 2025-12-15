@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
-import { Download, CheckCircle2, Film, AlertCircle, Camera, Play, Pause } from "lucide-react"
-import { useState, useRef } from "react"
+import { Download, CheckCircle2, Film, AlertCircle, Camera, Play, Pause, Loader2 } from "lucide-react"
+import { useState, useRef, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import html2canvas from "html2canvas"
+import { useProxiedVideo } from "./stage-5/hooks"
 
 interface Stage6Props {
   project: Project
@@ -32,6 +33,31 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
   const videoDuration = step5Data?.duration
   const thumbnailUrl = step5Data?.thumbnailUrl
   const selectedAvatar = step5Data?.selectedAvatar
+
+  // Hook for proxied video loading with loading state
+  const {
+    videoUrl: proxiedVideoUrl,
+    isLoading: isVideoLoading,
+    isLoaded: isVideoLoaded,
+    hasError: hasVideoError,
+    errorMessage: videoErrorMessage,
+    onVideoLoaded,
+    onVideoError,
+    downloadVideo
+  } = useProxiedVideo(videoUrl)
+
+  // Download audio file
+  const downloadAudio = useCallback(() => {
+    if (!audioUrl) return
+    
+    const link = document.createElement('a')
+    link.href = audioUrl
+    link.download = `voiceover-${project.id}.mp3`
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }, [audioUrl, project.id])
 
   // Calculate timecodes based on video duration and number of scenes
   const scenesWithTimecodes = scenes.map((scene: any, index: number) => {
@@ -92,16 +118,6 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
     }
   })
-
-  const handleDownloadVideo = () => {
-    if (!videoUrl) return
-    window.open(videoUrl, '_blank')
-  }
-
-  const handleDownloadAudio = () => {
-    if (!audioUrl) return
-    window.open(audioUrl, '_blank')
-  }
 
   const toggleAudioPlayback = () => {
     if (!audioRef.current) return
@@ -275,7 +291,7 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleDownloadAudio}
+                      onClick={downloadAudio}
                       data-testid="button-download-audio"
                     >
                       <Download className="h-4 w-4 mr-2" />
@@ -301,22 +317,56 @@ export function Stage6FinalExport({ project, step3Data, step4Data, step5Data }: 
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    <video
-                      src={videoUrl}
-                      controls
-                      className="w-full h-full"
-                      poster={thumbnailUrl}
-                      data-testid="video-final"
-                    />
+                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                    {/* Loading overlay */}
+                    {isVideoLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          <span className="text-sm text-muted-foreground">Загрузка видео...</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Error state */}
+                    {hasVideoError && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                        <div className="flex flex-col items-center gap-2 text-center p-4">
+                          <AlertCircle className="h-8 w-8 text-destructive" />
+                          <span className="text-sm text-destructive">{videoErrorMessage || 'Не удалось загрузить видео'}</span>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.location.reload()}
+                          >
+                            Повторить
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Video player */}
+                    {proxiedVideoUrl && (
+                      <video
+                        src={proxiedVideoUrl}
+                        controls
+                        preload="metadata"
+                        className="w-full h-full"
+                        onLoadedData={onVideoLoaded}
+                        onError={() => onVideoError('Ошибка воспроизведения видео')}
+                        data-testid="video-final"
+                      />
+                    )}
                   </div>
+                  
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
                       Аватар: {selectedAvatar || "Неизвестно"}
                     </div>
                     <Button
                       variant="outline"
-                      onClick={handleDownloadVideo}
+                      onClick={() => downloadVideo(`heygen-video-${project.id}.mp4`)}
+                      disabled={!isVideoLoaded}
                       data-testid="button-download-video"
                     >
                       <Download className="h-4 w-4 mr-2" />
