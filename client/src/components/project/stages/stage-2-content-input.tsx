@@ -19,6 +19,7 @@ import { InstagramReelView } from "./stage-2/components/InstagramReelView";
 import { NewsListItem } from "./stage-2/components/NewsListItem";
 import { useNewsAnalysis } from "./stage-2/hooks/use-news-analysis";
 import { useNewsMutations } from "./stage-2/hooks/use-news-mutations";
+import { useNewsBatchScoring } from "./stage-2/hooks/use-news-scoring";
 import type { RssItem } from "@shared/schema";
 import type { EnrichedRssItem } from "./stage-2/utils/news-helpers";
 import { useAppStore } from "@/hooks/use-app-store";
@@ -181,6 +182,9 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     handleLoadSavedAnalysis,
     loadSavedAnalysisMutation,
   } = useNewsAnalysis(enrichedFilteredArticles);
+
+  // Use batch scoring hook for paginated articles
+  useNewsBatchScoring(paginatedArticles, page);
 
   const handleCustomSubmit = () => {
     if (!customText.trim()) {

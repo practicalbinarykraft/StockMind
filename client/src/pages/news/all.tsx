@@ -20,6 +20,7 @@ import type { RssItem } from "@shared/schema";
 import type { EnrichedRssItem } from "@/components/project/stages/stage-2/utils/news-helpers";
 import { useNewsAnalysis } from "@/components/project/stages/stage-2/hooks/use-news-analysis";
 import { useNewsMutations } from "./hooks/use-news-mutations";
+import { useNewsBatchScoring } from "@/components/project/stages/stage-2/hooks/use-news-scoring";
 import { useToast } from "@/hooks/use-toast";
 import Pagination from "./pagination";
 
@@ -235,6 +236,9 @@ export default function NewsAll() {
     handleLoadSavedAnalysis,
     loadSavedAnalysisMutation,
   } = useNewsAnalysis(enrichedFilteredArticles);
+
+  // Use batch scoring hook for paginated articles
+  useNewsBatchScoring(paginatedArticles, page);
 
   return (
     <Layout>

@@ -209,9 +209,21 @@ export async function scoreRssItems(items: any[], userId: string) {
 
     let scoredCount = 0;
     let failedCount = 0;
+    let skippedCount = 0;
 
     for (const item of items) {
       try {
+        // Skip items that already have an AI score (additional safety check)
+        if (item.aiScore !== null && item.aiScore !== undefined) {
+          logger.debug('Skipping already scored RSS item', {
+            itemId: item.id,
+            title: item.title,
+            existingScore: item.aiScore
+          });
+          skippedCount++;
+          continue;
+        }
+
         const result = await scoreNewsItem(
           apiKey.decryptedKey, // Decrypted value from getUserApiKey
           item.title,
@@ -248,7 +260,8 @@ export async function scoreRssItems(items: any[], userId: string) {
       duration: Date.now() - startTime,
       itemsProcessed: scoredCount,
       totalItems: items.length,
-      failedCount
+      failedCount,
+      skippedCount
     });
   } catch (error: any) {
     logBackgroundTask({

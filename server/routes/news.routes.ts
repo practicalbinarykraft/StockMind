@@ -4,6 +4,8 @@ import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import Parser from "rss-parser";
 import { fetchAndExtract } from "../lib/fetch-and-extract";
+import { scoreRssItems } from "./helpers/background-tasks";
+import { logger } from "../lib/logger";
 
 /**
  * Clean RSS content - remove extra whitespace, HTML tags, and junk
@@ -53,8 +55,6 @@ function cleanRssContent(text: string): string {
   
   return cleaned.trim();
 }
-import { scoreRssItems } from "./helpers/background-tasks";
-import { logger } from "../lib/logger";
 
 // Use the same parser configuration as background tasks for consistency
 const rssParser = new Parser({
@@ -205,6 +205,8 @@ export function registerNewsRoutes(app: Express) {
       const sources = await storage.getRssSources(userId);
 
       let totalNew = 0;
+      const newItems: any[] = [];
+      
       for (const source of sources.filter(s => s.isActive)) {
         try {
           const normalizedUrl = normalizeRssUrl(source.url);
@@ -213,7 +215,7 @@ export function registerNewsRoutes(app: Express) {
 
           for (const item of feed.items) {
             if (!existingUrls.has(item.link || '')) {
-              await storage.createRssItem({
+              const newItem = await storage.createRssItem({
                 sourceId: source.id,
                 userId,
                 title: item.title || 'Untitled',
@@ -223,6 +225,7 @@ export function registerNewsRoutes(app: Express) {
                 publishedAt: item.pubDate ? new Date(item.pubDate) : null,
               });
               totalNew++;
+              newItems.push(newItem);
             }
           }
 
@@ -240,10 +243,74 @@ export function registerNewsRoutes(app: Express) {
         }
       }
 
+      // Score first 50 new items in background (only those without scores)
+      if (newItems.length > 0) {
+        const itemsToScore = newItems
+          .filter(item => item.aiScore === null || item.aiScore === undefined)
+          .sort((a, b) => {
+            const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+            const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+            return bDate - aDate;
+          })
+          .slice(0, 50);
+        
+        if (itemsToScore.length > 0) {
+          logger.info(`Starting background scoring for ${itemsToScore.length} new items`, { userId });
+          scoreRssItems(itemsToScore, userId).catch(err =>
+            logger.error("Background scoring failed", { error: err.message })
+          );
+        }
+      }
+
       res.json({ success: true, newItems: totalNew });
     } catch (error: any) {
       logger.error("Error refreshing news", { error: error.message });
       res.status(500).json({ message: "Failed to refresh news" });
+    }
+  });
+
+  // POST /api/news/score-batch - Score multiple news items by IDs
+  app.post("/api/news/score-batch", requireAuth, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      
+      const { itemIds } = req.body;
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        return res.status(400).json({ message: "itemIds array is required" });
+      }
+
+      // Get all user items
+      const allItems = await storage.getRssItems(userId);
+      
+      // Filter items by IDs and only those without aiScore
+      const itemsToScore = allItems.filter(item => 
+        itemIds.includes(item.id) && item.aiScore === null
+      );
+
+      if (itemsToScore.length === 0) {
+        return res.json({ 
+          success: true, 
+          message: "All requested items already have scores",
+          scoredCount: 0 
+        });
+      }
+
+      logger.info(`Starting batch scoring for ${itemsToScore.length} items`, { userId });
+      
+      // Score items in background (don't block response)
+      scoreRssItems(itemsToScore, userId).catch(err =>
+        logger.error("Batch scoring failed", { error: err.message })
+      );
+
+      res.json({ 
+        success: true, 
+        message: `Scoring ${itemsToScore.length} items in background`,
+        scoredCount: itemsToScore.length 
+      });
+    } catch (error: any) {
+      logger.error("Error in batch scoring", { error: error.message });
+      res.status(500).json({ message: "Failed to score items" });
     }
   });
 
