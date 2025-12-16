@@ -4,13 +4,27 @@ import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId, normalizeInstagramUsername } from "../utils/route-helpers";
 import { insertInstagramSourceSchema } from "@shared/schema";
 import { scrapeInstagramReels, testApifyApiKey } from "../apify-service";
-import { downloadInstagramMediaBackground } from "../lib/instagram-background-tasks";
+import { downloadInstagramMediaBackground, getProcessingQueue } from "../lib/instagram-background-tasks";
 import { logger } from "../lib/logger";
 import { z } from "zod";
 import { checkSourceForUpdates } from "../cron/instagram-monitor";
 import { db } from "../db";
 import { instagramSources } from "../../shared/schema";
 import { eq, sql } from "drizzle-orm";
+
+// ===========================================
+// PARSING LIMITS CONFIGURATION
+// ===========================================
+export const INSTAGRAM_LIMITS = {
+  // При добавлении нового аккаунта - легкий парсинг
+  AUTO_PARSE_ON_ADD: 10,
+  // При нажатии "Check Now" - быстрая проверка новых рилсов  
+  CHECK_NOW: 10,
+  // При нажатии "Запустить парсинг Reels" - полный парсинг
+  MANUAL_PARSE_DEFAULT: 30,
+  // Максимум рилсов для авто-оценки (экономия денег на AI)
+  MAX_AUTO_SCORE: 10,
+};
 
 /**
  * Instagram sources management routes
@@ -72,14 +86,15 @@ export function registerInstagramSourcesRoutes(app: Express) {
 
             logger.info("Auto-parsing new Instagram source", { 
               sourceId: source.id, 
-              username: source.username 
+              username: source.username,
+              limit: INSTAGRAM_LIMITS.AUTO_PARSE_ON_ADD
             });
 
-            // Parse latest 50 Reels
+            // Parse latest reels (limited for auto-parse)
             const result = await scrapeInstagramReels(
               source.username,
               apifyKey.decryptedKey,
-              50
+              INSTAGRAM_LIMITS.AUTO_PARSE_ON_ADD
             );
 
             if (result.success) {
@@ -124,8 +139,8 @@ export function registerInstagramSourcesRoutes(app: Express) {
 
                   savedCount++;
 
-                  // Download video in background
-                  downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId);
+                  // Download video in background (with session tracking for scoring limit)
+                  downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId, source.id);
                 } catch (error: any) {
                   if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
                     skippedCount++;
@@ -216,7 +231,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const { id } = req.params;
-      const { resultsLimit = 50 } = req.body;
+      const { resultsLimit = INSTAGRAM_LIMITS.MANUAL_PARSE_DEFAULT } = req.body;
 
       // Get Instagram source and verify ownership
       const sources = await storage.getInstagramSources(userId);
@@ -305,7 +320,8 @@ export function registerInstagramSourcesRoutes(app: Express) {
             savedCount++;
 
             // Download video in background (Apify URLs expire in 24-48h!)
-            downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId);
+            // Pass sourceId as sessionId for scoring limit tracking
+            downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId, id);
 
           } catch (error: any) {
             if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
@@ -418,6 +434,26 @@ export function registerInstagramSourcesRoutes(app: Express) {
     } catch (error: any) {
       logger.error("Error in manual Instagram check", { error: error.message });
       res.status(500).json({ message: "Failed to check Instagram source" });
+    }
+  });
+
+  // GET /api/instagram/limits - Get parsing limits configuration
+  app.get("/api/instagram/limits", requireAuth, async (req: any, res) => {
+    try {
+      const queueStats = getProcessingQueue().getStats();
+      
+      res.json({
+        limits: {
+          autoParseOnAdd: INSTAGRAM_LIMITS.AUTO_PARSE_ON_ADD,
+          checkNow: INSTAGRAM_LIMITS.CHECK_NOW,
+          manualParseDefault: INSTAGRAM_LIMITS.MANUAL_PARSE_DEFAULT,
+          maxAutoScore: INSTAGRAM_LIMITS.MAX_AUTO_SCORE,
+        },
+        queue: queueStats,
+      });
+    } catch (error: any) {
+      logger.error("Error fetching Instagram limits", { error: error.message });
+      res.status(500).json({ message: "Failed to fetch limits" });
     }
   });
 }

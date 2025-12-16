@@ -8,6 +8,7 @@ import type { IStorage } from "../storage";
 import type { InstagramSource } from "../../shared/schema";
 import { logCronJob } from "../lib/logger-helpers";
 import { logger } from "../lib/logger";
+import { INSTAGRAM_LIMITS } from "../routes/instagram-sources.routes";
 
 let storage: IStorage;
 let isRunning = false;
@@ -161,8 +162,8 @@ export async function checkSourceForUpdates(source: any): Promise<{ newReelsCoun
     keyLast4,
   });
 
-  // Parse latest 20 Reels (light check for auto-update)
-  const result = await scrapeInstagramReels(source.username, apifyKey, 20);
+  // Parse latest reels (light check for auto-update / check now)
+  const result = await scrapeInstagramReels(source.username, apifyKey, INSTAGRAM_LIMITS.CHECK_NOW);
 
   if (!result.success) {
     throw new Error(result.error || "Scraping failed");

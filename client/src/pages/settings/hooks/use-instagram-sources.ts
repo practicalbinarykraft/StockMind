@@ -6,6 +6,14 @@ import { isUnauthorizedError } from "@/lib/auth-utils"
 import type { InstagramSource } from "@shared/schema"
 import type { ParseMode } from "../types"
 
+// Типы для лимитов парсинга
+interface InstagramLimits {
+  autoParseOnAdd: number;
+  checkNow: number;
+  manualParseDefault: number;
+  maxAutoScore: number;
+}
+
 export function useInstagramSources() {
   const { toast } = useToast()
 
@@ -24,7 +32,13 @@ export function useInstagramSources() {
   // Parse dialog state
   const [showParseDialog, setShowParseDialog] = useState(false)
   const [parseSourceId, setParseSourceId] = useState<string | null>(null)
-  const [parseMode, setParseMode] = useState<ParseMode>('latest-50')
+  const [parseMode, setParseMode] = useState<ParseMode>('latest-30')
+
+  // Fetch Instagram Limits
+  const { data: limitsData } = useQuery<{ limits: InstagramLimits }>({
+    queryKey: ["/api/instagram/limits"],
+  })
+  const limits = limitsData?.limits
 
   // Track polling for parsing sources
   const pollingCountRef = useRef(0)
@@ -120,11 +134,12 @@ export function useInstagramSources() {
   const parseMutation = useMutation({
     mutationFn: () => {
       if (!parseSourceId) throw new Error("No source selected");
+      // Обновлённые режимы парсинга с учётом новых лимитов
       const settings = {
-        'latest-20': { resultsLimit: 20, parseMode: 'all' as const },
+        'latest-10': { resultsLimit: 10, parseMode: 'all' as const },
+        'latest-30': { resultsLimit: limits?.manualParseDefault || 30, parseMode: 'all' as const },
         'latest-50': { resultsLimit: 50, parseMode: 'all' as const },
-        'latest-100': { resultsLimit: 100, parseMode: 'all' as const },
-        'new-only': { resultsLimit: 100, parseMode: 'new' as const },
+        'new-only': { resultsLimit: 50, parseMode: 'new' as const },
       }[parseMode];
       return apiRequest("POST", `/api/instagram/sources/${parseSourceId}/parse`, settings)
     },
@@ -157,7 +172,7 @@ export function useInstagramSources() {
   const handleOpenParseDialog = (sourceId: string) => {
     setParseSourceId(sourceId)
     setShowParseDialog(true)
-    setParseMode('latest-50')
+    setParseMode('latest-30') // Новый дефолт - 30 рилсов
   }
 
   return {
@@ -178,5 +193,7 @@ export function useInstagramSources() {
     setParseMode,
     selectedParseSource,
     handleOpenParseDialog,
+    // Лимиты для отображения в UI
+    limits,
   }
 }

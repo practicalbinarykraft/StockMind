@@ -17,6 +17,7 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
   const {
     instagramSources, instagramLoading, showDialog, setShowDialog,
     form, setForm, addMutation, deleteMutation, checkNowMutation,
+    limits,
   } = useInstagramSources()
 
   if (instagramLoading) {
@@ -53,6 +54,12 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
             </CardTitle>
             <CardDescription className="mt-2">
               Manage Instagram accounts to scrape Reels from. Requires Apify API key.
+              {limits && (
+                <span className="block text-xs mt-1 text-muted-foreground/70">
+                  Авто-парсинг при добавлении: {limits.autoParseOnAdd} рилсов • 
+                  Авто-оценка AI: первые {limits.maxAutoScore} рилсов
+                </span>
+              )}
             </CardDescription>
           </div>
           <InstagramAddDialog
@@ -131,11 +138,12 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                   onClick={() => checkNowMutation.mutate(source.id)}
                   disabled={checkNowMutation.isPending}
                   data-testid={`button-check-now-${source.id}`}
+                  title={`Быстрая проверка: до ${limits?.checkNow || 10} новых рилсов`}
                 >
                   {checkNowMutation.isPending ? (
                     <><Loader2 className="h-4 w-4 animate-spin" />Проверяю...</>
                   ) : (
-                    <><RefreshCw className="h-4 w-4" />Check Now</>
+                    <><RefreshCw className="h-4 w-4" />Check Now (до {limits?.checkNow || 10})</>
                   )}
                 </Button>
 
@@ -144,9 +152,10 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                   onClick={() => onOpenParseDialog(source.id)}
                   disabled={source.parseStatus === 'parsing'}
                   data-testid={`button-parse-instagram-${source.id}`}
+                  title={`Полный парсинг: до ${limits?.manualParseDefault || 30} рилсов`}
                 >
                   <Instagram className="h-4 w-4" />
-                  {source.parseStatus === 'parsing' ? 'Парсинг...' : 'Запустить парсинг Reels'}
+                  {source.parseStatus === 'parsing' ? 'Парсинг...' : `Парсинг Reels (до ${limits?.manualParseDefault || 30})`}
                 </Button>
               </div>
             ))}

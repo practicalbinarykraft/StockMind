@@ -9,4 +9,4 @@ export type SafeApiKey = {
   updatedAt: Date
 }
 
-export type ParseMode = 'latest-20' | 'latest-50' | 'latest-100' | 'new-only'
+export type ParseMode = 'latest-10' | 'latest-30' | 'latest-50' | 'new-only'
