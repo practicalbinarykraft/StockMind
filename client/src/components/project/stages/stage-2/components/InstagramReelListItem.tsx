@@ -348,17 +348,28 @@ export function InstagramReelListItem({
               )}
             </div>
           ) : isTranscriptionProcessing ? (
-            <div className="p-8 text-center border rounded-lg space-y-4">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
+            <div className="p-8 text-center border border-blue-500/50 rounded-lg space-y-4">
+              <div className="text-blue-500">
+                <PlayCircle className="h-8 w-8 mx-auto" />
+              </div>
               <div>
-                <p className="text-sm font-medium mb-1">Обработка видео...</p>
+                <p className="text-sm font-medium mb-1">Обработка видео на сервере</p>
                 <p className="text-xs text-muted-foreground">
-                  Статус: {transcriptionStatus}
+                  Транскрипция выполняется в фоновом режиме
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Это может занять несколько минут. Обновите страницу через минуту.
+                  Это может занять несколько минут
                 </p>
               </div>
+              <Button
+                onClick={() => window.location.reload()}
+                size="sm"
+                variant="outline"
+                className="w-full"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Обновить статус
+              </Button>
             </div>
           ) : isTranscriptionFailed ? (
             <div className="p-8 text-center border border-destructive/50 rounded-lg space-y-4">
