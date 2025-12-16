@@ -1,7 +1,8 @@
 import { ApifyClient } from 'apify-client';
 
-// Correct Apify actor ID (with "s" - reels, not reel)
-const APIFY_ACTOR_ID = 'apify/instagram-reels-scraper';
+// Official Apify Instagram scraper (supports posts, reels, stories, profiles)
+// https://apify.com/apify/instagram-scraper
+const APIFY_ACTOR_ID = 'apify/instagram-scraper';
 
 // Helper function to add timeout to promises
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
@@ -158,11 +159,12 @@ export async function scrapeInstagramReels(
   try {
     const client = new ApifyClient({ token: apiKey });
 
-    // Prepare input for the Instagram Reels Scraper actor
+    // Prepare input for the Instagram Scraper actor
+    // Documentation: https://apify.com/apify/instagram-scraper
     const input = {
-      usernames: [username],  // Correct field name: "usernames" (plural)
+      directUrls: [`https://www.instagram.com/${username}/reels/`],
+      resultsType: 'posts', // 'posts' includes reels
       resultsLimit,
-      maxItems: resultsLimit, // Some actor versions use this
     };
 
     console.log(`[Apify] Starting scraping for Instagram user: @${username} (limit: ${resultsLimit})...`);
