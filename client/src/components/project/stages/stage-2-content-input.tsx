@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { type Project } from "@shared/schema";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/query-client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
 import { RefreshCw, Search } from "lucide-react";
 import { CustomScriptInput } from "./stage-2/components/CustomScriptInput";
 import { InstagramReelView } from "./stage-2/components/InstagramReelView";
+import { InstagramReelListItem } from "./stage-2/components/InstagramReelListItem";
 import { NewsListItem } from "./stage-2/components/NewsListItem";
 import { useNewsAnalysis } from "./stage-2/hooks/use-news-analysis";
 import { useNewsMutations } from "./stage-2/hooks/use-news-mutations";
@@ -33,6 +34,7 @@ interface Stage2Props {
 export function Stage2ContentInput({ project, stepData }: Stage2Props) {
   const { toast } = useToast();
   const { setStore } = useAppStore();
+  const queryClient = useQueryClient();
 
   const sourceChoice = stepData?.sourceChoice || project.sourceType;
   // Custom script state
@@ -74,15 +76,17 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     enabled: sourceChoice === "news",
   });
 
-  // Fetch Instagram Reel if sourceChoice is instagram
-  const { data: instagramReel, isLoading: reelLoading } = useQuery({
-    queryKey: ["/api/instagram/items", stepData?.instagramItemId],
+  // Fetch Instagram Reels if sourceChoice is instagram
+  // Get all parsed reels for the current user (no projectId filtering needed)
+  const { data: instagramReels, isLoading: reelsLoading } = useQuery({
+    queryKey: ["/api/instagram/items"],
     queryFn: async () => {
-      if (!stepData?.instagramItemId) return null;
-      const res = await apiRequest("GET", `/api/instagram/items/${stepData.instagramItemId}`);
-      return await res.json();
+      const res = await apiRequest("GET", `/api/instagram/items`);
+      const result = await res.json();
+      // API returns array of Instagram items
+      return Array.isArray(result) ? result : result?.data || [];
     },
-    enabled: sourceChoice === "instagram" && !!stepData?.instagramItemId,
+    enabled: sourceChoice === "instagram",
   });
 
   // Get mutations from hook (same as All Articles but with proceedMutation for Stage 3)
@@ -210,32 +214,85 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     proceedMutation.mutate({ type: "custom", text: customText });
   };
 
-  const handleInstagramContinue = async () => {
-    const instagramItemId = stepData?.instagramItemId;
-    if (!instagramItemId) return;
+  // Handle create script from Instagram Reel - proceeds to Stage 3
+  const handleCreateScriptFromInstagram = async (item: any, analysis?: any) => {
+    try {
+      // Mark as selected
+      await apiRequest("PATCH", `/api/instagram/items/${item.id}/action`, {
+        action: "selected",
+        projectId: project.id,
+      });
 
-    // Fetch Instagram reel data
-    const res = await apiRequest(
-      "GET",
-      `/api/instagram/items/${instagramItemId}`
-    );
-    const instagramReel = await res.json();
+      toast({
+        title: "Создание сценария",
+        description: "Загружаем рилс и переходим к генерации...",
+      });
 
-    if (!instagramReel) return;
+      // Proceed to Stage 3 with Instagram data
+      proceedMutation.mutate({
+        type: "instagram",
+        instagramItemId: item.id,
+        transcription: item.transcriptionText,
+        caption: item.caption,
+        language: item.language || "unknown",
+        url: item.url,
+        aiScore: item.aiScore,
+        freshnessScore: item.freshnessScore,
+        viralityScore: item.viralityScore,
+        qualityScore: item.qualityScore,
+        aiComment: item.aiComment,
+      });
+      setStore({ myValue: "external-source" });
+    } catch (error: any) {
+      console.error("Error creating script from Instagram:", error);
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось создать сценарий",
+        variant: "destructive",
+      });
+    }
+  };
 
-    proceedMutation.mutate({
-      type: "instagram",
-      instagramItemId: instagramReel.id,
-      transcription: instagramReel.transcriptionText,
-      caption: instagramReel.caption,
-      language: instagramReel.language || "unknown",
-      url: instagramReel.url,
-      aiScore: instagramReel.aiScore,
-      freshnessScore: instagramReel.freshnessScore,
-      viralityScore: instagramReel.viralityScore,
-      qualityScore: instagramReel.qualityScore,
-      aiComment: instagramReel.aiComment,
-    });
+  // Handle analyze Instagram Reel
+  const [analyzingInstagramItems, setAnalyzingInstagramItems] = useState<Set<string>>(new Set());
+
+  const handleAnalyzeInstagram = async (item: any) => {
+    if (!item.transcriptionText || item.transcriptionStatus !== "completed") {
+      toast({
+        title: "Ошибка",
+        description: "Транскрипция должна быть завершена перед анализом",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAnalyzingInstagramItems((prev) => new Set(prev).add(item.id));
+
+    try {
+      const res = await apiRequest("POST", `/api/instagram/items/${item.id}/score`, {});
+      const result = await res.json();
+
+      toast({
+        title: "Анализ завершен",
+        description: `Оценка: ${result.score}/100`,
+      });
+
+      // Refresh the Instagram items list to get updated scores
+      queryClient.invalidateQueries({ queryKey: ["/api/instagram/items"] });
+    } catch (error: any) {
+      console.error("Error analyzing Instagram reel:", error);
+      toast({
+        title: "Ошибка анализа",
+        description: error.message || "Не удалось проанализировать рилс",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingInstagramItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
   };
 
   // Handle create script from article - proceeds to Stage 3
@@ -348,12 +405,44 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
       )}
 
       {sourceChoice === "instagram" && (
-        <InstagramReelView
-          isLoading={reelLoading}
-          reel={instagramReel}
-          onContinue={handleInstagramContinue}
-          isSubmitting={proceedMutation.isPending}
-        />
+        <div className="space-y-6">
+          {reelsLoading ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Loading Instagram Reels...</p>
+            </div>
+          ) : !instagramReels || instagramReels.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">
+                  No Instagram Reels found for this project
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Make sure you have parsed Instagram sources in Settings
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {instagramReels.map((reel: any) => (
+                <InstagramReelListItem
+                  key={reel.id}
+                  item={reel}
+                  isAnalyzing={analyzingInstagramItems.has(reel.id)}
+                  onAnalyze={handleAnalyzeInstagram}
+                  onCreateScript={handleCreateScriptFromInstagram}
+                  isCreatingScript={proceedMutation.isPending}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Stats */}
+          {instagramReels && instagramReels.length > 0 && (
+            <div className="mt-6 text-sm text-muted-foreground">
+              Showing {instagramReels.length} Instagram Reel{instagramReels.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
       )}
 
       {sourceChoice === "news" && (
