@@ -2,7 +2,6 @@ import { forwardRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Play, Pause, Download } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 
 interface AudioPlayerProps {
   audioUrl: string | null
@@ -29,15 +28,11 @@ function getAudioSrc(audioUrl: string | null, audioData: string | null): string 
 
 export const AudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(
   function AudioPlayer({ audioUrl, audioData, isPlaying, voiceName, onPlayPause, onDownload, onEnded }, ref) {
-    const { toast } = useToast()
-
     const handleError = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+      // Log error for debugging but don't show toast
+      // Playback errors can occur for various reasons (codec issues, browser quirks)
+      // that don't necessarily indicate a problem with generation/upload
       console.error('Audio playback error:', e)
-      toast({
-        variant: "destructive",
-        title: "Playback Error",
-        description: "Failed to load audio. Try regenerating or uploading a new file.",
-      })
     }
 
     const src = getAudioSrc(audioUrl, audioData)
