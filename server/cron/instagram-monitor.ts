@@ -192,7 +192,7 @@ export async function checkSourceForUpdates(source: any): Promise<{ newReelsCoun
   });
 
   // Process reels in a transaction for accurate counters
-  const result = await db.transaction(async (tx) => {
+  const checkResult = await db.transaction(async (tx) => {
     let newReelsCount = 0;
     let viralReelsCount = 0;
 
@@ -277,5 +277,5 @@ export async function checkSourceForUpdates(source: any): Promise<{ newReelsCoun
     return { newReelsCount, viralReelsCount };
   });
 
-  return result;
+  return checkResult;
 }
