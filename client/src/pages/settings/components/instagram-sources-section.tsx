@@ -95,21 +95,26 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                     <StatusBadge
                       status={source.parseStatus === 'parsing' ? 'pending' : source.parseStatus as "success" | "error" | "pending"}
                       text={
-                        source.parseStatus === "success" ? `${source.itemCount} reels`
+                        source.parseStatus === "success" ? `${source.itemCount || 0} reels`
                         : source.parseStatus === 'parsing' ? 'Parsing...'
                         : source.parseStatus || 'pending'
                       }
                     />
                   </div>
-                  {source.parseError && <p className="text-xs text-destructive">{source.parseError}</p>}
-                  {source.parseStatus === 'pending' && !source.parseError && (
-                    <Alert className="py-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        Парсинг запущен автоматически. Обычно занимает 1-3 минуты.
-                      </AlertDescription>
-                    </Alert>
+                  
+                  {/* Show skeleton during parsing */}
+                  {source.parseStatus === 'parsing' && (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
                   )}
+                  
+                  {/* Show error only if status is 'error' (not during parsing or success) */}
+                  {source.parseStatus === 'error' && source.parseError && (
+                    <p className="text-xs text-destructive">{source.parseError}</p>
+                  )}
+                  
                   <p className="text-xs text-muted-foreground">
                     {source.lastParsed
                       ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true, locale: ru })}`

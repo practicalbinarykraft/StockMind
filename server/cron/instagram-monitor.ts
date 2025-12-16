@@ -256,6 +256,9 @@ export async function checkSourceForUpdates(source: any): Promise<{ newReelsCoun
     await tx
       .update(instagramSources)
       .set({
+        parseStatus: 'success', // Update parse status
+        parseError: null, // Clear any previous errors
+        lastParsed: new Date(), // Update last parsed time
         lastCheckedAt: new Date(),
         lastSuccessfulParseAt: new Date(),
         nextCheckAt: sql`NOW() + ${safeInterval} * interval '1 hour'`,

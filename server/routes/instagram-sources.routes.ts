@@ -18,7 +18,8 @@ import { eq, sql } from "drizzle-orm";
  */
 export function registerInstagramSourcesRoutes(app: Express) {
   // GET /api/settings/instagram-sources - Get all Instagram sources
-  app.get("/api/settings/instagram-sources", requireAuth, async (req: any, res) => {
+  // Also available at /api/instagram/sources (alias for backwards compatibility)
+  const getInstagramSourcesHandler = async (req: any, res: any) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -29,7 +30,10 @@ export function registerInstagramSourcesRoutes(app: Express) {
       logger.error("Error fetching Instagram sources", { error: error.message });
       res.status(500).json({ message: "Failed to fetch Instagram sources" });
     }
-  });
+  };
+  
+  app.get("/api/settings/instagram-sources", requireAuth, getInstagramSourcesHandler);
+  app.get("/api/instagram/sources", requireAuth, getInstagramSourcesHandler);
 
   // POST /api/settings/instagram-sources - Create new Instagram source
   app.post("/api/settings/instagram-sources", requireAuth, async (req: any, res) => {
