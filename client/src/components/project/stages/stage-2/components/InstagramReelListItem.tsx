@@ -13,6 +13,7 @@ import {
   MessageCircle,
   PlayCircle,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -22,7 +23,11 @@ export interface InstagramReelListItemProps {
   item: any; // Instagram Reel item
   analysis?: any;
   isAnalyzing?: boolean;
+  isTranscribing?: boolean;
+  isProcessing?: boolean;
   onAnalyze?: (item: any) => void;
+  onTranscribe?: (item: any) => void;
+  onProcess?: (item: any) => void;
   onCreateScript?: (item: any, analysis?: any) => void;
   isCreatingScript?: boolean;
 }
@@ -31,16 +36,26 @@ export function InstagramReelListItem({
   item,
   analysis,
   isAnalyzing,
+  isTranscribing,
+  isProcessing,
   onAnalyze,
+  onTranscribe,
+  onProcess,
   onCreateScript,
   isCreatingScript,
 }: InstagramReelListItemProps) {
   const [showFullTranscription, setShowFullTranscription] = useState(false);
 
-  const hasTranscription = item.transcriptionText && item.transcriptionStatus === "completed";
+  const transcriptionStatus = item.transcriptionStatus || "pending";
+  const hasTranscription = item.transcriptionText && transcriptionStatus === "completed";
   const hasAiScore = typeof item.aiScore === "number";
-  const canAnalyze = hasTranscription && !hasAiScore;
-  const canCreateScript = hasTranscription && (hasAiScore || analysis);
+  const canCreateScript = hasTranscription && hasAiScore;
+
+  // Determine transcription states
+  const isTranscriptionPending = !item.transcriptionText && transcriptionStatus === "pending";
+  const isTranscriptionProcessing = transcriptionStatus === "processing";
+  const isTranscriptionFailed = transcriptionStatus === "failed";
+  const needsScoring = hasTranscription && !hasAiScore;
 
   // Use proxy image hook to load Instagram thumbnail
   const { proxyUrl, isLoading: imageLoading, error: imageError } = useProxyImage(item.thumbnailUrl);
@@ -228,29 +243,9 @@ export function InstagramReelListItem({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-semibold">AI Анализ</h4>
-            {canAnalyze && onAnalyze && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onAnalyze(item)}
-                disabled={isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Анализ...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    Анализ
-                  </>
-                )}
-              </Button>
-            )}
           </div>
 
-          {hasAiScore || analysis ? (
+          {hasAiScore ? (
             <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
               {/* Overall Score */}
               <div className="flex items-center gap-2">
@@ -322,23 +317,116 @@ export function InstagramReelListItem({
                 </div>
               )}
             </div>
-          ) : !hasTranscription ? (
-            <div className="p-8 text-center text-muted-foreground border rounded-lg">
-              <Loader2 className="h-8 w-8 mx-auto mb-2 opacity-50 animate-spin" />
-              <p className="text-sm">Ожидание транскрипции...</p>
-              <p className="text-xs mt-1">
-                Статус: {item.transcriptionStatus || "pending"}
-              </p>
+          ) : isTranscriptionPending ? (
+            <div className="p-8 text-center border rounded-lg space-y-4">
+              <Sparkles className="h-8 w-8 mx-auto text-muted-foreground/50" />
+              <div>
+                <p className="text-sm font-medium mb-1">Требуется транскрипция</p>
+                <p className="text-xs text-muted-foreground">
+                  Запустите обработку видео для получения текста
+                </p>
+              </div>
+              {onProcess && (
+                <Button
+                  onClick={() => onProcess(item)}
+                  disabled={isProcessing || isTranscribing}
+                  size="sm"
+                  className="w-full"
+                >
+                  {isProcessing || isTranscribing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Обработка...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Запустить обработку
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-          ) : !canAnalyze ? (
-            <div className="p-8 text-center text-muted-foreground border rounded-lg">
-              <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Анализ уже выполнен</p>
+          ) : isTranscriptionProcessing ? (
+            <div className="p-8 text-center border rounded-lg space-y-4">
+              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
+              <div>
+                <p className="text-sm font-medium mb-1">Обработка видео...</p>
+                <p className="text-xs text-muted-foreground">
+                  Статус: {transcriptionStatus}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Это может занять несколько минут. Обновите страницу через минуту.
+                </p>
+              </div>
+            </div>
+          ) : isTranscriptionFailed ? (
+            <div className="p-8 text-center border border-destructive/50 rounded-lg space-y-4">
+              <div className="text-destructive">
+                <Sparkles className="h-8 w-8 mx-auto" />
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">Ошибка транскрипции</p>
+                <p className="text-xs text-muted-foreground">
+                  Не удалось обработать видео. Попробуйте снова.
+                </p>
+              </div>
+              {onTranscribe && (
+                <Button
+                  onClick={() => onTranscribe(item)}
+                  disabled={isTranscribing}
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isTranscribing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Обработка...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Попробовать снова
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          ) : needsScoring ? (
+            <div className="p-8 text-center border rounded-lg space-y-4">
+              <Sparkles className="h-8 w-8 mx-auto text-primary/50" />
+              <div>
+                <p className="text-sm font-medium mb-1">Транскрипция готова</p>
+                <p className="text-xs text-muted-foreground">
+                  Запустите AI оценку для анализа контента
+                </p>
+              </div>
+              {onAnalyze && (
+                <Button
+                  onClick={() => onAnalyze(item)}
+                  disabled={isAnalyzing}
+                  size="sm"
+                  className="w-full"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Оценка...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Запустить оценку
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="p-8 text-center text-muted-foreground border rounded-lg">
               <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Нажмите "Анализ" для оценки рилса</p>
+              <p className="text-sm">Нет данных для анализа</p>
             </div>
           )}
         </div>

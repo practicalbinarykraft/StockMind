@@ -21,6 +21,7 @@ import { NewsListItem } from "./stage-2/components/NewsListItem";
 import { useNewsAnalysis } from "./stage-2/hooks/use-news-analysis";
 import { useNewsMutations } from "./stage-2/hooks/use-news-mutations";
 import { useNewsBatchScoring } from "./stage-2/hooks/use-news-scoring";
+import { useInstagramProcessing } from "./stage-2/hooks/use-instagram-processing";
 import type { RssItem } from "@shared/schema";
 import type { EnrichedRssItem } from "./stage-2/utils/news-helpers";
 import { useAppStore } from "@/hooks/use-app-store";
@@ -253,47 +254,15 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     }
   };
 
-  // Handle analyze Instagram Reel
-  const [analyzingInstagramItems, setAnalyzingInstagramItems] = useState<Set<string>>(new Set());
-
-  const handleAnalyzeInstagram = async (item: any) => {
-    if (!item.transcriptionText || item.transcriptionStatus !== "completed") {
-      toast({
-        title: "Ошибка",
-        description: "Транскрипция должна быть завершена перед анализом",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setAnalyzingInstagramItems((prev) => new Set(prev).add(item.id));
-
-    try {
-      const res = await apiRequest("POST", `/api/instagram/items/${item.id}/score`, {});
-      const result = await res.json();
-
-      toast({
-        title: "Анализ завершен",
-        description: `Оценка: ${result.score}/100`,
-      });
-
-      // Refresh the Instagram items list to get updated scores
-      queryClient.invalidateQueries({ queryKey: ["/api/instagram/items"] });
-    } catch (error: any) {
-      console.error("Error analyzing Instagram reel:", error);
-      toast({
-        title: "Ошибка анализа",
-        description: error.message || "Не удалось проанализировать рилс",
-        variant: "destructive",
-      });
-    } finally {
-      setAnalyzingInstagramItems((prev) => {
-        const next = new Set(prev);
-        next.delete(item.id);
-        return next;
-      });
-    }
-  };
+  // Use Instagram processing hook for managing transcription and scoring
+  const {
+    handleTranscribe: handleTranscribeInstagram,
+    handleAnalyze: handleAnalyzeInstagram,
+    handleProcess: handleProcessInstagram,
+    isTranscribing,
+    isAnalyzing,
+    isProcessing,
+  } = useInstagramProcessing();
 
   // Handle create script from article - proceeds to Stage 3
   const handleCreateScript = async (item: EnrichedRssItem, analysis: any) => {
@@ -427,8 +396,12 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
                 <InstagramReelListItem
                   key={reel.id}
                   item={reel}
-                  isAnalyzing={analyzingInstagramItems.has(reel.id)}
+                  isAnalyzing={isAnalyzing(reel.id)}
+                  isTranscribing={isTranscribing(reel.id)}
+                  isProcessing={isProcessing(reel.id)}
                   onAnalyze={handleAnalyzeInstagram}
+                  onTranscribe={handleTranscribeInstagram}
+                  onProcess={handleProcessInstagram}
                   onCreateScript={handleCreateScriptFromInstagram}
                   isCreatingScript={proceedMutation.isPending}
                 />
