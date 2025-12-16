@@ -53,7 +53,7 @@ export function StageContent({ project, steps }: StageContentProps) {
         );
       case 2:
         return (
-          <Stage2ContentInput project={project} stepData={getStepData(2)} />
+          <Stage2ContentInput project={project} stepData={getStepData(1)} />
         );
       case 3:
         return (
