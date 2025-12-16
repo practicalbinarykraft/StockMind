@@ -49,142 +49,143 @@ export function registerInstagramSourcesRoutes(app: Express) {
       const validated = insertInstagramSourceSchema.parse(req.body);
       const source = await storage.createInstagramSource(userId, validated);
 
+      // Check if Apify key exists and set status to 'parsing' BEFORE responding
+      const apifyKey = await storage.getUserApiKey(userId, 'apify');
+      
+      if (apifyKey) {
+        // Set status to 'parsing' immediately so client sees it
+        await storage.updateInstagramSource(source.id, userId, {
+          parseStatus: 'parsing',
+          parseError: null
+        });
+        
+        // Update source object for response
+        source.parseStatus = 'parsing';
+        source.parseError = null;
+      }
+
       // Auto-parse on creation (like RSS sources)
       // Run in background to avoid blocking the response
-      (async () => {
-        try {
-          // Get Apify API key
-          const apifyKey = await storage.getUserApiKey(userId, 'apify');
-          
-          if (!apifyKey) {
-            logger.warn("Instagram source created but no Apify key configured", { 
+      if (apifyKey) {
+        (async () => {
+          try {
+
+            logger.info("Auto-parsing new Instagram source", { 
               sourceId: source.id, 
               username: source.username 
             });
-            return;
-          }
 
-          // Update status to 'parsing'
-          await storage.updateInstagramSource(source.id, userId, {
-            parseStatus: 'parsing',
-            parseError: null
-          });
+            // Parse latest 50 Reels
+            const result = await scrapeInstagramReels(
+              source.username,
+              apifyKey.decryptedKey,
+              50
+            );
 
-          logger.info("Auto-parsing new Instagram source", { 
-            sourceId: source.id, 
-            username: source.username 
-          });
+            if (result.success) {
+              // Save Reels to database
+              let savedCount = 0;
+              let skippedCount = 0;
 
-          // Parse latest 50 Reels
-          const result = await scrapeInstagramReels(
-            source.username,
-            apifyKey.decryptedKey,
-            50
-          );
-
-          if (result.success) {
-            // Save Reels to database
-            let savedCount = 0;
-            let skippedCount = 0;
-
-            for (const reel of result.items) {
-              try {
-                const item = await storage.createInstagramItem({
-                  sourceId: source.id,
-                  userId,
-                  externalId: reel.shortCode,
-                  shortCode: reel.shortCode,
-                  caption: reel.caption || null,
-                  url: reel.url,
-                  videoUrl: reel.videoUrl,
-                  thumbnailUrl: reel.thumbnailUrl || null,
-                  videoDuration: reel.videoDuration || null,
-                  likesCount: reel.likesCount,
-                  commentsCount: reel.commentsCount,
-                  videoViewCount: reel.videoViewCount || null,
-                  videoPlayCount: reel.videoPlayCount || null,
-                  sharesCount: reel.sharesCount || null,
-                  hashtags: reel.hashtags || [],
-                  mentions: reel.mentions || [],
-                  ownerUsername: reel.ownerUsername || null,
-                  ownerFullName: reel.ownerFullName || null,
-                  ownerId: reel.ownerId || null,
-                  musicInfo: reel.musicInfo || null,
-                  aiScore: null,
-                  aiComment: null,
-                  userAction: null,
-                  actionAt: null,
-                  usedInProject: null,
-                  freshnessScore: null,
-                  viralityScore: null,
-                  qualityScore: null,
-                  publishedAt: reel.timestamp ? new Date(reel.timestamp) : null,
-                  downloadStatus: 'pending',
-                });
-
-                savedCount++;
-
-                // Download video in background
-                downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId);
-              } catch (error: any) {
-                if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
-                  skippedCount++;
-                } else {
-                  logger.error("Error saving Reel during auto-parse", { 
-                    shortCode: reel.shortCode, 
-                    error: error.message 
+              for (const reel of result.items) {
+                try {
+                  const item = await storage.createInstagramItem({
+                    sourceId: source.id,
+                    userId,
+                    externalId: reel.shortCode,
+                    shortCode: reel.shortCode,
+                    caption: reel.caption || null,
+                    url: reel.url,
+                    videoUrl: reel.videoUrl,
+                    thumbnailUrl: reel.thumbnailUrl || null,
+                    videoDuration: reel.videoDuration || null,
+                    likesCount: reel.likesCount,
+                    commentsCount: reel.commentsCount,
+                    videoViewCount: reel.videoViewCount || null,
+                    videoPlayCount: reel.videoPlayCount || null,
+                    sharesCount: reel.sharesCount || null,
+                    hashtags: reel.hashtags || [],
+                    mentions: reel.mentions || [],
+                    ownerUsername: reel.ownerUsername || null,
+                    ownerFullName: reel.ownerFullName || null,
+                    ownerId: reel.ownerId || null,
+                    musicInfo: reel.musicInfo || null,
+                    aiScore: null,
+                    aiComment: null,
+                    userAction: null,
+                    actionAt: null,
+                    usedInProject: null,
+                    freshnessScore: null,
+                    viralityScore: null,
+                    qualityScore: null,
+                    publishedAt: reel.timestamp ? new Date(reel.timestamp) : null,
+                    downloadStatus: 'pending',
                   });
+
+                  savedCount++;
+
+                  // Download video in background
+                  downloadInstagramMediaBackground(item.id, reel.videoUrl, reel.thumbnailUrl || null, userId);
+                } catch (error: any) {
+                  if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
+                    skippedCount++;
+                  } else {
+                    logger.error("Error saving Reel during auto-parse", { 
+                      shortCode: reel.shortCode, 
+                      error: error.message 
+                    });
+                  }
                 }
               }
+
+              // Find most recent Reel
+              const latestReel = result.items.reduce((latest, current) => {
+                if (!current.timestamp) return latest;
+                if (!latest || !latest.timestamp) return current;
+                return new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest;
+              }, result.items[0]);
+
+              // Update source with success status
+              await storage.updateInstagramSource(source.id, userId, {
+                parseStatus: 'success',
+                lastParsed: new Date(),
+                itemCount: savedCount,
+                parseError: null,
+                lastScrapedDate: latestReel?.timestamp ? new Date(latestReel.timestamp) : new Date(),
+                lastScrapedReelId: latestReel?.id || null,
+              });
+
+              logger.info("Auto-parse completed", { 
+                sourceId: source.id,
+                username: source.username, 
+                savedCount, 
+                skippedCount 
+              });
+            } else {
+              await storage.updateInstagramSource(source.id, userId, {
+                parseStatus: 'error',
+                parseError: result.error || 'Auto-parse failed',
+              });
+              
+              logger.error("Auto-parse failed", { 
+                sourceId: source.id,
+                username: source.username,
+                error: result.error 
+              });
             }
-
-            // Find most recent Reel
-            const latestReel = result.items.reduce((latest, current) => {
-              if (!current.timestamp) return latest;
-              if (!latest || !latest.timestamp) return current;
-              return new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest;
-            }, result.items[0]);
-
-            // Update source with success status
-            await storage.updateInstagramSource(source.id, userId, {
-              parseStatus: 'success',
-              lastParsed: new Date(),
-              itemCount: savedCount,
-              parseError: null,
-              lastScrapedDate: latestReel?.timestamp ? new Date(latestReel.timestamp) : new Date(),
-              lastScrapedReelId: latestReel?.id || null,
-            });
-
-            logger.info("Auto-parse completed", { 
-              sourceId: source.id,
-              username: source.username, 
-              savedCount, 
-              skippedCount 
-            });
-          } else {
-            await storage.updateInstagramSource(source.id, userId, {
-              parseStatus: 'error',
-              parseError: result.error || 'Auto-parse failed',
+          } catch (error: any) {
+            logger.error("Error in auto-parse", { 
+              sourceId: source.id, 
+              error: error.message 
             });
             
-            logger.error("Auto-parse failed", { 
-              sourceId: source.id,
-              username: source.username,
-              error: result.error 
-            });
+            await storage.updateInstagramSource(source.id, userId, {
+              parseStatus: 'error',
+              parseError: error.message || 'Auto-parse error',
+            }).catch(err => logger.error("Failed to update error status", { error: err.message }));
           }
-        } catch (error: any) {
-          logger.error("Error in auto-parse", { 
-            sourceId: source.id, 
-            error: error.message 
-          });
-          
-          await storage.updateInstagramSource(source.id, userId, {
-            parseStatus: 'error',
-            parseError: error.message || 'Auto-parse error',
-          }).catch(err => logger.error("Failed to update error status", { error: err.message }));
-        }
-      })();
+        })();
+      }
 
       res.json(source);
     } catch (error: any) {

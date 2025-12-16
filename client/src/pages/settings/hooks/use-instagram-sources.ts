@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
 import { apiRequest, queryClient } from "@/lib/query-client"
@@ -26,10 +26,41 @@ export function useInstagramSources() {
   const [parseSourceId, setParseSourceId] = useState<string | null>(null)
   const [parseMode, setParseMode] = useState<ParseMode>('latest-50')
 
+  // Track polling for parsing sources
+  const pollingCountRef = useRef(0)
+  const maxPollingAttempts = 15 // Max 15 attempts (7.5 minutes)
+
   // Fetch Instagram Sources
   const { data: instagramSources, isLoading: instagramLoading } = useQuery<InstagramSource[]>({
     queryKey: ["/api/settings/instagram-sources"],
+    // Smart polling: only when sources are parsing, max 15 attempts
+    refetchInterval: (query) => {
+      const data = query.state.data
+      const hasParsing = data?.some((source: InstagramSource) => source.parseStatus === 'parsing')
+      
+      if (!hasParsing) {
+        pollingCountRef.current = 0 // Reset counter when no parsing
+        return false
+      }
+      
+      // Stop after 15 attempts (7.5 minutes total)
+      if (pollingCountRef.current >= maxPollingAttempts) {
+        pollingCountRef.current = 0
+        return false
+      }
+      
+      pollingCountRef.current++
+      return 30000 // Poll every 30 seconds
+    },
   })
+
+  // Reset polling counter when sources change
+  useEffect(() => {
+    const hasParsing = instagramSources?.some(source => source.parseStatus === 'parsing')
+    if (!hasParsing) {
+      pollingCountRef.current = 0
+    }
+  }, [instagramSources])
 
   // Get selected source for parse dialog
   const selectedParseSource = instagramSources?.find(s => s.id === parseSourceId)
@@ -69,7 +100,7 @@ export function useInstagramSources() {
       })
       toast({
         title: "Instagram Source Added",
-        description: "The Instagram account has been added successfully.",
+        description: "Automatic parsing started. This usually takes 1-3 minutes.",
       })
     },
     onError: (error: Error) => handleError(error, "Error"),
