@@ -297,15 +297,15 @@ export function ProjectListItem({
 
           {/* Center: Video */}
           <div 
-            className="relative bg-muted cursor-pointer group/video hover:bg-muted/80 transition-colors h-full border-r"
+            className="relative bg-muted cursor-pointer group/video hover:bg-muted/80 transition-colors h-full border-r flex items-center justify-center"
             onClick={() => setLocation(`/project/${project.id}`)}
           >
             {project.stats?.thumbnailUrl ? (
-              <div className="relative h-full w-full">
+              <div className="relative h-full w-full flex items-center justify-center">
                 <img 
                   src={project.stats.thumbnailUrl} 
                   alt={project.displayTitle || project.title || "Project"}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
                 {/* Duration overlay */}
                 {project.stats?.duration > 0 && (

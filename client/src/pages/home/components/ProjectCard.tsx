@@ -55,14 +55,14 @@ export function ProjectCard({
     >
       {/* Thumbnail */}
       <div
-        className="relative h-40 bg-muted cursor-pointer"
+        className="relative h-40 bg-muted cursor-pointer flex items-center justify-center"
         onClick={() => onNavigate(project.id)}
       >
         {project.stats?.thumbnailUrl ? (
           <img
             src={project.stats.thumbnailUrl}
             alt={project.displayTitle || project.title || "Project"}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         ) : (
           <div className="flex items-center justify-center h-full">
