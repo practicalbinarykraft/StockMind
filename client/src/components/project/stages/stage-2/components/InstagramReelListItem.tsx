@@ -12,9 +12,11 @@ import {
   Heart,
   MessageCircle,
   PlayCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useProxyImage } from "../hooks/use-proxy-image";
 
 export interface InstagramReelListItemProps {
   item: any; // Instagram Reel item
@@ -39,6 +41,9 @@ export function InstagramReelListItem({
   const hasAiScore = typeof item.aiScore === "number";
   const canAnalyze = hasTranscription && !hasAiScore;
   const canCreateScript = hasTranscription && (hasAiScore || analysis);
+
+  // Use proxy image hook to load Instagram thumbnail
+  const { proxyUrl, isLoading: imageLoading, error: imageError } = useProxyImage(item.thumbnailUrl);
 
   // Get freshness label based on timestamp
   const getFreshnessLabel = () => {
@@ -65,15 +70,21 @@ export function InstagramReelListItem({
         <div className="space-y-4">
           <div className="flex gap-4">
             {/* Thumbnail */}
-            <div className="relative flex-shrink-0 w-24 h-32 bg-muted rounded-md overflow-hidden">
-              {item.thumbnailUrl && (
+            <div className="relative flex-shrink-0 w-24 h-32 bg-muted rounded-md overflow-hidden flex items-center justify-center">
+              {imageLoading && (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              )}
+              {!imageLoading && !imageError && proxyUrl && (
                 <img
-                  src={item.thumbnailUrl}
+                  src={proxyUrl}
                   alt="Reel thumbnail"
                   className="w-full h-full object-cover"
                 />
               )}
-              {freshnessLabel && (
+              {!imageLoading && imageError && (
+                <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+              )}
+              {freshnessLabel && !imageLoading && (
                 <div
                   className={`absolute top-1 right-1 ${
                     freshnessColors[freshnessLabel as keyof typeof freshnessColors]

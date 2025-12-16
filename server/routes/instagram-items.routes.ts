@@ -182,4 +182,43 @@ export function registerInstagramItemsRoutes(app: Express) {
       res.status(500).json({ message: "Failed to score Instagram item" });
     }
   });
+
+  // GET /api/instagram/proxy-image - Proxy Instagram images to avoid CORS
+  app.get("/api/instagram/proxy-image", requireAuth, async (req: any, res) => {
+    try {
+      const { url } = req.query;
+      
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ message: "URL parameter is required" });
+      }
+      
+      // Validate that URL is from Instagram CDN
+      if (!url.includes('cdninstagram.com')) {
+        return res.status(400).json({ message: "Invalid URL - must be from Instagram CDN" });
+      }
+      
+      // Fetch the image from Instagram
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        logger.error("Failed to fetch Instagram image", { url, status: response.status });
+        return res.status(response.status).json({ message: "Failed to fetch image" });
+      }
+      
+      // Get the image buffer
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS
+      
+      // Send the image
+      res.send(Buffer.from(buffer));
+    } catch (error: any) {
+      logger.error("Error proxying Instagram image", { error: error.message });
+      res.status(500).json({ message: "Failed to proxy image" });
+    }
+  });
 }
