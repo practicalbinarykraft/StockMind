@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff, Download, Loader2 } from "lucide-react"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff, Download, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAvatarImages, useProxiedVideo } from "./stage-5/hooks"
 
 interface Stage5Props {
@@ -44,6 +44,11 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const [generatedVideoId, setGeneratedVideoId] = useState<string | null>(null)
   const [videoStatus, setVideoStatus] = useState<VideoStatus | null>(null)
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  
+  // Pagination state
+  const [myAvatarsPage, setMyAvatarsPage] = useState(0)
+  const [publicAvatarsPage, setPublicAvatarsPage] = useState(0)
+  const AVATARS_PER_PAGE = 9
 
   // Hook for proxied video loading with loading state
   const {
@@ -398,6 +403,27 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     avatar.avatar_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Calculate pagination
+  const myAvatarsTotalPages = Math.ceil(filteredMyAvatars.length / AVATARS_PER_PAGE)
+  const publicAvatarsTotalPages = Math.ceil(filteredPublicAvatars.length / AVATARS_PER_PAGE)
+  
+  // Get current page items
+  const currentMyAvatars = filteredMyAvatars.slice(
+    myAvatarsPage * AVATARS_PER_PAGE,
+    (myAvatarsPage + 1) * AVATARS_PER_PAGE
+  )
+  
+  const currentPublicAvatars = filteredPublicAvatars.slice(
+    publicAvatarsPage * AVATARS_PER_PAGE,
+    (publicAvatarsPage + 1) * AVATARS_PER_PAGE
+  )
+
+  // Reset pages when search changes
+  useEffect(() => {
+    setMyAvatarsPage(0)
+    setPublicAvatarsPage(0)
+  }, [searchTerm])
+
   const handlePreview = (avatarId: string, previewUrl?: string) => {
     if (!previewUrl) return
 
@@ -699,8 +725,40 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <h3 className="text-lg font-semibold">My Avatars</h3>
                   <Badge variant="secondary">{filteredMyAvatars.length}</Badge>
                 </div>
+                
+                {/* Pagination controls */}
+                {myAvatarsTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMyAvatarsPage(p => Math.max(0, p - 1))}
+                      disabled={myAvatarsPage === 0}
+                      className="gap-1"
+                      data-testid="button-my-avatars-prev"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {myAvatarsPage + 1} of {myAvatarsTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMyAvatarsPage(p => Math.min(myAvatarsTotalPages - 1, p + 1))}
+                      disabled={myAvatarsPage >= myAvatarsTotalPages - 1}
+                      className="gap-1"
+                      data-testid="button-my-avatars-next"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredMyAvatars.slice(0, 9).map(avatar => {
+                  {currentMyAvatars.map(avatar => {
                     const proxiedUrl = getProxiedUrl(avatar.avatar_id)
                     const isFailed = isImageFailed(avatar.avatar_id)
                     
@@ -715,11 +773,11 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                       >
                         <CardHeader>
                           {proxiedUrl && !isFailed ? (
-                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
+                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center">
                               <img
                                 src={proxiedUrl}
                                 alt={avatar.avatar_name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 loading="lazy"
                                 onLoad={() => markLoaded(avatar.avatar_id)}
                                 onError={() => markError(avatar.avatar_id)}
@@ -786,8 +844,40 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <h3 className="text-lg font-semibold">Public Avatars</h3>
                   <Badge variant="secondary">{filteredPublicAvatars.length}</Badge>
                 </div>
+                
+                {/* Pagination controls */}
+                {publicAvatarsTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPublicAvatarsPage(p => Math.max(0, p - 1))}
+                      disabled={publicAvatarsPage === 0}
+                      className="gap-1"
+                      data-testid="button-public-avatars-prev"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {publicAvatarsPage + 1} of {publicAvatarsTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPublicAvatarsPage(p => Math.min(publicAvatarsTotalPages - 1, p + 1))}
+                      disabled={publicAvatarsPage >= publicAvatarsTotalPages - 1}
+                      className="gap-1"
+                      data-testid="button-public-avatars-next"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredPublicAvatars.slice(0, 9).map(avatar => {
+                  {currentPublicAvatars.map(avatar => {
                     const proxiedUrl = getProxiedUrl(avatar.avatar_id)
                     const isFailed = isImageFailed(avatar.avatar_id)
                     
@@ -802,11 +892,11 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                       >
                         <CardHeader>
                           {proxiedUrl && !isFailed ? (
-                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden">
+                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center">
                               <img
                                 src={proxiedUrl}
                                 alt={avatar.avatar_name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 loading="lazy"
                                 onLoad={() => markLoaded(avatar.avatar_id)}
                                 onError={() => markError(avatar.avatar_id)}
