@@ -15,23 +15,13 @@ let isRunning = false;
 export function initInstagramMonitor(storageInstance: IStorage) {
   storage = storageInstance;
 
-  // // Run every hour at minute 0
-  // cron.schedule('0 * * * *', async () => {
-  //   logCronJob('instagramMonitor', 'started', { scheduledTime: new Date() });
-  //   await checkAllSources();
-  // }, {
-  //   timezone: process.env.CRON_TZ || 'UTC'
-  // });
-
-  // logger.info('Instagram Monitor cron job initialized', { schedule: 'hourly' });
-
-  // // Run immediately on startup (non-blocking)
-  // checkAllSources().catch((error) => {
-  //   logger.error('Instagram Monitor startup check failed', {
-  //     error: error.message,
-  //     stack: error.stack
-  //   });
-  // });
+  // Instagram Monitor cron is DISABLED to save costs
+  // Parsing happens only when:
+  // 1. User clicks "Check Now" button
+  // 2. User clicks "Запустить парсинг Reels" button  
+  // 3. New source is added (auto-parse like RSS)
+  
+  logger.info('Instagram Monitor initialized (cron disabled - manual parsing only)');
 }
 
 async function checkAllSources() {
@@ -111,7 +101,7 @@ async function checkAllSources() {
   }
 }
 
-async function checkSourceForUpdates(source: any) {
+export async function checkSourceForUpdates(source: any): Promise<{ newReelsCount: number; viralReelsCount: number }> {
   const startTime = Date.now();
   const safeInterval = source.checkIntervalHours || 6;
 
@@ -140,7 +130,7 @@ async function checkSourceForUpdates(source: any) {
       })
       .where(eq(instagramSources.id, source.id));
 
-    return;
+    return { newReelsCount: 0, viralReelsCount: 0 };
   }
 
   // Extract decrypted key from storage response
@@ -162,7 +152,7 @@ async function checkSourceForUpdates(source: any) {
       })
       .where(eq(instagramSources.id, source.id));
 
-    return;
+    return { newReelsCount: 0, viralReelsCount: 0 };
   }
 
   const keyLast4 = apifyKey.slice(-4);
@@ -202,7 +192,7 @@ async function checkSourceForUpdates(source: any) {
   });
 
   // Process reels in a transaction for accurate counters
-  await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     let newReelsCount = 0;
     let viralReelsCount = 0;
 
@@ -283,5 +273,9 @@ async function checkSourceForUpdates(source: any) {
       viralReelsCount,
       duration,
     });
+
+    return { newReelsCount, viralReelsCount };
   });
+
+  return result;
 }

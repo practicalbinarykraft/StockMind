@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Trash2, Instagram, Clock, Pause, Play, RefreshCw, Loader2 } from "lucide-react"
+import { Trash2, Instagram, RefreshCw, Loader2, AlertCircle } from "lucide-react"
 import { StatusBadge } from "@/components/status-badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
 import { useInstagramSources } from "../hooks/use-instagram-sources"
@@ -15,8 +16,7 @@ interface InstagramSourcesSectionProps {
 export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesSectionProps) {
   const {
     instagramSources, instagramLoading, showDialog, setShowDialog,
-    form, setForm, addMutation, deleteMutation,
-    toggleAutoUpdateMutation, checkNowMutation,
+    form, setForm, addMutation, deleteMutation, checkNowMutation,
   } = useInstagramSources()
 
   if (instagramLoading) {
@@ -90,37 +90,6 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                   </Button>
                 </div>
 
-                {source.autoUpdateEnabled && (
-                  <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Авто-мониторинг активен</span>
-                      </div>
-                      <StatusBadge status="success" text={`Каждые ${source.checkIntervalHours || 6}ч`} />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">Проверок</p>
-                        <p className="font-semibold">{source.totalChecks || 0}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Найдено</p>
-                        <p className="font-semibold">{source.newReelsFound || 0}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Ошибок</p>
-                        <p className="font-semibold">{source.failedChecks || 0}</p>
-                      </div>
-                    </div>
-                    {source.nextCheckAt && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Следующая проверка: {formatDistanceToNow(new Date(source.nextCheckAt), { addSuffix: true, locale: ru })}
-                      </p>
-                    )}
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge
@@ -131,9 +100,16 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                         : source.parseStatus || 'pending'
                       }
                     />
-                    {source.autoUpdateEnabled && <StatusBadge status="success" text="Auto-Update ON" />}
                   </div>
                   {source.parseError && <p className="text-xs text-destructive">{source.parseError}</p>}
+                  {source.parseStatus === 'pending' && !source.parseError && (
+                    <Alert className="py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Парсинг запущен автоматически. Обычно занимает 1-3 минуты.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {source.lastParsed
                       ? `Parsed ${formatDistanceToNow(new Date(source.lastParsed), { addSuffix: true, locale: ru })}`
@@ -145,33 +121,18 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                   <p className="text-xs text-muted-foreground truncate" title={source.profileUrl}>{source.profileUrl}</p>
                 )}
 
-                <div className="flex gap-2">
-                  <Button
-                    variant={source.autoUpdateEnabled ? "secondary" : "default"}
-                    size="sm" className="flex-1 gap-2"
-                    onClick={() => toggleAutoUpdateMutation.mutate({ id: source.id, enabled: !source.autoUpdateEnabled })}
-                    disabled={toggleAutoUpdateMutation.isPending}
-                    data-testid={`button-toggle-auto-update-${source.id}`}
-                  >
-                    {source.autoUpdateEnabled ? (
-                      <><Pause className="h-4 w-4" />Pause</>
-                    ) : (
-                      <><Play className="h-4 w-4" />Resume</>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline" size="sm" className="flex-1 gap-2"
-                    onClick={() => checkNowMutation.mutate(source.id)}
-                    disabled={checkNowMutation.isPending}
-                    data-testid={`button-check-now-${source.id}`}
-                  >
-                    {checkNowMutation.isPending ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" />Проверяю...</>
-                    ) : (
-                      <><RefreshCw className="h-4 w-4" />Check Now</>
-                    )}
-                  </Button>
-                </div>
+                <Button
+                  variant="outline" size="sm" className="w-full gap-2"
+                  onClick={() => checkNowMutation.mutate(source.id)}
+                  disabled={checkNowMutation.isPending}
+                  data-testid={`button-check-now-${source.id}`}
+                >
+                  {checkNowMutation.isPending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Проверяю...</>
+                  ) : (
+                    <><RefreshCw className="h-4 w-4" />Check Now</>
+                  )}
+                </Button>
 
                 <Button
                   variant="default" size="sm" className="w-full gap-2"

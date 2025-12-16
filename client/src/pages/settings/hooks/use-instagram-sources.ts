@@ -108,22 +108,6 @@ export function useInstagramSources() {
     onError: (error: Error) => handleError(error, "Parsing Failed"),
   })
 
-  // Toggle Instagram Auto-Update Mutation
-  const toggleAutoUpdateMutation = useMutation({
-    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
-      apiRequest("PATCH", `/api/instagram/sources/${id}/auto-update`, { autoUpdateEnabled: enabled }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
-      toast({
-        title: variables.enabled ? "Auto-Update Enabled" : "Auto-Update Paused",
-        description: variables.enabled
-          ? "Instagram source will be monitored automatically."
-          : "Automatic monitoring has been paused.",
-      })
-    },
-    onError: (error: Error) => handleError(error, "Error"),
-  })
-
   // Check Instagram Now Mutation
   const checkNowMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/instagram/sources/${id}/check-now`, {}),
@@ -155,7 +139,6 @@ export function useInstagramSources() {
     addMutation,
     deleteMutation,
     parseMutation,
-    toggleAutoUpdateMutation,
     checkNowMutation,
     showParseDialog,
     setShowParseDialog,
