@@ -55,8 +55,6 @@ export default function Home() {
   const {
     filter,
     setFilter,
-    viewMode,
-    setViewMode,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -156,8 +154,6 @@ export default function Home() {
           onFilterChange={setFilter}
           sortBy={sortBy}
           onSortChange={setSortBy}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
         />
 
         {/* Projects Grid */}
@@ -165,7 +161,6 @@ export default function Home() {
           projects={filteredProjects}
           projectsWithScripts={projectsWithScripts}
           isLoading={isLoading}
-          viewMode={viewMode}
           filter={filter}
           onNavigate={(id) => setLocation(`/project/${id}`)}
           onDelete={handleDelete}

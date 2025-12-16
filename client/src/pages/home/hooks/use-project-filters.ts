@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import type { Project } from "@shared/schema"
-import type { FilterType, SortBy, ViewMode } from "../types"
+import type { FilterType, SortBy } from "../types"
 
 interface UseProjectFiltersProps {
   projects: Project[] | undefined
@@ -8,7 +8,6 @@ interface UseProjectFiltersProps {
 
 export function useProjectFilters({ projects }: UseProjectFiltersProps) {
   const [filter, setFilter] = useState<FilterType>("all")
-  const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<SortBy>("updated")
 
@@ -46,8 +45,6 @@ export function useProjectFilters({ projects }: UseProjectFiltersProps) {
   return {
     filter,
     setFilter,
-    viewMode,
-    setViewMode,
     searchQuery,
     setSearchQuery,
     sortBy,

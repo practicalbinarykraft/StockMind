@@ -7,8 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, ArrowUpDown, Grid3x3, List } from "lucide-react"
-import type { FilterType, ViewMode, SortBy } from "../types"
+import { Search, ArrowUpDown } from "lucide-react"
+import type { FilterType, SortBy } from "../types"
 
 interface ProjectsToolbarProps {
   searchQuery: string
@@ -17,8 +17,6 @@ interface ProjectsToolbarProps {
   onFilterChange: (value: FilterType) => void
   sortBy: SortBy
   onSortChange: (value: SortBy) => void
-  viewMode: ViewMode
-  onViewModeChange: (value: ViewMode) => void
 }
 
 const FILTER_OPTIONS = [
@@ -35,8 +33,6 @@ export function ProjectsToolbar({
   onFilterChange,
   sortBy,
   onSortChange,
-  viewMode,
-  onViewModeChange,
 }: ProjectsToolbarProps) {
   return (
     <div className="space-y-4 mb-6">
@@ -81,28 +77,6 @@ export function ProjectsToolbar({
               <SelectItem value="created">Дата создания</SelectItem>
             </SelectContent>
           </Select>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-2 border rounded-md p-1 bg-muted/50">
-            <Button
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onViewModeChange("grid")}
-              className="h-8 px-3"
-              data-testid="button-view-grid"
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onViewModeChange("list")}
-              className="h-8 px-3"
-              data-testid="button-view-list"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </div>
     </div>
