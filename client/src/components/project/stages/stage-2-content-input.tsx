@@ -74,6 +74,17 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
     enabled: sourceChoice === "news",
   });
 
+  // Fetch Instagram Reel if sourceChoice is instagram
+  const { data: instagramReel, isLoading: reelLoading } = useQuery({
+    queryKey: ["/api/instagram/items", stepData?.instagramItemId],
+    queryFn: async () => {
+      if (!stepData?.instagramItemId) return null;
+      const res = await apiRequest("GET", `/api/instagram/items/${stepData.instagramItemId}`);
+      return await res.json();
+    },
+    enabled: sourceChoice === "instagram" && !!stepData?.instagramItemId,
+  });
+
   // Get mutations from hook (same as All Articles but with proceedMutation for Stage 3)
   const { refreshMutation: refreshRssMutation, proceedMutation } =
     useNewsMutations(project);
@@ -338,10 +349,10 @@ export function Stage2ContentInput({ project, stepData }: Stage2Props) {
 
       {sourceChoice === "instagram" && (
         <InstagramReelView
-          isLoading={false}
-          reel={stepData}
+          isLoading={reelLoading}
+          reel={instagramReel}
           onContinue={handleInstagramContinue}
-          isSubmitting={false}
+          isSubmitting={proceedMutation.isPending}
         />
       )}
 
