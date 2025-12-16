@@ -19,9 +19,7 @@ export const INSTAGRAM_LIMITS = {
   // При добавлении нового аккаунта - легкий парсинг
   AUTO_PARSE_ON_ADD: 10,
   // При нажатии "Check Now" - быстрая проверка новых рилсов  
-  CHECK_NOW: 10,
-  // При нажатии "Запустить парсинг Reels" - полный парсинг
-  MANUAL_PARSE_DEFAULT: 30,
+  CHECK_NOW: 20,
   // Максимум рилсов для авто-оценки (экономия денег на AI)
   MAX_AUTO_SCORE: 10,
 };
@@ -231,7 +229,7 @@ export function registerInstagramSourcesRoutes(app: Express) {
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const { id } = req.params;
-      const { resultsLimit = INSTAGRAM_LIMITS.MANUAL_PARSE_DEFAULT } = req.body;
+      const { resultsLimit = 30 } = req.body; // Default to 30 reels for manual parse via API
 
       // Get Instagram source and verify ownership
       const sources = await storage.getInstagramSources(userId);
@@ -446,7 +444,6 @@ export function registerInstagramSourcesRoutes(app: Express) {
         limits: {
           autoParseOnAdd: INSTAGRAM_LIMITS.AUTO_PARSE_ON_ADD,
           checkNow: INSTAGRAM_LIMITS.CHECK_NOW,
-          manualParseDefault: INSTAGRAM_LIMITS.MANUAL_PARSE_DEFAULT,
           maxAutoScore: INSTAGRAM_LIMITS.MAX_AUTO_SCORE,
         },
         queue: queueStats,

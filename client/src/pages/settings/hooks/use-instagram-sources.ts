@@ -4,13 +4,11 @@ import { useToast } from "@/hooks/use-toast"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { isUnauthorizedError } from "@/lib/auth-utils"
 import type { InstagramSource } from "@shared/schema"
-import type { ParseMode } from "../types"
 
 // Типы для лимитов парсинга
 interface InstagramLimits {
   autoParseOnAdd: number;
   checkNow: number;
-  manualParseDefault: number;
   maxAutoScore: number;
 }
 
@@ -29,10 +27,8 @@ export function useInstagramSources() {
     viralThreshold: 70,
   })
 
-  // Parse dialog state
-  const [showParseDialog, setShowParseDialog] = useState(false)
-  const [parseSourceId, setParseSourceId] = useState<string | null>(null)
-  const [parseMode, setParseMode] = useState<ParseMode>('latest-30')
+  // Track which source is currently being checked
+  const [checkingSourceId, setCheckingSourceId] = useState<string | null>(null)
 
   // Fetch Instagram Limits
   const { data: limitsData } = useQuery<{ limits: InstagramLimits }>({
@@ -75,9 +71,6 @@ export function useInstagramSources() {
       pollingCountRef.current = 0
     }
   }, [instagramSources])
-
-  // Get selected source for parse dialog
-  const selectedParseSource = instagramSources?.find(s => s.id === parseSourceId)
 
   // Common error handler
   const handleError = (error: Error, title: string) => {
@@ -130,35 +123,15 @@ export function useInstagramSources() {
     onError: (error: Error) => handleError(error, "Error"),
   })
 
-  // Parse Instagram Source Mutation
-  const parseMutation = useMutation({
-    mutationFn: () => {
-      if (!parseSourceId) throw new Error("No source selected");
-      // Обновлённые режимы парсинга с учётом новых лимитов
-      const settings = {
-        'latest-10': { resultsLimit: 10, parseMode: 'all' as const },
-        'latest-30': { resultsLimit: limits?.manualParseDefault || 30, parseMode: 'all' as const },
-        'latest-50': { resultsLimit: 50, parseMode: 'all' as const },
-        'new-only': { resultsLimit: 50, parseMode: 'new' as const },
-      }[parseMode];
-      return apiRequest("POST", `/api/instagram/sources/${parseSourceId}/parse`, settings)
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
-      setShowParseDialog(false)
-      toast({
-        title: "Parsing Complete",
-        description: `Successfully parsed ${data.itemCount} Reels (${data.savedCount} new, ${data.skippedCount} duplicates).`,
-      })
-    },
-    onError: (error: Error) => handleError(error, "Parsing Failed"),
-  })
-
   // Check Instagram Now Mutation
   const checkNowMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("POST", `/api/instagram/sources/${id}/check-now`, {}),
+    mutationFn: (id: string) => {
+      setCheckingSourceId(id)
+      return apiRequest("POST", `/api/instagram/sources/${id}/check-now`, {})
+    },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] })
+      setCheckingSourceId(null)
       const newReelsCount = data.newReelsCount ?? 0;
       const viralReelsCount = data.viralReelsCount ?? 0;
       const message = viralReelsCount > 0
@@ -166,14 +139,11 @@ export function useInstagramSources() {
         : `Found ${newReelsCount} new Reels.`;
       toast({ title: "Manual Check Complete", description: message })
     },
-    onError: (error: Error) => handleError(error, "Check Failed"),
+    onError: (error: Error) => {
+      setCheckingSourceId(null)
+      handleError(error, "Check Failed")
+    },
   })
-
-  const handleOpenParseDialog = (sourceId: string) => {
-    setParseSourceId(sourceId)
-    setShowParseDialog(true)
-    setParseMode('latest-30') // Новый дефолт - 30 рилсов
-  }
 
   return {
     instagramSources,
@@ -184,15 +154,8 @@ export function useInstagramSources() {
     setForm,
     addMutation,
     deleteMutation,
-    parseMutation,
     checkNowMutation,
-    showParseDialog,
-    setShowParseDialog,
-    parseSourceId,
-    parseMode,
-    setParseMode,
-    selectedParseSource,
-    handleOpenParseDialog,
+    checkingSourceId, // ID источника, который проверяется сейчас
     // Лимиты для отображения в UI
     limits,
   }

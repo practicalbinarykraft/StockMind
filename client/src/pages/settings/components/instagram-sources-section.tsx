@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Trash2, Instagram, RefreshCw, Loader2, AlertCircle } from "lucide-react"
+import { Trash2, Instagram, RefreshCw, Loader2 } from "lucide-react"
 import { StatusBadge } from "@/components/status-badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -9,15 +9,11 @@ import { ru } from "date-fns/locale"
 import { useInstagramSources } from "../hooks/use-instagram-sources"
 import { InstagramAddDialog } from "./instagram-add-dialog"
 
-interface InstagramSourcesSectionProps {
-  onOpenParseDialog: (sourceId: string) => void
-}
-
-export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesSectionProps) {
+export function InstagramSourcesSection() {
   const {
     instagramSources, instagramLoading, showDialog, setShowDialog,
     form, setForm, addMutation, deleteMutation, checkNowMutation,
-    limits,
+    checkingSourceId, limits,
   } = useInstagramSources()
 
   if (instagramLoading) {
@@ -56,8 +52,7 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
               Manage Instagram accounts to scrape Reels from. Requires Apify API key.
               {limits && (
                 <span className="block text-xs mt-1 text-muted-foreground/70">
-                  Авто-парсинг при добавлении: {limits.autoParseOnAdd} рилсов • 
-                  Авто-оценка AI: первые {limits.maxAutoScore} рилсов
+                  Авто-парсинг при добавлении: {limits.autoParseOnAdd} рилсов • Check Now: до {limits.checkNow} рилсов • Авто-оценка AI: первые {limits.maxAutoScore} рилсов
                 </span>
               )}
             </CardDescription>
@@ -136,26 +131,15 @@ export function InstagramSourcesSection({ onOpenParseDialog }: InstagramSourcesS
                 <Button
                   variant="outline" size="sm" className="w-full gap-2"
                   onClick={() => checkNowMutation.mutate(source.id)}
-                  disabled={checkNowMutation.isPending}
+                  disabled={checkingSourceId === source.id}
                   data-testid={`button-check-now-${source.id}`}
-                  title={`Быстрая проверка: до ${limits?.checkNow || 10} новых рилсов`}
+                  title={`Проверить новые рилсы: до ${limits?.checkNow || 20} рилсов`}
                 >
-                  {checkNowMutation.isPending ? (
+                  {checkingSourceId === source.id ? (
                     <><Loader2 className="h-4 w-4 animate-spin" />Проверяю...</>
                   ) : (
-                    <><RefreshCw className="h-4 w-4" />Check Now (до {limits?.checkNow || 10})</>
+                    <><RefreshCw className="h-4 w-4" />Check Now (до {limits?.checkNow || 20})</>
                   )}
-                </Button>
-
-                <Button
-                  variant="default" size="sm" className="w-full gap-2"
-                  onClick={() => onOpenParseDialog(source.id)}
-                  disabled={source.parseStatus === 'parsing'}
-                  data-testid={`button-parse-instagram-${source.id}`}
-                  title={`Полный парсинг: до ${limits?.manualParseDefault || 30} рилсов`}
-                >
-                  <Instagram className="h-4 w-4" />
-                  {source.parseStatus === 'parsing' ? 'Парсинг...' : `Парсинг Reels (до ${limits?.manualParseDefault || 30})`}
                 </Button>
               </div>
             ))}
