@@ -228,21 +228,25 @@ async function processUserConveyor(
     `🚀 Начинаю обработку ${maxToProcess} из ${items.length} найденных статей...`
   );
 
-  // Process items
+  // Process items - iterate through all items until we process maxToProcess new items
   let processed = 0;
   let skipped = 0;
-  const itemsToProcess = items.slice(0, maxToProcess);
+  let checked = 0;
   
-  logger.info(`[Conveyor Runner] About to process ${itemsToProcess.length} items`, {
+  logger.info(`[Conveyor Runner] Starting to process items`, {
     maxToProcess,
-    itemsLength: items.length,
-    firstItem: itemsToProcess[0] ? {
-      title: itemsToProcess[0].title.substring(0, 50),
-      contentLength: itemsToProcess[0].content.length,
-    } : null,
+    totalItemsAvailable: items.length,
   });
 
-  for (const sourceData of itemsToProcess) {
+  for (const sourceData of items) {
+    // Stop if we've processed enough items
+    if (processed >= maxToProcess) {
+      logger.info(`[Conveyor Runner] Reached maxToProcess limit (${maxToProcess})`);
+      break;
+    }
+
+    checked++;
+
     // Check if already successfully processed (completed)
     const exists = await conveyorItemsStorage.exists(
       sourceData.type,
@@ -260,7 +264,7 @@ async function processUserConveyor(
 
     // Notify about starting this item
     logger.info(
-      `[Conveyor Runner] Starting item: ${sourceData.title.substring(0, 50)}...`,
+      `[Conveyor Runner] Starting item ${processed + 1}/${maxToProcess}: ${sourceData.title.substring(0, 50)}...`,
       {
         itemId: sourceData.itemId,
         contentLength: sourceData.content.length,
@@ -306,39 +310,47 @@ async function processUserConveyor(
     }
   }
 
-  // Log and notify about skipped items
-  if (skipped > 0) {
-    logger.info(
-      `[Conveyor Runner] Skipped ${skipped} already completed items for user ${userId}`
-    );
-
-    if (processed === 0 && skipped === maxToProcess) {
-      // All items were skipped because already completed - notify user (stage 1 = Scout)
-      conveyorEvents.stageThinking(
-        userId,
-        "scout-runner",
-        1,
-        `✅ Все ${skipped} проверенных статей уже были успешно обработаны ранее (сценарии созданы). ${items.length > maxToProcess ? `Осталось ${items.length - maxToProcess} статей в очереди.` : ''}`
-      );
-    } else if (skipped > 0 && processed > 0) {
-      // Some were skipped, some processed
-      conveyorEvents.stageThinking(
-        userId,
-        "scout-runner",
-        1,
-        `📊 Пропущено ${skipped} уже обработанных статей. Обработано новых: ${processed}.`
-      );
-    }
-  }
-
+  // Log and notify about results
   logger.info(
-    `[Conveyor Runner] Processed ${processed} items for user ${userId}`,
+    `[Conveyor Runner] Completed processing for user ${userId}`,
     {
       processed,
       skipped,
-      total: items.length,
+      checked,
+      totalAvailable: items.length,
     }
   );
+
+  if (skipped > 0 || processed > 0) {
+    if (processed === 0 && checked < items.length) {
+      // All checked items were already completed, but there are more unchecked items
+      conveyorEvents.stageThinking(
+        userId,
+        "scout-runner",
+        1,
+        `✅ Проверено ${checked} статей - все уже обработаны. Осталось ${items.length - checked} непроверенных статей. Увеличьте дневной лимит для обработки большего количества.`
+      );
+    } else if (processed === 0 && checked === items.length) {
+      // All items were checked and all were already completed
+      conveyorEvents.stageThinking(
+        userId,
+        "scout-runner",
+        1,
+        `✅ Все ${items.length} найденных статей уже были успешно обработаны ранее. Сценарии созданы.`
+      );
+    } else if (processed > 0) {
+      // Some items were processed
+      const msg = skipped > 0 
+        ? `✅ Обработано ${processed} новых статей. Пропущено ${skipped} уже обработанных.`
+        : `✅ Обработано ${processed} новых статей.`;
+      conveyorEvents.stageThinking(
+        userId,
+        "scout-runner",
+        1,
+        msg
+      );
+    }
+  }
 }
 
 /**
