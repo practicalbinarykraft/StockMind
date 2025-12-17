@@ -186,14 +186,63 @@ async function processUserConveyor(
   );
 
   if (maxToProcess <= 0) {
-    logger.info(`[Conveyor Runner] No capacity for user ${userId}`);
+    logger.info(`[Conveyor Runner] No capacity for user ${userId}`, {
+      remainingDaily,
+      remainingByBudget,
+      itemsFound: items.length,
+    });
+    
+    // Notify user about limits
+    if (remainingDaily <= 0) {
+      conveyorEvents.stageThinking(
+        userId,
+        "scout-runner",
+        1,
+        `⚠️ Достигнут дневной лимит (${settings.dailyLimit} сценариев). Обработка остановлена.`
+      );
+    } else if (remainingByBudget <= 0) {
+      conveyorEvents.stageThinking(
+        userId,
+        "scout-runner",
+        1,
+        `⚠️ Достигнут бюджетный лимит ($${monthlyBudget}). Обработка остановлена.`
+      );
+    }
     return;
   }
+
+  logger.info(
+    `[Conveyor Runner] Processing up to ${maxToProcess} items for user ${userId}`,
+    {
+      remainingDaily,
+      remainingByBudget,
+      totalFound: items.length,
+    }
+  );
+
+  // Notify user that processing is starting
+  conveyorEvents.stageThinking(
+    userId,
+    "scout-runner",
+    1,
+    `🚀 Начинаю обработку ${maxToProcess} из ${items.length} найденных статей...`
+  );
 
   // Process items
   let processed = 0;
   let skipped = 0;
-  for (const sourceData of items.slice(0, maxToProcess)) {
+  const itemsToProcess = items.slice(0, maxToProcess);
+  
+  logger.info(`[Conveyor Runner] About to process ${itemsToProcess.length} items`, {
+    maxToProcess,
+    itemsLength: items.length,
+    firstItem: itemsToProcess[0] ? {
+      title: itemsToProcess[0].title.substring(0, 50),
+      contentLength: itemsToProcess[0].content.length,
+    } : null,
+  });
+
+  for (const sourceData of itemsToProcess) {
     // Check if already successfully processed (completed)
     const exists = await conveyorItemsStorage.exists(
       sourceData.type,
@@ -203,8 +252,20 @@ async function processUserConveyor(
 
     if (exists) {
       skipped++;
+      logger.info(
+        `[Conveyor Runner] Skipping already completed item: ${sourceData.title.substring(0, 50)}...`
+      );
       continue;
     }
+
+    // Notify about starting this item
+    logger.info(
+      `[Conveyor Runner] Starting item: ${sourceData.title.substring(0, 50)}...`,
+      {
+        itemId: sourceData.itemId,
+        contentLength: sourceData.content.length,
+      }
+    );
 
     // Process through pipeline
     const result = await conveyorOrchestrator.processItem(
@@ -251,13 +312,21 @@ async function processUserConveyor(
       `[Conveyor Runner] Skipped ${skipped} already completed items for user ${userId}`
     );
 
-    if (processed === 0 && skipped === items.length) {
+    if (processed === 0 && skipped === maxToProcess) {
       // All items were skipped because already completed - notify user (stage 1 = Scout)
       conveyorEvents.stageThinking(
         userId,
         "scout-runner",
         1,
-        `✅ Все ${skipped} найденных статей уже были успешно обработаны ранее. Сценарии созданы.`
+        `✅ Все ${skipped} проверенных статей уже были успешно обработаны ранее (сценарии созданы). ${items.length > maxToProcess ? `Осталось ${items.length - maxToProcess} статей в очереди.` : ''}`
+      );
+    } else if (skipped > 0 && processed > 0) {
+      // Some were skipped, some processed
+      conveyorEvents.stageThinking(
+        userId,
+        "scout-runner",
+        1,
+        `📊 Пропущено ${skipped} уже обработанных статей. Обработано новых: ${processed}.`
       );
     }
   }
