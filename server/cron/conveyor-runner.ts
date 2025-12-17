@@ -160,6 +160,13 @@ async function processUserConveyor(
 
   if (items.length === 0) {
     logger.info(`[Conveyor Runner] No new items for user ${userId}`);
+    // Notify user that scout found no suitable items (stage 1 = Scout)
+    conveyorEvents.stageThinking(
+      userId,
+      "scout-runner",
+      1,
+      `⚠️ Скаут не нашел подходящих материалов. Рекомендуется обновить RSS источники или изменить настройки фильтрации.`
+    );
     return;
   }
 
@@ -187,7 +194,7 @@ async function processUserConveyor(
   let processed = 0;
   let skipped = 0;
   for (const sourceData of items.slice(0, maxToProcess)) {
-    // Check if already processed
+    // Check if already successfully processed (completed)
     const exists = await conveyorItemsStorage.exists(
       sourceData.type,
       sourceData.itemId,
@@ -241,16 +248,16 @@ async function processUserConveyor(
   // Log and notify about skipped items
   if (skipped > 0) {
     logger.info(
-      `[Conveyor Runner] Skipped ${skipped} already processed items for user ${userId}`
+      `[Conveyor Runner] Skipped ${skipped} already completed items for user ${userId}`
     );
 
-    if (processed === 0) {
-      // All items were skipped - notify user (stage 1 = Scout)
+    if (processed === 0 && skipped === items.length) {
+      // All items were skipped because already completed - notify user (stage 1 = Scout)
       conveyorEvents.stageThinking(
         userId,
         "scout-runner",
         1,
-        `⏭️ Все ${skipped} найденных статей уже были обработаны ранее. Ожидание новых материалов...`
+        `✅ Все ${skipped} найденных статей уже были успешно обработаны ранее. Сценарии созданы.`
       );
     }
   }
@@ -327,7 +334,7 @@ export async function processSpecificItem(
     return { success: false, error: "API key not configured" };
   }
 
-  // Check if already processed
+  // Check if already successfully processed (completed)
   const exists = await conveyorItemsStorage.exists(
     sourceType,
     sourceItemId,
@@ -335,7 +342,7 @@ export async function processSpecificItem(
   );
 
   if (exists) {
-    return { success: false, error: "Item already processed" };
+    return { success: false, error: "Item already successfully processed" };
   }
 
   // Get source data

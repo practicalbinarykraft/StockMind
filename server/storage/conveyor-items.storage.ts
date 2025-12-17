@@ -22,6 +22,10 @@ export interface IConveyorItemsStorage {
   markCompleted(id: string, totalMs: number): Promise<void>;
   markFailed(id: string, stage: number, error: string): Promise<void>;
   incrementRetry(id: string): Promise<void>;
+  /**
+   * Check if item was successfully processed (status = 'completed')
+   * Failed or processing items are not considered as existing
+   */
   exists(sourceType: string, sourceItemId: string, userId: string): Promise<boolean>;
 }
 
@@ -178,6 +182,10 @@ export class ConveyorItemsStorage implements IConveyorItemsStorage {
       .where(eq(conveyorItems.id, id));
   }
 
+  /**
+   * Check if item was already successfully processed (completed)
+   * Only completed items are considered as "exists" - failed items can be retried
+   */
   async exists(sourceType: string, sourceItemId: string, userId: string): Promise<boolean> {
     const [item] = await db
       .select({ id: conveyorItems.id })
@@ -186,7 +194,8 @@ export class ConveyorItemsStorage implements IConveyorItemsStorage {
         and(
           eq(conveyorItems.sourceType, sourceType),
           eq(conveyorItems.sourceItemId, sourceItemId),
-          eq(conveyorItems.userId, userId)
+          eq(conveyorItems.userId, userId),
+          eq(conveyorItems.status, 'completed')
         )
       )
       .limit(1);
