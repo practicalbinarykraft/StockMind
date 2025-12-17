@@ -270,6 +270,7 @@ export default function ConveyorDashboard() {
               onClick={() => triggerMutation.mutate()}
               disabled={
                 triggerMutation.isPending ||
+                dashboard?.enabled ||
                 (dashboard?.todayProgress.processed || 0) >=
                   (dashboard?.todayProgress.limit || 10)
               }
