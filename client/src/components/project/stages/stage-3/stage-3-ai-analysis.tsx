@@ -30,10 +30,11 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
   // Get step3 data content (may be nested in .data from DB)
   const step3DataContent = step3Data?.data || step3Data;
 
-  // Check if we have generated variants
+  // Check if we have generated variants or direct scenes (Scripts Library)
   const hasGeneratedVariants = !!(
     step3DataContent?.generatedVariants ||
-    step3DataContent?.step === "constructor"
+    step3DataContent?.step === "constructor" ||
+    (step3DataContent?.scenes?.length > 0) // Scripts Library flow
   );
 
   // Debug log
@@ -65,8 +66,35 @@ export function Stage3AIAnalysis({ project, stepData, step3Data }: Stage3Props) 
         scenes: step3DataContent.generatedVariants.scenes || step3DataContent.scenes || [],
         variants: step3DataContent.generatedVariants.variants || step3DataContent.variants || {},
       });
+    } else if (step3DataContent?.scenes?.length > 0) {
+      // Scripts Library flow: we have scenes but no generatedVariants
+      // Create basic variants structure from existing scenes
+      console.log("[Stage3AIAnalysis] Found scenes from Scripts Library, creating variants:", {
+        scenesCount: step3DataContent.scenes.length,
+      });
+      
+      const scenes = step3DataContent.scenes.map((scene: any, index: number) => ({
+        id: String(index + 1),
+        type: index === 0 ? 'hook' : (index === step3DataContent.scenes.length - 1 ? 'cta' : 'body'),
+        text: scene.text || scene,
+      }));
+
+      // Create variants: each scene has one variant (the original text)
+      const variants: Record<number, Array<{ id: string; text: string; score?: number }>> = {};
+      scenes.forEach((scene: any, index: number) => {
+        variants[index] = [{
+          id: `v${index}-A`,
+          text: scene.text,
+          score: 80, // Default score for imported scripts
+        }];
+      });
+
+      setGeneratedData({
+        scenes,
+        variants,
+      });
     }
-  }, [step3Data, step3DataContent?.generatedVariants]);
+  }, [step3Data, step3DataContent?.generatedVariants, step3DataContent?.scenes]);
 
   // Get content from step data (step 2 or step 3)
   // For own-idea/text/url: content is saved in step 3 by CreateScriptScreen

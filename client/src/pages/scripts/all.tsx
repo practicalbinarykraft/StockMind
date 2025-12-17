@@ -105,7 +105,7 @@ function ScriptsAllContent() {
     },
   })
 
-  // Start production mutation
+  // Start production mutation (Stage 4 - Voice)
   const startProductionMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await apiRequest("POST", `/api/scripts/${id}/start-production`, {
@@ -131,6 +131,43 @@ function ScriptsAllContent() {
       })
     },
   })
+
+  // Edit script mutation (Stage 3 - Script editing)
+  const editScriptMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/scripts/${id}/start-production`, {
+        body: JSON.stringify({ skipToStage: 3 }),
+      })
+      if (!res.ok) throw new Error("Failed to create project for editing")
+      const result = await res.json()
+      return result.data || result
+    },
+    onSuccess: (project) => {
+      toast({
+        title: "Проект создан",
+        description: "Переход к редактированию сценария...",
+      })
+      setLocation(`/project/${project.id}`)
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось создать проект для редактирования",
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Handle edit button click
+  const handleEdit = (script: any) => {
+    // If script is already linked to a project, go to that project
+    if (script.projectId) {
+      setLocation(`/project/${script.projectId}`)
+    } else {
+      // Otherwise create a new project at Stage 3 (script editing)
+      editScriptMutation.mutate(script.id)
+    }
+  }
 
   // Ensure scripts is always an array
   const scriptsArray = Array.isArray(scripts) ? scripts : []
@@ -333,7 +370,9 @@ function ScriptsAllContent() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setLocation(`/project/new?scriptId=${script.id}`)}
+                      onClick={() => handleEdit(script)}
+                      disabled={editScriptMutation.isPending}
+                      title={script.projectId ? "Открыть проект" : "Редактировать сценарий"}
                     >
                       <Edit className="h-3 w-3" />
                     </Button>
