@@ -564,6 +564,19 @@ export function registerAutoScriptsRoutes(app: Express) {
           );
 
           if (revisionResult.success && revisionResult.conveyorItemId) {
+            try {
+              await autoScriptsStorage.update(script.id, {
+                conveyorItemId: revisionResult.conveyorItemId,
+              });
+              script.conveyorItemId = revisionResult.conveyorItemId;
+            } catch (updateError: any) {
+              logger.warn("Failed to reassign conveyor item to auto script", {
+                scriptId: script.id,
+                revisionItemId: revisionResult.conveyorItemId,
+                error: updateError.message,
+              });
+            }
+
             // Start processing asynchronously (don't await)
             conveyorOrchestrator.processRevisionItem(
               revisionResult.conveyorItemId,
