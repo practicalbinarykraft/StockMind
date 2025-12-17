@@ -41,9 +41,14 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
   console.log("[Stage4] useStage4Data received stepData:", {
     hasStepData: !!stepData,
     keys: stepData ? Object.keys(stepData) : [],
+    // Normal flow (from Stage 3 constructor)
     hasFinalScript: !!stepData?.finalScript,
     finalScriptScenes: stepData?.finalScript?.scenes?.length,
     finalScriptScenesTexts: stepData?.finalScript?.scenes?.map((s: any) => s.text?.slice(0, 50)),
+    // Scripts Library flow
+    hasDirectScenes: !!stepData?.scenes,
+    directScenesCount: stepData?.scenes?.length,
+    directScenesTexts: stepData?.scenes?.map((s: any) => (s.text || s)?.slice?.(0, 50)),
   })
 
   const [mode, setMode] = useState<"generate" | "upload">("generate")
@@ -88,20 +93,30 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
     return { myVoices: my, publicVoices: pub }
   }, [voices])
 
-  // Load script ONLY from stepData.finalScript.scenes (user-selected variants from Stage 3)
-  // No fallbacks - only the script with scenes selected by user in Step3_2_Constructor
+  // Load script from stepData - supports two formats:
+  // 1. stepData.finalScript.scenes - normal flow (user completed Stage 3)
+  // 2. stepData.scenes - project created from Scripts Library
   useEffect(() => {
     // Skip if already have script
     if (finalScript) return
 
-    // ONLY load from finalScript.scenes - this contains user-selected variants
+    // Try loading from finalScript.scenes (normal flow)
     if (stepData?.finalScript?.scenes?.length > 0) {
       const userSelectedScript = stepData.finalScript.scenes.map((s: any) => s.text).join("\n\n")
       console.log("[Stage4] Loading user-selected script from finalScript.scenes:", userSelectedScript.slice(0, 100) + "...")
       setFinalScript(userSelectedScript)
-    } else {
-      console.warn("[Stage4] No finalScript.scenes found in stepData - user has not completed scene selection in Stage 3")
+      return
     }
+
+    // Try loading from scenes directly (Scripts Library flow)
+    if (stepData?.scenes?.length > 0) {
+      const scriptsLibraryScript = stepData.scenes.map((s: any) => s.text || s).join("\n\n")
+      console.log("[Stage4] Loading script from Scripts Library (scenes):", scriptsLibraryScript.slice(0, 100) + "...")
+      setFinalScript(scriptsLibraryScript)
+      return
+    }
+
+    console.warn("[Stage4] No script found in stepData - neither finalScript.scenes nor scenes exist")
   }, [stepData, finalScript])
 
   // Restore UI state from Stage 4 saved data (voice, audio, mode)
