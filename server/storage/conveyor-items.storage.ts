@@ -15,6 +15,7 @@ export interface IConveyorItemsStorage {
   getById(id: string): Promise<ConveyorItem | undefined>;
   getByUser(userId: string, limit?: number): Promise<ConveyorItem[]>;
   getProcessing(userId: string): Promise<ConveyorItem[]>;
+  countProcessing(userId: string): Promise<number>;
   getFailed(userId: string): Promise<ConveyorItem[]>;
   update(id: string, data: Partial<ConveyorItem>): Promise<ConveyorItem | undefined>;
   updateStageData(id: string, stage: number, data: any): Promise<void>;
@@ -61,6 +62,21 @@ export class ConveyorItemsStorage implements IConveyorItemsStorage {
         )
       )
       .orderBy(desc(conveyorItems.startedAt));
+  }
+
+  async countProcessing(userId: string): Promise<number> {
+    const [result] = await db
+      .select({
+        count: sql`COUNT(*)`,
+      })
+      .from(conveyorItems)
+      .where(
+        and(
+          eq(conveyorItems.userId, userId),
+          eq(conveyorItems.status, 'processing')
+        )
+      );
+    return Number(result?.count || 0);
   }
 
   async getFailed(userId: string): Promise<ConveyorItem[]> {

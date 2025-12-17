@@ -20,12 +20,12 @@ export function registerConveyorStatusRoutes(app: Express) {
 
       const settings = await conveyorSettingsStorage.getSettings(userId);
       const pendingCount = await autoScriptsStorage.countPending(userId);
-      const processingItems = await conveyorItemsStorage.getProcessing(userId);
+      const processingCount = await conveyorItemsStorage.countProcessing(userId);
 
       res.json({
         enabled: settings?.enabled || false,
-        isProcessing: processingItems.length > 0,
-        processingCount: processingItems.length,
+        isProcessing: processingCount > 0,
+        processingCount,
         pendingReviewCount: pendingCount,
         itemsProcessedToday: settings?.itemsProcessedToday || 0,
         dailyLimit: settings?.dailyLimit || 10,
@@ -146,6 +146,7 @@ export function registerConveyorStatusRoutes(app: Express) {
       const pendingScripts = await autoScriptsStorage.getPending(userId);
       const recentItems = await conveyorItemsStorage.getByUser(userId, 10);
       const failedItems = await conveyorItemsStorage.getFailed(userId);
+      const processingCount = await conveyorItemsStorage.countProcessing(userId);
 
       // Calculate stats
       const passRate = settings?.totalProcessed
@@ -216,6 +217,7 @@ export function registerConveyorStatusRoutes(app: Express) {
 
         // Failed items needing attention
         failedCount: failedItems.length,
+        processingCount,
 
         // Learning
         learning: {

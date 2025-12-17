@@ -80,6 +80,7 @@ interface DashboardData {
     avoidedTopicsCount: number;
     preferredFormatsCount: number;
   };
+  processingCount: number;
 }
 
 interface ConveyorItem {
@@ -271,8 +272,11 @@ export default function ConveyorDashboard() {
               disabled={
                 triggerMutation.isPending ||
                 dashboard?.enabled ||
+                (dashboard?.processingCount || 0) > 0 ||
                 (dashboard?.todayProgress.processed || 0) >=
-                  (dashboard?.todayProgress.limit || 10)
+                  (dashboard?.todayProgress.limit || 10) ||
+                parseFloat(dashboard?.budget.used || "0") >=
+                  parseFloat(dashboard?.budget.limit || "0")
               }
               className="gap-2"
             >

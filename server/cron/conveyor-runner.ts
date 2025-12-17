@@ -65,6 +65,17 @@ export function initConveyorRunner() {
   logger.info("[Conveyor Runner] Initialized");
 }
 
+async function stopConveyorDueToLimit(
+  userId: string,
+  limitType: "daily" | "budget"
+): Promise<void> {
+  await conveyorSettingsStorage.updateSettings(userId, { enabled: false });
+  await conveyorLogsStorage.logLimitReached(userId, limitType);
+  logger.info(
+    `[Conveyor Runner] User ${userId} ${limitType} limit reached, conveyor disabled`
+  );
+}
+
 /**
  * Main conveyor run function
  */
@@ -117,15 +128,13 @@ async function processUserConveyor(
   const currentCost = Number(settings.currentMonthCost);
 
   if (currentCost >= monthlyBudget) {
-    logger.info(`[Conveyor Runner] User ${userId} budget limit reached`);
-    await conveyorLogsStorage.logLimitReached(userId, "budget");
+    await stopConveyorDueToLimit(userId, "budget");
     return;
   }
 
   // Check daily limit
   if (settings.itemsProcessedToday >= settings.dailyLimit) {
-    logger.info(`[Conveyor Runner] User ${userId} daily limit reached`);
-    await conveyorLogsStorage.logLimitReached(userId, "daily");
+    await stopConveyorDueToLimit(userId, "daily");
     return;
   }
 
@@ -216,9 +225,7 @@ async function processUserConveyor(
     if (!updatedSettings) break;
 
     if (updatedSettings.itemsProcessedToday >= updatedSettings.dailyLimit) {
-      logger.info(
-        `[Conveyor Runner] User ${userId} hit daily limit during processing`
-      );
+      await stopConveyorDueToLimit(userId, "daily");
       break;
     }
 
@@ -226,9 +233,7 @@ async function processUserConveyor(
       Number(updatedSettings.currentMonthCost) >=
       Number(updatedSettings.monthlyBudgetLimit)
     ) {
-      logger.info(
-        `[Conveyor Runner] User ${userId} hit budget limit during processing`
-      );
+      await stopConveyorDueToLimit(userId, "budget");
       break;
     }
   }
