@@ -29,12 +29,6 @@ export class ProjectStepsStorage implements IProjectStepsStorage {
       .where(eq(projectSteps.projectId, projectId))
       .orderBy(desc(projectSteps.updatedAt));
 
-    console.log(`[ProjectStepsStorage] Found ${allSteps.length} steps for project ${projectId}:`, {
-      stepNumbers: allSteps.map(s => s.stepNumber),
-      hasStep3: allSteps.some(s => s.stepNumber === 3),
-      step3Data: allSteps.find(s => s.stepNumber === 3)?.data
-    });
-
     // Group by stepNumber and keep only the latest (first) one for each
     const latestStepsMap = new Map<number, ProjectStep>();
     for (const step of allSteps) {
@@ -45,11 +39,6 @@ export class ProjectStepsStorage implements IProjectStepsStorage {
 
     // Convert back to array and sort by stepNumber
     const result = Array.from(latestStepsMap.values()).sort((a, b) => a.stepNumber - b.stepNumber);
-    
-    console.log(`[ProjectStepsStorage] Returning ${result.length} unique steps:`, {
-      stepNumbers: result.map(s => s.stepNumber),
-      hasStep3: result.some(s => s.stepNumber === 3)
-    });
     
     return result;
   }

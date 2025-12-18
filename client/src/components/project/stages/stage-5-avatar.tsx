@@ -795,8 +795,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
             {filteredMyAvatars.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold">My Avatars</h3>
+                  <h3 className="text-lg font-semibold">All Avatars</h3>
                   <Badge variant="secondary">{filteredMyAvatars.length}</Badge>
                   {!allImagesLoaded && currentMyAvatars.length > 0 && (
                     <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
