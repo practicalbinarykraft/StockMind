@@ -62,7 +62,7 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
         'Accept': 'application/json',
         'X-Api-Key': apiKey
       },
-      timeout: 60000 // 60 second timeout (increased due to large response with 1000+ avatars)
+      timeout: 240000 // 240 second timeout (4 minutes - HeyGen API is very slow with 1000+ avatars)
     })
 
     const avatars = response.data?.data?.avatars || []

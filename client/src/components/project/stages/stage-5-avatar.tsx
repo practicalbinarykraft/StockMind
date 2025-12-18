@@ -119,7 +119,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     enabled: !!script, // Only fetch if we have a script
     staleTime: 1000 * 60 * 60 * 6, // 6 hours - avatars don't change often
     gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
-    retry: 2, // Retry failed requests
+    retry: 0, // Don't retry - HeyGen API is very slow, single timeout is enough
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: false, // Don't refetch on component mount if cached
   })
