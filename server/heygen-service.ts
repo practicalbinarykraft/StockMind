@@ -67,13 +67,27 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
 
     const avatars = response.data?.data?.avatars || []
     
+    // Log sample avatar structure for debugging
+    if (avatars.length > 0) {
+      console.log('🔍 Sample avatar structure from HeyGen:', JSON.stringify(avatars[0], null, 2))
+    }
+    
     // Remove duplicates by avatar_id and add is_public flag
     const uniqueAvatars = Array.from(
       new Map(avatars.map((avatar: HeyGenAvatar) => [avatar.avatar_id, avatar])).values()
-    ).map((avatar) => ({
-      ...(avatar as HeyGenAvatar),
-      is_public: (avatar as HeyGenAvatar).avatar_id.includes('_public')
-    }))
+    ).map((avatar) => {
+      const avatarAny = avatar as any
+      // Try multiple possible fields for is_public from HeyGen API
+      const isPublic = avatarAny.is_public ?? 
+                       avatarAny.public ?? 
+                       (avatarAny.avatar_style === 'public') ??
+                       (avatar as HeyGenAvatar).avatar_id.includes('_public')
+      
+      return {
+        ...(avatar as HeyGenAvatar),
+        is_public: !!isPublic
+      }
+    })
     
     const duration = Date.now() - startTime
     console.log(`✅ Fetched ${uniqueAvatars.length} avatars from HeyGen in ${duration}ms`)
