@@ -145,14 +145,28 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         audioUrl: serverAudioUrl || stage4Data?.data?.audioUrl,
       }
 
-      return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+      console.log("[Stage4] 💾 Saving script to server:", {
+        projectId: project.id,
+        stepNumber: 4,
+        scriptLength: scriptToSave.length,
+        scriptPreview: scriptToSave.slice(0, 100) + "...",
+        dataToSave: stepDataToSave
+      })
+
+      const result = await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 4,
         data: stepDataToSave
       })
+
+      console.log("[Stage4] ✅ Script saved successfully:", result)
+      return result
     },
-    onSuccess: async (_, scriptToSave) => {
+    onSuccess: async (result, scriptToSave) => {
+      console.log("[Stage4] 🔄 Refetching step data after save...")
       // Wait for data to be refetched before showing success message
       await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
+      console.log("[Stage4] ✅ Step data refetched")
+      
       // Update initialScript to the saved value so button becomes inactive
       setInitialScript(scriptToSave)
       toast({
@@ -161,6 +175,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       })
     },
     onError: (error: any) => {
+      console.error("[Stage4] ❌ Error saving script:", error)
       toast({
         variant: "destructive",
         title: "Ошибка",

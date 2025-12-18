@@ -66,7 +66,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
   const activeVersion = undefined
 
   // Fetch Stage 4 saved data
-  const { data: stage4Data } = useQuery({
+  const { data: stage4Data, isLoading: stage4DataLoading } = useQuery({
     queryKey: ["/api/projects", projectId, "steps", 4],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/steps`, {
@@ -75,6 +75,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
       if (!res.ok) throw new Error("Failed to fetch steps")
       const steps = await res.json()
       const step4 = steps.find((s: any) => s.stepNumber === 4)
+      console.log("[Stage4] Fetched stage4Data:", step4)
       return step4 ?? null
     }
   })
@@ -106,10 +107,23 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
     // Skip if already loaded script
     if (hasLoadedScriptRef.current) return
 
+    // Wait for stage4Data to finish loading before deciding what to load
+    if (stage4DataLoading) {
+      console.log("[Stage4] Waiting for stage4Data to load...")
+      return
+    }
+
+    console.log("[Stage4] stage4Data loaded, checking for saved script:", {
+      hasStage4Data: !!stage4Data,
+      hasData: !!stage4Data?.data,
+      hasFinalScript: !!(stage4Data?.data as Stage4StepData | undefined)?.finalScript,
+      finalScriptPreview: (stage4Data?.data as Stage4StepData | undefined)?.finalScript?.slice(0, 100)
+    })
+
     // PRIORITY 1: Try loading saved script from Stage 4 data (user edited and saved)
     const savedStepData = stage4Data?.data as Stage4StepData | undefined
     if (savedStepData?.finalScript) {
-      console.log("[Stage4] Loading saved edited script from stage4Data:", savedStepData.finalScript.slice(0, 100) + "...")
+      console.log("[Stage4] ✅ Loading saved edited script from stage4Data:", savedStepData.finalScript.slice(0, 100) + "...")
       setFinalScript(savedStepData.finalScript)
       setInitialScript(savedStepData.finalScript) // Set as initial for comparison
       hasLoadedScriptRef.current = true
@@ -119,7 +133,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
     // PRIORITY 2: Try loading from finalScript.scenes (normal flow)
     if (stepData?.finalScript?.scenes?.length > 0) {
       const userSelectedScript = stepData.finalScript.scenes.map((s: any) => s.text).join("\n\n")
-      console.log("[Stage4] Loading user-selected script from finalScript.scenes:", userSelectedScript.slice(0, 100) + "...")
+      console.log("[Stage4] ✅ Loading user-selected script from finalScript.scenes:", userSelectedScript.slice(0, 100) + "...")
       setFinalScript(userSelectedScript)
       setInitialScript(userSelectedScript) // Set as initial for comparison
       hasLoadedScriptRef.current = true
@@ -129,15 +143,15 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
     // PRIORITY 3: Try loading from scenes directly (Scripts Library flow)
     if (stepData?.scenes?.length > 0) {
       const scriptsLibraryScript = stepData.scenes.map((s: any) => s.text || s).join("\n\n")
-      console.log("[Stage4] Loading script from Scripts Library (scenes):", scriptsLibraryScript.slice(0, 100) + "...")
+      console.log("[Stage4] ✅ Loading script from Scripts Library (scenes):", scriptsLibraryScript.slice(0, 100) + "...")
       setFinalScript(scriptsLibraryScript)
       setInitialScript(scriptsLibraryScript) // Set as initial for comparison
       hasLoadedScriptRef.current = true
       return
     }
 
-    console.warn("[Stage4] No script found in stepData - neither finalScript.scenes nor scenes exist")
-  }, [stepData, stage4Data])
+    console.warn("[Stage4] ⚠️ No script found in stepData - neither finalScript.scenes nor scenes exist")
+  }, [stepData, stage4Data, stage4DataLoading])
 
   // Restore UI state from Stage 4 saved data (voice, audio, mode)
   useEffect(() => {
