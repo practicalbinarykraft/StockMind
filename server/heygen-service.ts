@@ -36,11 +36,15 @@ export interface HeyGenVideoStatus {
 
 export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]> {
   try {
+    const startTime = Date.now()
+    console.log('📡 Fetching avatars from HeyGen API...')
+    
     const response = await axios.get(`${HEYGEN_API_BASE}/v2/avatars`, {
       headers: {
         'Accept': 'application/json',
         'X-Api-Key': apiKey
-      }
+      },
+      timeout: 30000 // 30 second timeout
     })
 
     const avatars = response.data?.data?.avatars || []
@@ -52,6 +56,9 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
       ...(avatar as HeyGenAvatar),
       is_public: (avatar as HeyGenAvatar).avatar_id.includes('_public')
     }))
+    
+    const duration = Date.now() - startTime
+    console.log(`✅ Fetched ${uniqueAvatars.length} avatars from HeyGen in ${duration}ms`)
     
     return uniqueAvatars
   } catch (error: any) {

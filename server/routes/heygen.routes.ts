@@ -175,11 +175,13 @@ export function registerHeygenRoutes(app: Express) {
       // Fetch the image from HeyGen
       const response = await axios.get(url, {
         responseType: 'arraybuffer',
-        timeout: 15000, // 15 second timeout
+        timeout: 30000, // 30 second timeout (increased for slow connections)
         headers: {
           'Accept': 'image/*',
           'User-Agent': 'StockMind/1.0'
-        }
+        },
+        // Add retry logic for network issues
+        maxRedirects: 5,
       });
 
       // Set appropriate headers for the response

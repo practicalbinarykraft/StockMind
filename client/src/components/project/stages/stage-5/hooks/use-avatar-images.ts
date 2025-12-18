@@ -115,7 +115,7 @@ export function useAvatarImages(
     }
   }, [imageUrls, imageStates, proxiedUrls, preloadCount])
   
-  // Preload visible images with batch state update
+  // Preload visible images with controlled concurrency
   useEffect(() => {
     const imagesToPreload = imageUrls.slice(0, preloadCount)
     const newImagesToLoad: Array<{ id: string; url: string }> = []
@@ -130,26 +130,76 @@ export function useAvatarImages(
       newImagesToLoad.push({ id, url: proxiedUrl })
     }
     
+    if (newImagesToLoad.length === 0) return
+    
+    console.log(`🖼️ Loading ${newImagesToLoad.length} avatar images (4 at a time)...`)
+    
     // Batch initialize all new images as loading
-    if (newImagesToLoad.length > 0) {
-      setImageStates(prev => {
-        const next = new Map(prev)
-        for (const { id, url } of newImagesToLoad) {
-          if (!next.has(id)) {
-            next.set(id, { status: 'loading', proxiedUrl: url })
-          }
-        }
-        return next
-      })
-      
-      // Preload all new images in parallel
+    setImageStates(prev => {
+      const next = new Map(prev)
       for (const { id, url } of newImagesToLoad) {
-        const img = new Image()
-        img.onload = () => markLoaded(id)
-        img.onerror = () => markError(id)
-        img.src = url
+        if (!next.has(id)) {
+          next.set(id, { status: 'loading', proxiedUrl: url })
+        }
       }
+      return next
+    })
+    
+    // Load images with controlled concurrency (4 at a time) to avoid overwhelming the server
+    const CONCURRENT_LOADS = 4
+    let currentIndex = 0
+    
+    const loadNextBatch = () => {
+      const batch = newImagesToLoad.slice(currentIndex, currentIndex + CONCURRENT_LOADS)
+      if (batch.length === 0) return
+      
+      currentIndex += CONCURRENT_LOADS
+      
+      batch.forEach(({ id, url }, index) => {
+        const loadImage = (retryCount = 0) => {
+          const img = new Image()
+          const startTime = Date.now()
+          
+          img.onload = () => {
+            const duration = Date.now() - startTime
+            console.log(`✅ Loaded avatar image ${id} in ${duration}ms`)
+            markLoaded(id)
+            // Continue loading next batch
+            if (currentIndex < newImagesToLoad.length) {
+              loadNextBatch()
+            }
+          }
+          
+          img.onerror = () => {
+            const duration = Date.now() - startTime
+            console.warn(`❌ Failed to load avatar image ${id} after ${duration}ms (attempt ${retryCount + 1}/3)`)
+            
+            // Retry up to 2 times with exponential backoff
+            if (retryCount < 2) {
+              const delay = Math.pow(2, retryCount) * 1000 // 1s, 2s
+              console.log(`🔄 Retrying image ${id} in ${delay}ms...`)
+              setTimeout(() => loadImage(retryCount + 1), delay)
+            } else {
+              markError(id)
+              // Continue loading next batch even on error
+              if (currentIndex < newImagesToLoad.length) {
+                loadNextBatch()
+              }
+            }
+          }
+          
+          // Add small delay between images in the same batch to spread load
+          setTimeout(() => {
+            img.src = url
+          }, index * 100) // 100ms delay between each image in batch
+        }
+        
+        loadImage()
+      })
     }
+    
+    // Start initial batch loads
+    loadNextBatch()
   }, [imageUrls, preloadCount, proxiedUrls, imageStates, markLoaded, markError])
   
   return {

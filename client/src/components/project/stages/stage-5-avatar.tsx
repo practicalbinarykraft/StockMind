@@ -88,10 +88,15 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const isStepSkipped = !!step5DataFromApi?.skipReason
   const isStepCompleted = !!step5DataFromApi?.completedAt
 
-  // Fetch avatars from HeyGen
+  // Fetch avatars from HeyGen with aggressive caching
   const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
     queryKey: ["/api/heygen/avatars"],
     enabled: !!script, // Only fetch if we have a script
+    staleTime: 1000 * 60 * 60, // 1 hour - avatars don't change often
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
+    retry: 2, // Retry failed requests
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on component mount if cached
   })
 
   // Save selected avatar mutation (for persistence)
@@ -370,17 +375,17 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   // Group avatars by category
   const { myAvatars, publicAvatars } = useMemo(() => {
     const all = avatars || []
-    const my = all.filter(avatar => !avatar.is_public)
-    const pub = all.filter(avatar => avatar.is_public)
+    const my = all.filter((avatar: HeyGenAvatar) => !avatar.is_public)
+    const pub = all.filter((avatar: HeyGenAvatar) => avatar.is_public)
     return { myAvatars: my, publicAvatars: pub }
   }, [avatars])
 
   // Apply search filter
-  const filteredMyAvatars = myAvatars.filter(avatar =>
+  const filteredMyAvatars = myAvatars.filter((avatar: HeyGenAvatar) =>
     avatar.avatar_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
   
-  const filteredPublicAvatars = publicAvatars.filter(avatar =>
+  const filteredPublicAvatars = publicAvatars.filter((avatar: HeyGenAvatar) =>
     avatar.avatar_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -727,7 +732,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   {!allImagesLoaded && currentMyAvatars.length > 0 && (
                     <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Loading images...
+                      Loading images {loadingProgress.loaded}/{loadingProgress.total}
                     </span>
                   )}
                 </div>
@@ -764,7 +769,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                 )}
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {currentMyAvatars.map(avatar => {
+                  {currentMyAvatars.map((avatar: HeyGenAvatar) => {
                     const proxiedUrl = getProxiedUrl(avatar.avatar_id)
                     const isFailed = isImageFailed(avatar.avatar_id)
                     const imageState = loadingProgress.loaded === loadingProgress.total ? 'loaded' : 'loading'
@@ -858,7 +863,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   {!allImagesLoaded && currentPublicAvatars.length > 0 && (
                     <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Loading images...
+                      Loading images {loadingProgress.loaded}/{loadingProgress.total}
                     </span>
                   )}
                 </div>
@@ -895,7 +900,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                 )}
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {currentPublicAvatars.map(avatar => {
+                  {currentPublicAvatars.map((avatar: HeyGenAvatar) => {
                     const proxiedUrl = getProxiedUrl(avatar.avatar_id)
                     const isFailed = isImageFailed(avatar.avatar_id)
                     const imageState = loadingProgress.loaded === loadingProgress.total ? 'loaded' : 'loading'
