@@ -107,6 +107,15 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   // Fetch initial avatars from HeyGen with aggressive caching
   const { data: avatarsResponse, isLoading, error, refetch: refetchAvatars } = useQuery<AvatarsResponse>({
     queryKey: ["/api/heygen/avatars", serverPage],
+    queryFn: async () => {
+      const response = await fetch(`/api/heygen/avatars?page=${serverPage}&limit=120`, {
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        throw new Error('Failed to fetch avatars')
+      }
+      return response.json()
+    },
     enabled: !!script, // Only fetch if we have a script
     staleTime: 1000 * 60 * 60 * 6, // 6 hours - avatars don't change often
     gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
