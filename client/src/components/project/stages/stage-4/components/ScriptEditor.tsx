@@ -28,7 +28,8 @@ export function ScriptEditor({ value, onChange, savedScript, onSave, isSaving = 
   const handleSave = async () => {
     if (onSave && hasChanges) {
       await onSave(value)
-      setHasChanges(false)
+      // Don't manually reset hasChanges - it will reset automatically
+      // when savedScript updates after query invalidation
     }
   }
 

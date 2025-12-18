@@ -149,7 +149,8 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       })
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
+      // Wait for data to be refetched before showing success message
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
       toast({
         title: "Сценарий сохранён",
         description: "Изменения в сценарии успешно сохранены",

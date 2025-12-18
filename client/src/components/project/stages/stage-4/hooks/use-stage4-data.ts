@@ -57,6 +57,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
   const [selectedVoice, setSelectedVoice] = useState<string>("")
   const [serverAudioUrl, setServerAudioUrl] = useState<string | null>(null)
   const hasRestoredRef = useRef(false)
+  const hasLoadedScriptRef = useRef(false)
 
   // activeVersion is kept for compatibility but not used for script loading
   const activeVersion = undefined
@@ -99,14 +100,15 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
   // 2. stepData.scenes - project created from Scripts Library
   // PRIORITY: Load saved script from stage4Data if it exists (user edited and saved)
   useEffect(() => {
-    // Skip if already have script
-    if (finalScript) return
+    // Skip if already loaded script
+    if (hasLoadedScriptRef.current) return
 
     // PRIORITY 1: Try loading saved script from Stage 4 data (user edited and saved)
     const savedStepData = stage4Data?.data as Stage4StepData | undefined
     if (savedStepData?.finalScript) {
       console.log("[Stage4] Loading saved edited script from stage4Data:", savedStepData.finalScript.slice(0, 100) + "...")
       setFinalScript(savedStepData.finalScript)
+      hasLoadedScriptRef.current = true
       return
     }
 
@@ -115,6 +117,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
       const userSelectedScript = stepData.finalScript.scenes.map((s: any) => s.text).join("\n\n")
       console.log("[Stage4] Loading user-selected script from finalScript.scenes:", userSelectedScript.slice(0, 100) + "...")
       setFinalScript(userSelectedScript)
+      hasLoadedScriptRef.current = true
       return
     }
 
@@ -123,11 +126,12 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
       const scriptsLibraryScript = stepData.scenes.map((s: any) => s.text || s).join("\n\n")
       console.log("[Stage4] Loading script from Scripts Library (scenes):", scriptsLibraryScript.slice(0, 100) + "...")
       setFinalScript(scriptsLibraryScript)
+      hasLoadedScriptRef.current = true
       return
     }
 
     console.warn("[Stage4] No script found in stepData - neither finalScript.scenes nor scenes exist")
-  }, [stepData, finalScript, stage4Data])
+  }, [stepData, stage4Data])
 
   // Restore UI state from Stage 4 saved data (voice, audio, mode)
   useEffect(() => {
