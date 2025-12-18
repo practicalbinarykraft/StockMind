@@ -30,7 +30,7 @@ export function registerHeygenRoutes(app: Express) {
    * Requires: HeyGen API key
    * Query params:
    *   - page: Page number (0-based, default: 0)
-   *   - limit: Items per page (default: 120)
+   *   - limit: Items per page (default: 30)
    */
   app.get("/api/heygen/avatars", requireAuth, async (req: any, res) => {
     try {
@@ -47,7 +47,7 @@ export function registerHeygenRoutes(app: Express) {
 
       // Pagination parameters
       const page = parseInt(req.query.page as string) || 0;
-      const limit = parseInt(req.query.limit as string) || 120;
+      const limit = parseInt(req.query.limit as string) || 30;
       const offset = page * limit;
 
       logger.debug("Fetching HeyGen avatars", { userId, page, limit });

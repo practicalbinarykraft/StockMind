@@ -25,7 +25,14 @@ export function ProjectLayout({ children }: ProjectLayoutProps) {
       try {
         console.log('🔄 [ProjectLayout] Prefetching HeyGen avatars in background...')
         await queryClient.prefetchQuery({
-          queryKey: ["/api/heygen/avatars"],
+          queryKey: ["/api/heygen/avatars", 0], // page 0
+          queryFn: async () => {
+            const response = await fetch('/api/heygen/avatars?page=0&limit=30', {
+              credentials: 'include'
+            })
+            if (!response.ok) throw new Error('Failed to prefetch avatars')
+            return response.json()
+          },
           staleTime: 1000 * 60 * 60 * 6, // 6 hours cache
         })
         console.log('✅ [ProjectLayout] HeyGen avatars prefetched successfully')

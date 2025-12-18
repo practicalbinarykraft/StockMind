@@ -74,9 +74,14 @@ export default function Home() {
       try {
         console.log('🔄 Background prefetch: HeyGen avatars...')
         await queryClient.prefetchQuery({
-          queryKey: ["/api/heygen/avatars"],
-          // Don't throw errors - just log them
-          // If it fails, Stage 5 will retry
+          queryKey: ["/api/heygen/avatars", 0], // page 0
+          queryFn: async () => {
+            const response = await fetch('/api/heygen/avatars?page=0&limit=30', {
+              credentials: 'include'
+            })
+            if (!response.ok) throw new Error('Failed to prefetch avatars')
+            return response.json()
+          },
           staleTime: 1000 * 60 * 60 * 6, // 6 hours
         })
         console.log('✅ Background prefetch: HeyGen avatars completed')

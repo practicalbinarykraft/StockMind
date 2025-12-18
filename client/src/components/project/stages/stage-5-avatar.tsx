@@ -108,7 +108,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const { data: avatarsResponse, isLoading, error, refetch: refetchAvatars } = useQuery<AvatarsResponse>({
     queryKey: ["/api/heygen/avatars", serverPage],
     queryFn: async () => {
-      const response = await fetch(`/api/heygen/avatars?page=${serverPage}&limit=120`, {
+      const response = await fetch(`/api/heygen/avatars?page=${serverPage}&limit=30`, {
         credentials: 'include'
       })
       if (!response.ok) {
@@ -1072,7 +1072,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   ) : (
                     <>
                       <ChevronRight className="h-4 w-4" />
-                      Загрузить еще аватары ({avatarsResponse?.pagination.total || 0} всего)
+                      Загрузить еще 30 аватаров ({avatarsResponse?.pagination.total || 0} всего)
                     </>
                   )}
                 </Button>
