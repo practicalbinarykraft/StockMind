@@ -6,6 +6,14 @@ const HEYGEN_API_BASE = 'https://api.heygen.com'
 const HEYGEN_UPLOAD_BASE = 'https://upload.heygen.com'
 const ALLOWED_AUDIO_DIR = path.join(process.cwd(), 'uploads', 'audio')
 
+// In-memory cache for avatars (per API key)
+interface AvatarCache {
+  avatars: HeyGenAvatar[]
+  timestamp: number
+}
+const avatarCache = new Map<string, AvatarCache>()
+const CACHE_TTL = 1000 * 60 * 60 // 1 hour
+
 export interface HeyGenAvatar {
   avatar_id: string
   avatar_name: string
@@ -36,6 +44,16 @@ export interface HeyGenVideoStatus {
 
 export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]> {
   try {
+    // Check cache first (using API key hash as cache key for security)
+    const cacheKey = Buffer.from(apiKey).toString('base64').substring(0, 32)
+    const cached = avatarCache.get(cacheKey)
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      const age = Math.round((Date.now() - cached.timestamp) / 1000)
+      console.log(`💾 Using cached avatars (${cached.avatars.length} avatars, cached ${age}s ago)`)
+      return cached.avatars
+    }
+    
     const startTime = Date.now()
     console.log('📡 Fetching avatars from HeyGen API...')
     
@@ -44,7 +62,7 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
         'Accept': 'application/json',
         'X-Api-Key': apiKey
       },
-      timeout: 30000 // 30 second timeout
+      timeout: 60000 // 60 second timeout (increased due to large response with 1000+ avatars)
     })
 
     const avatars = response.data?.data?.avatars || []
@@ -60,7 +78,28 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
     const duration = Date.now() - startTime
     console.log(`✅ Fetched ${uniqueAvatars.length} avatars from HeyGen in ${duration}ms`)
     
-    return uniqueAvatars
+    // Limit to reasonable number of avatars (120 total: ~20 my avatars + ~100 public)
+    // This reduces JSON size and improves performance significantly
+    const myAvatars = uniqueAvatars.filter(a => !a.is_public).slice(0, 20)
+    const publicAvatars = uniqueAvatars.filter(a => a.is_public).slice(0, 100)
+    const limitedAvatars = [...myAvatars, ...publicAvatars]
+    
+    console.log(`📊 Returning ${limitedAvatars.length} avatars (${myAvatars.length} my, ${publicAvatars.length} public)`)
+    
+    // Cache the result
+    avatarCache.set(cacheKey, {
+      avatars: limitedAvatars,
+      timestamp: Date.now()
+    })
+    
+    // Clean up old cache entries (keep only last 10)
+    if (avatarCache.size > 10) {
+      const oldestKey = Array.from(avatarCache.keys())[0]
+      avatarCache.delete(oldestKey)
+      console.log('🗑️ Cleaned up old avatar cache entry')
+    }
+    
+    return limitedAvatars
   } catch (error: any) {
     console.error('HeyGen API error:', error.response?.data || error.message)
     throw new Error(error.response?.data?.message || 'Failed to fetch avatars from HeyGen')
