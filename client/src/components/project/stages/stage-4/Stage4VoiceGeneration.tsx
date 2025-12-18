@@ -21,6 +21,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const {
     finalScript,
     setFinalScript,
+    savedScript,
     activeVersion,
     mode,
     setMode,
@@ -124,6 +125,41 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
         stepNumber: 4,
         data: stepDataToSave
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
+    }
+  })
+
+  // Save script only mutation (when user clicks Save button)
+  const saveScriptMutation = useMutation({
+    mutationFn: async (scriptToSave: string) => {
+      const stepDataToSave = {
+        ...stage4Data?.data,
+        mode: mode,
+        finalScript: scriptToSave,
+        selectedVoice: mode === "generate" ? selectedVoice : undefined,
+        audioUrl: serverAudioUrl || stage4Data?.data?.audioUrl,
+      }
+
+      return await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+        stepNumber: 4,
+        data: stepDataToSave
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
+      toast({
+        title: "Сценарий сохранён",
+        description: "Изменения в сценарии успешно сохранены",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: error.message || "Не удалось сохранить сценарий",
       })
     }
   })
@@ -358,7 +394,15 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
 
         {/* Generate Tab */}
         <TabsContent value="generate" className="space-y-6">
-          <ScriptEditor value={finalScript} onChange={setFinalScript} />
+          <ScriptEditor 
+            value={finalScript} 
+            onChange={setFinalScript}
+            savedScript={savedScript}
+            onSave={async (script) => {
+              await saveScriptMutation.mutateAsync(script)
+            }}
+            isSaving={saveScriptMutation.isPending}
+          />
 
           <VoiceSelector
             voices={voices}
@@ -443,6 +487,16 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
 
         {/* Upload Tab */}
         <TabsContent value="upload" className="space-y-6">
+          <ScriptEditor 
+            value={finalScript} 
+            onChange={setFinalScript}
+            savedScript={savedScript}
+            onSave={async (script) => {
+              await saveScriptMutation.mutateAsync(script)
+            }}
+            isSaving={saveScriptMutation.isPending}
+          />
+
           <AudioUploader
             uploadedFile={audioUpload.uploadedFile}
             uploadedAudioUrl={audioUpload.uploadedAudioUrl}
