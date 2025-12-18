@@ -112,6 +112,7 @@ interface AudioUploaderProps {
   savedFilesize?: number
   isDragging: boolean
   isPlaying: boolean
+  audioRef?: React.RefObject<HTMLAudioElement | null>
   onDragOver: (e: React.DragEvent) => void
   onDragLeave: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent) => void
@@ -133,6 +134,7 @@ export const AudioUploader = forwardRef<
     savedFilesize,
     isDragging,
     isPlaying,
+    audioRef: externalAudioRef,
     onDragOver,
     onDragLeave,
     onDrop,
@@ -144,14 +146,13 @@ export const AudioUploader = forwardRef<
   },
   ref
 ) {
-  const audioRef = { current: null as HTMLAudioElement | null }
   const fileInputRef = { current: null as HTMLInputElement | null }
 
-  // Expose refs to parent via forwarded ref
+  // Expose refs to parent via forwarded ref (for backwards compatibility)
   if (typeof ref === 'function') {
-    ref({ audioRef: audioRef.current, fileInputRef: fileInputRef.current })
+    ref({ audioRef: externalAudioRef?.current || null, fileInputRef: fileInputRef.current })
   } else if (ref) {
-    ref.current = { audioRef: audioRef.current, fileInputRef: fileInputRef.current }
+    ref.current = { audioRef: externalAudioRef?.current || null, fileInputRef: fileInputRef.current }
   }
 
   const hasUpload = uploadedFile || uploadedAudioUrl
@@ -192,7 +193,7 @@ export const AudioUploader = forwardRef<
           onPlayPause={onPlayPause}
           onDownload={onDownload}
           onChangeFile={onChangeFile}
-          audioRef={audioRef as any}
+          audioRef={externalAudioRef as any}
           onEnded={onEnded}
         />
       ) : null}

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
@@ -15,6 +15,7 @@ import type { Stage4Props } from "./types"
 export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const { toast } = useToast()
   const [showVideoSkipDialog, setShowVideoSkipDialog] = useState(false)
+  const [showAudioUploadInstruction, setShowAudioUploadInstruction] = useState(false)
 
   // Data management hook
   const {
@@ -50,6 +51,15 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const audioUpload = useAudioUpload({
     onUploadSuccess: setServerAudioUrl,
   })
+
+  // Show instruction when user switches to upload mode
+  useEffect(() => {
+    if (mode === "upload" && showVideoSkipDialog) {
+      setShowAudioUploadInstruction(true)
+    } else if (mode === "generate" || !showVideoSkipDialog) {
+      setShowAudioUploadInstruction(false)
+    }
+  }, [mode, showVideoSkipDialog])
 
   // Skip step 4 mutation (voice)
   const skipStep4Mutation = useMutation({
@@ -204,31 +214,19 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     const hasAudio = stage4Data?.data?.audioUrl || serverAudioUrl
 
     if (!hasAudio) {
-      // No audio - show upload tab with instruction
+      // No audio - show upload tab with instruction in alert
       setMode("upload")
-      setShowVideoSkipDialog(false)
-      toast({
-        title: "Загрузите аудио",
-        description: "После добавления аудио нажмите 'Continue to Avatar Selection' чтобы перейти к генерации видео",
-      })
+      setShowAudioUploadInstruction(true)
+      // Don't close dialog, show instruction instead
     } else {
-      // Has audio - skip step 4 and proceed to stage 5
+      // Has audio - save and proceed to stage 5 (don't skip step 4)
       try {
         // Save current state (audio + script) before proceeding
         if (!stage4Data?.data?.audioUrl || !stage4Data?.data?.finalScript) {
           await saveStepMutation.mutateAsync()
         }
-        // Skip step 4 (since user has their own voice)
-        // Server will automatically advance to stage 5
-        await skipStep4Mutation.mutateAsync()
-        
-        // Force refetch to ensure UI updates immediately
-        await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
-        
-        toast({
-          title: "Переход к выбору аватара",
-          description: "Переходим к генерации видео...",
-        })
+        // Move to stage 5 (don't skip step 4, just complete it with uploaded audio)
+        await updateProjectMutation.mutateAsync()
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -281,44 +279,55 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         <Alert className="mb-6" data-testid="alert-skip-video">
           <FastForward className="h-4 w-4" />
           <div className="flex-1">
-            <h5 className="font-semibold mb-1">Пропустить генерацию видео?</h5>
-            <AlertDescription className="mb-3">
-              Если у вас уже есть своё видео, вы можете пропустить генерацию видео по аватару и сразу перейти к результату. В противном случае, добавьте аудио и перейдите к выбору аватара для создания видео.
-            </AlertDescription>
-            <div className="flex gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSkipVideoYes}
-                disabled={skipStep4Mutation.isPending || skipStep5Mutation.isPending}
-                data-testid="button-skip-video-yes"
-              >
-                {skipStep4Mutation.isPending || skipStep5Mutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Пропускаем...
-                  </>
-                ) : (
-                  "Да, пропустить"
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSkipVideoNo}
-                disabled={skipStep4Mutation.isPending || saveStepMutation.isPending}
-                data-testid="button-skip-video-no"
-              >
-                {skipStep4Mutation.isPending || saveStepMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Обработка...
-                  </>
-                ) : (
-                  "Нет, я хочу сгенерировать видео"
-                )}
-              </Button>
-            </div>
+            {!showAudioUploadInstruction ? (
+              <>
+                <h5 className="font-semibold mb-1">Пропустить генерацию видео?</h5>
+                <AlertDescription className="mb-3">
+                  Если у вас уже есть своё видео, вы можете пропустить генерацию видео по аватару и сразу перейти к результату. В противном случае, добавьте аудио и перейдите к выбору аватара для создания видео.
+                </AlertDescription>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSkipVideoYes}
+                    disabled={skipStep4Mutation.isPending || skipStep5Mutation.isPending}
+                    data-testid="button-skip-video-yes"
+                  >
+                    {skipStep4Mutation.isPending || skipStep5Mutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Пропускаем...
+                      </>
+                    ) : (
+                      "Да, пропустить"
+                    )}
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSkipVideoNo}
+                    disabled={skipStep4Mutation.isPending || saveStepMutation.isPending || updateProjectMutation.isPending}
+                    data-testid="button-skip-video-no"
+                  >
+                    {skipStep4Mutation.isPending || saveStepMutation.isPending || updateProjectMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Обработка...
+                      </>
+                    ) : (
+                      "Нет, я хочу сгенерировать видео"
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h5 className="font-semibold mb-1">Загрузите аудио</h5>
+                <AlertDescription>
+                  После добавления аудио нажмите 'Continue to Avatar Selection' чтобы перейти к генерации видео
+                </AlertDescription>
+              </>
+            )}
           </div>
         </Alert>
       )}
@@ -430,6 +439,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             savedFilesize={stage4Data?.data?.filesize}
             isDragging={audioUpload.isDragging}
             isPlaying={audioUpload.isUploadPlaying}
+            audioRef={audioUpload.uploadAudioRef}
             onDragOver={audioUpload.handleDragOver}
             onDragLeave={audioUpload.handleDragLeave}
             onDrop={audioUpload.handleDrop}
