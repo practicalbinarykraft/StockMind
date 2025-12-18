@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
@@ -13,6 +14,7 @@ import type { Stage4Props } from "./types"
 
 export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const { toast } = useToast()
+  const [showVideoSkipDialog, setShowVideoSkipDialog] = useState(false)
 
   // Data management hook
   const {
@@ -49,8 +51,8 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     onUploadSuccess: setServerAudioUrl,
   })
 
-  // Skip step mutation
-  const skipStepMutation = useMutation({
+  // Skip step 4 mutation (voice)
+  const skipStep4Mutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", `/api/projects/${project.id}/steps/4/skip`, {
         reason: "custom_voice"
@@ -60,17 +62,33 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       await queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
       await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
-
-      toast({
-        title: "Этап пропущен",
-        description: "Переходим к следующему этапу...",
-      })
     },
     onError: (error: any) => {
       toast({
         variant: "destructive",
         title: "Ошибка",
-        description: error.message || "Не удалось пропустить этап",
+        description: error.message || "Не удалось пропустить этап озвучки",
+      })
+    }
+  })
+
+  // Skip step 5 mutation (video)
+  const skipStep5Mutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/projects/${project.id}/steps/5/skip`, {
+        reason: "custom_video"
+      })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id] })
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "steps"] })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: error.message || "Не удалось пропустить этап видео",
       })
     }
   })
@@ -87,6 +105,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           }
         : {
             mode: "upload",
+            finalScript, // Save script for Stage 5
             audioUrl: serverAudioUrl || stage4Data?.data?.audioUrl,
             filename: audioUpload.uploadedFile?.name || stage4Data?.data?.filename,
             filesize: audioUpload.uploadedFile?.size || stage4Data?.data?.filesize,
@@ -144,6 +163,82 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     }
   }
 
+  // Handler: Show video skip dialog
+  const handleSkipVoiceClick = () => {
+    setShowVideoSkipDialog(true)
+  }
+
+  // Handler: Skip both voice and video, go to stage 6
+  const handleSkipVideoYes = async () => {
+    try {
+      // Save finalScript to step 4 before skipping (needed for Stage 6)
+      if (!stage4Data?.data?.finalScript && finalScript) {
+        await apiRequest("POST", `/api/projects/${project.id}/steps`, {
+          stepNumber: 4,
+          data: { finalScript }
+        })
+      }
+      // Skip step 4 - server will auto-advance to stage 5
+      await skipStep4Mutation.mutateAsync()
+      // Skip step 5 - server will auto-advance to stage 6
+      await skipStep5Mutation.mutateAsync()
+      
+      // Force refetch to ensure UI updates immediately
+      await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+      
+      toast({
+        title: "Переход к результату",
+        description: "Переходим к просмотру результата...",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: error.message || "Не удалось пропустить этапы",
+      })
+    }
+  }
+
+  // Handler: User wants to generate video, check if audio exists
+  const handleSkipVideoNo = async () => {
+    const hasAudio = stage4Data?.data?.audioUrl || serverAudioUrl
+
+    if (!hasAudio) {
+      // No audio - show upload tab with instruction
+      setMode("upload")
+      setShowVideoSkipDialog(false)
+      toast({
+        title: "Загрузите аудио",
+        description: "После добавления аудио нажмите 'Continue to Avatar Selection' чтобы перейти к генерации видео",
+      })
+    } else {
+      // Has audio - skip step 4 and proceed to stage 5
+      try {
+        // Save current state (audio + script) before proceeding
+        if (!stage4Data?.data?.audioUrl || !stage4Data?.data?.finalScript) {
+          await saveStepMutation.mutateAsync()
+        }
+        // Skip step 4 (since user has their own voice)
+        // Server will automatically advance to stage 5
+        await skipStep4Mutation.mutateAsync()
+        
+        // Force refetch to ensure UI updates immediately
+        await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
+        
+        toast({
+          title: "Переход к выбору аватара",
+          description: "Переходим к генерации видео...",
+        })
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Ошибка",
+          description: error.message || "Не удалось перейти к следующему этапу",
+        })
+      }
+    }
+  }
+
   const selectedVoiceDetails = voices?.find(v => v.voice_id === selectedVoice)
 
   return (
@@ -160,7 +255,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       </div>
 
       {/* Skip Step Alert */}
-      {!isStepSkipped && !isStepCompleted && (
+      {!isStepSkipped && !isStepCompleted && !showVideoSkipDialog && (
         <Alert className="mb-6" data-testid="alert-skip-stage4">
           <FastForward className="h-4 w-4" />
           <div className="flex-1">
@@ -171,13 +266,59 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => skipStepMutation.mutate()}
-              disabled={skipStepMutation.isPending}
+              onClick={handleSkipVoiceClick}
               data-testid="button-skip-stage4"
             >
               <FastForward className="h-4 w-4 mr-2" />
-              {skipStepMutation.isPending ? "Пропускаем..." : "Пропустить - у меня своя озвучка"}
+              Пропустить - у меня своя озвучка
             </Button>
+          </div>
+        </Alert>
+      )}
+
+      {/* Video Skip Dialog */}
+      {!isStepSkipped && !isStepCompleted && showVideoSkipDialog && (
+        <Alert className="mb-6" data-testid="alert-skip-video">
+          <FastForward className="h-4 w-4" />
+          <div className="flex-1">
+            <h5 className="font-semibold mb-1">Пропустить генерацию видео?</h5>
+            <AlertDescription className="mb-3">
+              Если у вас уже есть своё видео, вы можете пропустить генерацию видео по аватару и сразу перейти к результату. В противном случае, добавьте аудио и перейдите к выбору аватара для создания видео.
+            </AlertDescription>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSkipVideoYes}
+                disabled={skipStep4Mutation.isPending || skipStep5Mutation.isPending}
+                data-testid="button-skip-video-yes"
+              >
+                {skipStep4Mutation.isPending || skipStep5Mutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Пропускаем...
+                  </>
+                ) : (
+                  "Да, пропустить"
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSkipVideoNo}
+                disabled={skipStep4Mutation.isPending || saveStepMutation.isPending}
+                data-testid="button-skip-video-no"
+              >
+                {skipStep4Mutation.isPending || saveStepMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Обработка...
+                  </>
+                ) : (
+                  "Нет, я хочу сгенерировать видео"
+                )}
+              </Button>
+            </div>
           </div>
         </Alert>
       )}
