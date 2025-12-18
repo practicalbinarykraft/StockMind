@@ -465,6 +465,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   }, [avatars, visibleAvatars])
 
   // Use avatar images hook for proxy loading and tracking
+  // Limit to actual visible avatars (max 18)
   const {
     getProxiedUrl,
     isImageFailed,
@@ -472,7 +473,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     markError,
     allImagesLoaded,
     loadingProgress
-  } = useAvatarImages(imageUrlsForHook, { preloadCount: 18 }) // 18 = 9 my + 9 public
+  } = useAvatarImages(imageUrlsForHook, { preloadCount: Math.min(imageUrlsForHook.length, 18) })
 
   // Reset pages when search changes
   useEffect(() => {

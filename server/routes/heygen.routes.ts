@@ -15,6 +15,10 @@ const ALLOWED_HEYGEN_DOMAINS = [
   'api.heygen.com'
 ];
 
+// Simple rate limiter for image proxy to prevent server overload
+const activeImageRequests = new Set<string>();
+const MAX_CONCURRENT_IMAGE_REQUESTS = 10;
+
 /**
  * HeyGen Avatar Video Generation routes
  * Handles avatar listing, video generation, and status checking using HeyGen API
@@ -202,29 +206,50 @@ export function registerHeygenRoutes(app: Express) {
         return res.status(403).json({ message: "Domain not allowed for proxying" });
       }
 
-      logger.debug("Proxying HeyGen image", { url: url.substring(0, 100) });
+      // Rate limiting: check concurrent requests
+      if (activeImageRequests.size >= MAX_CONCURRENT_IMAGE_REQUESTS) {
+        logger.warn("Image proxy rate limit exceeded", { 
+          active: activeImageRequests.size,
+          max: MAX_CONCURRENT_IMAGE_REQUESTS 
+        });
+        return res.status(429).json({ message: "Too many concurrent image requests, please try again" });
+      }
 
-      // Fetch the image from HeyGen
-      const response = await axios.get(url, {
-        responseType: 'arraybuffer',
-        timeout: 30000, // 30 second timeout (increased for slow connections)
-        headers: {
-          'Accept': 'image/*',
-          'User-Agent': 'StockMind/1.0'
-        },
-        // Add retry logic for network issues
-        maxRedirects: 5,
-      });
+      // Track this request
+      const requestId = `${Date.now()}-${Math.random()}`;
+      activeImageRequests.add(requestId);
+      
+      try {
+        logger.debug("Proxying HeyGen image", { 
+          url: url.substring(0, 100),
+          activeRequests: activeImageRequests.size 
+        });
 
-      // Set appropriate headers for the response
-      const contentType = response.headers['content-type'] || 'image/webp';
-      res.set({
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
-        'X-Content-Type-Options': 'nosniff'
-      });
+        // Fetch the image from HeyGen
+        const response = await axios.get(url, {
+          responseType: 'arraybuffer',
+          timeout: 30000, // 30 second timeout (increased for slow connections)
+          headers: {
+            'Accept': 'image/*',
+            'User-Agent': 'StockMind/1.0'
+          },
+          // Add retry logic for network issues
+          maxRedirects: 5,
+        });
 
-      res.send(Buffer.from(response.data));
+        // Set appropriate headers for the response
+        const contentType = response.headers['content-type'] || 'image/webp';
+        res.set({
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+          'X-Content-Type-Options': 'nosniff'
+        });
+
+        res.send(Buffer.from(response.data));
+      } finally {
+        // Always remove from active requests
+        activeImageRequests.delete(requestId);
+      }
     } catch (error: any) {
       // Handle specific axios errors
       if (axios.isAxiosError(error)) {
