@@ -309,7 +309,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       </div>
 
       {/* Skip Step Alert */}
-      {!isStepSkipped && !isStepCompleted && !showVideoSkipDialog && (
+      {!showVideoSkipDialog && (
         <Alert className="mb-6" data-testid="alert-skip-stage4">
           <FastForward className="h-4 w-4" />
           <div className="flex-1">
@@ -342,7 +342,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
       )}
 
       {/* Video Skip Dialog */}
-      {!isStepSkipped && !isStepCompleted && showVideoSkipDialog && (
+      {showVideoSkipDialog && (
         <Alert className="mb-6" data-testid="alert-skip-video">
           <FastForward className="h-4 w-4" />
           <div className="flex-1">

@@ -508,28 +508,26 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
         </p>
       </div>
 
-      {/* Skip Step Alert - Only show if not already skipped or completed */}
-      {!isStepSkipped && !isStepCompleted && (
-        <Alert className="mb-6" data-testid="alert-skip-stage5">
-          <FastForward className="h-4 w-4" />
-          <div className="flex-1">
-            <h5 className="font-semibold mb-1">Пропустить видео?</h5>
-            <AlertDescription className="mb-3">
-              Если у вас уже есть своё видео, вы можете пропустить этот этап
-            </AlertDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => skipStepMutation.mutate()}
-              disabled={skipStepMutation.isPending}
-              data-testid="button-skip-stage5"
-            >
-              <FastForward className="h-4 w-4 mr-2" />
-              {skipStepMutation.isPending ? "Пропускаем..." : "Пропустить - у меня своё видео"}
-            </Button>
-          </div>
-        </Alert>
-      )}
+      {/* Skip Step Alert - Always show */}
+      <Alert className="mb-6" data-testid="alert-skip-stage5">
+        <FastForward className="h-4 w-4" />
+        <div className="flex-1">
+          <h5 className="font-semibold mb-1">Пропустить видео?</h5>
+          <AlertDescription className="mb-3">
+            Если у вас уже есть своё видео, вы можете пропустить этот этап
+          </AlertDescription>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => skipStepMutation.mutate()}
+            disabled={skipStepMutation.isPending}
+            data-testid="button-skip-stage5"
+          >
+            <FastForward className="h-4 w-4 mr-2" />
+            {skipStepMutation.isPending ? "Пропускаем..." : "Пропустить - у меня своё видео"}
+          </Button>
+        </div>
+      </Alert>
 
       <div className="space-y-6">
         {/* Search */}
