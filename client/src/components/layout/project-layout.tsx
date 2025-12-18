@@ -1,5 +1,7 @@
-import { ReactNode } from "react"
+import { ReactNode, useEffect } from "react"
 import { Header } from "./header"
+import { queryClient } from "@/lib/query-client"
+import { useAuth } from "@/hooks/use-auth"
 
 /**
  * ProjectLayout компонент для страниц проекта
@@ -11,6 +13,31 @@ interface ProjectLayoutProps {
 }
 
 export function ProjectLayout({ children }: ProjectLayoutProps) {
+  const { isAuthenticated } = useAuth()
+
+  // Background prefetch of HeyGen avatars for faster Stage 5 loading
+  // This is especially important in ProjectLayout since user is close to Stage 5
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    // Prefetch avatars immediately in project context (user is likely to reach Stage 5)
+    const timeoutId = setTimeout(async () => {
+      try {
+        console.log('🔄 [ProjectLayout] Prefetching HeyGen avatars in background...')
+        await queryClient.prefetchQuery({
+          queryKey: ["/api/heygen/avatars"],
+          staleTime: 1000 * 60 * 60 * 6, // 6 hours cache
+        })
+        console.log('✅ [ProjectLayout] HeyGen avatars prefetched successfully')
+      } catch (error) {
+        // Silent fail - user might not have API key yet
+        console.log('ℹ️ [ProjectLayout] HeyGen avatars prefetch skipped')
+      }
+    }, 1000) // 1 second delay (faster than Layout since user is in project)
+
+    return () => clearTimeout(timeoutId)
+  }, [isAuthenticated])
+
   return (
     <div className="min-h-screen bg-background">
       <Header />

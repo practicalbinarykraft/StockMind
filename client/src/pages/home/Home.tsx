@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useLocation } from "wouter"
 import { useToast } from "@/hooks/use-toast"
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { Layout } from "@/components/layout/layout"
 import type { Project } from "@shared/schema"
+import { queryClient } from "@/lib/query-client"
 
 import { useProjects, useProjectFilters } from "./hooks"
 import {
@@ -61,6 +62,35 @@ export default function Home() {
     setSortBy,
     filteredProjects,
   } = useProjectFilters({ projects })
+
+  // Background prefetch of HeyGen avatars for faster Stage 5 loading
+  useEffect(() => {
+    // Only prefetch if authenticated and not already loading
+    if (!isAuthenticated || authLoading) return
+
+    // Prefetch avatars in the background (non-blocking)
+    // This will populate the cache so Stage 5 loads instantly
+    const prefetchAvatars = async () => {
+      try {
+        console.log('🔄 Background prefetch: HeyGen avatars...')
+        await queryClient.prefetchQuery({
+          queryKey: ["/api/heygen/avatars"],
+          // Don't throw errors - just log them
+          // If it fails, Stage 5 will retry
+          staleTime: 1000 * 60 * 60 * 6, // 6 hours
+        })
+        console.log('✅ Background prefetch: HeyGen avatars completed')
+      } catch (error) {
+        // Silent fail - user might not have HeyGen API key yet
+        console.log('ℹ️ Background prefetch: HeyGen avatars skipped (no API key or network issue)')
+      }
+    }
+
+    // Delay prefetch by 2 seconds to not interfere with initial page load
+    const timeoutId = setTimeout(prefetchAvatars, 2000)
+    
+    return () => clearTimeout(timeoutId)
+  }, [isAuthenticated, authLoading])
 
   // Handlers
   const handleDelete = (project: Project) => {

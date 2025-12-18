@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/lib/query-client"
 import { useToast } from "@/hooks/use-toast"
-import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff, Download, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Users, Search, CheckCircle2, Play, Pause, AlertCircle, User, Globe, ArrowRight, FastForward, ImageOff, Download, Loader2, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { useAvatarImages, useProxiedVideo } from "./stage-5/hooks"
 
 interface Stage5Props {
@@ -25,6 +25,17 @@ interface HeyGenAvatar {
   preview_image_url?: string
   preview_video_url?: string
   is_public?: boolean
+}
+
+interface AvatarsResponse {
+  avatars: HeyGenAvatar[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNextPage: boolean
+  }
 }
 
 interface VideoStatus {
@@ -45,10 +56,15 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const [videoStatus, setVideoStatus] = useState<VideoStatus | null>(null)
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
   
-  // Pagination state
+  // Pagination state for display (9 per page in UI)
   const [myAvatarsPage, setMyAvatarsPage] = useState(0)
   const [publicAvatarsPage, setPublicAvatarsPage] = useState(0)
   const AVATARS_PER_PAGE = 9
+  
+  // Server pagination state (120 per request)
+  const [serverPage, setServerPage] = useState(0)
+  const [allLoadedAvatars, setAllLoadedAvatars] = useState<HeyGenAvatar[]>([])
+  const [hasMorePages, setHasMorePages] = useState(true)
 
   // Hook for proxied video loading with loading state
   const {
@@ -88,16 +104,37 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const isStepSkipped = !!step5DataFromApi?.skipReason
   const isStepCompleted = !!step5DataFromApi?.completedAt
 
-  // Fetch avatars from HeyGen with aggressive caching
-  const { data: avatars, isLoading, error } = useQuery<HeyGenAvatar[]>({
-    queryKey: ["/api/heygen/avatars"],
+  // Fetch initial avatars from HeyGen with aggressive caching
+  const { data: avatarsResponse, isLoading, error, refetch: refetchAvatars } = useQuery<AvatarsResponse>({
+    queryKey: ["/api/heygen/avatars", serverPage],
     enabled: !!script, // Only fetch if we have a script
-    staleTime: 1000 * 60 * 60, // 1 hour - avatars don't change often
+    staleTime: 1000 * 60 * 60 * 6, // 6 hours - avatars don't change often
     gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
     retry: 2, // Retry failed requests
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: false, // Don't refetch on component mount if cached
   })
+
+  // Accumulate all loaded avatars from all pages
+  useEffect(() => {
+    if (avatarsResponse?.avatars) {
+      setAllLoadedAvatars(prev => {
+        // If it's page 0 (refresh), replace all
+        if (serverPage === 0) {
+          return avatarsResponse.avatars
+        }
+        // Otherwise, append new avatars (avoid duplicates)
+        const newAvatars = avatarsResponse.avatars.filter(
+          newAvatar => !prev.some(existing => existing.avatar_id === newAvatar.avatar_id)
+        )
+        return [...prev, ...newAvatars]
+      })
+      setHasMorePages(avatarsResponse.pagination.hasNextPage)
+    }
+  }, [avatarsResponse, serverPage])
+
+  // Use accumulated avatars for display
+  const avatars = allLoadedAvatars
 
   // Save selected avatar mutation (for persistence)
   const saveSelectedAvatarMutation = useMutation({
@@ -540,18 +577,40 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
       </Alert>
 
       <div className="space-y-6">
-        {/* Search */}
+        {/* Search and Refresh */}
         <Card>
           <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search avatars..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-avatars"
-              />
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search avatars..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-avatars"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Reset to first page and clear accumulated avatars
+                  setServerPage(0)
+                  setAllLoadedAvatars([])
+                  setHasMorePages(true)
+                  queryClient.invalidateQueries({ queryKey: ["/api/heygen/avatars"] })
+                  refetchAvatars()
+                  toast({
+                    title: "Обновление списка аватаров",
+                    description: "Загружаем актуальный список с HeyGen...",
+                  })
+                }}
+                disabled={isLoading}
+                data-testid="button-refresh-avatars"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Обновить
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -981,6 +1040,32 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                     )
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Load More Button */}
+            {hasMorePages && avatars && avatars.length > 0 && (
+              <div className="flex justify-center py-6">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setServerPage(prev => prev + 1)}
+                  disabled={isLoading}
+                  className="gap-2"
+                  data-testid="button-load-more-avatars"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Загрузка...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronRight className="h-4 w-4" />
+                      Загрузить еще аватары ({avatarsResponse?.pagination.total || 0} всего)
+                    </>
+                  )}
+                </Button>
               </div>
             )}
 

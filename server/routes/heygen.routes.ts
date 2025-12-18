@@ -22,8 +22,11 @@ const ALLOWED_HEYGEN_DOMAINS = [
 export function registerHeygenRoutes(app: Express) {
   /**
    * GET /api/heygen/avatars
-   * Fetches available avatars from HeyGen
+   * Fetches available avatars from HeyGen with pagination
    * Requires: HeyGen API key
+   * Query params:
+   *   - page: Page number (0-based, default: 0)
+   *   - limit: Items per page (default: 120)
    */
   app.get("/api/heygen/avatars", requireAuth, async (req: any, res) => {
     try {
@@ -38,10 +41,39 @@ export function registerHeygenRoutes(app: Express) {
         });
       }
 
-      logger.debug("Fetching HeyGen avatars", { userId });
-      const avatars = await fetchHeyGenAvatars(apiKey.decryptedKey);
+      // Pagination parameters
+      const page = parseInt(req.query.page as string) || 0;
+      const limit = parseInt(req.query.limit as string) || 120;
+      const offset = page * limit;
 
-      res.json(avatars);
+      logger.debug("Fetching HeyGen avatars", { userId, page, limit });
+      
+      // Fetch ALL avatars (cached)
+      const allAvatars = await fetchHeyGenAvatars(apiKey.decryptedKey);
+      
+      // Apply pagination
+      const paginatedAvatars = allAvatars.slice(offset, offset + limit);
+      const totalPages = Math.ceil(allAvatars.length / limit);
+      
+      logger.debug("Returning paginated avatars", {
+        total: allAvatars.length,
+        page,
+        limit,
+        returned: paginatedAvatars.length,
+        totalPages
+      });
+
+      // Return with pagination metadata
+      res.json({
+        avatars: paginatedAvatars,
+        pagination: {
+          page,
+          limit,
+          total: allAvatars.length,
+          totalPages,
+          hasNextPage: page < totalPages - 1
+        }
+      });
     } catch (error: any) {
       logger.error("Error fetching HeyGen avatars", { error: error.message });
       res.status(500).json({ message: "Failed to fetch avatars" });

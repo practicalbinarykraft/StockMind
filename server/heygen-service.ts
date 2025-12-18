@@ -12,7 +12,7 @@ interface AvatarCache {
   timestamp: number
 }
 const avatarCache = new Map<string, AvatarCache>()
-const CACHE_TTL = 1000 * 60 * 60 // 1 hour
+const CACHE_TTL = 1000 * 60 * 60 * 6 // 6 hours
 
 export interface HeyGenAvatar {
   avatar_id: string
@@ -78,17 +78,16 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
     const duration = Date.now() - startTime
     console.log(`✅ Fetched ${uniqueAvatars.length} avatars from HeyGen in ${duration}ms`)
     
-    // Limit to reasonable number of avatars (120 total: ~20 my avatars + ~100 public)
-    // This reduces JSON size and improves performance significantly
-    const myAvatars = uniqueAvatars.filter(a => !a.is_public).slice(0, 20)
-    const publicAvatars = uniqueAvatars.filter(a => a.is_public).slice(0, 100)
-    const limitedAvatars = [...myAvatars, ...publicAvatars]
+    // Return ALL avatars (pagination will be handled by the route)
+    const myAvatars = uniqueAvatars.filter(a => !a.is_public)
+    const publicAvatars = uniqueAvatars.filter(a => a.is_public)
+    const allAvatars = [...myAvatars, ...publicAvatars]
     
-    console.log(`📊 Returning ${limitedAvatars.length} avatars (${myAvatars.length} my, ${publicAvatars.length} public)`)
+    console.log(`📊 Returning ${allAvatars.length} avatars (${myAvatars.length} my, ${publicAvatars.length} public)`)
     
-    // Cache the result
+    // Cache ALL avatars (pagination will slice them as needed)
     avatarCache.set(cacheKey, {
-      avatars: limitedAvatars,
+      avatars: allAvatars,
       timestamp: Date.now()
     })
     
@@ -99,7 +98,7 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
       console.log('🗑️ Cleaned up old avatar cache entry')
     }
     
-    return limitedAvatars
+    return allAvatars
   } catch (error: any) {
     console.error('HeyGen API error:', error.response?.data || error.message)
     throw new Error(error.response?.data?.message || 'Failed to fetch avatars from HeyGen')
