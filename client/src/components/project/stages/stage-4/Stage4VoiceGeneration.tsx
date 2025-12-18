@@ -21,6 +21,8 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
   const {
     finalScript,
     setFinalScript,
+    initialScript,
+    setInitialScript,
     savedScript,
     activeVersion,
     mode,
@@ -148,9 +150,11 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         data: stepDataToSave
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (_, scriptToSave) => {
       // Wait for data to be refetched before showing success message
       await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id, "steps", 4] })
+      // Update initialScript to the saved value so button becomes inactive
+      setInitialScript(scriptToSave)
       toast({
         title: "Сценарий сохранён",
         description: "Изменения в сценарии успешно сохранены",
@@ -398,6 +402,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           <ScriptEditor 
             value={finalScript} 
             onChange={setFinalScript}
+            initialScript={initialScript}
             savedScript={savedScript}
             onSave={async (script) => {
               await saveScriptMutation.mutateAsync(script)
@@ -491,6 +496,7 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
           <ScriptEditor 
             value={finalScript} 
             onChange={setFinalScript}
+            initialScript={initialScript}
             savedScript={savedScript}
             onSave={async (script) => {
               await saveScriptMutation.mutateAsync(script)

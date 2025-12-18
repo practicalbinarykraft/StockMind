@@ -11,6 +11,8 @@ interface UseStage4DataReturn {
   // Script data
   finalScript: string
   setFinalScript: (script: string) => void
+  initialScript: string
+  setInitialScript: (script: string) => void
   savedScript: string
   activeVersion: undefined
 
@@ -54,6 +56,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
 
   const [mode, setMode] = useState<"generate" | "upload">("generate")
   const [finalScript, setFinalScript] = useState("")
+  const [initialScript, setInitialScript] = useState("") // Original loaded script for comparison
   const [selectedVoice, setSelectedVoice] = useState<string>("")
   const [serverAudioUrl, setServerAudioUrl] = useState<string | null>(null)
   const hasRestoredRef = useRef(false)
@@ -108,6 +111,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
     if (savedStepData?.finalScript) {
       console.log("[Stage4] Loading saved edited script from stage4Data:", savedStepData.finalScript.slice(0, 100) + "...")
       setFinalScript(savedStepData.finalScript)
+      setInitialScript(savedStepData.finalScript) // Set as initial for comparison
       hasLoadedScriptRef.current = true
       return
     }
@@ -117,6 +121,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
       const userSelectedScript = stepData.finalScript.scenes.map((s: any) => s.text).join("\n\n")
       console.log("[Stage4] Loading user-selected script from finalScript.scenes:", userSelectedScript.slice(0, 100) + "...")
       setFinalScript(userSelectedScript)
+      setInitialScript(userSelectedScript) // Set as initial for comparison
       hasLoadedScriptRef.current = true
       return
     }
@@ -126,6 +131,7 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
       const scriptsLibraryScript = stepData.scenes.map((s: any) => s.text || s).join("\n\n")
       console.log("[Stage4] Loading script from Scripts Library (scenes):", scriptsLibraryScript.slice(0, 100) + "...")
       setFinalScript(scriptsLibraryScript)
+      setInitialScript(scriptsLibraryScript) // Set as initial for comparison
       hasLoadedScriptRef.current = true
       return
     }
@@ -164,6 +170,8 @@ export function useStage4Data({ projectId, stepData }: UseStage4DataProps): UseS
   return {
     finalScript,
     setFinalScript,
+    initialScript,
+    setInitialScript,
     savedScript,
     activeVersion,
     mode,

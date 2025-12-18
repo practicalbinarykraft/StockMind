@@ -8,22 +8,24 @@ import { Save, Loader2 } from "lucide-react"
 interface ScriptEditorProps {
   value: string
   onChange: (value: string) => void
+  initialScript?: string
   savedScript?: string
   onSave?: (script: string) => Promise<void>
   isSaving?: boolean
 }
 
-export function ScriptEditor({ value, onChange, savedScript, onSave, isSaving = false }: ScriptEditorProps) {
+export function ScriptEditor({ value, onChange, initialScript, savedScript, onSave, isSaving = false }: ScriptEditorProps) {
   const [hasChanges, setHasChanges] = useState(false)
   
   const wordCount = value.trim() ? value.split(/\s+/).length : 0
   const estimatedMinutes = Math.ceil(wordCount / 150)
 
   // Track changes when user edits the script
+  // Compare with savedScript (if exists) or initialScript (original loaded value)
   useEffect(() => {
-    const scriptToCompare = savedScript || ""
+    const scriptToCompare = savedScript || initialScript || ""
     setHasChanges(value !== scriptToCompare)
-  }, [value, savedScript])
+  }, [value, savedScript, initialScript])
 
   const handleSave = async () => {
     if (onSave && hasChanges) {
