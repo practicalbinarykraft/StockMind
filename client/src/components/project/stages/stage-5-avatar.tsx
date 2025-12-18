@@ -1071,7 +1071,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   ) : (
                     <>
                       <ChevronRight className="h-4 w-4" />
-                      Загрузить еще 30 аватаров ({avatarsResponse?.pagination.total || 0} всего)
+                      Загрузить еще 30 аватаров {avatarsResponse && (`осталось ${avatarsResponse?.pagination.total - filteredMyAvatars.length}`)})
                     </>
                   )}
                 </Button>
