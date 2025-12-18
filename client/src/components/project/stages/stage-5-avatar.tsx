@@ -94,25 +94,6 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     enabled: !!script, // Only fetch if we have a script
   })
 
-  // Prepare image URLs for the hook
-  const imageUrlsForHook = useMemo(() => {
-    if (!avatars) return []
-    return avatars.map(avatar => ({
-      id: avatar.avatar_id,
-      url: avatar.preview_image_url
-    }))
-  }, [avatars])
-
-  // Use avatar images hook for proxy loading and tracking
-  const {
-    getProxiedUrl,
-    isImageFailed,
-    markLoaded,
-    markError,
-    allImagesLoaded,
-    loadingProgress
-  } = useAvatarImages(imageUrlsForHook, { preloadCount: 9 })
-
   // Save selected avatar mutation (for persistence)
   const saveSelectedAvatarMutation = useMutation({
     mutationFn: async (avatarId: string) => {
@@ -407,7 +388,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
   const myAvatarsTotalPages = Math.ceil(filteredMyAvatars.length / AVATARS_PER_PAGE)
   const publicAvatarsTotalPages = Math.ceil(filteredPublicAvatars.length / AVATARS_PER_PAGE)
   
-  // Get current page items
+  // Get current page items - only load images for visible avatars
   const currentMyAvatars = filteredMyAvatars.slice(
     myAvatarsPage * AVATARS_PER_PAGE,
     (myAvatarsPage + 1) * AVATARS_PER_PAGE
@@ -417,6 +398,30 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
     publicAvatarsPage * AVATARS_PER_PAGE,
     (publicAvatarsPage + 1) * AVATARS_PER_PAGE
   )
+
+  // Combine visible avatars from both tabs for image loading
+  const visibleAvatars = useMemo(() => {
+    return [...currentMyAvatars, ...currentPublicAvatars]
+  }, [currentMyAvatars, currentPublicAvatars])
+
+  // Prepare image URLs for the hook - ONLY for visible avatars on current pages
+  const imageUrlsForHook = useMemo(() => {
+    if (!avatars) return []
+    return visibleAvatars.map(avatar => ({
+      id: avatar.avatar_id,
+      url: avatar.preview_image_url
+    }))
+  }, [avatars, visibleAvatars])
+
+  // Use avatar images hook for proxy loading and tracking
+  const {
+    getProxiedUrl,
+    isImageFailed,
+    markLoaded,
+    markError,
+    allImagesLoaded,
+    loadingProgress
+  } = useAvatarImages(imageUrlsForHook, { preloadCount: 18 }) // 18 = 9 my + 9 public
 
   // Reset pages when search changes
   useEffect(() => {
@@ -683,15 +688,12 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
         )}
 
         {/* Avatars Grid */}
-        {isLoading || (!allImagesLoaded && avatars && avatars.length > 0) ? (
+        {isLoading ? (
           <div className="space-y-4">
-            {/* Loading progress indicator */}
-            {avatars && avatars.length > 0 && (
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span>Loading avatar images... {loadingProgress.percentage}%</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span>Loading avatars...</span>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
                 <Card key={i}>
@@ -722,6 +724,12 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <User className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-semibold">My Avatars</h3>
                   <Badge variant="secondary">{filteredMyAvatars.length}</Badge>
+                  {!allImagesLoaded && currentMyAvatars.length > 0 && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading images...
+                    </span>
+                  )}
                 </div>
                 
                 {/* Pagination controls */}
@@ -759,6 +767,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   {currentMyAvatars.map(avatar => {
                     const proxiedUrl = getProxiedUrl(avatar.avatar_id)
                     const isFailed = isImageFailed(avatar.avatar_id)
+                    const imageState = loadingProgress.loaded === loadingProgress.total ? 'loaded' : 'loading'
                     
                     return (
                       <Card
@@ -771,22 +780,27 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                       >
                         <CardHeader>
                           {proxiedUrl && !isFailed ? (
-                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center relative">
                               <img
                                 src={proxiedUrl}
                                 alt={avatar.avatar_name}
                                 className="w-full h-full object-contain"
-                                loading="lazy"
+                                loading="eager"
                                 onLoad={() => markLoaded(avatar.avatar_id)}
                                 onError={() => markError(avatar.avatar_id)}
                               />
+                              {imageState === 'loading' && (
+                                <div className="absolute inset-0 bg-muted/50 flex items-center justify-center">
+                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
                               {isFailed ? (
                                 <ImageOff className="h-12 w-12 text-muted-foreground" />
                               ) : (
-                                <Users className="h-16 w-16 text-muted-foreground" />
+                                <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
                               )}
                             </div>
                           )}
@@ -841,6 +855,12 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   <Globe className="h-5 w-5 text-chart-4" />
                   <h3 className="text-lg font-semibold">Public Avatars</h3>
                   <Badge variant="secondary">{filteredPublicAvatars.length}</Badge>
+                  {!allImagesLoaded && currentPublicAvatars.length > 0 && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading images...
+                    </span>
+                  )}
                 </div>
                 
                 {/* Pagination controls */}
@@ -878,6 +898,7 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                   {currentPublicAvatars.map(avatar => {
                     const proxiedUrl = getProxiedUrl(avatar.avatar_id)
                     const isFailed = isImageFailed(avatar.avatar_id)
+                    const imageState = loadingProgress.loaded === loadingProgress.total ? 'loaded' : 'loading'
                     
                     return (
                       <Card
@@ -890,22 +911,27 @@ export function Stage5AvatarSelection({ project, stepData, step5Data }: Stage5Pr
                       >
                         <CardHeader>
                           {proxiedUrl && !isFailed ? (
-                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+                            <div className="aspect-video bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center relative">
                               <img
                                 src={proxiedUrl}
                                 alt={avatar.avatar_name}
                                 className="w-full h-full object-contain"
-                                loading="lazy"
+                                loading="eager"
                                 onLoad={() => markLoaded(avatar.avatar_id)}
                                 onError={() => markError(avatar.avatar_id)}
                               />
+                              {imageState === 'loading' && (
+                                <div className="absolute inset-0 bg-muted/50 flex items-center justify-center">
+                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="aspect-video bg-muted rounded-lg mb-3 flex items-center justify-center">
                               {isFailed ? (
                                 <ImageOff className="h-12 w-12 text-muted-foreground" />
                               ) : (
-                                <Users className="h-16 w-16 text-muted-foreground" />
+                                <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
                               )}
                             </div>
                           )}

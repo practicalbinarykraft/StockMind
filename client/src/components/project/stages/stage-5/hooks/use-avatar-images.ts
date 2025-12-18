@@ -115,9 +115,10 @@ export function useAvatarImages(
     }
   }, [imageUrls, imageStates, proxiedUrls, preloadCount])
   
-  // Preload visible images
+  // Preload visible images with batch state update
   useEffect(() => {
     const imagesToPreload = imageUrls.slice(0, preloadCount)
+    const newImagesToLoad: Array<{ id: string; url: string }> = []
     
     for (const { id, url } of imagesToPreload) {
       // Skip if already tracked or no URL
@@ -126,19 +127,28 @@ export function useAvatarImages(
       const proxiedUrl = proxiedUrls.get(id)
       if (!proxiedUrl) continue
       
-      // Initialize as loading
+      newImagesToLoad.push({ id, url: proxiedUrl })
+    }
+    
+    // Batch initialize all new images as loading
+    if (newImagesToLoad.length > 0) {
       setImageStates(prev => {
-        if (prev.has(id)) return prev
         const next = new Map(prev)
-        next.set(id, { status: 'loading', proxiedUrl })
+        for (const { id, url } of newImagesToLoad) {
+          if (!next.has(id)) {
+            next.set(id, { status: 'loading', proxiedUrl: url })
+          }
+        }
         return next
       })
       
-      // Preload image
-      const img = new Image()
-      img.onload = () => markLoaded(id)
-      img.onerror = () => markError(id)
-      img.src = proxiedUrl
+      // Preload all new images in parallel
+      for (const { id, url } of newImagesToLoad) {
+        const img = new Image()
+        img.onload = () => markLoaded(id)
+        img.onerror = () => markError(id)
+        img.src = url
+      }
     }
   }, [imageUrls, preloadCount, proxiedUrls, imageStates, markLoaded, markError])
   
