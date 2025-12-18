@@ -52,11 +52,11 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
     onUploadSuccess: setServerAudioUrl,
   })
 
-  // Show instruction when user switches to upload mode
+  // Show instruction when user switches to upload mode (for video skip dialog)
   useEffect(() => {
     if (mode === "upload" && showVideoSkipDialog) {
       setShowAudioUploadInstruction(true)
-    } else if (mode === "generate" || !showVideoSkipDialog) {
+    } else if (mode === "generate") {
       setShowAudioUploadInstruction(false)
     }
   }, [mode, showVideoSkipDialog])
@@ -257,19 +257,30 @@ export function Stage4VoiceGeneration({ project, stepData }: Stage4Props) {
         <Alert className="mb-6" data-testid="alert-skip-stage4">
           <FastForward className="h-4 w-4" />
           <div className="flex-1">
-            <h5 className="font-semibold mb-1">Пропустить озвучку?</h5>
-            <AlertDescription className="mb-3">
-              Если у вас уже есть своя озвучка, вы можете пропустить этот этап и сразу перейти к следующему
-            </AlertDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSkipVoiceClick}
-              data-testid="button-skip-stage4"
-            >
-              <FastForward className="h-4 w-4 mr-2" />
-              Пропустить - у меня своя озвучка
-            </Button>
+            {mode === "upload" ? (
+              <>
+                <h5 className="font-semibold mb-1">Загрузите аудио</h5>
+                <AlertDescription>
+                  После добавления аудио нажмите 'Continue to Avatar Selection' чтобы перейти к генерации видео
+                </AlertDescription>
+              </>
+            ) : (
+              <>
+                <h5 className="font-semibold mb-1">Пропустить озвучку?</h5>
+                <AlertDescription className="mb-3">
+                  Если у вас уже есть своя озвучка, вы можете пропустить этот этап и сразу перейти к следующему
+                </AlertDescription>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSkipVoiceClick}
+                  data-testid="button-skip-stage4"
+                >
+                  <FastForward className="h-4 w-4 mr-2" />
+                  Пропустить - у меня своя озвучка
+                </Button>
+              </>
+            )}
           </div>
         </Alert>
       )}
