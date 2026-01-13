@@ -19,7 +19,8 @@ import { ScriptVersionService } from './services/script-version-service';
 import { storage } from "./storage";
 
 // Import all modular routes
-import { registerAuthRoutes } from "./routes/auth.routes";
+import { registerAuthRoutes } from "./modules/auth/auth.routes";
+import { registerUserRoutes } from "./modules/user/user.routes";
 import { registerApiKeysRoutes } from "./routes/api-keys.routes";
 import { registerRssRoutes } from "./routes/rss.routes";
 import { registerInstagramSourcesRoutes } from "./routes/instagram-sources.routes";
@@ -58,6 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Core authentication
   registerAuthRoutes(app);
+
+  // User routes
+  registerUserRoutes(app);
 
   // Settings & Configuration
   registerApiKeysRoutes(app);

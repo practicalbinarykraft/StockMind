@@ -9,7 +9,6 @@ import { setAuthCookie, clearAuthCookie } from '../lib/cookie-auth';
 
 /**
  * JWT Authentication Routes
- * Replaces Replit Auth with standard JWT authentication
  */
 
 const router = Router();
@@ -329,7 +328,6 @@ router.post('/logout', (req, res) => {
 /**
  * Register auth routes with Express app
  */
-export function registerAuthRoutes(app: Express) {
-  app.use('/api/auth', router);
-  logger.info('JWT authentication routes registered');
-}
+// export function registerAuthRoutes(app: Express) {
+//   app.use('/api/auth', router);
+// }
