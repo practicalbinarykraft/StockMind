@@ -21,7 +21,7 @@ import { storage } from "./storage";
 // Import all modular routes
 import { registerAuthRoutes } from "./modules/auth/auth.routes";
 import { registerUserRoutes } from "./modules/user/user.routes";
-import { registerApiKeysRoutes } from "./routes/api-keys.routes";
+import { registerApiKeysRoutes } from "./modules/api-keys/api-keys.routes";
 import { registerRssRoutes } from "./routes/rss.routes";
 import { registerInstagramSourcesRoutes } from "./routes/instagram-sources.routes";
 import { registerInstagramItemsRoutes } from "./routes/instagram-items.routes";

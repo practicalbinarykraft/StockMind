@@ -7,7 +7,7 @@ import { logger } from "../../lib/logger";
 export const authController = {
     async register(req: Request, res: Response) {
         try {
-        const validation = registerSchema.safeParse(req.body);
+        const validation = registerSchema.safeParse(req.body); // dto
 
         if (!validation.success) {
           return res.status(400).json({
@@ -49,7 +49,7 @@ export const authController = {
 
     async login(req: Request, res: Response) {
         try {
-            const validation = loginSchema.safeParse(req.body);
+            const validation = loginSchema.safeParse(req.body); // dto
             if (!validation.success) {
                 return res.status(400).json({
                     message: 'Validation failed',

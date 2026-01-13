@@ -29,7 +29,7 @@ export class ApiKeysStorage implements IApiKeysStorage {
       .from(apiKeys)
       .where(eq(apiKeys.userId, userId))
       .orderBy(desc(apiKeys.createdAt));
-  }
+  } // done
 
   /**
    * Create a new API key
@@ -59,7 +59,7 @@ export class ApiKeysStorage implements IApiKeysStorage {
 
     console.log(`[ApiKeysStorage] Created API key: id=${apiKey.id}, provider=${apiKey.provider}, isActive=${apiKey.isActive}`);
     return apiKey;
-  }
+  } // done
 
   /**
    * Delete an API key
@@ -77,7 +77,7 @@ export class ApiKeysStorage implements IApiKeysStorage {
     } else {
       console.log(`[ApiKeysStorage] WARNING: No API key deleted for id=${id}, userId=${userId} - key not found or userId mismatch`);
     }
-  }
+  } // done
 
   /**
    * Get active API key for a user and provider
@@ -105,7 +105,7 @@ export class ApiKeysStorage implements IApiKeysStorage {
 
     console.log(`[ApiKeysStorage] No API key found for userId: ${userId}, provider: ${provider}`);
     return undefined;
-  }
+  } // to do in repo
 
   /**
    * Get API key by ID
@@ -128,7 +128,7 @@ export class ApiKeysStorage implements IApiKeysStorage {
     }
 
     return undefined;
-  }
+  } // done
 }
 
 export const apiKeysStorage = new ApiKeysStorage();
