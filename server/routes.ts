@@ -22,7 +22,7 @@ import { storage } from "./storage";
 import { registerAuthRoutes } from "./modules/auth/auth.routes";
 import { registerUserRoutes } from "./modules/user/user.routes";
 import { registerApiKeysRoutes } from "./modules/api-keys/api-keys.routes";
-import { registerRssRoutes } from "./routes/rss.routes";
+import { registerRssRoutes } from "./modules/rss-sources/rss-sources.routes";
 import { registerInstagramSourcesRoutes } from "./routes/instagram-sources.routes";
 import { registerInstagramItemsRoutes } from "./routes/instagram-items.routes";
 import { registerNewsRoutes } from "./routes/news.routes";

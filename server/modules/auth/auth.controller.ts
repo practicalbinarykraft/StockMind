@@ -3,6 +3,8 @@ import { registerSchema, loginSchema } from "@shared/schema"
 import { authService } from "./auth.service";
 import { clearAuthCookie, setAuthCookie } from "../../lib/cookie-auth";
 import { logger } from "../../lib/logger";
+import { UserAlreadyExistsError} from "../user/user.errors";
+import { CreateUserError, InvalidEmailOrPasswordError } from "./auth.errors";
 
 export const authController = {
     async register(req: Request, res: Response) {
@@ -26,6 +28,19 @@ export const authController = {
         });
     } catch (error) {
         logger.error('Registration failed', { error });
+
+        if (error instanceof UserAlreadyExistsError) {
+            return res.status(409).json({
+              message: error.message
+            })
+        }
+
+        if (error instanceof CreateUserError) {
+            return res.status(503).json({
+                message: error.message
+            })
+        }
+
         res.status(500).json({
             message: 'Registration failed',
             error: error instanceof Error ? error.message : 'Unknown error'
@@ -67,6 +82,13 @@ export const authController = {
               });
         } catch (error) {
             logger.error('Login failed', { error });
+
+            if (error instanceof InvalidEmailOrPasswordError) {
+                return res.status(401).json({
+                  message: error.message
+                })
+            }
+
             res.status(500).json({
                 message: 'Login failed',
                 error: error instanceof Error ? error.message : 'Unknown error'

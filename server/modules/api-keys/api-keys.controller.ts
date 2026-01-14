@@ -3,6 +3,7 @@ import { logger } from "../../lib/logger";
 import { getUserId } from "../../utils/route-helpers";
 import { insertApiKeySchema } from "@shared/schema";
 import { apiKeysService } from "./api-keys.service";
+import { ApiKeyNotFoundError } from "./api-keys.errors";
 
 
 export const apiKeysController = {
@@ -86,6 +87,13 @@ export const apiKeysController = {
                 userId,
                 errorType: error.constructor?.name,
             });
+
+            if (error instanceof ApiKeyNotFoundError) {
+                return res.status(404).json({
+                    message: error.message
+                })
+            }
+
             res.status(500).json({
                 success: false,
                 message: error.message || "Failed to test API key"

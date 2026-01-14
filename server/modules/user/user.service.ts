@@ -1,6 +1,7 @@
 import { hashPassword } from "server/lib/jwt-auth";
 import { UserRepo } from "./user.repo";
 import { CreateUserDto } from "./user.dto";
+import { UserAlreadyExistsError, UserNotFoundByEmailError, UserNotFoundByIdError } from "./user.errors";
 
 
 const userRepo = new UserRepo();
@@ -9,7 +10,7 @@ export const userService = {
   async create(dto: CreateUserDto) {
     const exists = await userRepo.findByEmail(dto.email)
     if (exists) {
-      throw new Error('User already exists')
+      throw new UserAlreadyExistsError(dto.email)
     }
 
     const passwordHash = await hashPassword(dto.password);
@@ -21,16 +22,16 @@ export const userService = {
   async getById(id: string) {
     const user = await userRepo.getById(id)
     if (!user) {
-      throw new Error('User not found')
+      throw new UserNotFoundByIdError(id)
     }
     return user
   },
 
   async getByEmail(email: string) {
     const user = await userRepo.findByEmail(email)
-    if (!user) {
-      throw new Error('User not found')
-    }
+    // if (!user) {
+    //   throw new UserNotFoundByEmailError(email)
+    // }
     return user
   }
 }

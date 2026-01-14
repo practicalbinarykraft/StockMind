@@ -2,6 +2,7 @@ import { testApiKeyByProvider } from "server/lib/api-key-tester";
 import { decryptApiKey, encryptApiKey } from "../../storage/base/encryption";
 import { CreateApiKeyDto } from "./api-keys.dto";
 import { ApiKeysRepo } from "./api-keys.repo";
+import { ApiKeyNotFoundError } from "./api-keys.errors";
 
 
 const apiKeysRepo = new ApiKeysRepo();
@@ -54,7 +55,7 @@ export const apiKeysService = {
   async testApiKey(id: string, userId: string) {
     const apiKey = await apiKeysRepo.getById(id, userId)
     if (!apiKey) {
-      throw new Error("API key not found");
+      throw new ApiKeyNotFoundError();
     }    
 
     // Get decrypted key from the dedicated field
