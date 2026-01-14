@@ -10,8 +10,10 @@ export const UpdateRssSourceDto = z.object({
   url: z.string().url().optional(),
   topic: z.string().optional(),
   isActive: z.boolean().optional(),
+  lastParsed: z.date().optional(),
   parseStatus: z.string().optional(),
   parseError: z.string().nullable().optional(),
+  itemCount: z.number().optional(),
 });
 
 // DTO: Route param — id источника
