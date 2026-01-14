@@ -27,6 +27,17 @@ export class ApiKeysRepo {
         return key;
     }
 
+    async getUserApiKey(userId: string, provider: string) {
+        const [key] = await db
+          .select()
+          .from(apiKeys)
+          .where(and(eq(apiKeys.userId, userId), eq(apiKeys.provider, provider), eq(apiKeys.isActive, true)))
+          .orderBy(desc(apiKeys.updatedAt))
+          .limit(1);
+
+        return key;
+      }
+
     async getAllByUserId(userId: string) {
         const keys = await db
             .select()

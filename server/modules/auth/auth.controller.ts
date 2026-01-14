@@ -9,7 +9,7 @@ import { CreateUserError, InvalidEmailOrPasswordError } from "./auth.errors";
 export const authController = {
     async register(req: Request, res: Response) {
         try {
-        const validation = registerSchema.safeParse(req.body); // dto
+        const validation = registerSchema.safeParse(req.body); // to do dto
 
         if (!validation.success) {
           return res.status(400).json({

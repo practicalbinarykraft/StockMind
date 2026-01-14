@@ -28,21 +28,21 @@ export interface IInstagramStorage {
 export class InstagramStorage implements IInstagramStorage {
   async getInstagramSources(userId: string): Promise<InstagramSource[]> {
     return await db.select().from(instagramSources).where(eq(instagramSources.userId, userId)).orderBy(desc(instagramSources.createdAt));
-  }
+  }// done
 
   async createInstagramSource(userId: string, data: Omit<InsertInstagramSource, 'userId'>): Promise<InstagramSource> {
     const [source] = await db.insert(instagramSources).values({ ...data, userId }).returning();
     return source;
-  }
+  }// done
 
   async updateInstagramSource(id: string, userId: string, data: Partial<InstagramSource>): Promise<InstagramSource | undefined> {
     const [source] = await db.update(instagramSources).set({ ...data, updatedAt: new Date() }).where(and(eq(instagramSources.id, id), eq(instagramSources.userId, userId))).returning();
     return source;
-  }
+  }// done
 
   async deleteInstagramSource(id: string, userId: string): Promise<void> {
     await db.delete(instagramSources).where(and(eq(instagramSources.id, id), eq(instagramSources.userId, userId)));
-  }
+  } // done
 
   async getInstagramItems(userId: string, sourceId?: string): Promise<InstagramItem[]> {
     if (sourceId) {
@@ -63,21 +63,21 @@ export class InstagramStorage implements IInstagramStorage {
       const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
       return bDate - aDate;
     });
-  }
+  }// done
 
   async getInstagramItemsBySource(sourceId: string): Promise<InstagramItem[]> {
     return await db.select().from(instagramItems).where(eq(instagramItems.sourceId, sourceId)).orderBy(desc(instagramItems.publishedAt));
-  }
+  }// done
 
   async createInstagramItem(data: InsertInstagramItem): Promise<InstagramItem> {
     const [item] = await db.insert(instagramItems).values(data).returning();
     return item;
-  }
+  }// done
 
   async updateInstagramItem(id: string, data: Partial<InstagramItem>): Promise<InstagramItem | undefined> {
     const [item] = await db.update(instagramItems).set(data).where(eq(instagramItems.id, id)).returning();
     return item;
-  }
+  }// done
 
   async updateInstagramItemAction(id: string, userId: string, action: string, projectId?: string): Promise<InstagramItem | undefined> {
     const [item] = await db.select().from(instagramItems).where(and(eq(instagramItems.id, id), eq(instagramItems.userId, userId)));
@@ -85,7 +85,7 @@ export class InstagramStorage implements IInstagramStorage {
 
     const [updated] = await db.update(instagramItems).set({ userAction: action, actionAt: new Date(), usedInProject: projectId || null }).where(eq(instagramItems.id, id)).returning();
     return updated;
-  }
+  }// done
 
   async updateInstagramItemDownloadStatus(id: string, status: 'pending' | 'downloading' | 'completed' | 'failed', localVideoPath?: string, localThumbnailPath?: string, downloadError?: string): Promise<InstagramItem | undefined> {
     const updateData: Partial<InstagramItem> = { downloadStatus: status };
@@ -95,7 +95,7 @@ export class InstagramStorage implements IInstagramStorage {
 
     const [item] = await db.update(instagramItems).set(updateData).where(eq(instagramItems.id, id)).returning();
     return item;
-  }
+  }// done
 
   async updateInstagramItemTranscription(id: string, status: 'pending' | 'processing' | 'completed' | 'failed', transcriptionText?: string, language?: string, transcriptionError?: string): Promise<InstagramItem | undefined> {
     const updateData: Partial<InstagramItem> = { transcriptionStatus: status };
@@ -105,7 +105,7 @@ export class InstagramStorage implements IInstagramStorage {
 
     const [item] = await db.update(instagramItems).set(updateData).where(eq(instagramItems.id, id)).returning();
     return item;
-  }
+  }// done
 
   async updateInstagramItemAiScore(id: string, aiScore: number, aiComment: string, freshnessScore?: number, viralityScore?: number, qualityScore?: number): Promise<InstagramItem | undefined> {
     const updateData: Partial<InstagramItem> = { aiScore, aiComment };
@@ -115,7 +115,7 @@ export class InstagramStorage implements IInstagramStorage {
 
     const [item] = await db.update(instagramItems).set(updateData).where(eq(instagramItems.id, id)).returning();
     return item;
-  }
+  }// done
 }
 
 export const instagramStorage = new InstagramStorage();

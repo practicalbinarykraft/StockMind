@@ -9,5 +9,5 @@ export const userController = {
         const user = await userService.getById(dto.id)
 
         res.status(200).json(user)
-    }, // try cath - with error
+    }, // to do try cath - with error
 }

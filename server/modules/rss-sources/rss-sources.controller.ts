@@ -3,7 +3,7 @@ import { logger } from "../../lib/logger";
 import { getUserId } from "../../utils/route-helpers";
 import { insertRssSourceSchema } from "@shared/schema";
 import { rssSourcesService } from "./rss-sources.service";
-import { UpdateRssSourceDto } from "./rss-sources.dto";
+import { RssSourceNotFoundError } from "./rss-sources.errors";
 
 export const rssSourcesController = {
   /**
@@ -51,13 +51,16 @@ export const rssSourcesController = {
       const { id } = req.params;
       const source = await rssSourcesService.updateRssSource(id, userId, req.body);
 
-      if (!source) {
-        return res.status(404).json({ message: "RSS source not found" });
-      } // в service
-
       res.json(source);
     } catch (error: any) {
       logger.error("Error updating RSS source", { error });
+
+      if (error instanceof RssSourceNotFoundError) {
+        return res.status(404).json({
+            message: error.message
+        })
+      } 
+
       res.status(500).json({ message: "Failed to update RSS source" });
     }
   },
@@ -95,8 +98,10 @@ export const rssSourcesController = {
     } catch (error: any) {
       logger.error("Error triggering RSS parsing", { error });
       
-      if (error.message === "RSS source not found") {
-        return res.status(404).json({ message: "RSS source not found" });
+      if (error instanceof RssSourceNotFoundError) {
+        return res.status(404).json({
+            message: error.message
+        })
       }
 
       res.status(500).json({ message: "Failed to trigger parsing" });

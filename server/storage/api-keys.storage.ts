@@ -105,7 +105,7 @@ export class ApiKeysStorage implements IApiKeysStorage {
 
     console.log(`[ApiKeysStorage] No API key found for userId: ${userId}, provider: ${provider}`);
     return undefined;
-  } // to do in repo
+  } // done
 
   /**
    * Get API key by ID

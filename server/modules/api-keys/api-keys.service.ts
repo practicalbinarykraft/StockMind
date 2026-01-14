@@ -31,6 +31,19 @@ export const apiKeysService = {
     return safeApiKey;
   },
 
+  async getUserApiKey(userId: string, provider: string) {
+    const apiKey = await apiKeysRepo.getUserApiKey(userId, provider);
+    if (!apiKey) {
+      throw new ApiKeyNotFoundError();
+    }    
+
+    return {
+      ...apiKey,
+      encryptedKey: apiKey.encryptedKey, // remains encrypted
+      decryptedKey: decryptApiKey(apiKey.encryptedKey), // decrypted value
+    };
+  },
+
   async getApiKeys(userId: string) {
     const apiKeys = await apiKeysRepo.getAllByUserId(userId);
 

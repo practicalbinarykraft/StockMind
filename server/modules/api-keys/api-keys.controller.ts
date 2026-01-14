@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import { logger } from "../../lib/logger";
 import { getUserId } from "../../utils/route-helpers";
-import { insertApiKeySchema } from "@shared/schema";
 import { apiKeysService } from "./api-keys.service";
 import { ApiKeyNotFoundError } from "./api-keys.errors";
+import { ApiKeyIdParamDto, CreateApiKeyDto } from "./api-keys.dto";
 
 
 export const apiKeysController = {
@@ -13,7 +13,7 @@ export const apiKeysController = {
           userId = getUserId(req);
           if (!userId) return res.status(401).json({ message: "Unauthorized" }); // middleware
     
-          const validated = insertApiKeySchema.parse(req.body); // dto
+          const validated = CreateApiKeyDto.parse(req.body);
           const apiKey = await apiKeysService.create(validated, userId);          
     
           res.json(apiKey);
@@ -55,7 +55,7 @@ export const apiKeysController = {
             userId = getUserId(req);
             if (!userId) return res.status(401).json({ message: "Unauthorized" }); // middleware
 
-            const { id } = req.params; // dto
+            const { id } = ApiKeyIdParamDto.parse(req.params);
             const apiKey = await apiKeysService.deleteApiKey(id, userId);
 
             res.json({ success: true });
@@ -70,7 +70,7 @@ export const apiKeysController = {
 
     async testApiKey(req: Request, res: Response) {
         let userId: string | null = null;
-        const { id } = req.params;
+        const { id } = ApiKeyIdParamDto.parse(req.params);
         try {
             userId = getUserId(req);
             if (!userId) return res.status(401).json({ message: "Unauthorized" }); // middleware
@@ -98,6 +98,6 @@ export const apiKeysController = {
                 success: false,
                 message: error.message || "Failed to test API key"
             });
-        } // error middleware
+        } // to do error middleware
     }
 }

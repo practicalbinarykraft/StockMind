@@ -41,7 +41,7 @@ export class RssStorage implements IRssStorage {
       }
     }
     return null;
-  }
+  }// to do
 
   async getRssSources(userId: string): Promise<RssSource[]> {
     return await db
@@ -49,7 +49,7 @@ export class RssStorage implements IRssStorage {
       .from(rssSources)
       .where(eq(rssSources.userId, userId))
       .orderBy(desc(rssSources.createdAt));
-  }
+  } // done
 
   async getAllActiveRssSources(): Promise<RssSource[]> {
     // Get all active RSS sources across all users (for cron job)
@@ -58,7 +58,7 @@ export class RssStorage implements IRssStorage {
       .from(rssSources)
       .where(eq(rssSources.isActive, true))
       .orderBy(desc(rssSources.createdAt));
-  }
+  } // done
 
   async createRssSource(userId: string, data: Omit<InsertRssSource, 'userId'>): Promise<RssSource> {
     const [source] = await db
@@ -66,7 +66,7 @@ export class RssStorage implements IRssStorage {
       .values({ ...data, userId })
       .returning();
     return source;
-  }
+  } // done
 
   async updateRssSource(id: string, userId: string, data: Partial<RssSource>): Promise<RssSource | undefined> {
     const [source] = await db
@@ -75,11 +75,11 @@ export class RssStorage implements IRssStorage {
       .where(and(eq(rssSources.id, id), eq(rssSources.userId, userId)))
       .returning();
     return source;
-  }
+  } // done
 
   async deleteRssSource(id: string, userId: string): Promise<void> {
     await db.delete(rssSources).where(and(eq(rssSources.id, id), eq(rssSources.userId, userId)));
-  }
+  } // done
 
   async getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>> {
     if (userId) {
@@ -125,7 +125,7 @@ export class RssStorage implements IRssStorage {
       .from(rssItems)
       .orderBy(desc(rssItems.aiScore))
       .then(items => items.map(item => ({ ...item, sourceName: 'Unknown Source' })));
-  }
+  }// to do
 
   async getRssItemsBySource(sourceId: string): Promise<RssItem[]> {
     return await db
@@ -133,12 +133,12 @@ export class RssStorage implements IRssStorage {
       .from(rssItems)
       .where(eq(rssItems.sourceId, sourceId))
       .orderBy(desc(rssItems.publishedAt));
-  }
+  }// to do
 
   async createRssItem(data: InsertRssItem): Promise<RssItem> {
     const [item] = await db.insert(rssItems).values(data).returning();
     return item;
-  }
+  }// to do
 
   /**
    * Create RSS item only if (source_id, url) doesn't exist (for background parsing)
@@ -152,12 +152,12 @@ export class RssStorage implements IRssStorage {
       .onConflictDoNothing({ target: [rssItems.sourceId, rssItems.url] })
       .returning();
     return result.length > 0 ? result[0] : null;
-  }
+  }// to do
 
   async updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined> {
     const [item] = await db.update(rssItems).set(data).where(eq(rssItems.id, id)).returning();
     return item;
-  }
+  }// to do
 
   async updateRssItemAction(
     id: string,
@@ -183,15 +183,15 @@ export class RssStorage implements IRssStorage {
       .where(eq(rssItems.id, id))
       .returning();
     return updated;
-  }
+  }// to do
 
   async getRssItemById(id: string): Promise<RssItem | undefined> {
     return await db.query.rssItems.findFirst({ where: (t, { eq }) => eq(t.id, id) });
-  }
+  }// to do
 
   async setRssItemFullContent(id: string, content: string): Promise<void> {
     await db.update(rssItems).set({ fullContent: content, lastFetchedAt: new Date() }).where(eq(rssItems.id, id));
-  }
+  }// to do
 }
 
 export const rssStorage = new RssStorage();

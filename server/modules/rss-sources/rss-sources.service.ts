@@ -45,7 +45,7 @@ export const rssSourcesService = {
     const source = await rssSourcesRepo.update(id, userId, dto);
     
     if (!source) {
-      return undefined;
+      throw new RssSourceNotFoundError();
     }
 
     return source;

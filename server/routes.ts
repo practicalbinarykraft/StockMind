@@ -23,8 +23,8 @@ import { registerAuthRoutes } from "./modules/auth/auth.routes";
 import { registerUserRoutes } from "./modules/user/user.routes";
 import { registerApiKeysRoutes } from "./modules/api-keys/api-keys.routes";
 import { registerRssRoutes } from "./modules/rss-sources/rss-sources.routes";
-import { registerInstagramSourcesRoutes } from "./routes/instagram-sources.routes";
-import { registerInstagramItemsRoutes } from "./routes/instagram-items.routes";
+import { registerInstagramSourcesRoutes } from "./modules/instagram-sources/instagram-sources.routes";
+import { registerInstagramItemsRoutes } from "./modules/instagram-items/instagram-items.routes";
 import { registerNewsRoutes } from "./routes/news.routes";
 import { registerNewsAnalysisRoutes } from "./routes/news-analysis.routes";
 import { registerProjectsRoutes } from "./routes/projects.routes";
@@ -66,6 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Settings & Configuration
   registerApiKeysRoutes(app);
   registerRssRoutes(app);
+  // добавить rss-items module
   registerInstagramSourcesRoutes(app);
 
   // Content Management
