@@ -479,4 +479,49 @@ export const newsService = {
 
     return enrichedItems;
   },
+
+  /**
+   * Обновить перевод статьи (используется модулем news-analysis)
+   */
+  async updateArticleTranslation(articleId: string, userId: string, translationData: any) {
+    // Проверяем, принадлежит ли статья пользователю
+    const sources = await rssSourcesService.getRssSources(userId);
+    const sourceIds = sources.map(s => s.id);
+    const rawItems = await newsRepo.getAllBySourceIds(sourceIds);
+    const item = rawItems.find(i => i.id === articleId);
+
+    if (!item) {
+      throw new NewsItemNotFoundError();
+    }
+
+    // Обновляем перевод
+    await newsRepo.update(articleId, {
+      articleTranslation: translationData as any,
+    });
+
+    logger.info(`[News Service] Translation updated for article ${articleId}`);
+  },
+
+  /**
+   * Обновить анализ статьи (используется модулем news-analysis)
+   */
+  async updateArticleAnalysis(articleId: string, userId: string, analysis: any) {
+    // Проверяем, принадлежит ли статья пользователю
+    const sources = await rssSourcesService.getRssSources(userId);
+    const sourceIds = sources.map(s => s.id);
+    const rawItems = await newsRepo.getAllBySourceIds(sourceIds);
+    const item = rawItems.find(i => i.id === articleId);
+
+    if (!item) {
+      throw new NewsItemNotFoundError();
+    }
+
+    // Обновляем анализ
+    const updated = await newsRepo.update(articleId, {
+      articleAnalysis: analysis as any,
+    });
+
+    logger.info(`[News Service] Analysis updated for article ${articleId}`);
+    return updated;
+  },
 };

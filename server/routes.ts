@@ -26,7 +26,7 @@ import { registerRssRoutes } from "./modules/rss-sources/rss-sources.routes";
 import { registerInstagramSourcesRoutes } from "./modules/instagram-sources/instagram-sources.routes";
 import { registerInstagramItemsRoutes } from "./modules/instagram-items/instagram-items.routes";
 import { registerNewsRoutes } from "./modules/news/news.routes";
-import { registerNewsAnalysisRoutes } from "./routes/news-analysis.routes";
+import { registerNewsAnalysisRoutes } from "./modules/news-analysis/news-analysis.routes";
 import { registerProjectsRoutes } from "./routes/projects.routes";
 import { registerAiRoutes } from "./routes/ai.routes";
 import { registerAudioRoutes } from "./routes/audio.routes";
