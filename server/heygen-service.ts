@@ -80,8 +80,7 @@ export async function fetchHeyGenAvatars(apiKey: string): Promise<HeyGenAvatar[]
       // Try multiple possible fields for is_public from HeyGen API
       const isPublic = avatarAny.is_public ?? 
                        avatarAny.public ?? 
-                       (avatarAny.avatar_style === 'public') ??
-                       (avatar as HeyGenAvatar).avatar_id.includes('_public')
+                       (avatarAny.avatar_style === 'public')
       
       return {
         ...(avatar as HeyGenAvatar),
