@@ -68,6 +68,21 @@ export const newsService = {
   },
 
   /**
+   * Получить news item по ID (для использования другими модулями)
+   */
+  async getNewsItemById(id: string): Promise<RssItem | undefined> {
+    const item = await newsRepo.getById(id);
+    if (!item) return undefined;
+
+    // Парсим JSONB поля
+    return {
+      ...item,
+      articleAnalysis: parseJsonbField((item as any).articleAnalysis),
+      articleTranslation: parseJsonbField((item as any).articleTranslation),
+    };
+  },
+
+  /**
    * Получить score для конкретной новости
    */
   async getNewsScore(id: string, userId: string) {

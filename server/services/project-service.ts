@@ -123,7 +123,7 @@ export class ProjectService {
     );
 
     return project;
-  }
+  }// done
 
   /**
    * Create project from News/RSS item
@@ -381,7 +381,7 @@ export class ProjectService {
     });
 
     return project;
-  }
+  }// done
 
   /**
    * Create project from Script Library
@@ -495,7 +495,7 @@ export class ProjectService {
     });
 
     return project;
-  }
+  } // to do
 
   /**
    * Create project (generic/custom)
@@ -505,5 +505,5 @@ export class ProjectService {
   async createProject(userId: string, projectData: Omit<InsertProject, 'id' | 'userId'>) {
     const project = await this.storage.createProject(userId, projectData as any);
     return project;
-  }
+  }// done
 }

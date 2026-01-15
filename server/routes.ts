@@ -28,13 +28,13 @@ import { registerInstagramItemsRoutes } from "./modules/instagram-items/instagra
 import { registerNewsRoutes } from "./modules/news/news.routes";
 import { registerNewsAnalysisRoutes } from "./modules/news-analysis/news-analysis.routes";
 import { registerProjectsRoutes } from "./routes/projects.routes";
-import { registerAiRoutes } from "./routes/ai.routes";
+import { registerAiRoutes } from "./modules/ai/ai.routes";
 import { registerAudioRoutes } from "./routes/audio.routes";
 import { registerElevenlabsRoutes } from "./routes/elevenlabs.routes";
 import { registerHeygenRoutes } from "./routes/heygen.routes";
-import { registerProjectStepsRoutes } from "./routes/project-steps.routes";
+import { registerProjectStepsRoutes } from "./modules/project-steps/project-steps.routes";
 import { registerBrollRoutes } from "./routes/broll.routes";
-import { registerAdvancedAnalysisRoutes } from "./routes/advanced-analysis.routes";
+import { registerAdvancedAnalysisRoutes } from "./modules/advanced-analysis/advanced-analysis.routes";
 import { registerScriptVersionsRoutes } from "./routes/script-versions.routes";
 import { registerScriptsLibraryRoutes } from "./routes/scripts-library.routes";
 import { registerSceneEditingRoutes } from "./routes/scene-editing.routes";
