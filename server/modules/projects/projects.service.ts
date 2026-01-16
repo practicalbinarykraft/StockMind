@@ -570,6 +570,119 @@ export class ProjectsService {
   }
 
   // ============================================================================
+  // CREATE FROM SCRIPT LIBRARY
+  // ============================================================================
+
+  /**
+   * Create project from Script Library
+   * 
+   * Business rules:
+   * - Script must exist and belong to user
+   * - Script cannot be already used in active project
+   * - Creates project starting at specified stage (default: Stage 4 - Voice Generation)
+   */
+  async createProjectFromScript(
+    userId: string,
+    script: any,
+    skipToStage: number = 4
+  ): Promise<Project> {
+    logger.info(`[ProjectsService] Starting createProjectFromScript for script ${script.id}, user ${userId}, skipToStage: ${skipToStage}`);
+
+    // Business rule: Check if already used in a project
+    if (script.projectId) {
+      const referencedProject = await this.repo.getById(script.projectId);
+      if (referencedProject && referencedProject.status !== 'deleted') {
+        throw new Error('This script is already used in another project');
+      }
+    }
+
+    // Build project data
+    const projectData: Omit<InsertProject, 'id' | 'userId'> = {
+      title: script.title,
+      sourceType: script.sourceType || 'custom',
+      sourceData: {
+        scriptId: script.id,
+        sourceId: script.sourceId,
+        sourceTitle: script.sourceTitle,
+        sourceUrl: script.sourceUrl,
+      },
+      currentStage: skipToStage,
+      status: 'draft',
+    };
+
+    // Build step data for Stage 2 (if source exists)
+    let step2Data: Omit<InsertProjectStep, 'id' | 'projectId'> | null = null;
+    if (script.sourceId && script.sourceType === 'rss') {
+      const items = await newsService.getNews(userId);
+      const item = items.find(i => i.id === script.sourceId);
+      if (item) {
+        step2Data = {
+          stepNumber: 2,
+          data: {
+            title: item.title,
+            content: item.content,
+            url: item.url,
+            imageUrl: item.imageUrl,
+            publishedAt: item.publishedAt,
+            aiScore: item.aiScore,
+            aiComment: item.aiComment,
+          }
+        };
+      }
+    }
+
+    // Build step data for Stage 3 (script with scenes)
+    interface ScriptAiAnalysis {
+      verdict?: string;
+      strengths?: string[];
+      weaknesses?: string[];
+    }
+    const aiAnalysis = script.aiAnalysis as ScriptAiAnalysis | null;
+
+    const step3Data: Omit<InsertProjectStep, 'id' | 'projectId'> = {
+      stepNumber: 3,
+      data: {
+        scenes: script.scenes,
+        format: script.format,
+        sourceAnalysis: aiAnalysis ? {
+          score: script.aiScore || 0,
+          verdict: aiAnalysis.verdict || 'moderate',
+          strengths: aiAnalysis.strengths || [],
+          weaknesses: aiAnalysis.weaknesses || [],
+        } : undefined,
+        recommendedFormat: script.format ? {
+          formatId: script.format,
+          name: script.format,
+        } : undefined,
+      }
+    };
+
+    // Create project
+    const project = await this.repo.create(userId, projectData);
+
+    // Create project steps
+    if (step2Data) {
+      await this.repo.createProjectStep({
+        ...step2Data,
+        projectId: project.id,
+      } as any);
+    }
+
+    await this.repo.createProjectStep({
+      ...step3Data,
+      projectId: project.id,
+    } as any);
+
+    logger.info(`[ProjectsService] Project created from script:`, {
+      projectId: project.id,
+      currentStage: project.currentStage,
+      scriptId: script.id,
+    });
+
+    return project;
+  }
+
+  // ============================================================================
   // BATCH CREATE
   // ============================================================================
 

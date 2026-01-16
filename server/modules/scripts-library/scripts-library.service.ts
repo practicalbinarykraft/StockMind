@@ -1,9 +1,8 @@
 import { ScriptsLibraryRepo } from "./scripts-library.repo";
-import { storage } from "../../storage";
 import { logger } from "../../lib/logger";
 import { analyzeScriptAdvanced } from "../../ai-services/advanced";
 import { analyzeScript } from "../../ai-services/analyze-script";
-import { ProjectService } from "../../services/project-service";
+import { ProjectsService } from "../projects/projects.service";
 import { apiKeysService } from "../api-keys/api-keys.service";
 import { newsService } from "../news/news.service";
 import {
@@ -136,8 +135,8 @@ export const scriptsLibraryService = {
     }
 
     // Create project starting at specified stage
-    const projectService = new ProjectService(storage);
-    const project = await projectService.createProjectFromScript(
+    const projectsService = new ProjectsService();
+    const project = await projectsService.createProjectFromScript(
       userId,
       script,
       skipToStage

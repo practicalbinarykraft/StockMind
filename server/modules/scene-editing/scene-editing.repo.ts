@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { scriptVersions, sceneRecommendations } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 /**
  * Repository for Scene Editing
@@ -20,6 +20,32 @@ export class SceneEditingRepo {
           eq(scriptVersions.isCurrent, true)
         )
       )
+      .limit(1);
+
+    return version;
+  }
+
+  /**
+   * Get all script versions for a project
+   */
+  async getVersionsByProjectId(projectId: string) {
+    const versions = await db
+      .select()
+      .from(scriptVersions)
+      .where(eq(scriptVersions.projectId, projectId))
+      .orderBy(desc(scriptVersions.versionNumber));
+
+    return versions;
+  }
+
+  /**
+   * Get version by ID
+   */
+  async getVersionById(versionId: string) {
+    const [version] = await db
+      .select()
+      .from(scriptVersions)
+      .where(eq(scriptVersions.id, versionId))
       .limit(1);
 
     return version;
@@ -65,6 +91,18 @@ export class SceneEditingRepo {
   }
 
   /**
+   * Mark multiple recommendations as applied
+   */
+  async markRecommendationsAppliedBatch(recommendationIds: string[]) {
+    if (recommendationIds.length === 0) return;
+
+    await db
+      .update(sceneRecommendations)
+      .set({ appliedAt: new Date(), applied: true })
+      .where(sql`${sceneRecommendations.id} IN ${recommendationIds}`);
+  }
+
+  /**
    * Create scene recommendations
    */
   async createRecommendations(recommendations: any[]) {
@@ -76,5 +114,49 @@ export class SceneEditingRepo {
       .returning();
 
     return created;
+  }
+
+  /**
+   * Clear all current flags for a project (used in transaction)
+   */
+  async clearCurrentFlags(projectId: string) {
+    await db
+      .update(scriptVersions)
+      .set({ isCurrent: false })
+      .where(eq(scriptVersions.projectId, projectId));
+  }
+
+  /**
+   * Create new script version atomically
+   */
+  async createScriptVersionAtomic(data: {
+    projectId: string;
+    versionNumber: number;
+    fullScript: string;
+    scenes: any[];
+    changes: any;
+    createdBy: string;
+    isCurrent: boolean;
+    parentVersionId?: string;
+    analysisResult?: any;
+    analysisScore?: number;
+    provenance?: any;
+    diff?: any[];
+  }) {
+    const [newVersion] = await db.transaction(async (tx) => {
+      // Clear all current flags
+      await tx
+        .update(scriptVersions)
+        .set({ isCurrent: false })
+        .where(eq(scriptVersions.projectId, data.projectId));
+
+      // Create new version
+      return await tx
+        .insert(scriptVersions)
+        .values(data)
+        .returning();
+    });
+
+    return newVersion;
   }
 }

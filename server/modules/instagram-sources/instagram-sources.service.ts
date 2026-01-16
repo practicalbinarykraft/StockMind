@@ -6,14 +6,15 @@ import {
   InvalidApifyKeyError,
   InstagramParseError,
 } from "./instagram-sources.errors";
-import { storage } from "../../storage";
-import { scrapeInstagramReels, testApifyApiKey } from "../../apify-service";
+import { scrapeInstagramReels, testApifyApiKey } from "../../services/apify-service";
 import { downloadInstagramMediaBackground, getProcessingQueue } from "../../lib/instagram-background-tasks";
 import { logger } from "../../lib/logger";
 import { normalizeInstagramUsername } from "../../utils/route-helpers";
 import { checkSourceForUpdates } from "../../cron/instagram-monitor";
 import type { InstagramSource } from "@shared/schema";
 import { apiKeysService } from "../api-keys/api-keys.service";
+import { instagramItemsService } from "../instagram-items/instagram-items.service";
+
 
 const instagramSourcesRepo = new InstagramSourcesRepo();
 
@@ -250,7 +251,7 @@ export const instagramSourcesService = {
       throw new InstagramSourceNotFoundError();
     }
 
-    const apifyKey = await storage.getUserApiKey(userId, "apify");
+    const apifyKey = await apiKeysService.getUserApiKey(userId, "apify");
 
     if (!apifyKey) {
       throw new ApifyKeyNotConfiguredError();
@@ -309,7 +310,7 @@ export const instagramSourcesService = {
 
     for (const reel of reels) {
       try {
-        const item = await storage.createInstagramItem({
+        const item = await instagramItemsService.createInstagramItem({
           sourceId,
           userId,
           externalId: reel.shortCode,
@@ -340,7 +341,7 @@ export const instagramSourcesService = {
           qualityScore: null,
           publishedAt: reel.timestamp ? new Date(reel.timestamp) : null,
           downloadStatus: "pending",
-        }); // to do упростить
+        });
 
         savedCount++;
 

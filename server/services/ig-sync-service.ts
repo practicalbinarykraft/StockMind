@@ -1,6 +1,6 @@
-import { storage } from './storage';
-import { getInstagramMedia, getMediaInsights, GraphAPIClientError } from './ig-graph-client';
-import * as encryption from './encryption';
+import { storage } from '../storage';
+import { getInstagramMedia, getMediaInsights, GraphAPIClientError } from '../ig-graph-client';
+import * as encryption from '../encryption';
 import type { IgAccount, IgMedia } from '@shared/schema';
 
 /**

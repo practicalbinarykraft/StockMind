@@ -1,5 +1,5 @@
 import { generateAiPrompt } from "../../ai-services";
-import { generateKieVideo, getKieVideoStatus } from "../../kie-service";
+import { generateKieVideo, getKieVideoStatus } from "../../services/kie-service";
 import { logger } from "../../lib/logger";
 import { apiKeysService } from "../api-keys/api-keys.service";
 import { ApiKeyNotFoundError } from "../api-keys/api-keys.errors";

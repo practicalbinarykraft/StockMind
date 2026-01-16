@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { insertInstagramItemSchema } from "@shared/schema";
+
+export const CreateInstagramItemDto = insertInstagramItemSchema;
 
 // DTO: Query параметры для получения списка items
 export const GetInstagramItemsQueryDto = z.object({
@@ -43,3 +46,4 @@ export type UpdateItemActionDto = z.infer<typeof UpdateItemActionDto>;
 export type ProxyImageQueryDto = z.infer<typeof ProxyImageQueryDto>;
 export type TranscriptionStartResponse = z.infer<typeof TranscriptionStartResponse>;
 export type ScoringResponse = z.infer<typeof ScoringResponse>;
+export type CreateInstagramItemDto = z.infer<typeof CreateInstagramItemDto>;

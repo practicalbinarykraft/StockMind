@@ -151,4 +151,38 @@ export class ScriptVersionsRepo {
       await this.deleteVersion(versionId);
     });
   }
+
+  /**
+   * Create new script version atomically
+   */
+  async createScriptVersionAtomic(data: {
+    projectId: string;
+    versionNumber: number;
+    fullScript: string;
+    scenes: any[];
+    changes: any;
+    createdBy: string;
+    isCurrent: boolean;
+    parentVersionId?: string;
+    analysisResult?: any;
+    analysisScore?: number;
+    provenance?: any;
+    diff?: any[];
+  }) {
+    const [newVersion] = await db.transaction(async (tx) => {
+      // Clear all current flags
+      await tx
+        .update(scriptVersions)
+        .set({ isCurrent: false })
+        .where(eq(scriptVersions.projectId, data.projectId));
+
+      // Create new version
+      return await tx
+        .insert(scriptVersions)
+        .values(data)
+        .returning();
+    });
+
+    return newVersion;
+  }
 }

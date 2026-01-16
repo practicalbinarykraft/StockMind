@@ -3,7 +3,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId, normalizeInstagramUsername } from "../utils/route-helpers";
 import { insertInstagramSourceSchema } from "@shared/schema";
-import { scrapeInstagramReels, testApifyApiKey } from "../apify-service";
+import { scrapeInstagramReels, testApifyApiKey } from "../services/apify-service";
 import { downloadInstagramMediaBackground, getProcessingQueue } from "../lib/instagram-background-tasks";
 import { logger } from "../lib/logger";
 import { z } from "zod";

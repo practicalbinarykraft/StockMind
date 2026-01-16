@@ -1,26 +1,16 @@
 // Storage interface definition
+// NOTE: This interface contains only methods used outside of storage/ and modules/ folders
+// Internal methods have been removed to reduce duplication
 import type {
-  User,
-  UpsertUser,
   ApiKey,
   ApiKeyWithDecrypted,
-  InsertApiKey,
   RssSource,
-  InsertRssSource,
   RssItem,
   InsertRssItem,
   InstagramSource,
-  InsertInstagramSource,
   InstagramItem,
-  InsertInstagramItem,
   Project,
-  InsertProject,
-  ProjectStep,
-  InsertProjectStep,
   ScriptVersion,
-  InsertScriptVersion,
-  SceneRecommendation,
-  InsertSceneRecommendation,
   IgAccount,
   IgMedia,
   InsertIgMedia,
@@ -28,8 +18,6 @@ import type {
   InsertIgMediaInsight,
   ProjectVersionBinding,
   InsertProjectVersionBinding,
-  ScriptLibrary,
-  InsertScriptLibrary,
   PostAnalytics,
   InsertPostAnalytics,
   AnalyticsSnapshot,
@@ -37,45 +25,25 @@ import type {
 } from "@shared/schema";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
-
-  // API Keys
+  // API Keys (used in: middleware, cron, lib, routes, services)
   getApiKeys(userId: string): Promise<ApiKey[]>;
-  createApiKey(userId: string, data: Omit<InsertApiKey, 'userId' | 'encryptedKey'> & { key: string }): Promise<ApiKey>;
-  deleteApiKey(id: string, userId: string): Promise<void>;
   getUserApiKey(userId: string, provider: string): Promise<ApiKeyWithDecrypted | undefined>;
-  getApiKeyById(id: string, userId: string): Promise<ApiKeyWithDecrypted | undefined>;
 
-  // RSS Sources
+  // RSS Sources (used in: middleware, cron)
   getRssSources(userId: string): Promise<RssSource[]>;
-  getAllActiveRssSources(): Promise<RssSource[]>; // Get all active sources (for cron)
-  createRssSource(userId: string, data: Omit<InsertRssSource, 'userId'>): Promise<RssSource>;
+  getAllActiveRssSources(): Promise<RssSource[]>;
   updateRssSource(id: string, userId: string, data: Partial<RssSource>): Promise<RssSource | undefined>;
-  deleteRssSource(id: string, userId: string): Promise<void>;
 
-  // Instagram Sources
-  getInstagramSources(userId: string): Promise<InstagramSource[]>;
-  createInstagramSource(userId: string, data: Omit<InsertInstagramSource, 'userId'>): Promise<InstagramSource>;
-  updateInstagramSource(id: string, userId: string, data: Partial<InstagramSource>): Promise<InstagramSource | undefined>;
-  deleteInstagramSource(id: string, userId: string): Promise<void>;
-
-  // RSS Items
-  getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>>;
-  getRssItemsBySource(sourceId: string): Promise<RssItem[]>;
+  // RSS Items (used in: cron, lib, routes)
   getRssItemById(id: string): Promise<RssItem | undefined>;
-  createRssItem(data: InsertRssItem): Promise<RssItem>;
+  createRssItemIfNotExists(data: InsertRssItem): Promise<RssItem | null>;
   updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined>;
-  updateRssItemAction(id: string, userId: string, action: string, projectId?: string): Promise<RssItem | undefined>;
-  setRssItemFullContent(id: string, content: string): Promise<void>;
 
-  // Instagram Items
+  // Instagram Sources (used in: middleware)
+  getInstagramSources(userId: string): Promise<InstagramSource[]>;
+
+  // Instagram Items (used in: lib, routes)
   getInstagramItems(userId: string, sourceId?: string): Promise<InstagramItem[]>;
-  getInstagramItemsBySource(sourceId: string): Promise<InstagramItem[]>;
-  createInstagramItem(data: InsertInstagramItem): Promise<InstagramItem>;
-  updateInstagramItem(id: string, data: Partial<InstagramItem>): Promise<InstagramItem | undefined>;
-  updateInstagramItemAction(id: string, userId: string, action: string, projectId?: string): Promise<InstagramItem | undefined>;
   updateInstagramItemDownloadStatus(
     id: string,
     status: 'pending' | 'downloading' | 'completed' | 'failed',
@@ -99,55 +67,14 @@ export interface IStorage {
     qualityScore?: number
   ): Promise<InstagramItem | undefined>;
 
-  // Projects
-  getProjects(userId: string): Promise<Project[]>;
+  // Projects (used in: routes, middleware)
   getProject(id: string, userId: string): Promise<Project | undefined>;
-  getProjectById(id: string): Promise<Project | undefined>; // Without userId check - for ownership validation
-  createProject(userId: string, data: Omit<InsertProject, 'userId'>): Promise<Project>;
-  updateProject(id: string, userId: string, data: Partial<Project>): Promise<Project | undefined>;
-  deleteProject(id: string, userId: string): Promise<void>;
-  permanentlyDeleteProject(id: string, userId: string): Promise<void>;
-  createProjectFromInstagramAtomic(
-    userId: string,
-    projectData: Omit<InsertProject, 'userId'>,
-    stepData: InsertProjectStep,
-    instagramItemId: string
-  ): Promise<Project>;
-  createProjectFromNewsAtomic(
-    userId: string,
-    projectData: Omit<InsertProject, 'userId'>,
-    stepData: InsertProjectStep,
-    newsItemId: string,
-    step3Data?: InsertProjectStep
-  ): Promise<Project>;
 
-  // Project Steps
-  getProjectSteps(projectId: string): Promise<ProjectStep[]>;
-  createProjectStep(data: InsertProjectStep): Promise<ProjectStep>;
-  updateProjectStep(id: string, data: Partial<ProjectStep>): Promise<ProjectStep | undefined>;
-
-  // Script Versions
+  // Script Versions (used in: routes, middleware)
   getScriptVersions(projectId: string): Promise<ScriptVersion[]>;
-  listScriptVersions(projectId: string): Promise<ScriptVersion[]>;
-  getCurrentScriptVersion(projectId: string): Promise<ScriptVersion | undefined>;
   getScriptVersionById(id: string): Promise<ScriptVersion | undefined>;
-  getLatestCandidateVersion(projectId: string): Promise<ScriptVersion | undefined>;
-  createScriptVersion(data: InsertScriptVersion): Promise<ScriptVersion>;
-  updateScriptVersionCurrent(projectId: string, versionId: string): Promise<void>;
-  createScriptVersionAtomic(data: InsertScriptVersion): Promise<ScriptVersion>;
-  promoteCandidate(projectId: string, candidateId: string): Promise<void>;
-  rejectCandidate(projectId: string, candidateId: string): Promise<void>;
-  findVersionByIdemKey(projectId: string, idemKey: string): Promise<ScriptVersion[]>;
-  markVersionProvenance(versionId: string, prov: any): Promise<void>;
 
-  // Scene Recommendations
-  getSceneRecommendations(scriptVersionId: string): Promise<SceneRecommendation[]>;
-  createSceneRecommendations(data: InsertSceneRecommendation[]): Promise<SceneRecommendation[]>;
-  updateSceneRecommendation(id: string, data: Partial<SceneRecommendation>): Promise<SceneRecommendation | undefined>;
-  markRecommendationApplied(id: string): Promise<void>;
-  markRecommendationsAppliedBatch(ids: string[]): Promise<void>;
-
-  // Instagram Analytics Accounts
+  // Instagram Analytics Accounts (used in: routes, services)
   getIgAccounts(userId: string): Promise<IgAccount[]>;
   getAllIgAccounts(): Promise<IgAccount[]>;
   getIgAccountById(id: string, userId: string): Promise<IgAccount | undefined>;
@@ -155,36 +82,22 @@ export interface IStorage {
   updateIgAccount(id: string, userId: string, data: Partial<IgAccount>): Promise<IgAccount | undefined>;
   deleteIgAccount(id: string, userId: string): Promise<void>;
 
-  // Instagram Media
+  // Instagram Media (used in: routes, services)
   getIgMedia(accountId: string, filters?: { limit?: number; mediaType?: string }): Promise<IgMedia[]>;
   getIgMediaById(id: string, userId: string): Promise<IgMedia | undefined>;
   upsertIgMedia(data: InsertIgMedia): Promise<IgMedia>;
   updateIgMediaSync(id: string, status: string, error?: string | null, nextSyncAt?: Date | null): Promise<IgMedia | undefined>;
 
-  // Instagram Media Insights
+  // Instagram Media Insights (used in: routes, services)
   getIgMediaInsights(igMediaId: string, limit?: number): Promise<IgMediaInsight[]>;
   createIgMediaInsight(data: InsertIgMediaInsight): Promise<IgMediaInsight>;
 
-  // Project Version Bindings
+  // Project Version Bindings (used in: routes)
   createProjectVersionBinding(data: InsertProjectVersionBinding): Promise<ProjectVersionBinding>;
   deleteProjectVersionBinding(id: string, userId: string): Promise<void>;
   getProjectVersionBindings(projectId: string): Promise<ProjectVersionBinding[]>;
 
-  // Scripts Library
-  getScripts(userId: string, filters?: {
-    status?: string;
-    sourceType?: string;
-    search?: string;
-  }): Promise<ScriptLibrary[]>;
-  getScript(id: string, userId: string): Promise<ScriptLibrary | undefined>;
-  createScript(userId: string, data: Omit<InsertScriptLibrary, 'userId'>): Promise<ScriptLibrary>;
-  updateScript(id: string, userId: string, data: Partial<ScriptLibrary>): Promise<ScriptLibrary | undefined>;
-  deleteScript(id: string, userId: string): Promise<void>;
-  getScriptsByStatus(userId: string, status: string): Promise<ScriptLibrary[]>;
-  getScriptsByProject(projectId: string): Promise<ScriptLibrary | undefined>;
-  updateScriptProject(scriptId: string, projectId: string | null): Promise<void>;
-
-  // Post Analytics
+  // Post Analytics (used in: routes, cron)
   getAnalyticsByProject(projectId: string): Promise<PostAnalytics | undefined>;
   createAnalytics(userId: string, data: Omit<InsertPostAnalytics, 'userId'>): Promise<PostAnalytics>;
   updateAnalytics(id: string, data: Partial<PostAnalytics>): Promise<PostAnalytics | undefined>;

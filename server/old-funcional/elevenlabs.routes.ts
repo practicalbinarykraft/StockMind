@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
-import { fetchVoices, generateSpeech } from "../elevenlabs-service";
+import { fetchVoices, generateSpeech } from "./elevenlabs-service";
 import { logger } from "../lib/logger";
 
 /**

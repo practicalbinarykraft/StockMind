@@ -1,5 +1,5 @@
 import { InstagramItemsRepo } from "./instagram-items.repo";
-import { GetInstagramItemsQueryDto, UpdateItemActionDto, ProxyImageQueryDto } from "./instagram-items.dto";
+import { GetInstagramItemsQueryDto, UpdateItemActionDto, ProxyImageQueryDto, CreateInstagramItemDto } from "./instagram-items.dto";
 import {
   InstagramItemNotFoundError,
   InvalidActionError,
@@ -17,6 +17,13 @@ import { apiKeysService } from "../api-keys/api-keys.service";
 const instagramItemsRepo = new InstagramItemsRepo();
 
 export const instagramItemsService = {
+
+  async createInstagramItem(dto: CreateInstagramItemDto) {
+    const item = await instagramItemsRepo.create(dto);
+    return item;
+  },
+
+
   /**
    * Получить все Instagram items пользователя
    */

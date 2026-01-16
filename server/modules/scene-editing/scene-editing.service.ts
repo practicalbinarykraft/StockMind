@@ -1,11 +1,10 @@
 import { SceneEditingRepo } from "./scene-editing.repo";
-import { storage } from "../../storage";
-import { ScriptVersionService } from "../../services/script-version-service";
 import { apiKeysService } from "../api-keys/api-keys.service";
 import { ProjectsService } from "../projects/projects.service";
 import { logger } from "../../lib/logger";
 import { analyzeScriptAdvanced } from "../../ai-services/advanced";
 import { generateSceneRecommendations } from "../../ai-services/scene-recommendations";
+import { createVersion } from "../script-versions/script-versions.service";
 import {
   ScriptVersionNotFoundError,
   RecommendationNotFoundError,
@@ -14,7 +13,6 @@ import {
 } from "./scene-editing.errors";
 
 const repo = new SceneEditingRepo();
-const scriptVersionService = new ScriptVersionService(storage);
 const projectsService = new ProjectsService();
 
 /**
@@ -86,7 +84,7 @@ export const sceneEditingService = {
     targetScene.lastModified = new Date().toISOString();
 
     // Create new version with provenance
-    const newVersion = await scriptVersionService.createVersion({
+    const newVersion = await createVersion({
       projectId,
       scenes,
       createdBy: "ai",
@@ -158,13 +156,106 @@ export const sceneEditingService = {
     userId: string,
     recommendationIds?: string[]
   ) {
-    const result = await scriptVersionService.applyAllRecommendations({
-      projectId,
-      userId,
-      recommendationIds,
+    const currentVersion = await repo.getCurrentVersion(projectId);
+    if (!currentVersion) {
+      throw new ScriptVersionNotFoundError();
+    }
+
+    // Get unapplied recommendations
+    const allRecommendations = await repo.getRecommendationsByVersionId(
+      currentVersion.id
+    );
+    let unappliedRecommendations = allRecommendations.filter((r) => !r.applied);
+
+    // If specific IDs provided, filter to only those
+    if (recommendationIds && recommendationIds.length > 0) {
+      unappliedRecommendations = unappliedRecommendations.filter((r) =>
+        r.id && recommendationIds.includes(r.id)
+      );
+    }
+
+    if (unappliedRecommendations.length === 0) {
+      return {
+        success: true,
+        message: "No recommendations to apply",
+        newVersion: currentVersion,
+      };
+    }
+
+    // Sort recommendations by priority, score delta, confidence
+    unappliedRecommendations.sort((a, b) => {
+      const priorityOrder: Record<string, number> = {
+        critical: 4,
+        high: 3,
+        medium: 2,
+        low: 1,
+      };
+      const aPriority = priorityOrder[a.priority] || 2;
+      const bPriority = priorityOrder[b.priority] || 2;
+
+      if (aPriority !== bPriority) return bPriority - aPriority;
+
+      const aScore = a.scoreDelta || 0;
+      const bScore = b.scoreDelta || 0;
+      if (aScore !== bScore) return bScore - aScore;
+
+      const aConf = a.confidence || 0.5;
+      const bConf = b.confidence || 0.5;
+      if (aConf !== bConf) return bConf - aConf;
+
+      return a.sceneId - b.sceneId;
     });
 
-    return result;
+    // Clone scenes and apply all recommendations
+    const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+    const affectedSceneIds: number[] = [];
+
+    for (const rec of unappliedRecommendations) {
+      const scene = scenes.find((s: any) => s.sceneNumber === rec.sceneId);
+      if (scene) {
+        scene.text = rec.suggestedText;
+        scene.recommendationApplied = true;
+        scene.lastModified = new Date().toISOString();
+        affectedSceneIds.push(rec.sceneId);
+      }
+    }
+
+    // Create new version
+    const newVersion = await createVersion({
+      projectId,
+      scenes,
+      createdBy: "ai",
+      changes: {
+        type: "apply_all_recommendations",
+        affectedScenes: affectedSceneIds,
+        appliedCount: unappliedRecommendations.length,
+      },
+      parentVersionId: currentVersion.id,
+      analysisResult: currentVersion.analysisResult,
+      analysisScore: currentVersion.analysisScore ?? undefined,
+      provenance: {
+        source: "apply_all_recommendations",
+        userId: userId,
+        appliedCount: unappliedRecommendations.length,
+        ts: new Date().toISOString(),
+      },
+      userId: userId,
+    });
+
+    // Mark all recommendations as applied
+    const appliedRecIds = unappliedRecommendations
+      .map((r) => r.id)
+      .filter((id): id is string => id !== null);
+    if (appliedRecIds.length > 0) {
+      await repo.markRecommendationsAppliedBatch(appliedRecIds);
+    }
+
+    return {
+      success: true,
+      newVersion,
+      appliedCount: unappliedRecommendations.length,
+      affectedScenes: affectedSceneIds,
+    };
   },
 
   /**
@@ -176,27 +267,93 @@ export const sceneEditingService = {
     newText: string,
     userId: string
   ) {
-    const result = await scriptVersionService.applySceneEdit({
+    const currentVersion = await repo.getCurrentVersion(projectId);
+    if (!currentVersion) {
+      throw new ScriptVersionNotFoundError();
+    }
+
+    // Clone and update
+    const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
+    const scene = scenes.find((s: any) => s.sceneNumber === sceneId);
+
+    if (!scene) {
+      throw new SceneNotFoundError();
+    }
+
+    const oldText = scene.text;
+    scene.text = newText;
+    scene.manuallyEdited = true;
+    scene.lastModified = new Date().toISOString();
+
+    // Create new version with provenance
+    const newVersion = await createVersion({
       projectId,
-      sceneId,
-      newText,
-      userId,
+      scenes,
+      createdBy: "user",
+      changes: {
+        type: "manual_edit",
+        affectedScenes: [sceneId],
+        sceneId,
+        before: oldText,
+        after: newText,
+      },
+      parentVersionId: currentVersion.id,
+      analysisResult: currentVersion.analysisResult,
+      analysisScore: currentVersion.analysisScore ?? undefined,
+      provenance: {
+        source: "manual_edit",
+        userId: userId,
+        ts: new Date().toISOString(),
+      },
+      userId: userId,
     });
 
-    return result;
+    return {
+      newVersion,
+      needsReanalysis: true,
+    };
   },
 
   /**
-   * Revert to previous version
+   * Revert to previous version (non-destructive)
    */
   async revertToVersion(projectId: string, versionId: string, userId: string) {
-    const result = await scriptVersionService.revertToVersion({
+    // Get all versions to find target
+    const versions = await repo.getVersionsByProjectId(projectId);
+    const targetVersion = versions.find((v) => v.id === versionId);
+
+    if (!targetVersion) {
+      throw new ScriptVersionNotFoundError();
+    }
+
+    const currentVersion = await repo.getCurrentVersion(projectId);
+
+    // Create new version from old one (non-destructive!)
+    const newVersion = await createVersion({
       projectId,
-      versionId,
-      userId,
+      scenes: targetVersion.scenes as any[],
+      createdBy: "user",
+      changes: {
+        type: "revert",
+        revertedFrom: currentVersion?.id,
+        revertedToVersion: targetVersion.versionNumber,
+      },
+      parentVersionId: currentVersion?.id,
+      analysisResult: targetVersion.analysisResult as any,
+      analysisScore: targetVersion.analysisScore ?? undefined,
+      provenance: {
+        source: "revert",
+        userId: userId,
+        revertedToVersion: targetVersion.versionNumber,
+        ts: new Date().toISOString(),
+      },
+      userId: userId,
     });
 
-    return result;
+    return {
+      newVersion,
+      message: `Reverted to version ${targetVersion.versionNumber}`,
+    };
   },
 
   /**

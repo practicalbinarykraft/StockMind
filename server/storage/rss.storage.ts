@@ -12,18 +12,13 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 
 export interface IRssStorage {
   getRssSources(userId: string): Promise<RssSource[]>;
-  getAllActiveRssSources(): Promise<RssSource[]>; // Get all active sources across all users (for cron)
-  createRssSource(userId: string, data: Omit<InsertRssSource, 'userId'>): Promise<RssSource>;
+  getAllActiveRssSources(): Promise<RssSource[]>;
   updateRssSource(id: string, userId: string, data: Partial<RssSource>): Promise<RssSource | undefined>;
-  deleteRssSource(id: string, userId: string): Promise<void>;
-  getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>>;
-  getRssItemsBySource(sourceId: string): Promise<RssItem[]>;
   getRssItemById(id: string): Promise<RssItem | undefined>;
-  createRssItem(data: InsertRssItem): Promise<RssItem>;
   createRssItemIfNotExists(data: InsertRssItem): Promise<RssItem | null>;
   updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined>;
-  updateRssItemAction(id: string, userId: string, action: string, projectId?: string): Promise<RssItem | undefined>;
-  setRssItemFullContent(id: string, content: string): Promise<void>;
+  // Removed: createRssSource, deleteRssSource, getRssItems, getRssItemsBySource, createRssItem, updateRssItemAction, setRssItemFullContent
+  // Use modules/rss-sources and modules/news repos instead
 }
 
 export class RssStorage implements IRssStorage {
@@ -60,14 +55,6 @@ export class RssStorage implements IRssStorage {
       .orderBy(desc(rssSources.createdAt));
   } // done
 
-  async createRssSource(userId: string, data: Omit<InsertRssSource, 'userId'>): Promise<RssSource> {
-    const [source] = await db
-      .insert(rssSources)
-      .values({ ...data, userId })
-      .returning();
-    return source;
-  } // done
-
   async updateRssSource(id: string, userId: string, data: Partial<RssSource>): Promise<RssSource | undefined> {
     const [source] = await db
       .update(rssSources)
@@ -77,68 +64,9 @@ export class RssStorage implements IRssStorage {
     return source;
   } // done
 
-  async deleteRssSource(id: string, userId: string): Promise<void> {
-    await db.delete(rssSources).where(and(eq(rssSources.id, id), eq(rssSources.userId, userId)));
-  } // done
-
-  async getRssItems(userId?: string): Promise<Array<RssItem & { sourceName: string }>> {
-    if (userId) {
-      const userSources = await this.getRssSources(userId);
-      const sourceIds = userSources.map(s => s.id);
-      if (sourceIds.length === 0) return [];
-
-      const sourceNameMap = new Map(userSources.map(s => [s.id, s.name]));
-      const sourceItems = await db
-        .select()
-        .from(rssItems)
-        .where(inArray(rssItems.sourceId, sourceIds));
-
-      const allItems: Array<RssItem & { sourceName: string }> = sourceItems.map(item => {
-        const articleAnalysis = this.parseJsonbField((item as any).articleAnalysis);
-        const articleTranslation = this.parseJsonbField((item as any).articleTranslation);
-        
-        return {
-          ...item,
-          sourceName: sourceNameMap.get(item.sourceId) || 'Unknown Source',
-          articleAnalysis: articleAnalysis || undefined,
-          articleTranslation: articleTranslation || undefined,
-        };
-      });
-
-      return allItems.sort((a, b) => {
-        if (a.aiScore === null && b.aiScore === null) {
-          const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-          const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-          return bDate - aDate;
-        }
-        if (a.aiScore === null) return 1;
-        if (b.aiScore === null) return -1;
-        if (b.aiScore !== a.aiScore) return b.aiScore - a.aiScore;
-        const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-        const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-        return bDate - aDate;
-      });
-    }
-
-    return await db
-      .select()
-      .from(rssItems)
-      .orderBy(desc(rssItems.aiScore))
-      .then(items => items.map(item => ({ ...item, sourceName: 'Unknown Source' })));
-  }// to do
-
-  async getRssItemsBySource(sourceId: string): Promise<RssItem[]> {
-    return await db
-      .select()
-      .from(rssItems)
-      .where(eq(rssItems.sourceId, sourceId))
-      .orderBy(desc(rssItems.publishedAt));
-  }// to do
-
-  async createRssItem(data: InsertRssItem): Promise<RssItem> {
-    const [item] = await db.insert(rssItems).values(data).returning();
-    return item;
-  }// to do
+  async getRssItemById(id: string): Promise<RssItem | undefined> {
+    return await db.query.rssItems.findFirst({ where: (t, { eq }) => eq(t.id, id) });
+  }
 
   /**
    * Create RSS item only if (source_id, url) doesn't exist (for background parsing)
@@ -157,40 +85,6 @@ export class RssStorage implements IRssStorage {
   async updateRssItem(id: string, data: Partial<RssItem>): Promise<RssItem | undefined> {
     const [item] = await db.update(rssItems).set(data).where(eq(rssItems.id, id)).returning();
     return item;
-  }// to do
-
-  async updateRssItemAction(
-    id: string,
-    userId: string,
-    action: string,
-    projectId?: string
-  ): Promise<RssItem | undefined> {
-    const [item] = await db.select().from(rssItems).where(eq(rssItems.id, id));
-    if (!item) return undefined;
-
-    const userSources = await this.getRssSources(userId);
-    const sourceIds = userSources.map(s => s.id);
-    if (!sourceIds.includes(item.sourceId)) return undefined;
-
-    const [updated] = await db
-      .update(rssItems)
-      .set({
-        userAction: action,
-        actionAt: new Date(),
-        usedInProject: projectId || null,
-        userId,
-      })
-      .where(eq(rssItems.id, id))
-      .returning();
-    return updated;
-  }// to do
-
-  async getRssItemById(id: string): Promise<RssItem | undefined> {
-    return await db.query.rssItems.findFirst({ where: (t, { eq }) => eq(t.id, id) });
-  }// to do
-
-  async setRssItemFullContent(id: string, content: string): Promise<void> {
-    await db.update(rssItems).set({ fullContent: content, lastFetchedAt: new Date() }).where(eq(rssItems.id, id));
   }// to do
 }
 

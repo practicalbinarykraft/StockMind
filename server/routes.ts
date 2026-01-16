@@ -14,9 +14,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import igRouter from "./routes/ig";
-import { ProjectService } from './services/project-service';
-import { ScriptVersionService } from './services/script-version-service';
-import { storage } from "./storage";
 
 // Import all modular routes
 import { registerAuthRoutes } from "./modules/auth/auth.routes";
@@ -50,10 +47,6 @@ import { registerConveyorEventsRoutes } from "./modules/conveyor-events/conveyor
 import { registerConveyorProgressRoutes } from "./modules/conveyor-progress/conveyor-progress.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize services (used by some routes)
-  const projectService = new ProjectService(storage);
-  const scriptVersionService = new ScriptVersionService(storage);
-
   // Register all route modules
   // Each module handles a specific domain or functionality
 
@@ -66,7 +59,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Settings & Configuration
   registerApiKeysRoutes(app);
   registerRssRoutes(app);
-  // добавить rss-items module
   registerInstagramSourcesRoutes(app);
 
   // Content Management
@@ -101,10 +93,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Conveyor (Content Factory)
   registerConveyorSettingsRoutes(app);
   registerAutoScriptsRoutes(app);
-
   registerConveyorStatusRoutes(app);
   registerConveyorTriggerRoutes(app);
-  
   registerConveyorEventsRoutes(app);
   registerConveyorProgressRoutes(app);
 

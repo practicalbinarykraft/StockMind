@@ -3,7 +3,7 @@ import axios from "axios";
 import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
-import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "../heygen-service";
+import { fetchHeyGenAvatars, generateHeyGenVideo, getHeyGenVideoStatus } from "./heygen-service";
 import { apiResponse } from "../lib/api-response";
 import { logger } from "../lib/logger";
 

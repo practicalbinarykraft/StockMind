@@ -15,7 +15,7 @@ export async function transcribeInstagramItemBackground(
   const startTime = Date.now();
 
   // Import here to avoid circular dependencies
-  const { transcribeInstagramVideo } = await import("../../transcription-service");
+  const { transcribeInstagramVideo } = await import("../../services/transcription-service");
 
   try {
     logBackgroundTask({

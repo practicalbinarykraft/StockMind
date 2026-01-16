@@ -1,6 +1,4 @@
 import { ScriptVersionsRepo } from "./script-versions.repo";
-import { ScriptVersionService } from "../../services/script-version-service";
-import { storage } from "../../storage";
 import { logger } from "../../lib/logger";
 import { extractScoreDelta, priorityToConfidence } from "../../lib/reco-utils";
 import {
@@ -10,7 +8,98 @@ import {
 } from "./script-versions.errors";
 
 const repo = new ScriptVersionsRepo();
-const scriptVersionService = new ScriptVersionService(storage);
+
+/**
+ * Helper types
+ * Exported for use in other services
+ */
+export interface CreateVersionData {
+  projectId: string;
+  scenes: any[];
+  createdBy: "user" | "ai" | "system";
+  changes: any;
+  parentVersionId?: string;
+  analysisResult?: any;
+  analysisScore?: number;
+  provenance?: any;
+  diff?: any[];
+  userId?: string;
+}
+
+/**
+ * Create a new script version
+ * Exported for use in other services (e.g., scene-editing.service.ts)
+ */
+export async function createVersion(data: CreateVersionData) {
+  const {
+    projectId,
+    scenes,
+    createdBy,
+    changes,
+    parentVersionId,
+    analysisResult,
+    analysisScore,
+    provenance,
+    diff,
+    userId,
+  } = data;
+
+  // Get next version number
+  const versions = await repo.getVersionsByProjectId(projectId);
+  const nextVersion =
+    versions.length > 0
+      ? Math.max(...versions.map((v) => v.versionNumber)) + 1
+      : 1;
+
+  // Build full script text
+  const fullScript = Array.isArray(scenes)
+    ? scenes
+        .map((s: any) => {
+          const start = s.start || 0;
+          const end = s.end || s.duration || 0;
+          return `[${start}-${end}s] ${s.text}`;
+        })
+        .join("\n")
+    : "";
+
+  // Get current version for diff calculation
+  const currentVersion = await repo.getCurrentVersion(projectId);
+
+  // Calculate diff if not provided
+  let finalDiff = diff;
+  if (!finalDiff && currentVersion && currentVersion.scenes) {
+    // Simple diff calculation
+    finalDiff = [];
+  }
+
+  // Build provenance if not provided
+  let finalProvenance = provenance;
+  if (!finalProvenance) {
+    finalProvenance = {
+      source: changes?.type || "unknown",
+      userId: userId,
+      ts: new Date().toISOString(),
+    };
+  }
+
+  // Create new version using repo method
+  const newVersion = await repo.createScriptVersionAtomic({
+    projectId,
+    versionNumber: nextVersion,
+    fullScript,
+    scenes,
+    changes,
+    createdBy,
+    isCurrent: true,
+    parentVersionId,
+    analysisResult,
+    analysisScore,
+    provenance: finalProvenance,
+    diff: finalDiff,
+  });
+
+  return newVersion;
+}
 
 /**
  * Helper: Extract scene recommendations from advanced analysis
@@ -152,7 +241,7 @@ export const scriptVersionsService = {
     }
 
     // Create initial version
-    const newVersion = await scriptVersionService.createVersion({
+    const newVersion = await createVersion({
       projectId,
       scenes,
       createdBy: "system",

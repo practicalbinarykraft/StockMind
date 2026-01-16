@@ -3,7 +3,7 @@
  * Centralized logic for testing external API keys
  */
 
-import { testApifyApiKey } from '../apify-service';
+import { testApifyApiKey } from '../services/apify-service';
 
 export interface ApiKeyTestResult {
   success: boolean;

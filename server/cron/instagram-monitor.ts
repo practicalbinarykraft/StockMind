@@ -2,13 +2,13 @@ import cron from "node-cron";
 import { db } from "../db";
 import { instagramSources, instagramItems } from "../../shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { scrapeInstagramReels } from "../apify-service";
+import { scrapeInstagramReels } from "../services/apify-service";
 import { downloadInstagramMedia } from "../instagram-download";
 import type { IStorage } from "../storage";
 import type { InstagramSource } from "../../shared/schema";
 import { logCronJob } from "../lib/logger-helpers";
 import { logger } from "../lib/logger";
-import { INSTAGRAM_LIMITS } from "../routes/instagram-sources.routes";
+import { INSTAGRAM_LIMITS } from "../modules/instagram-sources/instagram-sources.service";
 
 let storage: IStorage;
 let isRunning = false;

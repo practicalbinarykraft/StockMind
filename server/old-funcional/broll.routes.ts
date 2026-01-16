@@ -3,7 +3,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../middleware/jwt-auth";
 import { getUserId } from "../utils/route-helpers";
 import { generateAiPrompt } from "../ai-services";
-import { generateKieVideo, getKieVideoStatus } from "../kie-service";
+import { generateKieVideo, getKieVideoStatus } from "../services/kie-service";
 import { logger } from "../lib/logger";
 
 /**

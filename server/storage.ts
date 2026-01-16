@@ -1,104 +1,52 @@
 // Main storage composition
 // Reference: javascript_log_in_with_replit + javascript_database blueprints
 import { IStorage } from "./storage/base/types";
-import { userStorage } from "./storage/user.storage";
 import { apiKeysStorage } from "./storage/api-keys.storage";
 import { rssStorage } from "./storage/rss.storage";
 import { instagramStorage } from "./storage/instagram.storage";
 import { projectsStorage } from "./storage/projects.storage";
-import { projectStepsStorage } from "./storage/project-steps.storage";
 import { scriptVersionsStorage } from "./storage/script-versions.storage";
-import { scenesStorage } from "./storage/scenes.storage";
 import { igAnalyticsStorage } from "./storage/ig-analytics.storage";
 import { postAnalyticsStorage } from "./storage/post-analytics.storage";
-import { scriptsLibraryStorage } from "./storage/scripts-library.storage";
 
 /**
  * Main storage class that composes all domain storage modules
+ * 
+ * NOTE: This file contains only methods used outside of storage/ and modules/ folders
+ * Methods used only internally have been removed to reduce duplication
  */
-class Storage implements IStorage {
-  // User operations
-  getUser = userStorage.getUser.bind(userStorage);
-  upsertUser = userStorage.upsertUser.bind(userStorage);
-
-  // API Keys
+class Storage implements Partial<IStorage> {
+  // API Keys (used in: middleware, cron, lib, routes, services)
   getApiKeys = apiKeysStorage.getApiKeys.bind(apiKeysStorage);
-  createApiKey = apiKeysStorage.createApiKey.bind(apiKeysStorage);
-  deleteApiKey = apiKeysStorage.deleteApiKey.bind(apiKeysStorage);
   getUserApiKey = apiKeysStorage.getUserApiKey.bind(apiKeysStorage);
-  getApiKeyById = apiKeysStorage.getApiKeyById.bind(apiKeysStorage);
 
-  // RSS Sources
+  // RSS Sources (used in: middleware, cron)
   getRssSources = rssStorage.getRssSources.bind(rssStorage);
   getAllActiveRssSources = rssStorage.getAllActiveRssSources.bind(rssStorage);
-  createRssSource = rssStorage.createRssSource.bind(rssStorage);
   updateRssSource = rssStorage.updateRssSource.bind(rssStorage);
-  deleteRssSource = rssStorage.deleteRssSource.bind(rssStorage);
 
-  // RSS Items
-  getRssItems = rssStorage.getRssItems.bind(rssStorage);
-  getRssItemsBySource = rssStorage.getRssItemsBySource.bind(rssStorage);
+  // RSS Items (used in: cron, lib, routes)
   getRssItemById = rssStorage.getRssItemById.bind(rssStorage);
-  createRssItem = rssStorage.createRssItem.bind(rssStorage);
   createRssItemIfNotExists = rssStorage.createRssItemIfNotExists.bind(rssStorage);
   updateRssItem = rssStorage.updateRssItem.bind(rssStorage);
-  updateRssItemAction = rssStorage.updateRssItemAction.bind(rssStorage);
-  setRssItemFullContent = rssStorage.setRssItemFullContent.bind(rssStorage);
 
-  // Instagram Sources
+  // Instagram Sources (used in: middleware)
   getInstagramSources = instagramStorage.getInstagramSources.bind(instagramStorage);
-  createInstagramSource = instagramStorage.createInstagramSource.bind(instagramStorage);
-  updateInstagramSource = instagramStorage.updateInstagramSource.bind(instagramStorage);
-  deleteInstagramSource = instagramStorage.deleteInstagramSource.bind(instagramStorage);
 
-  // Instagram Items
+  // Instagram Items (used in: lib, routes)
   getInstagramItems = instagramStorage.getInstagramItems.bind(instagramStorage);
-  getInstagramItemsBySource = instagramStorage.getInstagramItemsBySource.bind(instagramStorage);
-  createInstagramItem = instagramStorage.createInstagramItem.bind(instagramStorage);
-  updateInstagramItem = instagramStorage.updateInstagramItem.bind(instagramStorage);
-  updateInstagramItemAction = instagramStorage.updateInstagramItemAction.bind(instagramStorage);
   updateInstagramItemDownloadStatus = instagramStorage.updateInstagramItemDownloadStatus.bind(instagramStorage);
   updateInstagramItemTranscription = instagramStorage.updateInstagramItemTranscription.bind(instagramStorage);
   updateInstagramItemAiScore = instagramStorage.updateInstagramItemAiScore.bind(instagramStorage);
 
-  // Projects
-  getProjects = projectsStorage.getProjects.bind(projectsStorage);
+  // Projects (used in: routes, middleware)
   getProject = projectsStorage.getProject.bind(projectsStorage);
-  getProjectById = projectsStorage.getProjectById.bind(projectsStorage);
-  createProject = projectsStorage.createProject.bind(projectsStorage);
-  updateProject = projectsStorage.updateProject.bind(projectsStorage);
-  deleteProject = projectsStorage.deleteProject.bind(projectsStorage);
-  permanentlyDeleteProject = projectsStorage.permanentlyDeleteProject.bind(projectsStorage);
-  createProjectFromInstagramAtomic = projectsStorage.createProjectFromInstagramAtomic.bind(projectsStorage);
-  createProjectFromNewsAtomic = projectsStorage.createProjectFromNewsAtomic.bind(projectsStorage);
 
-  // Project Steps
-  getProjectSteps = projectStepsStorage.getProjectSteps.bind(projectStepsStorage);
-  createProjectStep = projectStepsStorage.createProjectStep.bind(projectStepsStorage);
-  updateProjectStep = projectStepsStorage.updateProjectStep.bind(projectStepsStorage);
-
-  // Script Versions
+  // Script Versions (used in: routes, middleware)
   getScriptVersions = scriptVersionsStorage.getScriptVersions.bind(scriptVersionsStorage);
-  listScriptVersions = scriptVersionsStorage.listScriptVersions.bind(scriptVersionsStorage);
-  getCurrentScriptVersion = scriptVersionsStorage.getCurrentScriptVersion.bind(scriptVersionsStorage);
   getScriptVersionById = scriptVersionsStorage.getScriptVersionById.bind(scriptVersionsStorage);
-  getLatestCandidateVersion = scriptVersionsStorage.getLatestCandidateVersion.bind(scriptVersionsStorage);
-  createScriptVersion = scriptVersionsStorage.createScriptVersion.bind(scriptVersionsStorage);
-  updateScriptVersionCurrent = scriptVersionsStorage.updateScriptVersionCurrent.bind(scriptVersionsStorage);
-  createScriptVersionAtomic = scriptVersionsStorage.createScriptVersionAtomic.bind(scriptVersionsStorage);
-  promoteCandidate = scriptVersionsStorage.promoteCandidate.bind(scriptVersionsStorage);
-  rejectCandidate = scriptVersionsStorage.rejectCandidate.bind(scriptVersionsStorage);
-  findVersionByIdemKey = scriptVersionsStorage.findVersionByIdemKey.bind(scriptVersionsStorage);
-  markVersionProvenance = scriptVersionsStorage.markVersionProvenance.bind(scriptVersionsStorage);
 
-  // Scene Recommendations
-  getSceneRecommendations = scenesStorage.getSceneRecommendations.bind(scenesStorage);
-  createSceneRecommendations = scenesStorage.createSceneRecommendations.bind(scenesStorage);
-  updateSceneRecommendation = scenesStorage.updateSceneRecommendation.bind(scenesStorage);
-  markRecommendationApplied = scenesStorage.markRecommendationApplied.bind(scenesStorage);
-  markRecommendationsAppliedBatch = scenesStorage.markRecommendationsAppliedBatch.bind(scenesStorage);
-
-  // Instagram Analytics Accounts
+  // Instagram Analytics Accounts (used in: routes, services)
   getIgAccounts = igAnalyticsStorage.getIgAccounts.bind(igAnalyticsStorage);
   getAllIgAccounts = igAnalyticsStorage.getAllIgAccounts.bind(igAnalyticsStorage);
   getIgAccountById = igAnalyticsStorage.getIgAccountById.bind(igAnalyticsStorage);
@@ -106,32 +54,22 @@ class Storage implements IStorage {
   updateIgAccount = igAnalyticsStorage.updateIgAccount.bind(igAnalyticsStorage);
   deleteIgAccount = igAnalyticsStorage.deleteIgAccount.bind(igAnalyticsStorage);
 
-  // Instagram Media
+  // Instagram Media (used in: routes, services)
   getIgMedia = igAnalyticsStorage.getIgMedia.bind(igAnalyticsStorage);
   getIgMediaById = igAnalyticsStorage.getIgMediaById.bind(igAnalyticsStorage);
   upsertIgMedia = igAnalyticsStorage.upsertIgMedia.bind(igAnalyticsStorage);
   updateIgMediaSync = igAnalyticsStorage.updateIgMediaSync.bind(igAnalyticsStorage);
 
-  // Instagram Media Insights
+  // Instagram Media Insights (used in: routes, services)
   getIgMediaInsights = igAnalyticsStorage.getIgMediaInsights.bind(igAnalyticsStorage);
   createIgMediaInsight = igAnalyticsStorage.createIgMediaInsight.bind(igAnalyticsStorage);
 
-  // Project Version Bindings
+  // Project Version Bindings (used in: routes)
   createProjectVersionBinding = igAnalyticsStorage.createProjectVersionBinding.bind(igAnalyticsStorage);
   deleteProjectVersionBinding = igAnalyticsStorage.deleteProjectVersionBinding.bind(igAnalyticsStorage);
   getProjectVersionBindings = igAnalyticsStorage.getProjectVersionBindings.bind(igAnalyticsStorage);
 
-  // Scripts Library
-  getScripts = scriptsLibraryStorage.getScripts.bind(scriptsLibraryStorage);
-  getScript = scriptsLibraryStorage.getScript.bind(scriptsLibraryStorage);
-  createScript = scriptsLibraryStorage.createScript.bind(scriptsLibraryStorage);
-  updateScript = scriptsLibraryStorage.updateScript.bind(scriptsLibraryStorage);
-  deleteScript = scriptsLibraryStorage.deleteScript.bind(scriptsLibraryStorage);
-  getScriptsByStatus = scriptsLibraryStorage.getScriptsByStatus.bind(scriptsLibraryStorage);
-  getScriptsByProject = scriptsLibraryStorage.getScriptsByProject.bind(scriptsLibraryStorage);
-  updateScriptProject = scriptsLibraryStorage.updateScriptProject.bind(scriptsLibraryStorage);
-
-  // Post Analytics
+  // Post Analytics (used in: routes, cron)
   getAnalyticsByProject = postAnalyticsStorage.getAnalyticsByProject.bind(postAnalyticsStorage);
   createAnalytics = postAnalyticsStorage.createAnalytics.bind(postAnalyticsStorage);
   updateAnalytics = postAnalyticsStorage.updateAnalytics.bind(postAnalyticsStorage);

@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { logger } from "../../lib/logger";
 import { getUserId } from "../../utils/route-helpers";
-import { storage } from "../../storage";
 import { ProjectsService } from "./projects.service";
 import {
   ProjectNotFoundError,
@@ -24,7 +23,7 @@ import {
   BatchCreateProjectsDto,
 } from "./projects.dto";
 
-const projectsService = new ProjectsService(storage);
+const projectsService = new ProjectsService();
 
 /**
  * Projects Controller
