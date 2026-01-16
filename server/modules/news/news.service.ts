@@ -83,6 +83,47 @@ export const newsService = {
   },
 
   /**
+   * Получить все RSS items пользователя (для использования другими модулями)
+   * Аналог storage.getRssItems() 
+   */
+  async getRssItems(userId: string): Promise<Array<RssItem & { sourceName: string }>> {
+    const sources = await rssSourcesService.getRssSources(userId);
+    const sourceIds = sources.map(s => s.id);
+    
+    if (sourceIds.length === 0) return [];
+
+    const sourceNameMap = new Map(sources.map(s => [s.id, s.name]));
+    const rawItems = await newsRepo.getAllBySourceIds(sourceIds);
+
+    const allItems: Array<RssItem & { sourceName: string }> = rawItems.map(item => {
+      const articleAnalysis = parseJsonbField((item as any).articleAnalysis);
+      const articleTranslation = parseJsonbField((item as any).articleTranslation);
+      
+      return {
+        ...item,
+        sourceName: sourceNameMap.get(item.sourceId) || 'Unknown Source',
+        articleAnalysis: articleAnalysis || undefined,
+        articleTranslation: articleTranslation || undefined,
+      };
+    });
+
+    // Сортировка: сначала по score (desc), потом по дате (desc)
+    return allItems.sort((a, b) => {
+      if (a.aiScore === null && b.aiScore === null) {
+        const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+        return bDate - aDate;
+      }
+      if (a.aiScore === null) return 1;
+      if (b.aiScore === null) return -1;
+      if (b.aiScore !== a.aiScore) return b.aiScore - a.aiScore;
+      const aDate = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const bDate = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return bDate - aDate;
+    });
+  },
+
+  /**
    * Получить score для конкретной новости
    */
   async getNewsScore(id: string, userId: string) {

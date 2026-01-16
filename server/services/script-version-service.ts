@@ -287,7 +287,7 @@ export class ScriptVersionService {
       
       // Finally by sceneId (for deterministic ordering)
       return a.sceneId - b.sceneId;
-    });
+    }); // utils
     
     // Clone scenes and apply all recommendations
     const scenes = JSON.parse(JSON.stringify(currentVersion.scenes));
@@ -377,5 +377,5 @@ export class ScriptVersionService {
     }
     
     return diffs;
-  }
+  } // utils
 }
