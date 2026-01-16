@@ -4,7 +4,6 @@ import { logger } from "../../lib/logger";
 import { apiKeysService } from "../api-keys/api-keys.service";
 import { ApiKeyNotFoundError } from "../api-keys/api-keys.errors";
 import { ProjectsService } from "../projects/projects.service";
-import { ProjectNotFoundError, ProjectForbiddenError } from "../projects/projects.errors";
 import {
   AnthropicApiKeyNotFoundError,
   KieaiApiKeyNotFoundError,

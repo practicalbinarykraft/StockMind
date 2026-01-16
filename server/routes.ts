@@ -44,10 +44,10 @@ import { registerVersionComparisonRoutes } from "./modules/version-comparison/ve
 // Conveyor (Content Factory) routes - Modularized
 import { registerConveyorSettingsRoutes } from "./modules/conveyor-settings/conveyor-settings.routes";
 import { registerAutoScriptsRoutes } from "./modules/auto-scripts/auto-scripts.routes";
-import { registerConveyorStatusRoutes } from "./routes/conveyor-status.routes";
-import { registerConveyorTriggerRoutes } from "./routes/conveyor-trigger.routes";
-import { registerConveyorEventsRoutes } from "./routes/conveyor-events.routes";
-import { registerConveyorProgressRoutes } from "./routes/conveyor-progress.routes";
+import { registerConveyorStatusRoutes } from "./modules/conveyor-status/conveyor-status.routes";
+import { registerConveyorTriggerRoutes } from "./modules/conveyor-trigger/conveyor-trigger.routes";
+import { registerConveyorEventsRoutes } from "./modules/conveyor-events/conveyor-events.routes";
+import { registerConveyorProgressRoutes } from "./modules/conveyor-progress/conveyor-progress.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services (used by some routes)

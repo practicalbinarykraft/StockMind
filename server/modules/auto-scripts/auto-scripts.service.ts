@@ -1,12 +1,11 @@
 import { AutoScriptsRepo } from "./auto-scripts.repo";
 import { logger } from "../../lib/logger";
-import { scriptsLibraryStorage } from "../../storage/scripts-library.storage";
+import { scriptsLibraryService } from "../scripts-library/scripts-library.service";
+import { apiKeysService } from "../api-keys/api-keys.service";
 import { learningService } from "../../conveyor/learning-service";
 import { conveyorOrchestrator } from "../../conveyor/conveyor-orchestrator";
 import { createFeedbackProcessor } from "../../conveyor/feedback-processor";
 import { revisionProcessor } from "../../conveyor/revision-processor";
-import { storage } from "../../storage";
-import { decryptApiKey } from "../../storage/base/encryption";
 import { RejectionCategory } from "@shared/schema";
 import {
   AutoScriptNotFoundError,
@@ -81,12 +80,12 @@ export const autoScriptsService = {
    */
   async regenerateWritingProfileSummary(userId: string) {
     // Get API key
-    const apiKeyRecord = await storage.getUserApiKey(userId, "anthropic");
-    if (!apiKeyRecord?.encryptedKey) {
+    const apiKeyRecord = await apiKeysService.getUserApiKey(userId, "anthropic");
+    if (!apiKeyRecord?.decryptedKey) {
       throw new NoApiKeyConfiguredError();
     }
 
-    const apiKey = decryptApiKey(apiKeyRecord.encryptedKey);
+    const apiKey = apiKeyRecord.decryptedKey;
     const processor = createFeedbackProcessor(apiKey);
 
     // Process any unprocessed feedback first
@@ -196,7 +195,7 @@ export const autoScriptsService = {
 
     // Create script in scripts library
     const scriptData = script as any;
-    const libraryScript = await scriptsLibraryStorage.createScript(userId, {
+    const libraryScript = await scriptsLibraryService.createScript(userId, {
       title: script.title,
       status: "ready",
       scenes: script.scenes || [],
@@ -367,9 +366,9 @@ export const autoScriptsService = {
     // Get user's API key for conveyor processing
     let apiKey: string | null = null;
     try {
-      const apiKeyRecord = await storage.getUserApiKey(userId, "anthropic");
-      if (apiKeyRecord?.encryptedKey) {
-        apiKey = decryptApiKey(apiKeyRecord.encryptedKey);
+      const apiKeyRecord = await apiKeysService.getUserApiKey(userId, "anthropic");
+      if (apiKeyRecord?.decryptedKey) {
+        apiKey = apiKeyRecord.decryptedKey;
       }
     } catch (keyError: any) {
       logger.warn("Failed to get API key for revision", {

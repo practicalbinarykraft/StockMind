@@ -1,5 +1,4 @@
 import { VersionComparisonRepo } from "./version-comparison.repo";
-import { storage } from "../../storage";
 import { logger } from "../../lib/logger";
 import {
   VersionNotFoundError,
@@ -228,13 +227,13 @@ export const versionComparisonService = {
 
     if (keep === "candidate") {
       // Promote candidate to current
-      await storage.promoteCandidate(projectId, candidateVersion.id);
+      await repo.promoteCandidate(projectId, candidateVersion.id);
       logger.info("Promoted candidate to current", {
         candidateId: candidateVersion.id,
       });
     } else {
       // Reject candidate
-      await storage.rejectCandidate(projectId, candidateVersion.id);
+      await repo.rejectCandidate(projectId, candidateVersion.id);
       logger.info("Rejected candidate version", {
         candidateId: candidateVersion.id,
       });
@@ -258,7 +257,7 @@ export const versionComparisonService = {
     }
 
     // Reject candidate
-    await storage.rejectCandidate(projectId, candidateVersion.id);
+    await repo.rejectCandidate(projectId, candidateVersion.id);
     logger.info("Cancelled candidate draft", {
       candidateId: candidateVersion.id,
       projectId,
