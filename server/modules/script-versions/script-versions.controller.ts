@@ -3,7 +3,7 @@ import { logger } from "../../lib/logger";
 import { getUserId } from "../../utils/route-helpers";
 import { apiResponse } from "../../lib/api-response";
 import { scriptVersionsService } from "./script-versions.service";
-import { storage } from "../../storage";
+import { ProjectsService } from "../projects/projects.service";
 import {
   ProjectIdParamDto,
   ProjectVersionParamsDto,
@@ -15,6 +15,8 @@ import {
   CanOnlyAcceptCandidateVersionsError,
   ProjectNotFoundError,
 } from "./script-versions.errors";
+
+const projectsService = new ProjectsService();
 
 /**
  * Controller for Script Versions
@@ -33,8 +35,8 @@ export const scriptVersionsController = {
       const { id } = ProjectIdParamDto.parse(req.params);
 
       // Check project access
-      const project = await storage.getProjectById(id);
-      if (!project || project.userId !== userId) {
+      const project = await projectsService.getProjectByIdAndUserId(id, userId);
+      if (!project) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -59,8 +61,8 @@ export const scriptVersionsController = {
       const { id } = ProjectIdParamDto.parse(req.params);
 
       // Check project access
-      const project = await storage.getProjectById(id);
-      if (!project || project.userId !== userId) {
+      const project = await projectsService.getProjectByIdAndUserId(id, userId);
+      if (!project) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -91,8 +93,8 @@ export const scriptVersionsController = {
       );
 
       // Check project access
-      const project = await storage.getProjectById(projectId);
-      if (!project || project.userId !== userId) {
+      const project = await projectsService.getProjectByIdAndUserId(projectId, userId);
+      if (!project) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -126,8 +128,8 @@ export const scriptVersionsController = {
         CreateInitialVersionDto.parse(req.body);
 
       // Check project access
-      const project = await storage.getProjectById(id);
-      if (!project || project.userId !== userId) {
+      const project = await projectsService.getProjectByIdAndUserId(id, userId);
+      if (!project) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -169,7 +171,7 @@ export const scriptVersionsController = {
       );
 
       // Check project access
-      const project = await storage.getProject(projectId, userId);
+      const project = await projectsService.getProjectByIdAndUserId(projectId, userId);
       if (!project) {
         return apiResponse.notFound(res, "Project not found");
       }
@@ -211,10 +213,10 @@ export const scriptVersionsController = {
       );
 
       // Check project access
-      const project = await storage.getProject(projectId, userId);
+      const project = await projectsService.getProjectByIdAndUserId(projectId, userId);
       if (!project) {
         return apiResponse.notFound(res, "Project not found");
-      } // service
+      }
 
       const result = await scriptVersionsService.deleteVersion(
         projectId,

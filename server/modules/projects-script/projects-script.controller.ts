@@ -8,7 +8,6 @@ import {
   ApiKeyNotConfiguredError,
   FormatIdRequiredError,
   NoScenesGeneratedError,
-  ScriptGenerationError,
 } from "./projects-script.errors";
 import { ProjectIdParamDto, GenerateScriptBodyDto } from "./projects-script.dto";
 

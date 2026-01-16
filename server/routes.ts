@@ -37,13 +37,13 @@ import { registerBrollRoutes } from "./modules/broll/broll.routes";
 import { registerAdvancedAnalysisRoutes } from "./modules/advanced-analysis/advanced-analysis.routes";
 import { registerScriptVersionsRoutes } from "./modules/script-versions/script-versions.routes";
 import { registerScriptsLibraryRoutes } from "./modules/scripts-library/scripts-library.routes";
-import { registerSceneEditingRoutes } from "./routes/scene-editing.routes";
-import { registerReanalysisRoutes } from "./routes/reanalysis.routes";
-import { registerVersionComparisonRoutes } from "./routes/version-comparison.routes";
+import { registerSceneEditingRoutes } from "./modules/scene-editing/scene-editing.routes";
+import { registerReanalysisRoutes } from "./modules/reanalysis/reanalysis.routes";
+import { registerVersionComparisonRoutes } from "./modules/version-comparison/version-comparison.routes";
 
-// Conveyor (Content Factory) routes
-import { registerConveyorSettingsRoutes } from "./routes/conveyor-settings.routes";
-import { registerAutoScriptsRoutes } from "./routes/auto-scripts.routes";
+// Conveyor (Content Factory) routes - Modularized
+import { registerConveyorSettingsRoutes } from "./modules/conveyor-settings/conveyor-settings.routes";
+import { registerAutoScriptsRoutes } from "./modules/auto-scripts/auto-scripts.routes";
 import { registerConveyorStatusRoutes } from "./routes/conveyor-status.routes";
 import { registerConveyorTriggerRoutes } from "./routes/conveyor-trigger.routes";
 import { registerConveyorEventsRoutes } from "./routes/conveyor-events.routes";
@@ -101,8 +101,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Conveyor (Content Factory)
   registerConveyorSettingsRoutes(app);
   registerAutoScriptsRoutes(app);
+
   registerConveyorStatusRoutes(app);
   registerConveyorTriggerRoutes(app);
+  
   registerConveyorEventsRoutes(app);
   registerConveyorProgressRoutes(app);
 
