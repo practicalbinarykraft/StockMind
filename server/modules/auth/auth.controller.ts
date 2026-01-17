@@ -3,8 +3,9 @@ import { registerSchema, loginSchema } from "@shared/schema"
 import { authService } from "./auth.service";
 import { clearAuthCookie, setAuthCookie } from "../../lib/cookie-auth";
 import { logger } from "../../lib/logger";
-import { UserAlreadyExistsError} from "../user/user.errors";
+import { UserAlreadyExistsError, UserNotFoundByIdError } from "../user/user.errors";
 import { CreateUserError, InvalidEmailOrPasswordError } from "./auth.errors";
+import { userService } from "../user/user.service";
 
 export const authController = {
     async register(req: Request, res: Response) {
@@ -116,5 +117,52 @@ export const authController = {
         res.json({
             message: 'Logout successful'
         });
+    },
+
+    /**
+     * GET /api/auth/me
+     * Получить данные текущего авторизованного пользователя
+     */
+    async getMe(req: Request, res: Response) {
+        try {
+            // req.userId устанавливается middleware requireAuth
+            if (!req.userId) {
+                return res.status(401).json({
+                    message: 'Authentication required'
+                });
+            }
+
+            const user = await userService.getById(req.userId);
+
+            // Формируем ответ без passwordHash и updatedAt
+            const userResponse = {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profileImageUrl: user.profileImageUrl,
+                createdAt: user.createdAt
+            };
+
+            res.json({
+                user: userResponse
+            });
+        } catch (error) {
+            logger.error('Get current user failed', { 
+                error,
+                userId: req.userId 
+            });
+
+            if (error instanceof UserNotFoundByIdError) {
+                return res.status(404).json({
+                    message: error.message
+                });
+            }
+
+            res.status(500).json({
+                message: 'Failed to get user data',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
     }
 }
