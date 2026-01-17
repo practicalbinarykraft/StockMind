@@ -161,7 +161,7 @@ export default function Home() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-2">
-            Welcome back {user?.firstName ? `, ${user.firstName}` : ''}!
+            Welcome back{user?.firstName ? `, ${user.firstName}` : ''}!
           </h2>
           <p className="text-muted-foreground">
             Create AI-powered videos from news sources and custom scripts.
