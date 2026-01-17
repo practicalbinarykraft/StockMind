@@ -46,16 +46,30 @@ export class ProjectStepsService {
     // Verify project ownership
     await this.projectsService.getProjectById(projectId, userId);
 
+    // Check if step already exists
+    const existingSteps = await this.projectsService.getProjectSteps(projectId);
+    const existingStep = existingSteps.find(s => s.stepNumber === dto.stepNumber);
+
+    if (existingStep) {
+      logger.warn("Project step already exists, returning existing step", {
+        projectId,
+        stepNumber: dto.stepNumber,
+        existingStepId: existingStep.id,
+      });
+      return existingStep;
+    }
+
     const stepData = {
       ...dto,
       projectId,
     };
 
-    const step = await this.projectsService.createProjectStep(stepData as any);
+    const step = await this.projectsService.createProjectStep(stepData);
     
     logger.info("Project step created", {
       projectId,
       stepNumber: step.stepNumber,
+      stepId: step.id,
     });
 
     return step;
@@ -105,13 +119,35 @@ export class ProjectStepsService {
         .where(eq(projectSteps.id, existingStep.id));
     } else {
       // Create new step with skip reason
-      await this.projectsService.createProjectStep({
-        projectId,
-        stepNumber,
-        data: {},
-        skipReason: dto.reason || "Skipped by user",
-        completedAt: new Date(),
-      } as any);
+      try {
+        await this.projectsService.createProjectStep({
+          projectId,
+          stepNumber,
+          data: {},
+          skipReason: dto.reason || "Skipped by user",
+          completedAt: new Date(),
+        });
+      } catch (error: any) {
+        // If step was created by another request in the meantime, fetch and update it
+        if (error.message && error.message.includes('already exists')) {
+          const steps = await this.projectsService.getProjectSteps(projectId);
+          const step = steps.find(s => s.stepNumber === stepNumber);
+          if (step) {
+            await db
+              .update(projectSteps)
+              .set({
+                skipReason: dto.reason || "Skipped by user",
+                completedAt: step.completedAt || new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(projectSteps.id, step.id));
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Auto-advance to next stage if this was the current stage

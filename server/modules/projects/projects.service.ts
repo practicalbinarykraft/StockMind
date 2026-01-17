@@ -665,13 +665,13 @@ export class ProjectsService {
       await this.repo.createProjectStep({
         ...step2Data,
         projectId: project.id,
-      } as any);
+      });
     }
 
     await this.repo.createProjectStep({
       ...step3Data,
       projectId: project.id,
-    } as any);
+    });
 
     logger.info(`[ProjectsService] Project created from script:`, {
       projectId: project.id,

@@ -70,8 +70,13 @@ export const projectStepsController = {
       res.json(step);
     } catch (error: any) {
       logger.error("Error creating project step", {
+        service: "stockmind-api",
         userId,
         errorType: error.constructor?.name,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        projectId: req.params?.id,
+        requestBody: req.body,
       });
 
       if (error instanceof ProjectNotFoundError) {
@@ -82,7 +87,7 @@ export const projectStepsController = {
         return res.status(403).json({ message: error.message });
       }
 
-      res.status(400).json({ message: "Failed to create project step" });
+      res.status(400).json({ message: "Failed to create project step", error: error.message });
     }
   },
 

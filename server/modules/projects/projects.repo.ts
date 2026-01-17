@@ -88,9 +88,16 @@ export class ProjectsRepo {
         .values({ ...projectData, userId })
         .returning();
 
-      await tx
-        .insert(projectSteps)
-        .values({ ...stepData, projectId: project.id });
+      try {
+        await tx
+          .insert(projectSteps)
+          .values({ ...stepData, projectId: project.id });
+      } catch (error: any) {
+        if (error.code === '23505') {
+          throw new Error(`Failed to create project step: duplicate step ${stepData.stepNumber}`);
+        }
+        throw error;
+      }
 
       await tx
         .update(instagramItems)
@@ -114,14 +121,21 @@ export class ProjectsRepo {
         .values({ ...projectData, userId })
         .returning();
 
-      await tx
-        .insert(projectSteps)
-        .values({ ...stepData, projectId: project.id });
-
-      if (step3Data) {
+      try {
         await tx
           .insert(projectSteps)
-          .values({ ...step3Data, projectId: project.id });
+          .values({ ...stepData, projectId: project.id });
+
+        if (step3Data) {
+          await tx
+            .insert(projectSteps)
+            .values({ ...step3Data, projectId: project.id });
+        }
+      } catch (error: any) {
+        if (error.code === '23505') {
+          throw new Error(`Failed to create project steps: duplicate step number`);
+        }
+        throw error;
       }
 
       await tx
@@ -156,11 +170,19 @@ export class ProjectsRepo {
   }
 
   async createProjectStep(data: InsertProjectStep): Promise<ProjectStep> {
-    const [step] = await db
-      .insert(projectSteps)
-      .values(data)
-      .returning();
-    return step;
+    try {
+      const [step] = await db
+        .insert(projectSteps)
+        .values(data)
+        .returning();
+      return step;
+    } catch (error: any) {
+      // Handle unique constraint violation (23505 is Postgres code for unique_violation)
+      if (error.code === '23505' && error.constraint === 'project_steps_project_step_unique') {
+        throw new Error(`Project step ${data.stepNumber} already exists for project ${data.projectId}`);
+      }
+      throw error;
+    }
   }
 
   async updateProjectStep(id: string, data: Partial<ProjectStep>): Promise<ProjectStep | undefined> {
