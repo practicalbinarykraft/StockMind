@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { syncInstagramData } from "../ig-sync-service";
+import { syncInstagramData } from "../services/ig-sync-service";
 import type { IStorage } from "../storage";
 
 let storage: IStorage;

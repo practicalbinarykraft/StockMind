@@ -6,7 +6,7 @@
 import { BaseAgent, type AgentContext } from "./base-agent";
 import type { SourceData, ConveyorItemData } from "../types";
 import type { ConveyorSettings } from "@shared/schema";
-import { rssStorage } from "../../storage/rss.storage";
+import { newsService } from "../../modules/news/news.service";
 import { fetchAndExtract } from "../../lib/fetch-and-extract";
 
 // Minimum content length for scoring (Scorer requires 100 chars)
@@ -104,7 +104,7 @@ export class ScoutAgent extends BaseAgent<ScoutInput, ScoutOutput> {
             if (result.ok && result.content) {
               content = result.content;
               // Save to database for future use
-              await rssStorage.setRssItemFullContent(item.id, content);
+              await newsService.setFullContent(item.id, content);
               this.emitThinking(context, `✅ Загружено ${content.length} символов`);
             } else {
               this.emitThinking(context, `⚠️ Не удалось загрузить статью: ${result.reason || "unknown"}`);
@@ -166,7 +166,7 @@ export class ScoutAgent extends BaseAgent<ScoutInput, ScoutOutput> {
       dismissed: number;
     };
   }> {
-    const allItems = await rssStorage.getRssItems(userId);
+    const allItems = await newsService.getRssItems(userId);
     const sourceIds = settings.sourceIds as string[] | null;
 
     const debugInfo = {

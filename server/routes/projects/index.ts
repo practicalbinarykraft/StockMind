@@ -1,7 +1,7 @@
 import type { Express } from "express"
-import { registerProjectsCrudRoutes } from "./crud.routes"
-import { registerAnalyzeSourceRoute } from "./analyze-source.routes"
-import { registerGenerateScriptRoute } from "./generate-script.routes"
+import { registerProjectsCrudRoutes } from "../../modules/projects/projects.routes"
+import { registerAnalyzeSourceRoute } from "../../modules/projects-analyze/projects-analyze.routes"
+import { registerGenerateScriptRoute } from "../../modules/projects-script/projects-script.routes"
 
 /**
  * Projects routes

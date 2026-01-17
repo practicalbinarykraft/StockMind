@@ -1,6 +1,6 @@
 import { storage } from "../storage";
 import { downloadInstagramMedia } from "../instagram-download";
-import { transcribeInstagramVideo } from "../transcription-service";
+import { transcribeInstagramVideo } from "../services/transcription-service";
 import { scoreInstagramReel } from "../ai-services";
 
 // ===========================================

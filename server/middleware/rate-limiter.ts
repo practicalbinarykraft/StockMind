@@ -8,11 +8,11 @@ import rateLimit from 'express-rate-limit';
 // General API rate limiter - 100 requests per 15 minutes per IP
 // In development, allow more requests for testing
 export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // Much more lenient in development
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: process.env.NODE_ENV === 'development' ? 5000 : 1000, // Much more lenient in development
   message: {
     error: 'Too many requests from this IP, please try again later',
-    retryAfter: '15 minutes'
+    retryAfter: '5 minutes'
   },
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
