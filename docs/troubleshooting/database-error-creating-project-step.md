@@ -26,7 +26,7 @@ uniqueIndex("project_steps_project_step_unique").on(table.projectId, table.stepN
 
 ## ✅ Решение
 
-### 1. Проверка существующего шага перед созданием
+### 1. Проверка существующего шага перед созданием (с UPDATE)
 
 В `project-steps.service.ts`:
 
@@ -39,12 +39,20 @@ async createProjectStep(projectId: string, userId: string, dto: CreateProjectSte
   const existingStep = existingSteps.find(s => s.stepNumber === dto.stepNumber);
 
   if (existingStep) {
-    logger.warn("Project step already exists, returning existing step", {
+    logger.info("Project step already exists, updating existing step", {
       projectId,
       stepNumber: dto.stepNumber,
       existingStepId: existingStep.id,
     });
-    return existingStep; // Возвращаем существующий шаг
+    
+    // ОБНОВЛЯЕМ существующий шаг новыми данными
+    const updatedStep = await this.projectsService.updateProjectStep(existingStep.id, {
+      data: dto.data,
+      completedAt: dto.completedAt || existingStep.completedAt,
+      skipReason: dto.skipReason || existingStep.skipReason,
+    });
+    
+    return updatedStep; // Возвращаем обновлённый шаг
   }
 
   // Создаём новый шаг
@@ -54,6 +62,12 @@ async createProjectStep(projectId: string, userId: string, dto: CreateProjectSte
   return step;
 }
 ```
+
+**ВАЖНО**: Метод `POST /api/projects/:id/steps` теперь работает как **UPSERT** (create or update):
+- Если шаг не существует → создаёт новый
+- Если шаг существует → обновляет данные существующего
+
+Это позволяет фронтенду использовать один endpoint для создания и обновления шагов.
 
 ### 2. Обработка ошибки уникального индекса
 

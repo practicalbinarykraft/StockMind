@@ -40,7 +40,7 @@ export class ProjectStepsService {
   }
 
   /**
-   * Создать новый шаг проекта
+   * Создать новый шаг проекта или обновить существующий
    */
   async createProjectStep(projectId: string, userId: string, dto: CreateProjectStepDto) {
     // Verify project ownership
@@ -51,12 +51,25 @@ export class ProjectStepsService {
     const existingStep = existingSteps.find(s => s.stepNumber === dto.stepNumber);
 
     if (existingStep) {
-      logger.warn("Project step already exists, returning existing step", {
+      logger.info("Project step already exists, updating existing step", {
         projectId,
         stepNumber: dto.stepNumber,
         existingStepId: existingStep.id,
+        hasNewData: !!dto.data,
       });
-      return existingStep;
+
+      // Update existing step with new data
+      const updatedStep = await this.projectsService.updateProjectStep(existingStep.id, {
+        data: dto.data,
+        completedAt: dto.completedAt || existingStep.completedAt,
+        skipReason: dto.skipReason || existingStep.skipReason,
+      });
+
+      if (!updatedStep) {
+        throw new Error(`Failed to update step ${dto.stepNumber}`);
+      }
+
+      return updatedStep;
     }
 
     const stepData = {
