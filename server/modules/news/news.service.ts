@@ -580,4 +580,18 @@ export const newsService = {
     logger.info(`[News Service] Analysis updated for article ${articleId}`);
     return updated;
   },
+
+  /**
+   * Установить полный контент статьи (после web scraping)
+   * Используется Scout Agent и другими сервисами для сохранения полного текста
+   */
+  async setFullContent(itemId: string, content: string): Promise<void> {
+    await newsRepo.setFullContent(itemId, content);
+    
+    logger.debug("RSS item full content updated", {
+      service: "news-service",
+      itemId,
+      contentLength: content.length,
+    });
+  },
 };
