@@ -104,8 +104,18 @@ import { AppLayout } from '@/layouts'
   - Установлен Zustand для state management
   - Настроены алиасы в tsconfig.json и vite.config.ts
 
+✅ **Этап 2**: Миграция app/ (точка входа) - **ЗАВЕРШЕН**
+  - Создан app/providers/QueryProvider.tsx (с apiRequest, queryClient)
+  - Создан app/providers/AuthProvider.tsx (с useAuth hook)
+  - Создан app/providers/ThemeProvider.tsx (с useTheme hook)
+  - Создан app/providers/index.tsx с композицией Providers
+  - Создан app/router.tsx с роутингом приложения
+  - Создан app/App.tsx как композиция провайдеров и роутера
+  - Создан app/index.tsx как публичный API модуля
+  - Обновлен main.tsx для использования новой структуры
+  - Обновлен hooks/use-auth.ts для использования нового провайдера
+
 ⏳ **Следующие этапы**:
-  - Миграция app/ (провайдеры, роутер)
   - Миграция shared/ (UI, hooks, utils)
   - Миграция layouts/
   - Миграция features/ (auth → projects → workflow → остальные)

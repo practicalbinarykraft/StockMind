@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
-import { apiRequest, queryClient } from "@/lib/query-client"
+import { apiRequest, queryClient } from "@/app/providers"
 import { isUnauthorizedError } from "@/lib/auth-utils"
-import type { SafeApiKey } from "../types"
+import { SafeApiKey } from "../types"
 import { API_PROVIDERS } from "../constants"
 
 export function useApiKeys() {
