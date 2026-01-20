@@ -20,7 +20,7 @@ import {
 import { SceneEditor, type Scene } from "@/components/scripts/scene-editor";
 import { SceneVariantCard } from "@/components/scripts/scene-variant-card";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/shared/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {

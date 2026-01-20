@@ -1,3 +1,4 @@
-// Shared TypeScript types will be exported from here
-// Example: User, Project, ApiResponse, ApiError
-export {}
+// Shared TypeScript types
+export * from './user';
+export * from './project';
+export * from './api';

@@ -1,3 +1,3 @@
-// Shared API utilities will be exported from here
-// Example: http client, query client config
-export {}
+// Shared API utilities
+export { apiRequest, ApiError, getQueryFn } from './http';
+export { queryClient } from './query-client';

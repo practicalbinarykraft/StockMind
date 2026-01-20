@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useToast } from "@/hooks/use-toast"
-import { apiRequest, queryClient } from "@/lib/query-client"
+import { apiRequest, queryClient } from "@/shared/api"
 import { isUnauthorizedError } from "@/lib/auth-utils"
 import type { InstagramSource } from "@shared/schema"
 

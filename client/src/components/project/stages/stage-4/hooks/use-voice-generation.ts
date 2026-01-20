@@ -1,6 +1,6 @@
 import { useState, useRef } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/query-client"
+import { apiRequest, queryClient } from "@/shared/api"
 import { useToast } from "@/hooks/use-toast"
 
 interface UseVoiceGenerationProps {

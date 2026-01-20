@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { Layout } from "@/components/layout/layout"
 import type { Project } from "@shared/schema"
-import { queryClient } from "@/lib/query-client"
+import { queryClient } from "@/shared/api"
 
 import { useProjects, useProjectFilters } from "./hooks"
 import {

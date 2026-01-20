@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/shared/api";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Newspaper, Calendar, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { type Project } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/query-client";
+import { apiRequest, queryClient } from "@/shared/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";

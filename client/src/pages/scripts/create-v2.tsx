@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useLocation } from "wouter"
 import { useMutation } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/query-client"
+import { apiRequest, queryClient } from "@/shared/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

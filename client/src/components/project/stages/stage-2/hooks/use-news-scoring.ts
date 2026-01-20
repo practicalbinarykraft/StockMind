@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { apiRequest, queryClient } from "@/lib/query-client";
+import { apiRequest, queryClient } from "@/shared/api";
 import type { EnrichedRssItem } from "../utils/news-helpers";
 
 /**

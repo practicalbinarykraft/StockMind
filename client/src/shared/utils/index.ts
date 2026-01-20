@@ -1,3 +1,2 @@
-// Shared utility functions will be exported from here
-// Example: cn (classnames), formatters, validators
-export {}
+// Shared utility functions
+export { cn } from './cn';
