@@ -1,3 +1,3 @@
-// Layout components will be exported from here
-// Example: AppLayout, ProjectLayout
-export {}
+// Layout components
+export { AppLayout } from './AppLayout';
+export { ProjectLayout } from './ProjectLayout';

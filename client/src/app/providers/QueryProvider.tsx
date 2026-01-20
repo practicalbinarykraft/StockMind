@@ -22,4 +22,4 @@ export function QueryProvider({ children }: QueryProviderProps) {
   );
 }
 
-export { queryClient, ApiError, apiRequest, getQueryFn } from "@/shared/api";
+export { queryClient, ApiError, apiRequest, getQueryFn } from "@/shared/api"; // проверить после всех изменений

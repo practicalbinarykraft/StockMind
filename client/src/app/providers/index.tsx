@@ -31,4 +31,4 @@ export function Providers({ children }: ProvidersProps) {
 
 export { QueryProvider, queryClient, apiRequest, ApiError, getQueryFn } from "./QueryProvider";
 export { AuthProvider, useAuth, useAuthToken, type User } from "./AuthProvider";
-export { ThemeProvider, useTheme } from "./ThemeProvider";
+export { ThemeProvider, useTheme } from "./ThemeProvider"; // проверить после всех изменений
