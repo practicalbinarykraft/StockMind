@@ -16,10 +16,10 @@ todos:
     status: pending
   - id: migrate-widgets
     content: Мигрировать widgets/ - создать app-header, main-navigation, project-sidebar
-    status: pending
+    status: completed
   - id: migrate-auth-feature
     content: Мигрировать features/auth - первая фича, создать компоненты, hooks, services, store
-    status: pending
+    status: completed
   - id: migrate-projects-feature
     content: Мигрировать features/projects - управление проектами с hooks и services
     status: pending

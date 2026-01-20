@@ -4,7 +4,7 @@ import type { Project, ProjectStep } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectSidebar } from "@/components/project/project-sidebar";
+import { ProjectSidebar } from "@/widgets/project-sidebar";
 import { StageContent } from "@/components/project/stage-content";
 import { ProjectLayout } from "@/components/layout/project-layout";
 import { useAuth } from "@/hooks/use-auth";

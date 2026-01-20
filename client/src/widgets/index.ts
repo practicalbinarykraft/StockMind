@@ -1,3 +1,3 @@
-// Widget components will be exported from here
-// Example: app-header, main-navigation, project-sidebar
-export {}
+export * from './app-header'
+export * from './main-navigation'
+export * from './project-sidebar'
