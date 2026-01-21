@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectSidebar } from "@/widgets/project-sidebar";
 import { StageContent } from "@/components/project/stage-content";
 import { ProjectLayout } from "@/components/layout/project-layout";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ApiError, apiRequest } from "@/lib/query-client";

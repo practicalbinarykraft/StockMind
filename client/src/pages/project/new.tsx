@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
 import { useToast } from "@/hooks/use-toast"
 import { isUnauthorizedError } from "@/lib/auth-utils"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@/app/providers/AuthProvider"
 import { CreateScriptScreen } from "@/components/project/stages/stage-3/components/CreateScriptScreen"
 import { Layout } from "@/components/layout/layout"
 

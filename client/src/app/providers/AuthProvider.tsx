@@ -1,4 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import type { User as UserType } from '@/features/auth/types';
+
+// Re-export User type for convenience
+export type User = UserType;
 
 /**
  * JWT Authentication Context (httpOnly Cookies)
@@ -7,14 +11,6 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
  * Authentication state is determined by calling /api/auth/me
  * Cookies are automatically sent with credentials: 'include'
  */
-
-export interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  profileImageUrl?: string;
-}
 
 interface AuthContextType {
   user: User | null;

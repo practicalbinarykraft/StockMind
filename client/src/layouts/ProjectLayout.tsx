@@ -1,7 +1,7 @@
 import { ReactNode, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { queryClient } from "@/shared/api"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@/app/providers/AuthProvider"
 
 /**
  * ProjectLayout компонент для страниц проекта

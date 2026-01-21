@@ -1,7 +1,7 @@
 import { useLocation } from "wouter"
 import { Button } from "@/components/ui/button"
 import { Sparkles, Settings, User } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@/app/providers/AuthProvider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
   DropdownMenu,

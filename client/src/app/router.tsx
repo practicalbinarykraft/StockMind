@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
-import { useAuth } from "./providers/AuthProvider";
-import { PrivateRoute } from "@/components/auth/private-route";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { PrivateRoute, LoginForm } from "@/features/auth/components";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -8,7 +8,6 @@ import Settings from "@/pages/settings";
 import NewProject from "@/pages/project/new";
 import ProjectWorkflow from "@/pages/project/[id]";
 import InstagramReels from "@/pages/instagram-reels";
-import { LoginForm } from "@/components/auth/login-form";
 import NewsAll from "@/pages/news/all";
 import ScriptsAll from "@/pages/scripts/all";
 import ScriptCreate from "@/pages/scripts/create";

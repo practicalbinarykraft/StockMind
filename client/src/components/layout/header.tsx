@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter"
 import { Button } from "@/components/ui/button"
 import { Sparkles, Settings, User, Newspaper, FileText, FolderOpen, Factory } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@/app/providers/AuthProvider"
 import { ThemeToggle } from "@/widgets/app-header"
 import { cn } from "@/lib/utils"
 import {

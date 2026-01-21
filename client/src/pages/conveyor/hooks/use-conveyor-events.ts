@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 /**
  * SSE hook for Conveyor Events

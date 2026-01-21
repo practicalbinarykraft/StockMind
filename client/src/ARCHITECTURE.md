@@ -83,8 +83,16 @@ export type { User } from './types'
 ## Алиасы импортов
 
 ```typescript
+// UI компоненты из shared
 import { Button } from '@/shared/ui'
-import { useAuth } from '@/features/auth'
+
+// Аутентификация - всегда из AuthProvider
+import { useAuth } from '@/app/providers/AuthProvider'
+
+// Компоненты auth
+import { LoginForm, PrivateRoute } from '@/features/auth/components'
+
+// Виджеты и layouts
 import { AppHeader } from '@/widgets/app-header'
 import { AppLayout } from '@/layouts'
 ```

@@ -1,5 +1,5 @@
 /**
- * Auth feature types
+ * Auth Feature Types
  */
 
 export interface User {
@@ -20,4 +20,9 @@ export interface RegisterCredentials {
   password: string;
   firstName?: string;
   lastName?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  message?: string;
 }
