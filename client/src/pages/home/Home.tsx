@@ -1,21 +1,15 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/app/providers/AuthProvider"
 import { useLocation } from "wouter"
-import { useToast } from "@/hooks/use-toast"
-import { Button } from "@/components/ui/button"
+import { useToast } from "@/shared/hooks"
+import { Button } from "@/shared/ui/button"
 import { Plus } from "lucide-react"
-import { Layout } from "@/components/layout/layout"
+import { AppLayout } from "@/layouts"
 import type { Project } from "@shared/schema"
 import { queryClient } from "@/shared/api"
+import { useProjects, useProjectMutations, useProjectFilters } from "@/features/projects/hooks"
+import { ProjectsToolbar, ProjectsGrid, DeleteDialog, RenameDialog, PermanentDeleteDialog } from "@/features/projects/components"
 
-import { useProjects, useProjectFilters } from "./hooks"
-import {
-  ProjectsToolbar,
-  ProjectsGrid,
-  DeleteDialog,
-  RenameDialog,
-  PermanentDeleteDialog,
-} from "./components"
 
 export default function Home() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -47,11 +41,14 @@ export default function Home() {
     projects,
     projectsWithScripts,
     isLoading,
+  } = useProjects()
+
+  const {
     deleteMutation,
     renameMutation,
     restoreMutation,
     permanentDeleteMutation,
-  } = useProjects()
+  } = useProjectMutations()
 
   const {
     filter,
@@ -156,7 +153,7 @@ export default function Home() {
   }
 
   return (
-    <Layout>
+    <AppLayout>
       <div className="mx-auto max-w-7xl">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -229,6 +226,6 @@ export default function Home() {
         onConfirm={confirmPermanentDelete}
         isPending={permanentDeleteMutation.isPending}
       />
-    </Layout>
+    </AppLayout>
   )
 }

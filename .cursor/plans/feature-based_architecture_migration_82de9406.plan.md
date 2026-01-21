@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: migrate-projects-feature
     content: Мигрировать features/projects - управление проектами с hooks и services
-    status: pending
+    status: completed
   - id: migrate-workflow-feature
     content: Мигрировать features/project-workflow - самая сложная фича с 6 stages
     status: pending
