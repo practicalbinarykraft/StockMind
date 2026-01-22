@@ -9,6 +9,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
 import { useToast } from "@/shared/hooks/use-toast"
 import { useState, useRef, useEffect } from "react"
+import { useLocation } from "wouter"
 import { useStageData } from "../../hooks/useStageData"
 
 interface BRollScene {
@@ -30,6 +31,7 @@ export function Stage7Storyboard() {
   const step7Data = getStepData(7) // B-Roll data
   
   const { toast } = useToast()
+  const [, navigate] = useLocation()
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   
@@ -308,6 +310,8 @@ export function Stage7Storyboard() {
         title: "Проект завершён",
         description: "Ваш видео проект готов!",
       })
+      // Navigate to dashboard after completing project
+      navigate("/")
     },
     onError: (error: any) => {
       toast({

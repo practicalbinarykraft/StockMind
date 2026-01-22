@@ -10,6 +10,7 @@ import { useToast } from "@/shared/hooks/use-toast"
 import { Badge } from "@/shared/ui/badge"
 import html2canvas from "html2canvas"
 import { useProxiedVideo } from "../AvatarStage/hooks"
+import { useLocation } from "wouter"
 
 import { useStageData } from "../../hooks/useStageData";
 
@@ -20,6 +21,7 @@ export function Stage6FinalExport() {
   const step5Data = getStepData(5);
   
   const { toast } = useToast()
+  const [, navigate] = useLocation()
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const screenshotRef = useRef<HTMLDivElement>(null)
@@ -96,6 +98,8 @@ export function Stage6FinalExport() {
         title: "Проект завершён",
         description: "Ваш видеопроект успешно завершён!",
       })
+      // Navigate to dashboard after completing project
+      navigate("/")
     },
     onError: (error: any) => {
       toast({
