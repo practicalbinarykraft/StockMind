@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react"
-import { useLocation } from "wouter"
+import React, { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
 import { useToast } from "@/hooks/use-toast"
@@ -7,12 +6,13 @@ import { isUnauthorizedError } from "@/shared/utils/auth-utils"
 import { useAuth } from "@/app/providers/AuthProvider"
 import { CreateScriptScreen } from "@/features/project-workflow/stages/ScriptStage/components/CreateScriptScreen"
 import { AppLayout } from "@/layouts"
+import { useWorkflowStore } from "@/features/project-workflow/store/workflowStore"
 
 export default function NewProject() {
-  const [, setLocation] = useLocation()
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [projectId, setProjectId] = useState<string | null>(null)
+  const setWorkflowProject = useWorkflowStore((state) => state.setProject)
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -40,6 +40,9 @@ export default function NewProject() {
     onSuccess: (data: any) => {
       console.log("Project created with ID:", data.id)
       setProjectId(data.id)
+      
+      // Set project in workflow store so CreateScriptScreen can access it
+      setWorkflowProject(data)
       
       // Update cache
       queryClient.setQueryData(["/api/projects"], (oldProjects: any[] | undefined) => {
@@ -91,27 +94,12 @@ export default function NewProject() {
   }
 
   // Once project is created, show CreateScriptScreen
-  const project = {
-    id: projectId,
-    sourceType: "custom",
-    currentStage: 1,
-  } as any
+  // The component uses useStageData() hook to get project from workflowStore
 
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto">
-        <CreateScriptScreen
-          project={project}
-          stepData={null}
-          onGenerate={async (data) => {
-            // After generation, redirect to project page
-            // The generation is handled inside CreateScriptScreen
-            // We just need to navigate after it completes
-            await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] })
-            await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "steps"] })
-            setLocation(`/project/${projectId}`)
-          }}
-        />
+        <CreateScriptScreen />
       </div>
     </AppLayout>
   )
