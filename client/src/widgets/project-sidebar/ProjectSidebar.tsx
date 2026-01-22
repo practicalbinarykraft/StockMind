@@ -35,7 +35,7 @@ import {
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/shared/api";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 
 const STAGES = [
   { number: 1, title: "Source Selection", icon: Radio, optional: false },

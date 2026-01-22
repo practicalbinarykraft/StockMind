@@ -6,7 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Star, Sparkles, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import { AppLayout } from "@/layouts";
 import { NewsListItem } from "@/features/project-workflow/stages/ContentStage/components/NewsListItem";
 import type { RssItem } from "@shared/schema";

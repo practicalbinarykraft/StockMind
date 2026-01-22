@@ -27,7 +27,7 @@ import {
   Clock,
 } from "lucide-react"
 import { useLocation } from "wouter"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/shared/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
 import { AppLayout } from "@/layouts"

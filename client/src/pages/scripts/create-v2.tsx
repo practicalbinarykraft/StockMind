@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/shared/ui/select"
 import { ArrowLeft, FileText, Loader2, Plus, Sparkles } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/shared/hooks/use-toast"
 import { Layout } from "@/components/layout/layout"
 import { SceneEditor, type Scene } from "@/features/project-workflow/components/SceneEditor"
 import { SceneVariantCard } from "@/shared/components/scene-variant-card"

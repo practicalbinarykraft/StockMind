@@ -21,7 +21,7 @@ import type { EnrichedRssItem } from "@/features/project-workflow/stages/Content
 import { useNewsAnalysis } from "@/features/project-workflow/stages/ContentStage/hooks/use-news-analysis";
 import { useNewsMutations } from "./hooks/use-news-mutations";
 import { useNewsBatchScoring } from "@/features/project-workflow/stages/ContentStage/hooks/use-news-scoring";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import Pagination from "./pagination";
 
 export default function NewsAll() {

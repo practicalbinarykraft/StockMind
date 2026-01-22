@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/shared/hooks/use-toast"
 import { isUnauthorizedError } from "@/shared/utils/auth-utils"
 import { useAuth } from "@/app/providers/AuthProvider"
 import { CreateScriptScreen } from "@/features/project-workflow/stages/ScriptStage/components/CreateScriptScreen"
