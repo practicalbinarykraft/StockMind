@@ -11,7 +11,8 @@ import {
   Rss,
   Sparkles,
   FileText,
-  Plus
+  Plus,
+  Factory
 } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 import {
@@ -37,6 +38,7 @@ const navigation: NavSection[] = [
   {
     items: [
       { label: "Dashboard", icon: Home, path: "/" },
+      { label: "Content Factory", icon: Factory, path: "/conveyor" },
     ]
   },
   {
