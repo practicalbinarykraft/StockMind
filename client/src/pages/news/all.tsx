@@ -1,27 +1,27 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/query-client";
+import { apiRequest, queryClient } from "@/shared/api";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Input } from "@/shared/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/shared/ui/select";
 import { Star, Search, Filter, BarChart3, Rss, RefreshCw } from "lucide-react";
-import { Layout } from "@/components/layout/layout";
-import { NewsListItem } from "@/components/project/stages/stage-2/components/NewsListItem";
+import { AppLayout } from "@/layouts";
+import { NewsListItem } from "@/features/project-workflow/stages/ContentStage/components/NewsListItem";
 import type { RssItem } from "@shared/schema";
-import type { EnrichedRssItem } from "@/components/project/stages/stage-2/utils/news-helpers";
-import { useNewsAnalysis } from "@/components/project/stages/stage-2/hooks/use-news-analysis";
+import type { EnrichedRssItem } from "@/features/project-workflow/stages/ContentStage/utils/news-helpers";
+import { useNewsAnalysis } from "@/features/project-workflow/stages/ContentStage/hooks/use-news-analysis";
 import { useNewsMutations } from "./hooks/use-news-mutations";
-import { useNewsBatchScoring } from "@/components/project/stages/stage-2/hooks/use-news-scoring";
-import { useToast } from "@/hooks/use-toast";
+import { useNewsBatchScoring } from "@/features/project-workflow/stages/ContentStage/hooks/use-news-scoring";
+import { useToast } from "@/shared/hooks/use-toast";
 import Pagination from "./pagination";
 
 export default function NewsAll() {
@@ -241,7 +241,7 @@ export default function NewsAll() {
   useNewsBatchScoring(paginatedArticles, page);
 
   return (
-    <Layout>
+    <AppLayout>
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-6">
@@ -412,6 +412,6 @@ export default function NewsAll() {
           </div>
         )} */}
       </div>
-    </Layout>
+    </AppLayout>
   );
 }

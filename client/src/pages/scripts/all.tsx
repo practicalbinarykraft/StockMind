@@ -1,18 +1,18 @@
 import { useState } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
-import { apiRequest } from "@/lib/query-client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { apiRequest } from "@/shared/api"
+import { Button } from "@/shared/ui/button"
+import { Input } from "@/shared/ui/input"
+import { Badge } from "@/shared/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/shared/ui/select"
 import {
   FileText,
   Plus,
@@ -27,10 +27,10 @@ import {
   Clock,
 } from "lucide-react"
 import { useLocation } from "wouter"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/shared/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
-import { Layout } from "@/components/layout/layout"
+import { AppLayout } from "@/layouts"
 
 type ScriptStatus = 'all' | 'draft' | 'analyzed' | 'ready' | 'in_production'
 
@@ -397,9 +397,9 @@ function ScriptsAllContent() {
 
 export default function ScriptsAll() {
   return (
-    <Layout>
+    <AppLayout>
       <ScriptsAllContent />
-    </Layout>
+    </AppLayout>
   )
 }
 

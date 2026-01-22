@@ -1,0 +1,273 @@
+import { useState, useEffect } from 'react';
+import { Card, CardHeader, CardContent, CardFooter } from '@/shared/ui/card';
+import { Button } from '@/shared/ui/button';
+import { Textarea } from '@/shared/ui/textarea';
+import { Badge } from '@/shared/ui/badge';
+import { CheckCircle2, Sparkles, TrendingUp, Lightbulb, Layers, Heart, Target, Bot } from 'lucide-react';
+
+interface SceneRecommendation {
+  id: number | string; // number for fresh (temp), string (UUID) for persisted
+  sceneId: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  area: string; // Accept any string, will normalize to known areas
+  currentText: string;
+  suggestedText: string;
+  reasoning: string;
+  expectedImpact: string;
+  appliedAt?: string;
+  sourceAgent?: string; // AI agent that generated this recommendation
+  scoreDelta?: number; // Expected score boost
+  confidence?: number; // AI confidence (0-1)
+}
+
+interface SceneCardProps {
+  sceneNumber: number;
+  sceneId: number;
+  text: string;
+  recommendations: SceneRecommendation[];
+  onTextChange: (sceneId: number, newText: string) => void;
+  onApplyRecommendation: (recommendation: SceneRecommendation) => Promise<void>;
+  isEditing: boolean;
+  isApplyingAll?: boolean; // True when Apply All is running
+  isModified?: boolean; // True when scene text has been manually edited
+}
+
+type AreaKey = 'hook' | 'structure' | 'emotional' | 'cta' | 'pacing' | 'general';
+
+const priorityConfig: Record<string, { color: string; label: string }> = {
+  critical: { color: 'bg-red-600/15 text-red-700 dark:text-red-300 border-red-600/30', label: 'Критический' },
+  high: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: 'Высокий' },
+  medium: { color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20', label: 'Средний' },
+  low: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Низкий' },
+};
+
+const areaConfig: Record<AreaKey, { icon: any; label: string; color: string }> = {
+  hook: { icon: Sparkles, label: 'Хук', color: 'text-purple-500' },
+  structure: { icon: Lightbulb, label: 'Структура', color: 'text-blue-500' },
+  emotional: { icon: Heart, label: 'Эмоции', color: 'text-pink-500' },
+  cta: { icon: Target, label: 'CTA', color: 'text-green-500' },
+  pacing: { icon: Layers, label: 'Темп', color: 'text-orange-500' },
+  general: { icon: Lightbulb, label: 'Общее', color: 'text-gray-500' },
+};
+
+// Normalize area values with safe fallback
+const AREA_ALIASES: Record<string, AreaKey> = {
+  emotion: 'emotional',
+  emotions: 'emotional',
+  tempo: 'pacing',
+  speed: 'pacing',
+  overall: 'general',
+};
+
+function normalizeArea(area?: string): AreaKey {
+  if (!area) return 'general';
+  const key = area.toLowerCase().trim();
+  
+  // Check if it's a valid known area
+  if (['hook', 'structure', 'emotional', 'cta', 'pacing', 'general'].includes(key)) {
+    return key as AreaKey;
+  }
+  
+  // Check aliases
+  if (AREA_ALIASES[key]) {
+    return AREA_ALIASES[key];
+  }
+  
+  // Fallback to general for unknown areas
+  return 'general';
+}
+
+export function SceneCard({
+  sceneNumber,
+  sceneId,
+  text,
+  recommendations,
+  onTextChange,
+  onApplyRecommendation,
+  isEditing,
+  isApplyingAll = false,
+  isModified = false,
+}: SceneCardProps) {
+  const [localText, setLocalText] = useState(text);
+  const [applyingRec, setApplyingRec] = useState<number | string | null>(null);
+
+  // Sync local text when parent text changes (e.g., after applying recommendations)
+  useEffect(() => {
+    setLocalText(text);
+  }, [text]);
+
+  const handleBlur = () => {
+    if (localText !== text) {
+      onTextChange(sceneId, localText);
+    }
+  };
+
+  const handleApply = async (rec: SceneRecommendation) => {
+    setApplyingRec(rec.id);
+    try {
+      await onApplyRecommendation(rec);
+    } finally {
+      setApplyingRec(null);
+    }
+  };
+
+  const activeRecommendations = recommendations.filter(r => !r.appliedAt);
+
+  return (
+    <Card className="hover-elevate" data-testid={`card-scene-${sceneId}`}>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+            {sceneNumber}
+          </div>
+          <h3 className="text-sm font-medium">Сцена {sceneNumber}</h3>
+          {isModified && (
+            <Badge variant="outline" className="gap-1 border-amber-600/30 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              Изменено
+            </Badge>
+          )}
+        </div>
+        {activeRecommendations.length > 0 && (
+          <Badge variant="secondary" className="gap-1">
+            <Sparkles className="h-3 w-3" />
+            {activeRecommendations.length}
+          </Badge>
+        )}
+      </CardHeader>
+
+      <CardContent className="space-y-3">
+        <Textarea
+          value={localText}
+          onChange={(e) => setLocalText(e.target.value)}
+          onBlur={handleBlur}
+          disabled={isEditing}
+          className="min-h-[100px] resize-none text-sm"
+          placeholder="Текст сцены..."
+          data-testid={`textarea-scene-${sceneId}`}
+        />
+
+        {activeRecommendations.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Sparkles className="h-3 w-3" />
+              Рекомендации AI
+            </div>
+            {activeRecommendations.map((rec) => {
+              const areaKey = normalizeArea(rec.area);
+              const AreaIcon = areaConfig[areaKey].icon;
+              const areaLabel = areaConfig[areaKey].label;
+              const areaColor = areaConfig[areaKey].color;
+              const priorityStyle = priorityConfig[rec.priority];
+
+              return (
+                <div
+                  key={rec.id}
+                  className="space-y-2 rounded-md border bg-card/50 p-3"
+                  data-testid={`recommendation-${rec.id}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <AreaIcon className={`h-3.5 w-3.5 ${areaColor}`} />
+                      <span className="text-xs font-medium">{areaLabel}</span>
+                    </div>
+                    <Badge variant="outline" className={`${priorityStyle.color} text-xs`}>
+                      {priorityStyle.label}
+                    </Badge>
+                    {rec.sourceAgent && (
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        {rec.sourceAgent === 'hook' && (
+                          <>
+                            <Sparkles className="h-3 w-3" />
+                            Hook Expert
+                          </>
+                        )}
+                        {rec.sourceAgent === 'structure' && (
+                          <>
+                            <Layers className="h-3 w-3" />
+                            Structure Analyst
+                          </>
+                        )}
+                        {rec.sourceAgent === 'emotional' && (
+                          <>
+                            <Heart className="h-3 w-3" />
+                            Emotional Analyst
+                          </>
+                        )}
+                        {rec.sourceAgent === 'cta' && (
+                          <>
+                            <Target className="h-3 w-3" />
+                            CTA Analyst
+                          </>
+                        )}
+                        {rec.sourceAgent === 'general' && (
+                          <>
+                            <Bot className="h-3 w-3" />
+                            AI
+                          </>
+                        )}
+                      </Badge>
+                    )}
+                    {rec.scoreDelta !== undefined && rec.scoreDelta > 0 && (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 text-xs gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        +{rec.scoreDelta}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div>
+                      <span className="font-medium text-muted-foreground">Текущий:</span>
+                      <p className="mt-1 rounded bg-muted/50 p-2 text-muted-foreground">
+                        {rec.currentText}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-green-600 dark:text-green-400">
+                        Предложение:
+                      </span>
+                      <p className="mt-1 rounded bg-green-500/10 p-2 text-foreground">
+                        {rec.suggestedText}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-muted-foreground">Обоснование:</span>
+                      <p className="mt-1 text-muted-foreground">{rec.reasoning}</p>
+                    </div>
+                    {rec.expectedImpact && (
+                      <div className="flex items-start gap-1.5 rounded bg-blue-500/10 p-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {rec.expectedImpact}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    onClick={() => handleApply(rec)}
+                    disabled={applyingRec !== null || isEditing || isApplyingAll}
+                    className="w-full gap-1.5"
+                    data-testid={`button-apply-recommendation-${rec.id}`}
+                  >
+                    {applyingRec === rec.id ? (
+                      <>Применяем...</>
+                    ) : isApplyingAll ? (
+                      <>Применяем все...</>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Применить рекомендацию
+                      </>
+                    )}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

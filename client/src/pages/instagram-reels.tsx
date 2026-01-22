@@ -1,16 +1,16 @@
 import { useState } from "react"
 import { useLocation } from "wouter"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/shared/ui/card"
+import { Button } from "@/shared/ui/button"
+import { Badge } from "@/shared/ui/badge"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { apiRequest, queryClient } from "@/lib/query-client"
-import { useToast } from "@/hooks/use-toast"
+import { apiRequest, queryClient } from "@/shared/api"
+import { useToast } from "@/shared/hooks/use-toast"
 import type { InstagramItem, InstagramSource } from "@shared/schema"
-import { ScoreBadge } from "@/components/score-badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScoreBadge } from "@/shared/components/score-badge"
+import { Skeleton } from "@/shared/ui/skeleton"
+import { Input } from "@/shared/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
 import { 
@@ -33,7 +33,7 @@ import {
   Sparkles,
   Clapperboard
 } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from "@/shared/ui/checkbox"
 
 export default function InstagramReelsPage() {
   const { toast } = useToast()

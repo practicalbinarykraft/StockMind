@@ -1,5 +1,0 @@
-export { ProjectsToolbar } from "./ProjectsToolbar"
-export { ProjectCard } from "./ProjectCard"
-export { ProjectsGrid } from "./ProjectsGrid"
-export { ProjectsEmptyState } from "./ProjectsEmptyState"
-export { DeleteDialog, RenameDialog, PermanentDeleteDialog } from "./ProjectDialogs"

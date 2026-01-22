@@ -1,0 +1,1 @@
+export { scriptsService } from "./scriptsService";

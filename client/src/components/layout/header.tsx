@@ -1,16 +1,16 @@
 import { Link, useLocation } from "wouter"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/shared/ui/button"
 import { Sparkles, Settings, User, Newspaper, FileText, FolderOpen, Factory } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { cn } from "@/lib/utils"
+import { useAuth } from "@/app/providers/AuthProvider"
+import { ThemeToggle } from "@/widgets/app-header"
+import { cn } from "@/shared/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/shared/ui/dropdown-menu"
 
 /**
  * Header компонент с навигацией вверху

@@ -22,6 +22,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@/app": path.resolve(import.meta.dirname, "client", "src", "app"),
+      "@/pages": path.resolve(import.meta.dirname, "client", "src", "pages"),
+      "@/layouts": path.resolve(import.meta.dirname, "client", "src", "layouts"),
+      "@/features": path.resolve(import.meta.dirname, "client", "src", "features"),
+      "@/widgets": path.resolve(import.meta.dirname, "client", "src", "widgets"),
+      "@/shared": path.resolve(import.meta.dirname, "client", "src", "shared"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
