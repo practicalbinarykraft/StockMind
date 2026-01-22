@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useToast } from '@/shared/hooks/use-toast';
-import { queryClient, apiRequest } from '@/lib/query-client';
-import type { NormalizedScene, SceneRecommendation, AnalysisResult } from './scene-editor-types';
+import { queryClient, apiRequest } from '@/shared/api';
+import type { NormalizedScene, SceneRecommendation, AnalysisResult } from '../types';
 import { useApplyAllRecommendations } from './use-apply-all-recommendations';
 
 interface UseSceneRecommendationsOptions {
@@ -50,7 +50,7 @@ export function useSceneRecommendations({
     : null;
 
   const recommendations = freshRecommendations || persistedRecommendations;
-  const activeRecommendations = recommendations.filter(r => !r.appliedAt);
+  const activeRecommendations = recommendations.filter((r: SceneRecommendation) => !r.appliedAt);
 
   // Apply single recommendation mutation
   const applyRecommendationMutation = useMutation({

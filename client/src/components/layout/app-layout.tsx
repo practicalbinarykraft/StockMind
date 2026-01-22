@@ -2,9 +2,9 @@ import { ReactNode } from "react"
 import { useSidebar } from "@/hooks/use-sidebar"
 import { MainNavigation } from "@/widgets/main-navigation"
 import { AppHeader } from "@/widgets/app-header"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/shared/ui/button"
 import { Menu, ChevronLeft, ChevronRight } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/shared/utils"
 
 interface AppLayoutProps {
   children: ReactNode

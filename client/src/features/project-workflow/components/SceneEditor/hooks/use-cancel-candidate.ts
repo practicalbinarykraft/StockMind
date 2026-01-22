@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useToast } from '@/shared/hooks/use-toast';
-import { queryClient, apiRequest } from '@/lib/query-client';
+import { queryClient, apiRequest } from '@/shared/api';
 
 interface UseCancelCandidateOptions {
   projectId: string;

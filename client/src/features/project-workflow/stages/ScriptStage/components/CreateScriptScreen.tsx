@@ -26,7 +26,7 @@ import {
   Loader2,
   Globe,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";

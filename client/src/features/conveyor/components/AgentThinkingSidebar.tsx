@@ -15,7 +15,7 @@ import {
   Play
 } from "lucide-react";
 import { useConveyorEvents, type AgentMessage } from "../hooks/use-conveyor-events";
-import { cn } from "@/shared/utils/utils";
+import { cn } from "@/shared/utils/cn";
 import { useMutation } from "@tanstack/react-query";
 
 interface AgentThinkingSidebarProps {

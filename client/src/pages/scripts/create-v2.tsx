@@ -2,26 +2,26 @@ import { useState } from "react"
 import { useLocation } from "wouter"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Button } from "@/shared/ui/button"
+import { Input } from "@/shared/ui/input"
+import { Label } from "@/shared/ui/label"
+import { Textarea } from "@/shared/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/shared/ui/card"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/shared/ui/select"
 import { ArrowLeft, FileText, Loader2, Plus, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Layout } from "@/components/layout/layout"
-import { SceneEditor, type Scene } from "@/components/scripts/scene-editor"
-import { SceneVariantCard } from "@/components/scripts/scene-variant-card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { cn } from "@/lib/utils"
+import { SceneEditor, type Scene } from "@/features/project-workflow/components/SceneEditor"
+import { SceneVariantCard } from "@/shared/components/scene-variant-card"
+import { Badge } from "@/shared/ui/badge"
+import { Progress } from "@/shared/ui/progress"
+import { cn } from "@/shared/utils"
 
 type Step = 'input' | 'builder'
 

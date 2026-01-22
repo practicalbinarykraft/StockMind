@@ -17,12 +17,12 @@ import {
   Edit,
   CheckCircle2,
 } from "lucide-react";
-import { SceneEditor, type Scene } from "@/components/scripts/scene-editor";
-import { SceneVariantCard } from "@/components/scripts/scene-variant-card";
+import { SceneEditor, type Scene } from "@/features/project-workflow/components/SceneEditor";
+import { SceneVariantCard } from "@/shared/components/scene-variant-card";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/shared/api";
 import { useToast } from "@/shared/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/utils";
 import {
   AlertDialog,
   AlertDialogAction,

@@ -4,6 +4,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { apiRequest, queryClient } from "@/shared/api";
 import { isUnauthorizedError } from "@/shared/utils/auth-utils";
 import type { InstagramSource } from "@shared/schema";
+import { settingsService } from "../services";
 
 // Типы для лимитов парсинга
 interface InstagramLimits {
@@ -43,6 +44,7 @@ export function useInstagramSources() {
   // Fetch Instagram Sources
   const { data: instagramSources, isLoading: instagramLoading } = useQuery<InstagramSource[]>({
     queryKey: ["/api/settings/instagram-sources"],
+    queryFn: () => settingsService.getInstagramSources(),
     // Smart polling: only when sources are parsing, max 15 attempts
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -88,7 +90,7 @@ export function useInstagramSources() {
 
   // Add Instagram Source Mutation
   const addMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/settings/instagram-sources", {
+    mutationFn: () => settingsService.addInstagramSource({
       username: form.username,
       description: form.description || null,
       autoUpdateEnabled: form.autoUpdateEnabled,
@@ -115,7 +117,7 @@ export function useInstagramSources() {
 
   // Delete Instagram Source Mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/settings/instagram-sources/${id}`, {}),
+    mutationFn: (id: string) => settingsService.deleteInstagramSource(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/instagram-sources"] });
       toast({ title: "Instagram Source Deleted", description: "The Instagram source has been removed." });

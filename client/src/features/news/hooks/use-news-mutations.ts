@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/shared/api";
 import { useToast } from "@/shared/hooks/use-toast";
 import type { Project } from "@shared/schema";
+import { newsService } from "../services";
 
 /**
  * Custom hook for news-related mutations
@@ -16,12 +16,7 @@ export function useNewsMutations() {
   // Manual RSS refresh mutation
   const refreshRssMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/news/refresh", {});
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
-      }
-      return await res.json();
+      return await newsService.refresh();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/news/all"] });
@@ -42,12 +37,7 @@ export function useNewsMutations() {
   // Create project from news article mutation
   const createProjectMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      const res = await apiRequest("POST", `/api/projects/from-news/${itemId}`, {});
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(errorData.message || errorData.error || `HTTP ${res.status}`);
-      }
-      return await res.json();
+      return await newsService.createProjectFromNews(itemId);
     },
     onSuccess: async (project: any) => {
       console.log("[useNewsMutations] Project created:", {
@@ -93,11 +83,7 @@ export function useNewsMutations() {
   // Toggle favorite mutation
   const toggleFavoriteMutation = useMutation({
     mutationFn: async ({ id, isFavorite }: { id: string; isFavorite: boolean }) => {
-      if (isFavorite) {
-        return await apiRequest("POST", `/api/news/${id}/favorite`);
-      } else {
-        return await apiRequest("DELETE", `/api/news/${id}/favorite`);
-      }
+      await newsService.toggleFavorite(id, isFavorite);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/news/all"] });

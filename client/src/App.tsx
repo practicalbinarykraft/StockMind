@@ -1,9 +1,9 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/query-client";
+import { queryClient } from "@/shared/api/query-client";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/shared/ui/toaster";
+import { TooltipProvider } from "@/shared/ui/tooltip";
+import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import { AuthProvider, useAuth } from "@/app/providers/AuthProvider";
 import { PrivateRoute, LoginForm } from "@/features/auth/components";
 import NotFound from "@/pages/not-found";
@@ -15,7 +15,7 @@ import ProjectWorkflow from "@/pages/project/[id]";
 import InstagramReels from "@/pages/instagram-reels";
 import NewsAll from "@/pages/news/all";
 import ScriptsAll from "@/pages/scripts/all";
-import ScriptCreate from "@/pages/scripts/create";
+import ScriptCreate from "@/pages/scripts/create-v2";
 import AutoScripts from "@/pages/auto-scripts";
 import ConveyorDashboard from "@/pages/conveyor";
 

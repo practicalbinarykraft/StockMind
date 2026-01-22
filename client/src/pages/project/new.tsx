@@ -3,10 +3,10 @@ import { useLocation } from "wouter"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
 import { useToast } from "@/hooks/use-toast"
-import { isUnauthorizedError } from "@/lib/auth-utils"
+import { isUnauthorizedError } from "@/shared/utils/auth-utils"
 import { useAuth } from "@/app/providers/AuthProvider"
-import { CreateScriptScreen } from "@/components/project/stages/stage-3/components/CreateScriptScreen"
-import { Layout } from "@/components/layout/layout"
+import { CreateScriptScreen } from "@/features/project-workflow/stages/ScriptStage/components/CreateScriptScreen"
+import { AppLayout } from "@/layouts"
 
 export default function NewProject() {
   const [, setLocation] = useLocation()
@@ -79,14 +79,14 @@ export default function NewProject() {
   // Show loading while creating project
   if (!projectId || createProjectMutation.isPending) {
     return (
-      <Layout>
+      <AppLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto mb-4" />
             <p className="text-muted-foreground">Создание проекта...</p>
           </div>
         </div>
-      </Layout>
+      </AppLayout>
     )
   }
 
@@ -98,7 +98,7 @@ export default function NewProject() {
   } as any
 
   return (
-    <Layout>
+    <AppLayout>
       <div className="max-w-5xl mx-auto">
         <CreateScriptScreen
           project={project}
@@ -113,6 +113,6 @@ export default function NewProject() {
           }}
         />
       </div>
-    </Layout>
+    </AppLayout>
   )
 }

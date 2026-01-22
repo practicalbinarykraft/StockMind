@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/shared/ui/card"
 import { Button } from "@/shared/ui/button"
 import { Label } from "@/shared/ui/label"
 import { Badge } from "@/shared/ui/badge"
-import { ScoreBadge } from "@/components/score-badge"
+import { ScoreBadge } from "@/shared/components/score-badge"
 import { RefreshCw } from "lucide-react"
 
 interface InstagramReelViewProps {

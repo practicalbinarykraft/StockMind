@@ -2,8 +2,8 @@ import { ReactNode } from "react";
 import { QueryProvider } from "./QueryProvider";
 import { AuthProvider } from "./AuthProvider";
 import { ThemeProvider } from "./ThemeProvider";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/shared/ui/tooltip";
+import { Toaster } from "@/shared/ui/toaster";
 
 
 interface ProvidersProps {

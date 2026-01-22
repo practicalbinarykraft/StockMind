@@ -10,7 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group"
 import { RefreshCw, Calendar, Filter, EyeOff, Grid3x3, List, Sparkles } from "lucide-react"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
-import { cn } from "@/lib/utils"
+import { cn } from "@/shared/utils"
 import type { NewsFilters } from "../utils/news-helpers"
 
 interface NewsToolbarProps {

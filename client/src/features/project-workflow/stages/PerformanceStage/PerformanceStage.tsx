@@ -21,9 +21,9 @@ import {
   Check,
   AlertTriangle,
 } from "lucide-react";
-import { MediaList } from "@/components/ig-analytics/media-list";
-import { VersionComparison } from "@/components/ig-analytics/version-comparison";
-import { AIRecommendations } from "@/components/ig-analytics/ai-recommendations";
+import { MediaList } from "@/features/instagram/components/MediaList";
+import { VersionComparison } from "@/features/instagram/components/VersionComparison";
+import { AIRecommendations } from "@/features/instagram/components/AIRecommendations";
 
 interface IgAccount {
   id: string;

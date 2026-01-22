@@ -5,7 +5,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 
-export interface RevisionProgress {
+export interface RevisionProgressData {
   currentStage: number;
   stageName: string;
   progress: number; // 0-100
@@ -28,7 +28,7 @@ export interface RevisionProgress {
 }
 
 export interface UseRevisionProgressResult {
-  progress: RevisionProgress | null;
+  progress: RevisionProgressData | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -44,7 +44,7 @@ export function useRevisionProgress(
   conveyorItemId: string | null | undefined,
   enabled: boolean = true
 ): UseRevisionProgressResult {
-  const { data, isLoading, error } = useQuery<RevisionProgress>({
+  const { data, isLoading, error } = useQuery<RevisionProgressData>({
     queryKey: ["conveyor-progress", conveyorItemId],
     queryFn: async () => {
       if (!conveyorItemId) {

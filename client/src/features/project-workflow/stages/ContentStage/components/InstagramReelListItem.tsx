@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
-import { ScoreBadge } from "@/components/score-badge";
+import { ScoreBadge } from "@/shared/components/score-badge";
 import { Label } from "@/shared/ui/label";
 import {
   Sparkles,

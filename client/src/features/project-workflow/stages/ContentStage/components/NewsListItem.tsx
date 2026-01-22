@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Card } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
-import { ScoreBadge } from "@/components/score-badge";
-import { ArticlePreviewModal } from "@/components/shared/article-preview-modal";
+import { ScoreBadge } from "@/shared/components/score-badge";
+import { ArticlePreviewModal } from "@/shared/components/article-preview-modal";
 import {
   Check,
   ThumbsDown,
@@ -81,7 +81,7 @@ export function NewsListItem({
     <>
       {previewOpen && (
         <ArticlePreviewModal
-          isOpen={previewOpen}
+          open={previewOpen}
           article={item}
           onClose={() => setPreviewOpen(false)}
         />

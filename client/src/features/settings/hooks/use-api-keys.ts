@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/shared/hooks/use-toast";
-import { apiRequest, queryClient } from "@/shared/api";
+import { queryClient } from "@/shared/api";
 import { isUnauthorizedError } from "@/shared/utils/auth-utils";
 import { SafeApiKey } from "../types";
 import { API_PROVIDERS } from "../constants";
+import { settingsService } from "../services";
 
 export function useApiKeys() {
   const { toast } = useToast();
@@ -20,17 +21,18 @@ export function useApiKeys() {
   // Fetch API Keys
   const { data: apiKeys, isLoading: keysLoading } = useQuery<SafeApiKey[]>({
     queryKey: ["/api/settings/api-keys"],
+    queryFn: () => settingsService.getApiKeys(),
   });
 
   // Add API Key Mutation
   const addMutation = useMutation({
     mutationFn: async () => {
       const provider = API_PROVIDERS.find(p => p.value === form.provider);
-      return apiRequest("POST", "/api/settings/api-keys", {
-        provider: form.provider,
-        key: form.key,
-        description: form.description || provider?.description,
-      });
+      return settingsService.addApiKey(
+        form.provider,
+        form.key,
+        form.description || provider?.description
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/api-keys"] });
@@ -64,7 +66,7 @@ export function useApiKeys() {
   // Delete API Key Mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/settings/api-keys/${id}`, {});
+      return settingsService.deleteApiKey(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/api-keys"] });
@@ -96,7 +98,7 @@ export function useApiKeys() {
   // Test API Key Mutation
   const testMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("POST", `/api/settings/api-keys/${id}/test`, {});
+      return await settingsService.testApiKey(id);
     },
     onSuccess: (data: any) => {
       toast({

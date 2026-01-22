@@ -10,7 +10,7 @@ import ProjectWorkflow from "@/pages/project/[id]";
 import InstagramReels from "@/pages/instagram-reels";
 import NewsAll from "@/pages/news/all";
 import ScriptsAll from "@/pages/scripts/all";
-import ScriptCreate from "@/pages/scripts/create";
+import ScriptCreate from "@/pages/scripts/create-v2";
 import AutoScripts from "@/pages/auto-scripts";
 import ConveyorDashboard from "@/pages/conveyor";
 

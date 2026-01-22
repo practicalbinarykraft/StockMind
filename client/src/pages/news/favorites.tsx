@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/shared/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { Star, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Layout } from "@/components/layout/layout";
-import { NewsListItem } from "@/components/project/stages/stage-2/components/NewsListItem";
+import { AppLayout } from "@/layouts";
+import { NewsListItem } from "@/features/project-workflow/stages/ContentStage/components/NewsListItem";
 import type { RssItem } from "@shared/schema";
-import type { EnrichedRssItem } from "@/components/project/stages/stage-2/utils/news-helpers";
+import type { EnrichedRssItem } from "@/features/project-workflow/stages/ContentStage/utils/news-helpers";
 
 export default function NewsFavorites() {
   const { toast } = useToast();
@@ -128,7 +128,7 @@ export default function NewsFavorites() {
   };
 
   return (
-    <Layout>
+    <AppLayout>
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-6">
@@ -231,6 +231,6 @@ export default function NewsFavorites() {
           </div>
         )}
       </div>
-    </Layout>
+    </AppLayout>
   );
 }

@@ -14,7 +14,7 @@ import { useToast } from '@/shared/hooks/use-toast';
 import { History, RotateCcw, CheckCircle2, User, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { queryClient, apiRequest } from '@/lib/query-client';
+import { queryClient, apiRequest } from '@/shared/api';
 interface Scene {
   id: number;
   text: string;

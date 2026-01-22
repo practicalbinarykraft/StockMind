@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/shared/api";
 import { useToast } from "@/shared/hooks";
-import { isUnauthorizedError } from "@/lib/auth-utils";
+import { isUnauthorizedError } from "@/shared/utils/auth-utils";
 import type { Project } from "@shared/schema";
 import type { EnrichedRssItem } from "../utils/news-helpers";
 

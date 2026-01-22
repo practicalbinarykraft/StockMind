@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useToast } from '@/shared/hooks/use-toast';
-import { queryClient, apiRequest } from '@/lib/query-client';
-import type { NormalizedScene, AnalysisResult } from './scene-editor-types';
+import { queryClient, apiRequest } from '@/shared/api';
+import type { NormalizedScene, AnalysisResult } from '../types';
 
 interface UseSceneAnalysisOptions {
   projectId: string;

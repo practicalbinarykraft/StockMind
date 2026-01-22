@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/shared/hooks/use-toast";
-import { apiRequest, queryClient } from "@/shared/api";
+import { queryClient } from "@/shared/api";
 import { isUnauthorizedError } from "@/shared/utils/auth-utils";
 import type { RssSource } from "@shared/schema";
+import { settingsService } from "../services";
 
 export function useRssSources() {
   const { toast } = useToast();
@@ -19,12 +20,13 @@ export function useRssSources() {
   // Fetch RSS Sources
   const { data: rssSources, isLoading: sourcesLoading } = useQuery<RssSource[]>({
     queryKey: ["/api/settings/rss-sources"],
+    queryFn: () => settingsService.getRssSources(),
   });
 
   // Add RSS Source Mutation
   const addMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/settings/rss-sources", form);
+      return settingsService.addRssSource(form.name, form.url, form.topic);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/rss-sources"] });
@@ -58,7 +60,7 @@ export function useRssSources() {
   // Toggle RSS Source Active
   const toggleMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      return apiRequest("PATCH", `/api/settings/rss-sources/${id}`, { isActive });
+      return settingsService.updateRssSource(id, { isActive });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/rss-sources"] });
@@ -86,7 +88,7 @@ export function useRssSources() {
   // Delete RSS Source Mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/settings/rss-sources/${id}`, {});
+      return settingsService.deleteRssSource(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/rss-sources"] });
@@ -118,7 +120,7 @@ export function useRssSources() {
   // Parse RSS Source Mutation
   const parseMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("POST", `/api/settings/rss-sources/${id}/parse`, {});
+      return settingsService.parseRssSource(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/rss-sources"] });

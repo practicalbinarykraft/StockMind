@@ -9,9 +9,9 @@ import {
   type SceneEditorProps,
   normalizeScenes,
 } from './types';
-import { useSceneAnalysis } from './use-scene-analysis';
-import { useSceneRecommendations } from './use-scene-recommendations';
-import { useCancelCandidate } from './use-cancel-candidate';
+import { useSceneAnalysis } from './hooks/use-scene-analysis';
+import { useSceneRecommendations } from './hooks/use-scene-recommendations';
+import { useCancelCandidate } from './hooks/use-cancel-candidate';
 import { SceneEditorControls } from './scene-editor-controls';
 import { SceneAnalysisCard } from './scene-analysis-card';
 
@@ -124,7 +124,7 @@ export function SceneEditor({
       <div className="flex-1 space-y-4">
         {scenes.map((scene, index) => {
           const sceneNumber = scene.sceneNumber !== undefined ? scene.sceneNumber : (index + 1);
-          const sceneRecommendations = recommendations.filter(r => r.sceneId === sceneNumber);
+          const sceneRecommendations = recommendations.filter((r: any) => r.sceneId === sceneNumber);
 
           return (
             <SceneCard

@@ -2,6 +2,7 @@ export interface Scene {
   id: number;
   text: string;
   sceneNumber?: number;
+  type?: 'hook' | 'body' | 'cta';
 }
 
 export interface SceneRecommendation {

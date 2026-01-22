@@ -1,0 +1,1 @@
+export { newsService } from "./newsService";

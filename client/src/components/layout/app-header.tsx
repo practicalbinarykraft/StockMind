@@ -1,15 +1,15 @@
 import { useLocation } from "wouter"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/shared/ui/button"
 import { Sparkles, Settings, User } from "lucide-react"
 import { useAuth } from "@/app/providers/AuthProvider"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemeToggle } from "@/widgets/app-header"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/shared/ui/dropdown-menu"
 
 export function AppHeader() {
   const [, setLocation] = useLocation()

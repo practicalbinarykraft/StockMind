@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react"
 import { Header } from "./header"
-import { queryClient } from "@/lib/query-client"
+import { queryClient } from "@/shared/api"
 import { useAuth } from "@/app/providers/AuthProvider"
 
 /**
