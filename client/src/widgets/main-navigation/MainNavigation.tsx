@@ -1,5 +1,5 @@
 import { useLocation } from "wouter"
-import { useSidebar } from "@/hooks/use-sidebar"
+import { useSidebar } from "@/shared/hooks/use-sidebar"
 import { cn } from "@/shared/utils"
 import { 
   Home, 

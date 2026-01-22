@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { apiRequest } from "@/shared/api"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/shared/hooks/use-toast"
 import type { Project } from "@shared/schema"
 
 /**

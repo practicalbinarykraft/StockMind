@@ -1,5 +1,5 @@
 import { ReactNode } from "react"
-import { useSidebar } from "@/hooks/use-sidebar"
+import { useSidebar } from "@/shared/hooks/use-sidebar"
 import { MainNavigation } from "@/widgets/main-navigation"
 import { AppHeader } from "@/widgets/app-header"
 import { Button } from "@/shared/ui/button"
