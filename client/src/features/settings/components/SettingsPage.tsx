@@ -1,7 +1,7 @@
 import { ApiKeysSection } from "./ApiKeysSection";
 import { RssSourcesSection } from "./RssSourcesSection";
 import { InstagramSourcesSection } from "./InstagramSourcesSection";
-import { ConveyorSettingsSection } from "./ConveyorSettingsSection";
+import { ConveyorSettingsSection } from "./conveyor-settings-section";
 import { AccountConnection } from "@/features/instagram/components/AccountConnection";
 
 /**
