@@ -31,7 +31,6 @@ import {
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
-import { AgentThinkingSidebar } from "./AgentThinkingSidebar";
 
 interface DashboardData {
   enabled: boolean;
@@ -300,75 +299,72 @@ export function ConveyorDashboard() {
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Today's Progress */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Сегодня
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.todayProgress.processed}/
-              {dashboard?.todayProgress.limit}
-            </div>
-            <Progress
-              value={dashboard?.todayProgress.percentage || 0}
-              className="mt-2"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Budget */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Бюджет (месяц)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${dashboard?.budget.used}
-              <span className="text-muted-foreground text-sm">
-                /${dashboard?.budget.limit}
-              </span>
-            </div>
-            <Progress
-              value={dashboard?.budget.percentage || 0}
-              className="mt-2"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Pass Rate */}
+        {/* Спарсено новостей */}
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Pass Rate
+              Спарсено новостей
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {dashboard?.stats.passRate || "—"}
+              {dashboard?.todayProgress.processed || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {dashboard?.stats.totalPassed} из {dashboard?.stats.totalProcessed}
+              Сегодня
             </p>
           </CardContent>
         </Card>
 
-        {/* Pending Review */}
+        {/* Проанализировано */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Проанализировано
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboard?.stats.totalPassed || 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pass rate: {dashboard?.stats.passRate || "—"}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Сценариев написано */}
         <Card
           className="cursor-pointer hover:border-primary transition-colors"
-          onClick={() => navigate("/auto-scripts")}
+          onClick={() => navigate("/conveyor/scripts/generation")}
         >
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              На ревью
+              Сценариев написано
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboard?.stats.totalApproved || 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Нажмите для просмотра
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* На рецензии */}
+        <Card
+          className="cursor-pointer hover:border-primary transition-colors"
+          onClick={() => navigate("/conveyor/scripts/review")}
+        >
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              На рецензии
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -380,214 +376,6 @@ export function ConveyorDashboard() {
             </p>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Agent Thinking Sidebar */}
-        <AgentThinkingSidebar className="lg:col-span-1 h-[500px]" />
-
-        {/* Recent Items */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Последние элементы</CardTitle>
-            <CardDescription>
-              История обработки контента
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px]">
-              {itemsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : items && items.length > 0 ? (
-                <div className="space-y-2">
-                  {items.map((item) => {
-                    const config = STATUS_CONFIG[item.status] || STATUS_CONFIG.processing;
-                    const StatusIcon = config.icon;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 rounded-lg border"
-                      >
-                        <div className="flex items-center gap-3">
-                          <StatusIcon className={`h-5 w-5 ${config.color}`} />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {item.sourceType}
-                              </Badge>
-                              <span className="text-sm font-medium">
-                                Stage {item.currentStage}:{" "}
-                                {STAGE_NAMES[item.currentStage]}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.startedAt), {
-                                addSuffix: true,
-                                locale: ru,
-                              })}
-                              {item.errorMessage && (
-                                <span className="text-red-500 ml-2">
-                                  {item.errorMessage}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        {item.status === "failed" && item.retryCount < 3 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => retryMutation.mutate(item.id)}
-                            disabled={retryMutation.isPending}
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Нет обработанных элементов</p>
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Side Panel */}
-        <div className="space-y-6">
-          {/* Pending Scripts Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Сценарии на ревью</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dashboard?.pendingReview.scripts &&
-              dashboard.pendingReview.scripts.length > 0 ? (
-                <div className="space-y-2">
-                  {dashboard.pendingReview.scripts.map((script) => (
-                    <div
-                      key={script.id}
-                      className="p-2 rounded border cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate("/auto-scripts")}
-                    >
-                      <div className="font-medium text-sm line-clamp-1">
-                        {script.title}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">
-                          {script.formatName}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Score: {script.finalScore}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {dashboard.pendingReview.count > 5 && (
-                    <Button
-                      variant="ghost"
-                      className="w-full text-sm"
-                      onClick={() => navigate("/auto-scripts")}
-                    >
-                      Показать все ({dashboard.pendingReview.count})
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Нет сценариев на ревью
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Learning Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Система обучения</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Адаптивный порог
-                </span>
-                <span className="font-medium">
-                  {dashboard?.learning.learnedThreshold || "—"}
-                </span>
-              </div>
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Избегаемые темы
-                </span>
-                <span className="font-medium">
-                  {dashboard?.learning.avoidedTopicsCount || 0}
-                </span>
-              </div>
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Предпочитаемые форматы
-                </span>
-                <span className="font-medium">
-                  {dashboard?.learning.preferredFormatsCount || 0}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Статистика</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-xl font-bold">
-                    {dashboard?.stats.totalProcessed || 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Обработано
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-green-600">
-                    {dashboard?.stats.totalApproved || 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Одобрено
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-red-600">
-                    {dashboard?.failedCount || 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    С ошибками
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold">
-                    {dashboard?.stats.approvalRate || "—"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Approval Rate
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

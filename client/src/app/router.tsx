@@ -13,6 +13,11 @@ import ScriptsAll from "@/pages/scripts/all";
 import ScriptCreate from "@/pages/scripts/create-v2";
 import AutoScripts from "@/pages/auto-scripts";
 import ConveyorDashboard from "@/pages/conveyor";
+import ConveyorDrafts from "@/pages/conveyor/drafts";
+import ConveyorScripts from "@/pages/conveyor/scripts";
+import ScriptGeneration from "@/pages/conveyor/script-generation";
+import ScriptEditor from "@/pages/conveyor/script-editor";
+import ScriptsReview from "@/pages/conveyor/scripts-review";
 
 export function Router() {
   const { isAuthenticated } = useAuth();
@@ -54,6 +59,21 @@ export function Router() {
       </Route>
       <Route path="/conveyor">
         {() => <PrivateRoute component={ConveyorDashboard} />}
+      </Route>
+      <Route path="/conveyor/drafts">
+        {() => <PrivateRoute component={ConveyorDrafts} />}
+      </Route>
+      <Route path="/conveyor/drafts/:id">
+        {() => <PrivateRoute component={ScriptEditor} />}
+      </Route>
+      <Route path="/conveyor/scripts">
+        {() => <PrivateRoute component={ConveyorScripts} />}
+      </Route>
+      <Route path="/conveyor/scripts/generation">
+        {() => <PrivateRoute component={ScriptGeneration} />}
+      </Route>
+      <Route path="/conveyor/scripts/review">
+        {() => <PrivateRoute component={ScriptsReview} />}
       </Route>
       <Route component={NotFound} />
     </Switch>

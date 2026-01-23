@@ -95,12 +95,12 @@ export function InstagramSourcesSection() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge
                       status={source.parseStatus === 'parsing' ? 'pending' : source.parseStatus as "success" | "error" | "pending"}
-                      text={
-                        source.parseStatus === "success" ? `${source.itemCount || 0} reels`
-                        : source.parseStatus === 'parsing' ? 'Parsing...'
-                        : source.parseStatus || 'pending'
-                      }
                     />
+                    <span className="text-sm">
+                      {source.parseStatus === "success" ? `${source.itemCount || 0} reels`
+                        : source.parseStatus === 'parsing' ? 'Parsing...'
+                        : source.parseStatus || 'pending'}
+                    </span>
                   </div>
                   
                   {/* Show skeleton during parsing */}

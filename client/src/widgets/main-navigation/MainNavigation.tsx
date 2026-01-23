@@ -12,7 +12,8 @@ import {
   Sparkles,
   FileText,
   Plus,
-  Factory
+  Zap,
+  CheckCircle
 } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 import {
@@ -38,7 +39,14 @@ const navigation: NavSection[] = [
   {
     items: [
       { label: "Dashboard", icon: Home, path: "/" },
-      { label: "Content Factory", icon: Factory, path: "/conveyor" },
+    ]
+  },
+  {
+    title: "Content Factory",
+    items: [
+      { label: "Конвейер", icon: Zap, path: "/conveyor" },
+      { label: "Черновики", icon: FileText, path: "/conveyor/drafts" },
+      { label: "Готовые", icon: CheckCircle, path: "/conveyor/scripts" },
     ]
   },
   {
