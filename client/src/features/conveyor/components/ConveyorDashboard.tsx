@@ -27,6 +27,8 @@ import {
   Calendar,
   FileText,
   Settings,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -298,85 +300,153 @@ export function ConveyorDashboard() {
       </div>
 
       {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         {/* Спарсено новостей */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Спарсено новостей
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.todayProgress.processed || 0}
+        <div className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-blue-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{dashboard?.todayProgress.processed || 0}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">Спарсено новостей</div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Сегодня
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Проанализировано */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Проанализировано
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.stats.totalPassed || 0}
+        <div className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-green-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <CheckCircle className="w-6 h-6 text-green-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{dashboard?.stats.totalPassed || 0}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">Проанализировано</div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Pass rate: {dashboard?.stats.passRate || "—"}
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Сценариев написано */}
-        <Card
-          className="cursor-pointer hover:border-primary transition-colors"
+        <div 
           onClick={() => navigate("/conveyor/scripts/generation")}
+          className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0 cursor-pointer"
         >
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Сценариев написано
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.stats.totalApproved || 0}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-purple-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <FileText className="w-6 h-6 text-purple-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{dashboard?.stats.totalApproved || 0}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">Сценариев написано</div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Нажмите для просмотра
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* На рецензии */}
-        <Card
-          className="cursor-pointer hover:border-primary transition-colors"
+        <div 
           onClick={() => navigate("/conveyor/scripts/review")}
+          className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0 cursor-pointer"
         >
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              На рецензии
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.pendingReview.count || 0}
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/0 to-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-yellow-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <Clock className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{dashboard?.pendingReview.count || 0}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">На рецензии</div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Нажмите для просмотра
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* Сценарии на рецензии */}
+      <Card className="glass glow-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary-500/20">
+                <FileText className="w-5 h-5 text-primary-400" />
+              </div>
+              <CardTitle>Сценарии на рецензии</CardTitle>
+              <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
+                {dashboard?.pendingReview.count || 0}
+              </Badge>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/conveyor/scripts/review")}
+              className="gap-2"
+            >
+              Смотреть все
+              <CheckCircle className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!dashboard?.pendingReview.scripts || dashboard.pendingReview.scripts.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p>Нет сценариев на рецензии</p>
+              <p className="text-sm mt-2">Запустите генерацию в разделе "Сценариев написано"</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {dashboard.pendingReview.scripts.map((script) => (
+                <div
+                  key={script.id}
+                  onClick={() => navigate("/conveyor/scripts/generation")}
+                  className="glass rounded-lg p-5 hover:bg-muted/50 transition-all border border-border hover:border-primary/30 group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
+                        {script.title}
+                      </h4>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-4 h-4" />
+                          {script.formatName}
+                        </span>
+                        <span>•</span>
+                        <span className={
+                          script.finalScore >= 8 ? 'text-green-400' : 
+                          script.finalScore >= 5 ? 'text-yellow-400' : 
+                          'text-red-400'
+                        }>
+                          Оценка: {script.finalScore}/10
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {formatDistanceToNow(new Date(script.createdAt), {
+                            addSuffix: true,
+                            locale: ru,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    <CheckCircle className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

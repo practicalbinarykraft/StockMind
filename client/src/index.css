@@ -336,15 +336,15 @@
 
   /* Custom utility classes for Conveyor */
   .glass {
-    @apply bg-dark-800/30 backdrop-blur-md border border-dark-700/50;
+    @apply bg-card/30 backdrop-blur-md border border-border/50;
   }
 
   .glass-strong {
-    @apply bg-dark-800/60 backdrop-blur-xl border border-dark-700/50;
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
   }
 
   .glow-border {
-    @apply shadow-lg shadow-primary-500/10;
+    @apply shadow-lg shadow-primary/10;
   }
 
   .hover-lift {
@@ -352,6 +352,6 @@
   }
 
   .gradient-text-neon {
-    @apply bg-gradient-to-r from-primary-400 via-cyan-400 to-primary-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary via-cyan-400 to-primary bg-clip-text text-transparent;
   }
 }
