@@ -84,7 +84,7 @@ export function ScriptsReviewPage() {
                 return (
                   <div
                     key={script.id}
-                    onClick={() => navigate(`/conveyor/scripts/generation`)}
+                    onClick={() => navigate(`/conveyor/drafts/${script.id}`)}
                     className="block rounded-lg p-5 border hover:bg-muted/50 transition-all cursor-pointer group"
                   >
                     <div className="flex items-center justify-between">
