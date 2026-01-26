@@ -105,7 +105,7 @@ export function ScriptEditorPage() {
       
       // Добавляем сцену в массив
       const updatedScenes = [...script.scenes, newScene]
-      await scriptsService.updateScript(scriptId, { scenes: updatedScenes })
+      await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
       
       // Инвалидируем кеш для обновления данных
       await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
@@ -139,7 +139,7 @@ export function ScriptEditorPage() {
       
       // Обновляем статус на draft (если он другой)
       if (script?.status !== 'draft') {
-        await scriptsService.updateScript(scriptId, { status: 'draft' })
+        await scriptsService.updateScriptUniversal(scriptId, { status: 'draft' })
       }
       
       toast({
@@ -168,7 +168,7 @@ export function ScriptEditorPage() {
       }
       
       // Обновляем статус на completed (готов к использованию)
-      await scriptsService.updateScript(scriptId, { status: 'completed' })
+      await scriptsService.updateScriptUniversal(scriptId, { status: 'completed' })
       
       toast({
         title: 'Успешно',

@@ -50,12 +50,14 @@ export function useScripts(params?: {
 
 /**
  * Хук для получения одного сценария
+ * Использует универсальную функцию, которая ищет в scripts_library и auto_scripts
  */
 export function useScript(id: string) {
   return useQuery({
     queryKey: ['scripts', id],
-    queryFn: () => scriptsService.getScript(id),
+    queryFn: () => scriptsService.getScriptUniversal(id),
     enabled: !!id,
+    retry: false, // Не повторять при ошибке (fallback уже внутри getScriptUniversal)
   })
 }
 

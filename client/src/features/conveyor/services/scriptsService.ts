@@ -49,10 +49,18 @@ export async function getDrafts(params?: {
   const result = await response.json()
   const scripts = result.data || result
   
-  // Сервер возвращает массив скриптов, преобразуем в нужный формат
+  // Маппинг полей с сервера на фронтенд формат
+  const mappedScripts = Array.isArray(scripts) ? scripts.map((s: any) => ({
+    ...s,
+    // Маппинг полей для совместимости с UI компонентами
+    newsTitle: s.newsTitle || s.title,
+    sourceName: s.sourceName || s.sourceTitle || s.sourceType || 'Неизвестно',
+    score: s.score ?? s.aiScore ?? 0,
+  })) : []
+  
   return {
-    items: Array.isArray(scripts) ? scripts : [],
-    total: Array.isArray(scripts) ? scripts.length : 0,
+    items: mappedScripts,
+    total: mappedScripts.length,
   }
 }
 
@@ -100,15 +108,41 @@ export async function getScripts(params?: {
   const result = await response.json()
   const scripts = result.data || result
   
+  // Маппинг полей auto_scripts на формат NewsScript для UI
+  const mapAutoScriptToNewsScript = (s: any) => ({
+    ...s,
+    // Основные поля для отображения
+    newsTitle: s.newsTitle || s.title,
+    newsSource: s.newsSource || s.sourceType || s.formatName || 'Неизвестно',
+    // Итерации (revisionCount + 1 для текущей версии)
+    currentIteration: (s.revisionCount || 0) + 1,
+    maxIterations: 3, // Константа для UI
+    // Статус маппинг
+    status: s.status === 'pending' ? 'pending' : 
+            s.status === 'revision' ? 'in_progress' : 
+            s.status === 'approved' ? 'completed' : 
+            s.status === 'rejected' ? 'completed' : 'human_review',
+    // Итерации для совместимости (пустой массив если нет)
+    iterations: s.iterations || [],
+    iterationsCount: (s.revisionCount || 0) + 1,
+  })
+  
   // Если это массив, преобразуем в нужный формат
   if (Array.isArray(scripts)) {
     return {
-      items: scripts,
+      items: scripts.map(mapAutoScriptToNewsScript),
       total: scripts.length,
     }
   }
   
-  // Если уже объект с items, возвращаем как есть
+  // Если уже объект с items, маппим items
+  if (scripts.items && Array.isArray(scripts.items)) {
+    return {
+      ...scripts,
+      items: scripts.items.map(mapAutoScriptToNewsScript),
+    }
+  }
+  
   return scripts
 }
 
@@ -119,7 +153,58 @@ export async function getScripts(params?: {
 export async function getScript(id: string): Promise<Script> {
   const response = await apiRequest('GET', `/api/scripts/${id}`)
   const data = await response.json()
-  return data.data || data
+  const script = data.data || data
+  
+  // Маппинг полей для совместимости с UI
+  return {
+    ...script,
+    newsTitle: script.newsTitle || script.title,
+    sourceName: script.sourceName || script.sourceTitle || script.sourceType || 'Неизвестно',
+    score: script.score ?? script.aiScore ?? 0,
+  }
+}
+
+/**
+ * Получить auto-script по ID
+ * Эндпоинт: GET /api/auto-scripts/:id
+ */
+export async function getAutoScript(id: string): Promise<Script> {
+  const response = await apiRequest('GET', `/api/auto-scripts/${id}`)
+  const data = await response.json()
+  const script = data.data || data
+  
+  // Маппинг полей auto_script на формат Script для UI
+  return {
+    ...script,
+    // Основные поля
+    newsTitle: script.newsTitle || script.title,
+    title: script.title,
+    sourceName: script.sourceName || script.sourceType || script.formatName || 'Неизвестно',
+    score: script.score ?? script.finalScore ?? 0,
+    // Сцены уже в правильном формате
+    scenes: script.scenes || [],
+    // Статус
+    status: script.status === 'pending' ? 'draft' : 
+            script.status === 'approved' ? 'ready' : 
+            script.status === 'revision' ? 'draft' : 'draft',
+  }
+}
+
+/**
+ * Универсальная функция получения скрипта
+ * Сначала пробует scripts_library, затем auto_scripts
+ */
+export async function getScriptUniversal(id: string): Promise<Script> {
+  try {
+    // Сначала пробуем scripts_library
+    return await getScript(id)
+  } catch (error: any) {
+    // Если 404, пробуем auto_scripts
+    if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+      return await getAutoScript(id)
+    }
+    throw error
+  }
 }
 
 /**
@@ -147,7 +232,7 @@ export async function updateScriptStatus(
 }
 
 /**
- * Обновить сценарий (универсальная функция)
+ * Обновить сценарий в scripts_library
  * Эндпоинт: PATCH /api/scripts/:id (для черновиков из библиотеки)
  */
 export async function updateScript(
@@ -157,6 +242,39 @@ export async function updateScript(
   const response = await apiRequest('PATCH', `/api/scripts/${id}`, updates)
   const data = await response.json()
   return data.data || data
+}
+
+/**
+ * Обновить auto-script
+ * Эндпоинт: PATCH /api/auto-scripts/:id
+ */
+export async function updateAutoScript(
+  id: string,
+  updates: Partial<Script>
+): Promise<Script> {
+  const response = await apiRequest('PATCH', `/api/auto-scripts/${id}`, updates)
+  const data = await response.json()
+  return data.data || data
+}
+
+/**
+ * Универсальная функция обновления скрипта
+ * Сначала пробует scripts_library, затем auto_scripts
+ */
+export async function updateScriptUniversal(
+  id: string,
+  updates: Partial<Script>
+): Promise<Script> {
+  try {
+    // Сначала пробуем scripts_library
+    return await updateScript(id, updates)
+  } catch (error: any) {
+    // Если 404, пробуем auto_scripts
+    if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+      return await updateAutoScript(id, updates)
+    }
+    throw error
+  }
 }
 
 /**
@@ -361,23 +479,23 @@ export async function generateVariants(data: {
 
 /**
  * Обновить сцену сценария
- * Использует PATCH /api/auto-scripts/:id для обновления сцен
+ * Использует универсальные функции для работы с scripts_library и auto_scripts
  */
 export async function updateScene(
   scriptId: string,
   sceneId: string,
   updates: Partial<Scene>
 ): Promise<Script> {
-  // Сначала получаем текущий скрипт
-  const script = await getScript(scriptId)
+  // Сначала получаем текущий скрипт (универсальная функция)
+  const script = await getScriptUniversal(scriptId)
   
   // Обновляем нужную сцену
   const updatedScenes = script.scenes.map(scene =>
     scene.id === sceneId ? { ...scene, ...updates } : scene
   )
   
-  // Отправляем обновленный скрипт
-  return updateScript(scriptId, { scenes: updatedScenes })
+  // Отправляем обновленный скрипт (универсальная функция)
+  return updateScriptUniversal(scriptId, { scenes: updatedScenes })
 }
 
 export const scriptsService = {
@@ -385,9 +503,13 @@ export const scriptsService = {
   getReadyScripts,
   getScripts,
   getScript,
+  getAutoScript,
+  getScriptUniversal,
   getScriptIterations,
   updateScriptStatus,
   updateScript,
+  updateAutoScript,
+  updateScriptUniversal,
   deleteScript,
   startGeneration,
   stopGeneration,
