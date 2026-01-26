@@ -11,7 +11,7 @@ export const aiSettingsService = {
    */
   async getSettings(userId: string) {
     // Get API keys info
-    const apiKeys = await apiKeysService.getUserApiKeys(userId);
+    const apiKeys = await apiKeysService.getApiKeys(userId);
     
     const anthropicKey = apiKeys.find(k => k.provider === 'anthropic');
     const deepseekKey = apiKeys.find(k => k.provider === 'deepseek');
