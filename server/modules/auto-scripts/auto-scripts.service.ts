@@ -480,4 +480,34 @@ export const autoScriptsService = {
       script: updatedScript,
     };
   },
+
+  /**
+   * Update script (for manual edits in editor)
+   */
+  async updateScript(
+    scriptId: string,
+    userId: string,
+    updates: Partial<AutoScript>
+  ) {
+    const script = await repo.getById(scriptId);
+
+    if (!script) {
+      throw new AutoScriptNotFoundError();
+    }
+
+    if (script.userId !== userId) {
+      throw new AutoScriptAccessDeniedError();
+    }
+
+    // Update the script
+    const updatedScript = await repo.update(scriptId, updates);
+
+    logger.info("Script updated", {
+      userId,
+      scriptId,
+      updatedFields: Object.keys(updates),
+    });
+
+    return updatedScript;
+  },
 };

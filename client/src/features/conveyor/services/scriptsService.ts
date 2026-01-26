@@ -33,7 +33,7 @@ export interface SSEEvent {
 
 /**
  * Получить список черновиков (Script[])
- * Эндпоинт: GET /api/scripts?status=draft
+ * Эндпоинт: GET /api/auto-scripts?status=draft
  */
 export async function getDrafts(params?: {
   limit?: number
@@ -45,14 +45,14 @@ export async function getDrafts(params?: {
   if (params?.offset) searchParams.set('offset', params.offset.toString())
 
   const query = searchParams.toString()
-  const response = await apiRequest('GET', `/api/scripts${query ? `?${query}` : ''}`)
+  const response = await apiRequest('GET', `/api/auto-scripts${query ? `?${query}` : ''}`)
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Получить список сценариев (NewsScript[] для completed/review)
- * Эндпоинт: GET /api/scripts?status={status}
+ * Эндпоинт: GET /api/auto-scripts?status={status}
  */
 export async function getScripts(params?: {
   status?: string
@@ -65,64 +65,64 @@ export async function getScripts(params?: {
   if (params?.offset) searchParams.set('offset', params.offset.toString())
 
   const query = searchParams.toString()
-  const response = await apiRequest('GET', `/api/scripts${query ? `?${query}` : ''}`)
+  const response = await apiRequest('GET', `/api/auto-scripts${query ? `?${query}` : ''}`)
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Получить один сценарий со всеми итерациями
- * Эндпоинт: GET /api/scripts/:id
+ * Эндпоинт: GET /api/auto-scripts/:id
  */
 export async function getScript(id: string): Promise<Script> {
-  const response = await apiRequest('GET', `/api/scripts/${id}`)
+  const response = await apiRequest('GET', `/api/auto-scripts/${id}`)
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Получить только итерации сценария
- * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: GET /api/scripts/:id/iterations
- * TODO: Реализовать на сервере или использовать getScript и извлекать iterations
+ * Эндпоинт: GET /api/auto-scripts/:id/versions
  */
 export async function getScriptIterations(id: string): Promise<NewsScript['iterations']> {
-  const response = await apiRequest('GET', `/api/scripts/${id}/iterations`)
+  const response = await apiRequest('GET', `/api/auto-scripts/${id}/versions`)
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Обновить статус сценария (approve/reject)
- * Эндпоинт: PATCH /api/scripts/:id
+ * Эндпоинт: POST /api/auto-scripts/:id/approve или /api/auto-scripts/:id/reject
  */
 export async function updateScriptStatus(
   id: string,
   status: 'approved' | 'rejected'
 ): Promise<Script> {
-  const response = await apiRequest('PATCH', `/api/scripts/${id}`, { status })
+  const endpoint = status === 'approved' ? 'approve' : 'reject'
+  const response = await apiRequest('POST', `/api/auto-scripts/${id}/${endpoint}`)
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Обновить сценарий (универсальная функция)
- * Эндпоинт: PATCH /api/scripts/:id
+ * Эндпоинт: PATCH /api/auto-scripts/:id
  */
 export async function updateScript(
   id: string,
   updates: Partial<Script>
 ): Promise<Script> {
-  const response = await apiRequest('PATCH', `/api/scripts/${id}`, updates)
+  const response = await apiRequest('PATCH', `/api/auto-scripts/${id}`, updates)
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Удалить сценарий
- * Эндпоинт: DELETE /api/scripts/:id
+ * Эндпоинт: DELETE /api/auto-scripts/:id
  */
 export async function deleteScript(id: string): Promise<{ success: boolean }> {
-  await apiRequest('DELETE', `/api/scripts/${id}`)
+  await apiRequest('DELETE', `/api/auto-scripts/${id}`)
   return { success: true }
 }
 
@@ -302,7 +302,7 @@ export async function generateVariants(data: {
 
 /**
  * Обновить сцену сценария
- * Использует PATCH /api/scripts/:id для обновления сцен
+ * Использует PATCH /api/auto-scripts/:id для обновления сцен
  */
 export async function updateScene(
   scriptId: string,

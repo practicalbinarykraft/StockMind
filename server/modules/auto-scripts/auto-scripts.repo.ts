@@ -135,6 +135,18 @@ export class AutoScriptsRepo {
     return script;
   }
 
+  async update(
+    id: string,
+    data: Partial<AutoScript>
+  ): Promise<AutoScript | undefined> {
+    const [script] = await db
+      .update(autoScripts)
+      .set(data)
+      .where(eq(autoScripts.id, id))
+      .returning();
+    return script;
+  }
+
   // ============================================================================
   // USER WRITING PROFILE
   // ============================================================================

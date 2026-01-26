@@ -420,4 +420,41 @@ export const autoScriptsController = {
       return res.status(500).json({ message: "Failed to reset revision" });
     }
   },
+
+  /**
+   * PATCH /api/auto-scripts/:id
+   * Update script content (for manual edits)
+   */
+  async updateScript(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const updates = req.body;
+
+      const updatedScript = await autoScriptsService.updateScript(
+        id,
+        userId,
+        updates
+      );
+
+      return res.json({ data: updatedScript });
+    } catch (error: any) {
+      if (error instanceof AutoScriptNotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+
+      if (error instanceof AutoScriptAccessDeniedError) {
+        return res.status(403).json({ message: error.message });
+      }
+
+      logger.error("Error updating script", {
+        userId: getUserId(req),
+        scriptId: req.params.id,
+        error: error.message,
+      });
+      return res.status(500).json({ message: "Failed to update script" });
+    }
+  },
 };

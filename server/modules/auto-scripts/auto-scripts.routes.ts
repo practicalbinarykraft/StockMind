@@ -54,6 +54,9 @@ router.get("/", requireAuth, autoScriptsController.getScripts);
 // GET /api/auto-scripts/:id - Get specific script
 router.get("/:id", requireAuth, autoScriptsController.getScriptById);
 
+// PATCH /api/auto-scripts/:id - Update script content (manual edits)
+router.patch("/:id", requireAuth, autoScriptsController.updateScript);
+
 // POST /api/auto-scripts/:id/approve - Approve script and create project
 router.post("/:id/approve", requireAuth, autoScriptsController.approveScript);
 
