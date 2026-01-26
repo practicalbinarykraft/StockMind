@@ -408,7 +408,7 @@ export function ConveyorDashboard() {
               {dashboard.pendingReview.scripts.map((script) => (
                 <div
                   key={script.id}
-                  onClick={() => navigate("/conveyor/scripts/generation")}
+                  onClick={() => navigate(`/conveyor/draft/${script.id}`)}
                   className="glass rounded-lg p-5 hover:bg-muted/50 transition-all border border-border hover:border-primary/30 group cursor-pointer"
                 >
                   <div className="flex items-center justify-between">

@@ -31,6 +31,7 @@ import { useToast } from "@/shared/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { ru } from "date-fns/locale"
 import { AppLayout } from "@/layouts"
+import { ScriptsList } from "@/features/scripts/components"
 
 type ScriptStatus = 'all' | 'draft' | 'analyzed' | 'ready' | 'in_production'
 
@@ -169,6 +170,42 @@ function ScriptsAllContent() {
     }
   }
 
+  const handleDelete = (script: any) => {
+    // If script is already linked to a project, go to that project
+    if (script.id) {
+      deleteMutation.mutate(script.id)
+    } else {
+      // Otherwise create a new project at Stage 3 (script editing)
+      toast({
+        title: "Не получилось удалить сценарий",
+        description: "Невозможно удалить несуществующий сценарий",
+      })
+    }
+  }
+
+  const handleAnalyze = (script: any) => {
+    if (script.id) {
+      analyzeMutation.mutate(script.id)
+    } else {
+      // Otherwise create a new project at Stage 3 (script editing)
+      toast({
+        title: "Не получилось проанализировать сценарий",
+        description: "Невозможно проанализировать несуществующий сценарий",
+      })
+    }
+  }
+
+  const handleStartProduction = (script: any) => {
+    if(script.id) {
+      startProductionMutation.mutate(script.id)
+    } else {
+      // Otherwise create a new project at Stage 3 (script editing)
+      toast({
+        title: "Не получилось",
+      })
+    }
+  }
+
   // Ensure scripts is always an array
   const scriptsArray = Array.isArray(scripts) ? scripts : []
 
@@ -179,17 +216,6 @@ function ScriptsAllContent() {
     analyzed: scriptsArray.filter((s: any) => s.status === 'analyzed').length,
     ready: scriptsArray.filter((s: any) => s.status === 'ready').length,
     in_production: scriptsArray.filter((s: any) => s.status === 'in_production').length,
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
-      draft: { label: "✏️ Draft", variant: "outline" },
-      analyzed: { label: "🔍 Analyzed", variant: "secondary" },
-      ready: { label: "✅ Ready", variant: "default" },
-      in_production: { label: "🎬 In Production", variant: "default" },
-      completed: { label: "✓ Completed", variant: "default" },
-    }
-    return variants[status] || { label: status, variant: "outline" as const }
   }
 
   return (
@@ -255,142 +281,19 @@ function ScriptsAllContent() {
       </div>
 
       {/* Scripts List */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-              </CardHeader>
-              <CardContent>
-                <div className="h-4 bg-muted rounded w-full mb-2 animate-pulse" />
-                <div className="h-4 bg-muted rounded w-2/3 animate-pulse" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : scriptsArray.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Нет сценариев</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              {activeTab === 'all' 
-                ? "Создайте свой первый сценарий"
-                : `Нет сценариев со статусом "${activeTab}"`
-              }
-            </p>
-            <Button onClick={() => setLocation("/scripts/create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Создать сценарий
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {scriptsArray.map((script: any) => {
-            const statusBadge = getStatusBadge(script.status)
-            const scenes = Array.isArray(script.scenes) ? script.scenes : []
-            const firstSceneText = scenes[0]?.text || scenes[0] || ""
-
-            return (
-              <Card key={script.id} className="hover:border-primary transition-colors">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={statusBadge.variant}>
-                          {statusBadge.label}
-                        </Badge>
-                        {script.aiScore && (
-                          <Badge variant="outline">
-                            {script.aiScore}/100
-                          </Badge>
-                        )}
-                      </div>
-                      <CardTitle className="text-lg line-clamp-2">
-                        {script.title}
-                      </CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {firstSceneText}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {scenes.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <LayoutIcon className="h-3 w-3" />
-                        <span>{scenes.length} сцен</span>
-                      </div>
-                    )}
-                    {script.durationSeconds && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{script.durationSeconds}s</span>
-                      </div>
-                    )}
-                    {script.format && (
-                      <Badge variant="outline" className="text-xs">
-                        {script.format}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(script.updatedAt), { addSuffix: true, locale: ru })}
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    {script.status === 'draft' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => analyzeMutation.mutate(script.id)}
-                        disabled={analyzeMutation.isPending}
-                        className="flex-1"
-                      >
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        Анализ
-                      </Button>
-                    )}
-                    {script.status === 'ready' && (
-                      <Button
-                        size="sm"
-                        onClick={() => startProductionMutation.mutate(script.id)}
-                        disabled={startProductionMutation.isPending}
-                        className="flex-1"
-                      >
-                        <Mic className="h-3 w-3 mr-1" />
-                        Озвучить
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(script)}
-                      disabled={editScriptMutation.isPending}
-                      title={script.projectId ? "Открыть проект" : "Редактировать сценарий"}
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => deleteMutation.mutate(script.id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+      <ScriptsList 
+        scripts={scriptsArray} 
+        isLoading={isLoading} 
+        activeTab={activeTab} 
+        onEdit={handleEdit} 
+        onDelete={handleDelete} 
+        onAnalyze={handleAnalyze}
+        onStartProduction={handleStartProduction}
+        onCreate={() => setLocation("/scripts/create")}
+        isDeleting={deleteMutation.isPending}
+        isAnalyzing={analyzeMutation.isPending}
+        isStartingProduction={startProductionMutation.isPending}
+      />
     </div>
   )
 }
