@@ -129,6 +129,9 @@ export function ScriptEditorPage() {
     }
   }
 
+  // Определяем, является ли скрипт auto_script (по наличию специфичных полей)
+  const isAutoScript = !!(script as any)?.conveyorItemId || !!(script as any)?.finalScore || !!(script as any)?.gateDecision
+
   const handleSaveToDrafts = async () => {
     setIsSaving(true)
     try {
@@ -137,15 +140,27 @@ export function ScriptEditorPage() {
         await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
       }
       
-      // Обновляем статус на draft (если он другой)
-      if (script?.status !== 'draft') {
-        await scriptsService.updateScriptUniversal(scriptId, { status: 'draft' })
+      // Если это auto_script - создаём копию в библиотеке
+      if (isAutoScript) {
+        await scriptsService.saveAutoScriptToLibrary(scriptId, 'draft')
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий сохранён в черновики',
+        })
+      } else {
+        // Обновляем статус на draft (если он другой)
+        if (script?.status !== 'draft') {
+          await scriptsService.updateScript(scriptId, { status: 'draft' })
+        }
+        toast({
+          title: 'Успешно',
+          description: 'Сохранено в черновики',
+        })
       }
       
-      toast({
-        title: 'Успешно',
-        description: 'Сохранено в черновики',
-      })
+      // Инвалидируем кеши
+      await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      
       navigate('/conveyor/drafts')
     } catch (error) {
       console.error('Error saving to drafts:', error)
@@ -167,13 +182,25 @@ export function ScriptEditorPage() {
         await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
       }
       
-      // Обновляем статус на completed (готов к использованию)
-      await scriptsService.updateScriptUniversal(scriptId, { status: 'completed' })
+      // Если это auto_script - создаём копию в библиотеке со статусом ready
+      if (isAutoScript) {
+        await scriptsService.saveAutoScriptToLibrary(scriptId, 'ready')
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий сохранён в готовые',
+        })
+      } else {
+        // Обновляем статус на ready (готов к использованию)
+        await scriptsService.updateScript(scriptId, { status: 'ready' })
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий готов к использованию',
+        })
+      }
       
-      toast({
-        title: 'Успешно',
-        description: 'Сценарий готов к использованию',
-      })
+      // Инвалидируем кеши
+      await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      
       navigate('/conveyor/scripts')
     } catch (error) {
       console.error('Error saving to scripts:', error)

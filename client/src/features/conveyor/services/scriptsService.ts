@@ -82,10 +82,18 @@ export async function getReadyScripts(params?: {
   const result = await response.json()
   const scripts = result.data || result
   
-  // Сервер возвращает массив скриптов, преобразуем в нужный формат
+  // Маппинг полей с сервера на фронтенд формат
+  const mappedScripts = Array.isArray(scripts) ? scripts.map((s: any) => ({
+    ...s,
+    // Маппинг полей для совместимости с UI компонентами
+    newsTitle: s.newsTitle || s.title,
+    sourceName: s.sourceName || s.sourceTitle || s.sourceType || 'Неизвестно',
+    score: s.score ?? s.aiScore ?? 0,
+  })) : []
+  
   return {
-    items: Array.isArray(scripts) ? scripts : [],
-    total: Array.isArray(scripts) ? scripts.length : 0,
+    items: mappedScripts,
+    total: mappedScripts.length,
   }
 }
 
@@ -275,6 +283,43 @@ export async function updateScriptUniversal(
     }
     throw error
   }
+}
+
+/**
+ * Создать скрипт в библиотеке
+ * Эндпоинт: POST /api/scripts
+ */
+export async function createScriptInLibrary(data: Partial<Script>): Promise<Script> {
+  const response = await apiRequest('POST', '/api/scripts', data)
+  const result = await response.json()
+  return result.data || result
+}
+
+/**
+ * Сохранить auto_script в библиотеку (scripts_library)
+ * Если скрипт уже в библиотеке - обновляет, иначе создаёт новый
+ */
+export async function saveAutoScriptToLibrary(
+  autoScriptId: string,
+  status: 'draft' | 'ready' | 'completed'
+): Promise<Script> {
+  // Получаем auto_script
+  const autoScript = await getAutoScript(autoScriptId)
+  
+  // Создаём новую запись в scripts_library
+  const libraryScript = await createScriptInLibrary({
+    title: autoScript.title || autoScript.newsTitle,
+    status: status,
+    scenes: autoScript.scenes || [],
+    fullText: autoScript.scenes?.map((s: any) => s.text).join('\n') || '',
+    format: (autoScript as any).formatId || (autoScript as any).formatName || undefined,
+    aiScore: autoScript.score ?? (autoScript as any).finalScore ?? 0,
+    sourceType: (autoScript as any).sourceType || 'rss',
+    sourceId: autoScriptId,
+    sourceTitle: autoScript.title || autoScript.newsTitle,
+  })
+  
+  return libraryScript
 }
 
 /**
@@ -510,6 +555,8 @@ export const scriptsService = {
   updateScript,
   updateAutoScript,
   updateScriptUniversal,
+  createScriptInLibrary,
+  saveAutoScriptToLibrary,
   deleteScript,
   startGeneration,
   stopGeneration,

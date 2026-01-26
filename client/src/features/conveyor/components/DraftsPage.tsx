@@ -90,10 +90,10 @@ export function DraftsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-xl">
-                          {draft.sourceType === 'rss' ? '📰' : '📱'}
+                          {draft.sourceType === 'instagram' ? '📱' : '📰'}
                         </span>
                         <h4 className="text-lg font-semibold group-hover:text-primary transition-colors">
-                          {draft.newsTitle}
+                          {draft.newsTitle || draft.title || 'Без названия'}
                         </h4>
                         <Badge variant="secondary">Черновик</Badge>
                       </div>
