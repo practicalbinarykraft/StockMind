@@ -14,6 +14,7 @@ import { Textarea } from '@/shared/ui/textarea'
 import { ScrollArea } from '@/shared/ui/scroll-area'
 import { scriptsService } from '../services/scriptsService'
 import { useToast } from '@/shared/hooks/use-toast'
+import { queryClient } from '@/shared/api'
 import type { Scene } from '../types'
 
 export function ScriptEditorPage() {
@@ -54,19 +55,20 @@ export function ScriptEditorPage() {
   }
 
   const handleSaveScene = async () => {
-    if (!selectedSceneId || !script) return
+    if (!selectedSceneId || !script || !scriptId) return
     
     try {
       setIsSaving(true)
       await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
+      
+      // Инвалидируем кеш для обновления данных
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      
       setHasUnsavedChanges(false)
       toast({
         title: 'Успешно',
         description: 'Сцена сохранена',
       })
-      
-      // Обновляем данные скрипта
-      window.location.reload()
     } catch (error) {
       console.error('Error saving scene:', error)
       toast({
@@ -87,7 +89,7 @@ export function ScriptEditorPage() {
   }
 
   const handleAddScene = async () => {
-    if (!script) return
+    if (!script || !scriptId) return
     
     try {
       setIsSaving(true)
@@ -104,16 +106,16 @@ export function ScriptEditorPage() {
       const updatedScenes = [...script.scenes, newScene]
       await scriptsService.updateScript(scriptId, { scenes: updatedScenes })
       
-      toast({
-        title: 'Успешно',
-        description: 'Сцена добавлена',
-      })
+      // Инвалидируем кеш для обновления данных
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
       
       // Выбираем новую сцену
       setSelectedSceneId(newScene.id)
       
-      // Обновляем данные
-      window.location.reload()
+      toast({
+        title: 'Успешно',
+        description: 'Сцена добавлена',
+      })
     } catch (error) {
       console.error('Error adding scene:', error)
       toast({
@@ -192,7 +194,7 @@ export function ScriptEditorPage() {
   }
 
   const handleRegenerateAlternatives = async (customPrompt?: string) => {
-    if (!selectedScene) return
+    if (!selectedScene || !scriptId) return
     
     setIsRegenerating(true)
     try {
@@ -200,7 +202,7 @@ export function ScriptEditorPage() {
       const result = await scriptsService.generateVariants({
         sourceText: selectedScene.text,
         prompt: customPrompt,
-        format: 'short', // или другой формат
+        format: 'short',
       })
       
       // Обновляем альтернативы сцены
@@ -208,18 +210,18 @@ export function ScriptEditorPage() {
         alternatives: result.variants || [],
       })
       
+      // Инвалидируем кеш для обновления данных
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      
       toast({
         title: 'Успешно',
-        description: 'Альтернативы сгенерированы',
+        description: `Сгенерировано ${result.variants?.length || 0} вариантов`,
       })
       
       if (customPrompt) {
         setIsPromptModalOpen(false)
         setPromptText('')
       }
-      
-      // Обновляем данные
-      window.location.reload()
     } catch (error) {
       console.error('Error regenerating alternatives:', error)
       toast({
@@ -400,39 +402,40 @@ export function ScriptEditorPage() {
               </div>
 
               {/* Варианты замены */}
-              {selectedScene.alternatives && selectedScene.alternatives.length > 0 && (
-                <div className="glass rounded-xl p-6 glow-border">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      <h3 className="text-lg font-bold">Варианты замены</h3>
-                      <span className="text-sm text-muted-foreground">
-                        Выберите лучший вариант или оставьте текущий
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={handleOpenPromptModal}
-                        disabled={isRegenerating}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        Промпт
-                      </Button>
-                      <Button
-                        onClick={() => handleRegenerateAlternatives()}
-                        disabled={isRegenerating}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-                        {isRegenerating ? 'Генерация...' : 'Перегенерировать'}
-                      </Button>
-                    </div>
+              <div className="glass rounded-xl p-6 glow-border">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold">Варианты замены</h3>
+                    <span className="text-sm text-muted-foreground">
+                      Выберите лучший вариант или оставьте текущий
+                    </span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleOpenPromptModal}
+                      disabled={isRegenerating}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Промпт
+                    </Button>
+                    <Button
+                      onClick={() => handleRegenerateAlternatives()}
+                      disabled={isRegenerating}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                      {isRegenerating ? 'Генерация...' : 'Перегенерировать'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {selectedScene.alternatives && selectedScene.alternatives.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {selectedScene.alternatives.map((alternative: string, index: number) => (
                       <div
@@ -462,8 +465,16 @@ export function ScriptEditorPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                    <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-base mb-2">Варианты еще не сгенерированы</p>
+                    <p className="text-sm">
+                      Нажмите "Перегенерировать" чтобы создать альтернативные варианты текста
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="glass rounded-xl p-12 text-center">
