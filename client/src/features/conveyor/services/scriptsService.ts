@@ -294,7 +294,10 @@ export async function generateVariants(data: {
   sourceText: string
   prompt?: string
   format: string
-}): Promise<{ variants: string[] }> {
+}): Promise<{
+  scenes: Array<{ id: string; type: string; text: string }>
+  variants: Record<number, Array<{ id: string; text: string; score?: number }>>
+}> {
   const response = await apiRequest('POST', '/api/scripts/generate-variants', data)
   const result = await response.json()
   return result.data || result

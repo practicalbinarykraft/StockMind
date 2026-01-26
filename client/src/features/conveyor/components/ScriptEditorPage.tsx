@@ -205,9 +205,28 @@ export function ScriptEditorPage() {
         format: 'short',
       })
       
+      console.log('Generate variants result:', result)
+      
+      // API возвращает { scenes: [...], variants: { 0: [...], 1: [...] } }
+      // Берем варианты из первой сцены (индекс 0)
+      let alternatives: string[] = []
+      
+      if (result.variants && typeof result.variants === 'object') {
+        // Получаем варианты первой сцены
+        const firstSceneVariants = result.variants[0] || result.variants['0']
+        if (Array.isArray(firstSceneVariants)) {
+          alternatives = firstSceneVariants.map((v: any) => 
+            typeof v === 'string' ? v : v.text
+          )
+        }
+      } else if (Array.isArray(result.variants)) {
+        // Если вернулся массив (старый формат)
+        alternatives = result.variants
+      }
+      
       // Обновляем альтернативы сцены
       await scriptsService.updateScene(scriptId, selectedScene.id, {
-        alternatives: result.variants || [],
+        alternatives,
       })
       
       // Инвалидируем кеш для обновления данных
@@ -215,7 +234,7 @@ export function ScriptEditorPage() {
       
       toast({
         title: 'Успешно',
-        description: `Сгенерировано ${result.variants?.length || 0} вариантов`,
+        description: `Сгенерировано ${alternatives.length || 0} вариантов`,
       })
       
       if (customPrompt) {
