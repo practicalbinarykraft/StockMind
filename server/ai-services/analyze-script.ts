@@ -75,12 +75,17 @@ export async function analyzeScript(
 ): Promise<ScriptAnalysis> {
   const sanitizedContent = content.substring(0, 4000).replaceAll('"', '\\"');
 
+  if (customPrompt) {
+    console.log(`[analyzeScript] Custom prompt received:`, customPrompt);
+  }
+
   const prompt =
     SECURITY_PREFIX +
     `You are a professional video script analyzer creating viral short-form video scripts (Instagram Reels, TikTok, YouTube Shorts).
 
 Content: "${sanitizedContent}"
 Format: ${format}
+${customPrompt ? `\n🔥 HIGHEST PRIORITY INSTRUCTIONS (OVERRIDE ALL OTHER RULES):\n${customPrompt}\n` : ''}
 
 🎯 CRITICAL REQUIREMENTS FOR EACH SCENE:
 
@@ -102,14 +107,10 @@ MUST HAVE (обязательно):
    - ❌ BAD: "люди делают", "они думают"
    - ✅ GOOD: "ты делаешь", "твоя ошибка", "попробуй завтра"
 
-✅ Scene length: 1-2 sentences max, 5-15 words per scene
-   - Each scene should be punchy, no filler words
-${customPrompt ? `\n\n🎯 ADDITIONAL INSTRUCTIONS (PRIORITY):\n${customPrompt}\n` : ''}
 
 FORBIDDEN (запрещено):
 ❌ Generic phrases: "очень интересно", "давайте разберем", "как вы знаете"
 ❌ Passive voice: "было сделано", "можно увидеть"
-❌ Long sentences: >20 words per scene
 ❌ Weak CTAs: "подписывайтесь", "ставьте лайк" (only at the end, and make it specific)
 
 Task 1: Create 3-5 compelling scenes. For each scene:

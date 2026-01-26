@@ -78,6 +78,7 @@ export const GenerateVariantsDto = z.object({
   sourceText: z.string(),
   prompt: z.string().optional(),
   format: z.string(),
+  lengthOption: z.enum(['keep', 'increase', 'decrease']).optional().default('keep'),
 });
 
 export type GetScriptsQueryDto = z.infer<typeof GetScriptsQueryDto>;

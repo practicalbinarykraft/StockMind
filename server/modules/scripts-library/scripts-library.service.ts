@@ -234,7 +234,8 @@ export const scriptsLibraryService = {
     userId: string,
     sourceText: string,
     format: string,
-    prompt?: string
+    prompt?: string,
+    lengthOption: 'keep' | 'increase' | 'decrease' = 'keep'
   ) {
     if (!sourceText || !format) {
       throw new ScriptValidationError("sourceText and format are required");
@@ -249,13 +250,45 @@ export const scriptsLibraryService = {
     // Calculate source text word count for length reference
     const sourceWordCount = sourceText.split(/\s+/).length;
     
+    // Calculate target word count based on length option
+    let targetWordCount: number;
+    let targetRange: string;
+    let lengthInstruction: string;
+    
+    switch (lengthOption) {
+      case 'decrease':
+        targetWordCount = Math.max(5, Math.round(sourceWordCount * 0.7));
+        targetRange = `${targetWordCount - 2}-${targetWordCount + 2}`;
+        lengthInstruction = `Сделай текст КОРОЧЕ - примерно ${targetWordCount} слов (70% от оригинала).`;
+        break;
+      case 'increase':
+        targetWordCount = Math.round(sourceWordCount * 1.3);
+        targetRange = `${targetWordCount - 3}-${targetWordCount + 3}`;
+        lengthInstruction = `Сделай текст ДЛИННЕЕ - примерно ${targetWordCount} слов (130% от оригинала). Добавь больше деталей и эмоций.`;
+        break;
+      case 'keep':
+      default:
+        targetWordCount = sourceWordCount;
+        targetRange = `${sourceWordCount - 3}-${sourceWordCount + 3}`;
+        lengthInstruction = `Сохрани длину текста - примерно ${sourceWordCount} слов (±3 слова).`;
+        break;
+    }
+    
     // Build enhanced prompt with length preservation
     const enhancedPrompt = [
-      `ВАЖНО: Исходный текст содержит ${sourceWordCount} слов.`,
-      `Сгенерируй варианты примерно такой же длины (${sourceWordCount}±3 слова).`,
-      `Не укорачивай текст! Сохраняй полноту и детальность оригинала.`,
-      prompt || ''
+      `Исходный текст содержит ${sourceWordCount} слов.`,
+      lengthInstruction,
+      `Целевая длина: ${targetRange} слов.`,
+      ``,
+      lengthOption === 'decrease' ? `Сохрани суть, убери лишнее.` : '',
+      lengthOption === 'increase' ? `Добавь конкретные детали, примеры, цифры.` : '',
+      lengthOption === 'keep' ? `Сохраняй полноту, детальность и эмоциональность оригинала.` : '',
+      ``,
+      prompt ? `Дополнительные требования: ${prompt}` : ''
     ].filter(Boolean).join('\n');
+
+    console.log(`[generateVariants] Source: ${sourceWordCount} words, Option: ${lengthOption}, Target: ${targetWordCount} words`);
+    console.log(`[generateVariants] Enhanced prompt:`, enhancedPrompt);
 
     // Generate script with variants
     const analysis = await analyzeScript(
@@ -319,6 +352,16 @@ export const scriptsLibraryService = {
           }
         });
       }
+    });
+
+    // Log generated variants length for debugging
+    console.log(`[generateVariants] Generated variants summary:`);
+    Object.keys(variants).forEach((sceneIndex) => {
+      const sceneVariants = variants[Number(sceneIndex)];
+      sceneVariants.forEach((v, idx) => {
+        const wordCount = v.text.split(/\s+/).length;
+        console.log(`  Scene ${sceneIndex}, Variant ${idx + 1}: ${wordCount} words - "${v.text.substring(0, 50)}..."`);
+      });
     });
 
     return {

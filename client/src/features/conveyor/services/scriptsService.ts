@@ -294,6 +294,7 @@ export async function generateVariants(data: {
   sourceText: string
   prompt?: string
   format: string
+  lengthOption?: 'keep' | 'increase' | 'decrease'
 }): Promise<{
   scenes: Array<{ id: string; type: string; text: string }>
   variants: Record<number, Array<{ id: string; text: string; score?: number }>>

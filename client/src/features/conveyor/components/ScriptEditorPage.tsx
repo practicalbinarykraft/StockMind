@@ -31,6 +31,7 @@ export function ScriptEditorPage() {
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false)
   const [promptText, setPromptText] = useState<string>('')
+  const [lengthOption, setLengthOption] = useState<'keep' | 'increase' | 'decrease'>('keep')
 
   const selectedScene = script?.scenes?.find((s: any) => s.id === selectedSceneId)
 
@@ -193,7 +194,7 @@ export function ScriptEditorPage() {
     }
   }
 
-  const handleRegenerateAlternatives = async (customPrompt?: string) => {
+  const handleRegenerateAlternatives = async (customPrompt?: string, lengthOpt?: 'keep' | 'increase' | 'decrease') => {
     if (!selectedScene || !scriptId) return
     
     setIsRegenerating(true)
@@ -202,13 +203,15 @@ export function ScriptEditorPage() {
       console.log(`[Regenerate] Source text: ${sourceWordCount} words`, {
         text: selectedScene.text,
         customPrompt,
+        lengthOption: lengthOpt || lengthOption,
       })
       
       // Генерируем новые варианты для текущей сцены
       const result = await scriptsService.generateVariants({
         sourceText: selectedScene.text,
         prompt: customPrompt,
-        format: 'short',
+        format: lengthOpt === 'increase' ? 'long' : lengthOpt === 'decrease' ? 'short' : 'base',
+        lengthOption: lengthOpt || lengthOption,
       })
       
       console.log('[Regenerate] Generate variants result:', result)
@@ -246,6 +249,7 @@ export function ScriptEditorPage() {
       if (customPrompt) {
         setIsPromptModalOpen(false)
         setPromptText('')
+        setLengthOption('keep')
       }
     } catch (error) {
       console.error('Error regenerating alternatives:', error)
@@ -264,9 +268,7 @@ export function ScriptEditorPage() {
   }
 
   const handleRegenerateWithPrompt = () => {
-    if (promptText.trim()) {
-      handleRegenerateAlternatives(promptText.trim())
-    }
+    handleRegenerateAlternatives(promptText.trim() || undefined, lengthOption)
   }
 
   if (isLoading) {
@@ -522,22 +524,74 @@ export function ScriptEditorPage() {
                 onClick={() => {
                   setIsPromptModalOpen(false)
                   setPromptText('')
+                  setLengthOption('keep')
                 }}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
+            
+            {/* Настройка длины текста */}
+            <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border">
+              <label className="text-sm font-medium mb-3 block">Длина текста для вариантов:</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="radio"
+                    value="decrease"
+                    checked={lengthOption === 'decrease'}
+                    onChange={(e) => setLengthOption(e.target.value as any)}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Короче</div>
+                    <div className="text-xs text-muted-foreground">~70% от оригинала</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="radio"
+                    value="keep"
+                    checked={lengthOption === 'keep'}
+                    onChange={(e) => setLengthOption(e.target.value as any)}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Та же</div>
+                    <div className="text-xs text-muted-foreground">Как в оригинале</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="radio"
+                    value="increase"
+                    checked={lengthOption === 'increase'}
+                    onChange={(e) => setLengthOption(e.target.value as any)}
+                    className="w-4 h-4 text-primary"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Длиннее</div>
+                    <div className="text-xs text-muted-foreground">~130% от оригинала</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
             <p className="text-sm text-muted-foreground mb-4">
-              Опишите, что именно вы хотите изменить в вариантах текста. 
-              <br />
-              <span className="text-primary">Длина текста автоматически сохраняется</span>, но вы можете указать дополнительные требования.
+              Опишите дополнительные требования к вариантам текста (опционально).
             </p>
             <Textarea
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               className="w-full h-32 bg-muted/50 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all mb-4"
-              placeholder="Например: Сделать более эмоциональным, добавить конкретные цифры, использовать прямое обращение..."
+              placeholder={
+                lengthOption === 'decrease' 
+                  ? "Например: Оставь только главное, убери воду, сделай динамичнее..."
+                  : lengthOption === 'increase'
+                  ? "Например: Добавь конкретные примеры, больше деталей, покажи эмоции..."
+                  : "Например: Сделать более эмоциональным, добавить конкретные цифры..."
+              }
             />
             <div className="flex items-center gap-3 justify-end">
               <Button
@@ -551,11 +605,11 @@ export function ScriptEditorPage() {
               </Button>
               <Button
                 onClick={handleRegenerateWithPrompt}
-                disabled={!promptText.trim() || isRegenerating}
+                disabled={isRegenerating}
                 className="gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-                {isRegenerating ? 'Генерация...' : 'Перегенерировать с промптом'}
+                {isRegenerating ? 'Генерация...' : 'Перегенерировать'}
               </Button>
             </div>
           </div>

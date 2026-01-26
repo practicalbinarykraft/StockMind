@@ -241,7 +241,7 @@ export const scriptsLibraryController = {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
 
-      const { sourceText, prompt, format } = GenerateVariantsDto.parse(
+      const { sourceText, prompt, format, lengthOption } = GenerateVariantsDto.parse(
         req.body
       );
 
@@ -249,7 +249,8 @@ export const scriptsLibraryController = {
         userId,
         sourceText,
         format,
-        prompt
+        prompt,
+        lengthOption
       );
 
       return apiResponse.ok(res, result);
