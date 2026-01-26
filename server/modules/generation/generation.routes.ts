@@ -2,9 +2,9 @@
  * Generation Routes
  * API роуты для управления генерацией сценариев
  */
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import type { Express } from 'express';
-import { requireAuth, type AuthRequest } from '../../middleware/jwt-auth';
+import { requireAuth } from '../../middleware/jwt-auth';
 import { generationPipeline } from './generation-pipeline';
 import { generationSSE } from './generation-sse';
 import { conveyorSettingsService } from '../conveyor-settings/conveyor-settings.service';
@@ -15,9 +15,17 @@ const router = Router();
  * GET /api/generation/stats
  * Получить статистику конвейера
  */
-router.get('/stats', requireAuth, async (req: AuthRequest, res: Response) => {
+router.get('/stats', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    if (!req.userId) {
+      console.error('[Generation] req.userId не установлен');
+      return res.status(401).json({
+        error: 'Не авторизован',
+        code: 'UNAUTHORIZED',
+      });
+    }
+    
+    const userId = req.userId;
     const stats = await generationPipeline.getStats(userId);
     const isRunning = generationPipeline.isRunning(userId);
 
@@ -38,9 +46,17 @@ router.get('/stats', requireAuth, async (req: AuthRequest, res: Response) => {
  * GET /api/generation/stream
  * SSE стрим для real-time обновлений
  */
-router.get('/stream', requireAuth, (req: AuthRequest, res: Response) => {
+router.get('/stream', requireAuth, (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    if (!req.userId) {
+      console.error('[Generation] req.userId не установлен');
+      return res.status(401).json({
+        error: 'Не авторизован',
+        code: 'UNAUTHORIZED',
+      });
+    }
+    
+    const userId = req.userId;
     
     // Добавить клиента для получения обновлений
     generationSSE.addUserClient(userId, res);
@@ -64,9 +80,17 @@ router.get('/stream', requireAuth, (req: AuthRequest, res: Response) => {
  * POST /api/generation/start
  * Запустить генерацию сценариев
  */
-router.post('/start', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/start', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    if (!req.userId) {
+      console.error('[Generation] req.userId не установлен');
+      return res.status(401).json({
+        error: 'Не авторизован',
+        code: 'UNAUTHORIZED',
+      });
+    }
+    
+    const userId = req.userId;
     const { newsIds, limit = 5 } = req.body;
 
     // Проверить, не запущена ли уже генерация
@@ -187,9 +211,17 @@ router.post('/start', requireAuth, async (req: AuthRequest, res: Response) => {
  * POST /api/generation/stop
  * Остановить генерацию
  */
-router.post('/stop', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/stop', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    if (!req.userId) {
+      console.error('[Generation] req.userId не установлен');
+      return res.status(401).json({
+        error: 'Не авторизован',
+        code: 'UNAUTHORIZED',
+      });
+    }
+    
+    const userId = req.userId;
 
     if (!generationPipeline.isRunning(userId)) {
       return res.status(400).json({
@@ -217,9 +249,17 @@ router.post('/stop', requireAuth, async (req: AuthRequest, res: Response) => {
  * POST /api/generation/start-single
  * Запустить генерацию для одной новости
  */
-router.post('/start-single', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/start-single', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    if (!req.userId) {
+      console.error('[Generation] req.userId не установлен');
+      return res.status(401).json({
+        error: 'Не авторизован',
+        code: 'UNAUTHORIZED',
+      });
+    }
+    
+    const userId = req.userId;
     const { newsId } = req.body;
 
     if (!newsId) {
@@ -284,9 +324,17 @@ router.post('/start-single', requireAuth, async (req: AuthRequest, res: Response
  * GET /api/generation/news
  * Получить новости для генерации
  */
-router.get('/news', requireAuth, async (req: AuthRequest, res: Response) => {
+router.get('/news', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    if (!req.userId) {
+      console.error('[Generation] req.userId не установлен');
+      return res.status(401).json({
+        error: 'Не авторизован',
+        code: 'UNAUTHORIZED',
+      });
+    }
+    
+    const userId = req.userId;
     const limit = parseInt(req.query.limit as string) || 20;
 
     const news = await generationPipeline.getNewsForGeneration(userId, limit);
