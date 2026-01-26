@@ -8,7 +8,8 @@ async function repairScriptAnalysis(
   apiKey: string,
   format: string,
   content: string,
-  attemptNumber: number
+  attemptNumber: number,
+  customPrompt?: string
 ): Promise<ScriptAnalysis> {
   console.log(`[Repair Attempt ${attemptNumber}] Trying to generate scenes...`);
 
@@ -17,6 +18,7 @@ async function repairScriptAnalysis(
   const repairPrompt =
     SECURITY_PREFIX +
     `CRITICAL: Your previous response did not contain valid scenes array. This is attempt ${attemptNumber}/2.
+${customPrompt ? `\nADDITIONAL INSTRUCTIONS: ${customPrompt}\n` : ''}
 
 You MUST return a valid JSON with a "scenes" array containing 3-5 scenes.
 
@@ -68,7 +70,8 @@ Return ONLY valid JSON. The "scenes" field is REQUIRED and MUST be an array with
 export async function analyzeScript(
   apiKey: string,
   format: string,
-  content: string
+  content: string,
+  customPrompt?: string
 ): Promise<ScriptAnalysis> {
   const sanitizedContent = content.substring(0, 4000).replaceAll('"', '\\"');
 
@@ -101,6 +104,7 @@ MUST HAVE (обязательно):
 
 ✅ Scene length: 1-2 sentences max, 5-15 words per scene
    - Each scene should be punchy, no filler words
+${customPrompt ? `\n\n🎯 ADDITIONAL INSTRUCTIONS (PRIORITY):\n${customPrompt}\n` : ''}
 
 FORBIDDEN (запрещено):
 ❌ Generic phrases: "очень интересно", "давайте разберем", "как вы знаете"
@@ -188,7 +192,8 @@ Respond ONLY in valid JSON:
           apiKey,
           format,
           content,
-          attempt
+          attempt,
+          customPrompt
         );
         if (repaired.scenes.length >= 3) {
           console.log(

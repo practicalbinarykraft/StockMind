@@ -246,11 +246,23 @@ export const scriptsLibraryService = {
       throw new NoApiKeyConfiguredError("Anthropic");
     }
 
+    // Calculate source text word count for length reference
+    const sourceWordCount = sourceText.split(/\s+/).length;
+    
+    // Build enhanced prompt with length preservation
+    const enhancedPrompt = [
+      `ВАЖНО: Исходный текст содержит ${sourceWordCount} слов.`,
+      `Сгенерируй варианты примерно такой же длины (${sourceWordCount}±3 слова).`,
+      `Не укорачивай текст! Сохраняй полноту и детальность оригинала.`,
+      prompt || ''
+    ].filter(Boolean).join('\n');
+
     // Generate script with variants
     const analysis = await analyzeScript(
       apiKey.decryptedKey,
       format,
-      sourceText
+      sourceText,
+      enhancedPrompt
     );
 
     // Transform to frontend format

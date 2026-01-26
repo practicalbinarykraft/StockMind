@@ -198,6 +198,12 @@ export function ScriptEditorPage() {
     
     setIsRegenerating(true)
     try {
+      const sourceWordCount = selectedScene.text.split(/\s+/).length
+      console.log(`[Regenerate] Source text: ${sourceWordCount} words`, {
+        text: selectedScene.text,
+        customPrompt,
+      })
+      
       // Генерируем новые варианты для текущей сцены
       const result = await scriptsService.generateVariants({
         sourceText: selectedScene.text,
@@ -205,7 +211,7 @@ export function ScriptEditorPage() {
         format: 'short',
       })
       
-      console.log('Generate variants result:', result)
+      console.log('[Regenerate] Generate variants result:', result)
       
       // API возвращает { scenes: [...], variants: { 0: [...], 1: [...] } }
       // Берем варианты из первой сцены (индекс 0)
@@ -523,13 +529,15 @@ export function ScriptEditorPage() {
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Опишите, что именно вы хотите изменить в вариантах текста. Например: "Сделать более эмоциональным", "Упростить формулировку", "Добавить больше деталей".
+              Опишите, что именно вы хотите изменить в вариантах текста. 
+              <br />
+              <span className="text-primary">Длина текста автоматически сохраняется</span>, но вы можете указать дополнительные требования.
             </p>
             <Textarea
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               className="w-full h-32 bg-muted/50 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all mb-4"
-              placeholder="Например: Сделать текст более динамичным и захватывающим..."
+              placeholder="Например: Сделать более эмоциональным, добавить конкретные цифры, использовать прямое обращение..."
             />
             <div className="flex items-center gap-3 justify-end">
               <Button
