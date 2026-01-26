@@ -22,7 +22,7 @@ export function ScriptEditorPage() {
   const scriptId = params?.id || ''
   const { toast } = useToast()
 
-  const { script, isLoading } = useScript(scriptId)
+  const { data: script, isLoading } = useScript(scriptId)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   const [editingText, setEditingText] = useState<string>('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
