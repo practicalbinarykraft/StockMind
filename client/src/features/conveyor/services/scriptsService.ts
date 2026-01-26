@@ -50,13 +50,20 @@ export async function getDrafts(params?: {
   const scripts = result.data || result
   
   // Маппинг полей с сервера на фронтенд формат
-  const mappedScripts = Array.isArray(scripts) ? scripts.map((s: any) => ({
-    ...s,
-    // Маппинг полей для совместимости с UI компонентами
-    newsTitle: s.newsTitle || s.title,
-    sourceName: s.sourceName || s.sourceTitle || s.sourceType || 'Неизвестно',
-    score: s.score ?? s.aiScore ?? 0,
-  })) : []
+  const mappedScripts = Array.isArray(scripts) ? scripts.map((s: any) => {
+    // Нормализуем sourceType: instagram остаётся instagram, всё остальное -> rss
+    const normalizedSourceType = s.sourceType === 'instagram' ? 'instagram' : 'rss'
+    
+    return {
+      ...s,
+      // Маппинг полей для совместимости с UI компонентами
+      newsTitle: s.newsTitle || s.title,
+      sourceName: s.sourceName || s.sourceTitle || (normalizedSourceType === 'instagram' ? 'Instagram' : 'Новости'),
+      score: s.score ?? s.aiScore ?? 0,
+      // Нормализованный sourceType для фильтрации
+      sourceType: normalizedSourceType,
+    }
+  }) : []
   
   return {
     items: mappedScripts,
@@ -83,13 +90,20 @@ export async function getReadyScripts(params?: {
   const scripts = result.data || result
   
   // Маппинг полей с сервера на фронтенд формат
-  const mappedScripts = Array.isArray(scripts) ? scripts.map((s: any) => ({
-    ...s,
-    // Маппинг полей для совместимости с UI компонентами
-    newsTitle: s.newsTitle || s.title,
-    sourceName: s.sourceName || s.sourceTitle || s.sourceType || 'Неизвестно',
-    score: s.score ?? s.aiScore ?? 0,
-  })) : []
+  const mappedScripts = Array.isArray(scripts) ? scripts.map((s: any) => {
+    // Нормализуем sourceType: instagram остаётся instagram, всё остальное -> rss
+    const normalizedSourceType = s.sourceType === 'instagram' ? 'instagram' : 'rss'
+    
+    return {
+      ...s,
+      // Маппинг полей для совместимости с UI компонентами
+      newsTitle: s.newsTitle || s.title,
+      sourceName: s.sourceName || s.sourceTitle || (normalizedSourceType === 'instagram' ? 'Instagram' : 'Новости'),
+      score: s.score ?? s.aiScore ?? 0,
+      // Нормализованный sourceType для фильтрации
+      sourceType: normalizedSourceType,
+    }
+  }) : []
   
   return {
     items: mappedScripts,
