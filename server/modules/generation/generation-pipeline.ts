@@ -3,7 +3,7 @@
  * Оркестрирует генерацию сценариев через Scriptwriter и Editor агентов
  */
 import { db } from '../../db';
-import { newsItems, autoScripts, conveyorItems, type AutoScript, type InsertAutoScript } from '@shared/schema';
+import { rssItems, autoScripts, conveyorItems, type AutoScript } from '@shared/schema';
 import { eq, and, or, sql, desc } from 'drizzle-orm';
 import { scriptwriterAgent, editorAgent } from './agents';
 import type { ScriptwriterOutput, EditorOutput, SceneComment } from './agents';
@@ -268,8 +268,8 @@ class GenerationPipeline {
   private async getNews(newsId: string): Promise<any | null> {
     const [news] = await db
       .select()
-      .from(newsItems)
-      .where(eq(newsItems.id, newsId))
+      .from(rssItems)
+      .where(eq(rssItems.id, newsId))
       .limit(1);
     return news || null;
   }
@@ -442,9 +442,9 @@ class GenerationPipeline {
     const [newsStats] = await db
       .select({
         total: sql<number>`count(*)`,
-        analyzed: sql<number>`count(*) filter (where ${newsItems.aiScore} is not null)`,
+        analyzed: sql<number>`count(*) filter (where ${rssItems.aiScore} is not null)`,
       })
-      .from(newsItems);
+      .from(rssItems);
 
     const [scriptStats] = await db
       .select({
@@ -471,14 +471,21 @@ class GenerationPipeline {
   async getNewsForGeneration(userId: string, limit: number = 10, maxAgeDays?: number): Promise<any[]> {
     let query = db
       .select()
-      .from(newsItems)
+      .from(rssItems)
       .where(
         or(
-          eq(newsItems.status, 'selected'),
-          eq(newsItems.status, 'scored')
+          eq(rssItems.userAction, 'selected'),
+          // Also include items with high AI score that haven't been dismissed
+          and(
+            sql`${rssItems.aiScore} >= 70`,
+            or(
+              sql`${rssItems.userAction} IS NULL`,
+              sql`${rssItems.userAction} != 'dismissed'`
+            )
+          )
         )
       )
-      .orderBy(desc(newsItems.createdAt))
+      .orderBy(desc(rssItems.publishedAt))
       .limit(limit);
 
     // Фильтрация по возрасту будет применяться в JS, т.к. сложно сделать это в запросе
@@ -489,7 +496,7 @@ class GenerationPipeline {
       cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
       
       return allNews.filter(n => {
-        const newsDate = n.publishedAt || n.createdAt;
+        const newsDate = n.publishedAt || n.parsedAt;
         if (!newsDate) return true;
         return new Date(newsDate) >= cutoffDate;
       });
