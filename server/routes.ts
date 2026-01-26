@@ -46,6 +46,7 @@ import { registerConveyorTriggerRoutes } from "./modules/conveyor-trigger/convey
 import { registerConveyorEventsRoutes } from "./modules/conveyor-events/conveyor-events.routes";
 import { registerConveyorProgressRoutes } from "./modules/conveyor-progress/conveyor-progress.routes";
 import { registerAiSettingsRoutes } from "./modules/ai-settings/ai-settings.routes";
+import { registerGenerationRoutes } from "./modules/generation/generation.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all route modules
@@ -99,6 +100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerConveyorTriggerRoutes(app);
   registerConveyorEventsRoutes(app);
   registerConveyorProgressRoutes(app);
+
+  // Script Generation (Simplified Conveyor)
+  registerGenerationRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

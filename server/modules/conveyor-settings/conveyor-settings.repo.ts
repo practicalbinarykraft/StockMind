@@ -86,4 +86,57 @@ export class ConveyorSettingsRepo {
     }
     return false;
   }
+
+  /**
+   * Increment daily count by 1
+   */
+  async incrementDailyCount(userId: string): Promise<void> {
+    await db
+      .update(conveyorSettings)
+      .set({
+        itemsProcessedToday: sql`${conveyorSettings.itemsProcessedToday} + 1`,
+        totalProcessed: sql`${conveyorSettings.totalProcessed} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(conveyorSettings.userId, userId));
+  }
+
+  /**
+   * Add cost to monthly total
+   */
+  async addCost(userId: string, cost: number): Promise<void> {
+    await db
+      .update(conveyorSettings)
+      .set({
+        currentMonthCost: sql`${conveyorSettings.currentMonthCost} + ${cost}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(conveyorSettings.userId, userId));
+  }
+
+  /**
+   * Increment passed count
+   */
+  async incrementPassed(userId: string): Promise<void> {
+    await db
+      .update(conveyorSettings)
+      .set({
+        totalPassed: sql`${conveyorSettings.totalPassed} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(conveyorSettings.userId, userId));
+  }
+
+  /**
+   * Increment failed count
+   */
+  async incrementFailed(userId: string): Promise<void> {
+    await db
+      .update(conveyorSettings)
+      .set({
+        totalFailed: sql`${conveyorSettings.totalFailed} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(conveyorSettings.userId, userId));
+  }
 }

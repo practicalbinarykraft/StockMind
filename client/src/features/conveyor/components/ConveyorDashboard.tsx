@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   Card,
@@ -29,10 +30,13 @@ import {
   Settings,
   Sparkles,
   ArrowRight,
+  Loader2,
+  Square,
 } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
+import { generationService, type GenerationStats, type SSEEvent } from "../services/generationService";
 
 interface DashboardData {
   enabled: boolean;
@@ -120,7 +124,73 @@ export function ConveyorDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch dashboard data
+  // Generation state with SSE
+  const [generationStats, setGenerationStats] = useState<GenerationStats>({
+    parsed: 0,
+    analyzed: 0,
+    scriptsWritten: 0,
+    inReview: 0,
+    isRunning: false,
+  });
+  const [isConnected, setIsConnected] = useState(false);
+
+  // SSE connection for real-time updates
+  useEffect(() => {
+    const unsubscribe = generationService.subscribe(
+      (event: SSEEvent) => {
+        console.log('[ConveyorDashboard] SSE event:', event);
+        
+        if (event.event === 'state') {
+          // Начальное состояние при подключении
+          setGenerationStats(prev => ({
+            ...prev,
+            isRunning: event.data.isRunning,
+            ...(event.data.stats || {}),
+          }));
+        } else if (event.event === 'stats') {
+          // Обновление статистики из БД (приходит после завершения скрипта)
+          setGenerationStats(prev => ({
+            ...prev,
+            parsed: event.data.parsed ?? prev.parsed,
+            analyzed: event.data.analyzed ?? prev.analyzed,
+            scriptsWritten: event.data.scriptsWritten ?? prev.scriptsWritten,
+            inReview: event.data.inReview ?? prev.inReview,
+          }));
+        } else if (event.event === 'running_state') {
+          setGenerationStats(prev => ({
+            ...prev,
+            isRunning: event.data.isRunning,
+          }));
+        } else if (event.event === 'script:completed' || 
+                   event.event === 'script:error') {
+          // Статистика уже приходит через 'stats' событие от сервера
+          // Дополнительно invalidate query для обновления списка
+          queryClient.invalidateQueries({ queryKey: ["conveyor-dashboard"] });
+        } else if (event.event === 'scriptwriter:started' || 
+                   event.event === 'editor:started') {
+          // Индикация активной работы - показать что происходит обработка
+          console.log(`[ConveyorDashboard] ${event.event}:`, event.data);
+        }
+        
+        setIsConnected(true);
+      },
+      (error) => {
+        console.error('[ConveyorDashboard] SSE error:', error);
+        setIsConnected(false);
+      }
+    );
+
+    // Load initial stats
+    generationService.getStats().then(stats => {
+      setGenerationStats(stats);
+    }).catch(console.error);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient]);
+
+  // Fetch dashboard data for legacy conveyor info
   const { data: dashboard, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ["conveyor-dashboard"],
     queryFn: async () => {
@@ -146,7 +216,51 @@ export function ConveyorDashboard() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  // Trigger mutation
+  // Start generation mutation
+  const startMutation = useMutation({
+    mutationFn: async () => {
+      return await generationService.start(undefined, 5);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["conveyor-dashboard"] });
+      toast({
+        title: "Генерация запущена",
+        description: `Обработка ${data.newsCount} новостей начата`,
+      });
+      setGenerationStats(prev => ({ ...prev, isRunning: true }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stop generation mutation
+  const stopMutation = useMutation({
+    mutationFn: async () => {
+      return await generationService.stop();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conveyor-dashboard"] });
+      toast({
+        title: "Генерация остановлена",
+        description: "Текущие задачи будут завершены",
+      });
+      setGenerationStats(prev => ({ ...prev, isRunning: false }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Legacy trigger mutation (kept for compatibility)
   const triggerMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/conveyor/trigger", {
@@ -255,35 +369,37 @@ export function ConveyorDashboard() {
               <Factory className="h-5 w-5" />
               <h1 className="text-xl font-semibold">Content Factory</h1>
             </div>
-            <Badge variant={dashboard?.enabled ? "default" : "secondary"}>
-              {dashboard?.enabled ? "Активен" : "Выключен"}
+            <Badge variant={generationStats.isRunning ? "default" : "secondary"} className="flex items-center gap-1">
+              {generationStats.isRunning && <Loader2 className="h-3 w-3 animate-spin" />}
+              {generationStats.isRunning ? "Генерация..." : "Ожидание"}
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              onClick={() => triggerMutation.mutate()}
-              disabled={
-                triggerMutation.isPending ||
-                dashboard?.enabled ||
-                (dashboard?.processingCount || 0) > 0 ||
-                (dashboard?.todayProgress.processed || 0) >=
-                  (dashboard?.todayProgress.limit || 10) ||
-                parseFloat(dashboard?.budget.used || "0") >=
-                  parseFloat(dashboard?.budget.limit || "0")
-              }
-              className="gap-2"
-            >
-              <Play className="h-4 w-4" />
-              Запустить
-            </Button>
-            {dashboard?.enabled && (
+            {!generationStats.isRunning ? (
               <Button
-                variant="destructive"
-                onClick={() => pauseMutation.mutate()}
-                disabled={pauseMutation.isPending}
+                onClick={() => startMutation.mutate()}
+                disabled={startMutation.isPending}
                 className="gap-2"
               >
-                <Pause className="h-4 w-4" />
+                {startMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Запустить
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={() => stopMutation.mutate()}
+                disabled={stopMutation.isPending}
+                className="gap-2"
+              >
+                {stopMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
                 Остановить
               </Button>
             )}
@@ -299,7 +415,7 @@ export function ConveyorDashboard() {
         </div>
       </div>
 
-      {/* Top Stats */}
+      {/* Top Stats - Using generationStats for real-time updates */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         {/* Спарсено новостей */}
         <div className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0">
@@ -310,7 +426,7 @@ export function ConveyorDashboard() {
                 <TrendingUp className="w-6 h-6 text-blue-400" />
               </div>
               <div className="text-right min-w-0 flex-1 ml-2">
-                <div className="text-3xl font-bold">{dashboard?.todayProgress.processed || 0}</div>
+                <div className="text-3xl font-bold">{generationStats.parsed}</div>
                 <div className="text-sm text-muted-foreground mt-1 truncate">Спарсено новостей</div>
               </div>
             </div>
@@ -326,7 +442,7 @@ export function ConveyorDashboard() {
                 <CheckCircle className="w-6 h-6 text-green-400" />
               </div>
               <div className="text-right min-w-0 flex-1 ml-2">
-                <div className="text-3xl font-bold">{dashboard?.stats.totalPassed || 0}</div>
+                <div className="text-3xl font-bold">{generationStats.analyzed}</div>
                 <div className="text-sm text-muted-foreground mt-1 truncate">Проанализировано</div>
               </div>
             </div>
@@ -345,7 +461,7 @@ export function ConveyorDashboard() {
                 <FileText className="w-6 h-6 text-purple-400" />
               </div>
               <div className="text-right min-w-0 flex-1 ml-2">
-                <div className="text-3xl font-bold">{dashboard?.stats.totalApproved || 0}</div>
+                <div className="text-3xl font-bold">{generationStats.scriptsWritten}</div>
                 <div className="text-sm text-muted-foreground mt-1 truncate">Сценариев написано</div>
               </div>
             </div>
@@ -364,7 +480,7 @@ export function ConveyorDashboard() {
                 <Clock className="w-6 h-6 text-yellow-400" />
               </div>
               <div className="text-right min-w-0 flex-1 ml-2">
-                <div className="text-3xl font-bold">{dashboard?.pendingReview.count || 0}</div>
+                <div className="text-3xl font-bold">{generationStats.inReview}</div>
                 <div className="text-sm text-muted-foreground mt-1 truncate">На рецензии</div>
               </div>
             </div>
@@ -382,7 +498,7 @@ export function ConveyorDashboard() {
               </div>
               <CardTitle>Сценарии на рецензии</CardTitle>
               <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
-                {dashboard?.pendingReview.count || 0}
+                {generationStats.inReview}
               </Badge>
             </div>
             <Button
