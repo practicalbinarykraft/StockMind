@@ -8,16 +8,16 @@ import type { NewsScript, NewsScriptListItem, AISettings, Script, Scene } from '
 // Типы ответов API
 interface DraftsListResponse {
   items: Script[]
-  total: number
-  limit: number
-  offset: number
+  total?: number
+  limit?: number
+  offset?: number
 }
 
 interface NewsScriptsListResponse {
   items: NewsScriptListItem[]
-  total: number
-  limit: number
-  offset: number
+  total?: number
+  limit?: number
+  offset?: number
 }
 
 interface GenerationStartResponse {
@@ -33,7 +33,7 @@ export interface SSEEvent {
 
 /**
  * Получить список черновиков (Script[])
- * Эндпоинт: GET /api/auto-scripts?status=draft
+ * Эндпоинт: GET /api/scripts?status=draft
  */
 export async function getDrafts(params?: {
   limit?: number
@@ -45,9 +45,40 @@ export async function getDrafts(params?: {
   if (params?.offset) searchParams.set('offset', params.offset.toString())
 
   const query = searchParams.toString()
-  const response = await apiRequest('GET', `/api/auto-scripts${query ? `?${query}` : ''}`)
-  const data = await response.json()
-  return data.data || data
+  const response = await apiRequest('GET', `/api/scripts${query ? `?${query}` : ''}`)
+  const result = await response.json()
+  const scripts = result.data || result
+  
+  // Сервер возвращает массив скриптов, преобразуем в нужный формат
+  return {
+    items: Array.isArray(scripts) ? scripts : [],
+    total: Array.isArray(scripts) ? scripts.length : 0,
+  }
+}
+
+/**
+ * Получить список готовых сценариев (Script[])
+ * Эндпоинт: GET /api/scripts?status=ready
+ */
+export async function getReadyScripts(params?: {
+  limit?: number
+  offset?: number
+}): Promise<DraftsListResponse> {
+  const searchParams = new URLSearchParams()
+  searchParams.set('status', 'ready')
+  if (params?.limit) searchParams.set('limit', params.limit.toString())
+  if (params?.offset) searchParams.set('offset', params.offset.toString())
+
+  const query = searchParams.toString()
+  const response = await apiRequest('GET', `/api/scripts${query ? `?${query}` : ''}`)
+  const result = await response.json()
+  const scripts = result.data || result
+  
+  // Сервер возвращает массив скриптов, преобразуем в нужный формат
+  return {
+    items: Array.isArray(scripts) ? scripts : [],
+    total: Array.isArray(scripts) ? scripts.length : 0,
+  }
 }
 
 /**
@@ -66,16 +97,27 @@ export async function getScripts(params?: {
 
   const query = searchParams.toString()
   const response = await apiRequest('GET', `/api/auto-scripts${query ? `?${query}` : ''}`)
-  const data = await response.json()
-  return data.data || data
+  const result = await response.json()
+  const scripts = result.data || result
+  
+  // Если это массив, преобразуем в нужный формат
+  if (Array.isArray(scripts)) {
+    return {
+      items: scripts,
+      total: scripts.length,
+    }
+  }
+  
+  // Если уже объект с items, возвращаем как есть
+  return scripts
 }
 
 /**
  * Получить один сценарий со всеми итерациями
- * Эндпоинт: GET /api/auto-scripts/:id
+ * Эндпоинт: GET /api/scripts/:id (для черновиков из библиотеки)
  */
 export async function getScript(id: string): Promise<Script> {
-  const response = await apiRequest('GET', `/api/auto-scripts/${id}`)
+  const response = await apiRequest('GET', `/api/scripts/${id}`)
   const data = await response.json()
   return data.data || data
 }
@@ -106,13 +148,13 @@ export async function updateScriptStatus(
 
 /**
  * Обновить сценарий (универсальная функция)
- * Эндпоинт: PATCH /api/auto-scripts/:id
+ * Эндпоинт: PATCH /api/scripts/:id (для черновиков из библиотеки)
  */
 export async function updateScript(
   id: string,
   updates: Partial<Script>
 ): Promise<Script> {
-  const response = await apiRequest('PATCH', `/api/auto-scripts/${id}`, updates)
+  const response = await apiRequest('PATCH', `/api/scripts/${id}`, updates)
   const data = await response.json()
   return data.data || data
 }
@@ -327,6 +369,7 @@ export async function updateScene(
 
 export const scriptsService = {
   getDrafts,
+  getReadyScripts,
   getScripts,
   getScript,
   getScriptIterations,

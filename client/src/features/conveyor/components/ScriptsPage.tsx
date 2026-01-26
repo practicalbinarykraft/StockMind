@@ -4,7 +4,7 @@
 
 import { useLocation } from 'wouter'
 import { CheckCircle, Calendar, Edit, Film, Trash2 } from 'lucide-react'
-import { useScripts, useScriptActions } from '../hooks/use-scripts'
+import { useReadyScripts, useScriptActions } from '../hooks/use-scripts'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
@@ -14,7 +14,8 @@ import { ru } from 'date-fns/locale'
 
 export function ScriptsPage() {
   const [, navigate] = useLocation()
-  const { data: scriptsData, isLoading } = useScripts({ status: 'completed' })
+  // Используем useReadyScripts для получения готовых скриптов из scripts_library
+  const { data: scriptsData, isLoading } = useReadyScripts()
   const { deleteScript } = useScriptActions()
   const scripts = scriptsData?.items || []
 
@@ -25,11 +26,9 @@ export function ScriptsPage() {
     }
   }
 
-  // Получить количество сцен из последней итерации
+  // Получить количество сцен из скрипта
   const getScenesCount = (script: typeof scripts[0]) => {
-    if (!script.iterations || script.iterations.length === 0) return 0
-    const lastIteration = script.iterations[script.iterations.length - 1]
-    return lastIteration?.script?.scenes?.length || 0
+    return script.scenes?.length || 0
   }
 
   if (isLoading) {
@@ -76,7 +75,7 @@ export function ScriptsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="text-lg font-semibold group-hover:text-primary transition-colors">
-                          {script.newsTitle}
+                          {(script as any).title || script.newsTitle || 'Без названия'}
                         </h4>
                         <Badge variant="default" className="bg-green-500">
                           Готов
@@ -95,31 +94,30 @@ export function ScriptsPage() {
                             locale: ru,
                           })}
                         </span>
-                        {script.lastScore !== null && script.lastScore !== undefined && (
+                        {((script as any).aiScore !== null && (script as any).aiScore !== undefined) && (
                           <>
                             <span>•</span>
                             <span className={
-                              script.lastScore >= 8 ? 'text-green-400' :
-                              script.lastScore >= 5 ? 'text-yellow-400' :
+                              (script as any).aiScore >= 80 ? 'text-green-400' :
+                              (script as any).aiScore >= 50 ? 'text-yellow-400' :
                               'text-red-400'
                             }>
-                              Оценка: {script.lastScore}/10
+                              Оценка: {(script as any).aiScore}/100
                             </span>
                           </>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline">{script.newsSource}</Badge>
+                        {(script as any).sourceType && (
+                          <Badge variant="outline">
+                            {(script as any).sourceType === 'rss' ? '📰 RSS' : 
+                             (script as any).sourceType === 'instagram' ? '📱 Instagram' : 
+                             (script as any).sourceType}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                      <Button
-                        onClick={() => navigate(`/project/editor/${script.id}`)}
-                        className="gap-2"
-                      >
-                        <Film className="w-4 h-4" />
-                        Видео-редактор
-                      </Button>
                       <Button
                         onClick={() => navigate(`/conveyor/drafts/${script.id}`)}
                         variant="outline"

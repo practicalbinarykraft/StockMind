@@ -34,17 +34,36 @@ export interface RssSource {
 
 export interface Script {
   id: string
-  newsId: string
-  newsTitle: string
+  // Scripts Library fields
+  title: string
+  status: 'draft' | 'analyzed' | 'ready' | 'in_production' | 'completed'
   scenes: Scene[]
+  fullText?: string
+  format?: string
+  durationSeconds?: number
+  wordCount?: number
+  aiScore?: number
+  aiAnalysis?: any
+  aiRecommendations?: any
+  sourceType?: 'rss' | 'reddit' | 'instagram' | 'custom'
+  sourceId?: string
+  sourceTitle?: string
+  sourceUrl?: string
+  projectId?: string
+  version?: number
+  parentScriptId?: string
   createdAt: string
   updatedAt: string
-  status: 'draft' | 'review' | 'completed'
-  sourceType: 'rss' | 'instagram'
-  sourceName: string
-  score: number
-  hasAudio: boolean
-  hasAvatar: boolean
+  analyzedAt?: string
+  tags?: string[]
+  notes?: string
+  // Legacy fields (for backwards compatibility)
+  newsId?: string
+  newsTitle?: string
+  sourceName?: string
+  score?: number
+  hasAudio?: boolean
+  hasAvatar?: boolean
 }
 
 export interface Scene {

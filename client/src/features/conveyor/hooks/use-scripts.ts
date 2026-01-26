@@ -22,6 +22,19 @@ export function useDrafts(params?: {
 }
 
 /**
+ * Хук для получения списка готовых сценариев
+ */
+export function useReadyScripts(params?: {
+  limit?: number
+  offset?: number
+}) {
+  return useQuery({
+    queryKey: ['scripts', 'ready', params],
+    queryFn: () => scriptsService.getReadyScripts(params),
+  })
+}
+
+/**
  * Хук для получения списка сценариев
  */
 export function useScripts(params?: {

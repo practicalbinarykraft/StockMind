@@ -14,7 +14,7 @@ import { ru } from 'date-fns/locale'
 
 export function ScriptsReviewPage() {
   const [, navigate] = useLocation()
-  const { data: scriptsData, isLoading } = useScripts({ status: 'human_review' })
+  const { data: scriptsData, isLoading } = useScripts({ status: 'pending' })
   const scripts = scriptsData?.items || []
 
   if (isLoading) {
