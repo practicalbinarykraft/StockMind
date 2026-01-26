@@ -212,7 +212,7 @@ export function AISettingsPanel({ settings, onSettingsChange, isOpen, onToggle }
                 rows={8}
               />
               <p className="text-sm text-muted-foreground">
-                Примеров: {localSettings.examples.length}
+                Примеров: {localSettings.examples?.length || 0}
               </p>
             </div>
 

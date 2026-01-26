@@ -240,24 +240,20 @@ export function subscribeToGeneration(
 
 /**
  * Получить настройки AI
- * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: GET /api/settings
- * На сервере используйте: GET /api/conveyor/settings
- * TODO: Обновить путь или создать соответствующий эндпоинт
+ * Эндпоинт: GET /api/ai-settings
  */
 export async function getAISettings(): Promise<AISettings> {
-  const response = await apiRequest('GET', '/api/conveyor/settings')
+  const response = await apiRequest('GET', '/api/ai-settings')
   const data = await response.json()
   return data.data || data
 }
 
 /**
  * Обновить настройки AI
- * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: PATCH /api/settings
- * На сервере используйте: PUT /api/conveyor/settings
- * TODO: Обновить путь или создать соответствующий эндпоинт
+ * Эндпоинт: PUT /api/ai-settings
  */
 export async function updateAISettings(settings: Partial<AISettings>): Promise<AISettings> {
-  const response = await apiRequest('PUT', '/api/conveyor/settings', settings)
+  const response = await apiRequest('PUT', '/api/ai-settings', settings)
   const data = await response.json()
   return data.data || data
 }
@@ -290,40 +286,57 @@ export async function deleteExample(exampleId: string): Promise<{ success: boole
 
 /**
  * Сохранить API ключ
- * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/settings/api-key
- * На сервере используйте модуль api-keys
- * TODO: Проверить правильный путь на сервере
+ * Эндпоинт: POST /api/settings/api-keys
  */
 export async function saveApiKey(
   provider: 'anthropic' | 'deepseek',
   apiKey: string
 ): Promise<{ success: boolean; provider: string; last4: string }> {
-  const response = await apiRequest('POST', '/api/settings/api-key', { provider, apiKey })
+  const response = await apiRequest('POST', '/api/settings/api-keys', { provider, apiKey })
   const data = await response.json()
-  return data.data || data
+  return { success: true, provider: data.provider, last4: data.last4 }
 }
 
 /**
  * Удалить API ключ
- * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: DELETE /api/settings/api-key/:provider
- * TODO: Проверить правильный путь на сервере
+ * Эндпоинт: DELETE /api/settings/api-keys/:id
+ * Сначала нужно получить ID ключа
  */
 export async function deleteApiKey(
   provider: 'anthropic' | 'deepseek'
 ): Promise<{ success: boolean }> {
-  await apiRequest('DELETE', `/api/settings/api-key/${provider}`)
+  // Get all keys first to find the ID
+  const keysResponse = await apiRequest('GET', '/api/settings/api-keys')
+  const keysData = await keysResponse.json()
+  const keys = keysData.data || keysData
+  const key = keys.find((k: any) => k.provider === provider)
+  
+  if (!key) {
+    throw new Error(`API ключ для провайдера ${provider} не найден`)
+  }
+  
+  await apiRequest('DELETE', `/api/settings/api-keys/${key.id}`)
   return { success: true }
 }
 
 /**
  * Протестировать API ключ
- * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/settings/api-key/:provider/test
- * TODO: Проверить правильный путь на сервере
+ * Эндпоинт: POST /api/settings/api-keys/:id/test
  */
 export async function testApiKey(
   provider: 'anthropic' | 'deepseek'
 ): Promise<{ success: boolean; message: string }> {
-  const response = await apiRequest('POST', `/api/settings/api-key/${provider}/test`)
+  // Get all keys first to find the ID
+  const keysResponse = await apiRequest('GET', '/api/settings/api-keys')
+  const keysData = await keysResponse.json()
+  const keys = keysData.data || keysData
+  const key = keys.find((k: any) => k.provider === provider)
+  
+  if (!key) {
+    throw new Error(`API ключ для провайдера ${provider} не найден`)
+  }
+  
+  const response = await apiRequest('POST', `/api/settings/api-keys/${key.id}/test`)
   const data = await response.json()
   return data.data || data
 }

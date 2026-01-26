@@ -45,6 +45,7 @@ import { registerConveyorStatusRoutes } from "./modules/conveyor-status/conveyor
 import { registerConveyorTriggerRoutes } from "./modules/conveyor-trigger/conveyor-trigger.routes";
 import { registerConveyorEventsRoutes } from "./modules/conveyor-events/conveyor-events.routes";
 import { registerConveyorProgressRoutes } from "./modules/conveyor-progress/conveyor-progress.routes";
+import { registerAiSettingsRoutes } from "./modules/ai-settings/ai-settings.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all route modules
@@ -73,6 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Services
   registerAiRoutes(app);
   registerAdvancedAnalysisRoutes(app);
+  registerAiSettingsRoutes(app);
 
   // Media Generation
   registerAudioRoutes(app);
