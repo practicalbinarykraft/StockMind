@@ -5,20 +5,24 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useRoute } from 'wouter'
 import { Save, ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle } from 'lucide-react'
-import { useScript, useScriptActions } from '../hooks/use-scripts'
+import { useScript } from '../../scripts/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Textarea } from '@/shared/ui/textarea'
 import { ScrollArea } from '@/shared/ui/scroll-area'
+import { scriptsService } from '../services/scriptsService'
+import { useToast } from '@/shared/hooks/use-toast'
+import type { Scene } from '../types'
 
 export function ScriptEditorPage() {
   const [, navigate] = useLocation()
   const [, params] = useRoute('/conveyor/drafts/:id')
   const scriptId = params?.id || ''
+  const { toast } = useToast()
 
-  const { data: script, isLoading } = useScript(scriptId)
+  const { script, isLoading } = useScript(scriptId)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   const [editingText, setEditingText] = useState<string>('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -27,7 +31,7 @@ export function ScriptEditorPage() {
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false)
   const [promptText, setPromptText] = useState<string>('')
 
-  const selectedScene = script?.scenes?.find((s) => s.id === selectedSceneId)
+  const selectedScene = script?.scenes?.find((s: any) => s.id === selectedSceneId)
 
   // Инициализация при загрузке скрипта
   useEffect(() => {
@@ -49,9 +53,30 @@ export function ScriptEditorPage() {
     setHasUnsavedChanges(text !== selectedScene?.text)
   }
 
-  const handleSaveScene = () => {
-    // TODO: Implement save logic
-    setHasUnsavedChanges(false)
+  const handleSaveScene = async () => {
+    if (!selectedSceneId || !script) return
+    
+    try {
+      setIsSaving(true)
+      await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
+      setHasUnsavedChanges(false)
+      toast({
+        title: 'Успешно',
+        description: 'Сцена сохранена',
+      })
+      
+      // Обновляем данные скрипта
+      window.location.reload()
+    } catch (error) {
+      console.error('Error saving scene:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сохранить сцену',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleCancelScene = () => {
@@ -61,19 +86,71 @@ export function ScriptEditorPage() {
     }
   }
 
-  const handleAddScene = () => {
-    // TODO: Implement add scene logic
-    alert('Добавление сцены будет реализовано')
+  const handleAddScene = async () => {
+    if (!script) return
+    
+    try {
+      setIsSaving(true)
+      
+      // Создаем новую сцену
+      const newScene = {
+        id: `scene-${Date.now()}`,
+        order: script.scenes.length + 1,
+        text: 'Новая сцена...',
+        alternatives: [],
+      }
+      
+      // Добавляем сцену в массив
+      const updatedScenes = [...script.scenes, newScene]
+      await scriptsService.updateScript(scriptId, { scenes: updatedScenes })
+      
+      toast({
+        title: 'Успешно',
+        description: 'Сцена добавлена',
+      })
+      
+      // Выбираем новую сцену
+      setSelectedSceneId(newScene.id)
+      
+      // Обновляем данные
+      window.location.reload()
+    } catch (error) {
+      console.error('Error adding scene:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось добавить сцену',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleSaveToDrafts = async () => {
     setIsSaving(true)
     try {
-      // TODO: Implement save to drafts
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Сохраняем текущие изменения если есть
+      if (hasUnsavedChanges && selectedSceneId) {
+        await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
+      }
+      
+      // Обновляем статус на draft (если он другой)
+      if (script?.status !== 'draft') {
+        await scriptsService.updateScript(scriptId, { status: 'draft' })
+      }
+      
+      toast({
+        title: 'Успешно',
+        description: 'Сохранено в черновики',
+      })
       navigate('/conveyor/drafts')
     } catch (error) {
       console.error('Error saving to drafts:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сохранить в черновики',
+        variant: 'destructive',
+      })
     } finally {
       setIsSaving(false)
     }
@@ -82,11 +159,26 @@ export function ScriptEditorPage() {
   const handleSaveToScripts = async () => {
     setIsSaving(true)
     try {
-      // TODO: Implement save to scripts
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Сохраняем текущие изменения если есть
+      if (hasUnsavedChanges && selectedSceneId) {
+        await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
+      }
+      
+      // Обновляем статус на completed (готов к использованию)
+      await scriptsService.updateScript(scriptId, { status: 'completed' })
+      
+      toast({
+        title: 'Успешно',
+        description: 'Сценарий готов к использованию',
+      })
       navigate('/conveyor/scripts')
     } catch (error) {
       console.error('Error saving to scripts:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сохранить сценарий',
+        variant: 'destructive',
+      })
     } finally {
       setIsSaving(false)
     }
@@ -100,16 +192,41 @@ export function ScriptEditorPage() {
   }
 
   const handleRegenerateAlternatives = async (customPrompt?: string) => {
+    if (!selectedScene) return
+    
     setIsRegenerating(true)
     try {
-      // TODO: Implement regenerate alternatives
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Генерируем новые варианты для текущей сцены
+      const result = await scriptsService.generateVariants({
+        sourceText: selectedScene.text,
+        prompt: customPrompt,
+        format: 'short', // или другой формат
+      })
+      
+      // Обновляем альтернативы сцены
+      await scriptsService.updateScene(scriptId, selectedScene.id, {
+        alternatives: result.variants || [],
+      })
+      
+      toast({
+        title: 'Успешно',
+        description: 'Альтернативы сгенерированы',
+      })
+      
       if (customPrompt) {
         setIsPromptModalOpen(false)
         setPromptText('')
       }
+      
+      // Обновляем данные
+      window.location.reload()
     } catch (error) {
       console.error('Error regenerating alternatives:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сгенерировать альтернативы',
+        variant: 'destructive',
+      })
     } finally {
       setIsRegenerating(false)
     }
@@ -203,7 +320,7 @@ export function ScriptEditorPage() {
               </div>
             </div>
             <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
-              {script.scenes?.map((scene) => (
+              {script.scenes?.map((scene: Scene) => (
                 <button
                   key={scene.id}
                   onClick={() => {
@@ -317,7 +434,7 @@ export function ScriptEditorPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {selectedScene.alternatives.map((alternative, index) => (
+                    {selectedScene.alternatives.map((alternative: string, index: number) => (
                       <div
                         key={index}
                         className="glass rounded-lg p-4 border border-border hover:border-primary/30 hover:shadow-lg hover:shadow-primary/20 transition-all cursor-pointer group relative overflow-hidden"

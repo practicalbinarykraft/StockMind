@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { useScripts } from '@/features/scripts/hooks'
 
 type FilterType = 'all' | 'rss' | 'instagram'
 
@@ -17,13 +18,9 @@ export function DraftsPage() {
   const [, navigate] = useLocation()
   const [filter, setFilter] = useState<FilterType>('all')
 
-  const { data: scriptsData, isLoading } = useDrafts()
-  const scripts = scriptsData?.items || []
+  const { scripts, isLoading } = useScripts()
 
-  const filteredScripts = scripts.filter(script => {
-    if (filter === 'all') return true
-    return script.sourceType === filter
-  })
+  const filteredScripts = scripts.filter(script => script.status === 'draft')
 
   if (isLoading) {
     return (

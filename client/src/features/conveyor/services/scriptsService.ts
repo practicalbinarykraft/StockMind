@@ -2,7 +2,8 @@
  * Сервис для работы со сценариями
  */
 
-import type { NewsScript, NewsScriptListItem, AISettings, Script } from '../types'
+import { apiRequest } from '@/shared/api/http'
+import type { NewsScript, NewsScriptListItem, AISettings, Script, Scene } from '../types'
 
 // Типы ответов API
 interface DraftsListResponse {
@@ -31,37 +32,8 @@ export interface SSEEvent {
 }
 
 /**
- * Базовая функция для API запросов
- */
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `/api${endpoint}`
-
-  const defaultOptions: RequestInit = {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  }
-
-  const res = await fetch(url, defaultOptions)
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.error || errorData.message || `HTTP Error: ${res.status}`)
-  }
-
-  const response = await res.json()
-  // Unwrap API format if needed: { success: true, data: {...} }
-  return response.data || response
-}
-
-/**
  * Получить список черновиков (Script[])
+ * Эндпоинт: GET /api/scripts?status=draft
  */
 export async function getDrafts(params?: {
   limit?: number
@@ -73,11 +45,14 @@ export async function getDrafts(params?: {
   if (params?.offset) searchParams.set('offset', params.offset.toString())
 
   const query = searchParams.toString()
-  return apiRequest<DraftsListResponse>(`/scripts${query ? `?${query}` : ''}`)
+  const response = await apiRequest('GET', `/api/scripts${query ? `?${query}` : ''}`)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Получить список сценариев (NewsScript[] для completed/review)
+ * Эндпоинт: GET /api/scripts?status={status}
  */
 export async function getScripts(params?: {
   status?: string
@@ -90,69 +65,98 @@ export async function getScripts(params?: {
   if (params?.offset) searchParams.set('offset', params.offset.toString())
 
   const query = searchParams.toString()
-  return apiRequest<NewsScriptsListResponse>(`/scripts${query ? `?${query}` : ''}`)
+  const response = await apiRequest('GET', `/api/scripts${query ? `?${query}` : ''}`)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Получить один сценарий со всеми итерациями
+ * Эндпоинт: GET /api/scripts/:id
  */
 export async function getScript(id: string): Promise<Script> {
-  return apiRequest<Script>(`/scripts/${id}`)
+  const response = await apiRequest('GET', `/api/scripts/${id}`)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Получить только итерации сценария
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: GET /api/scripts/:id/iterations
+ * TODO: Реализовать на сервере или использовать getScript и извлекать iterations
  */
 export async function getScriptIterations(id: string): Promise<NewsScript['iterations']> {
-  return apiRequest<NewsScript['iterations']>(`/scripts/${id}/iterations`)
+  const response = await apiRequest('GET', `/api/scripts/${id}/iterations`)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Обновить статус сценария (approve/reject)
+ * Эндпоинт: PATCH /api/scripts/:id
  */
 export async function updateScriptStatus(
   id: string,
   status: 'approved' | 'rejected'
 ): Promise<Script> {
-  return apiRequest<Script>(`/scripts/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  })
+  const response = await apiRequest('PATCH', `/api/scripts/${id}`, { status })
+  const data = await response.json()
+  return data.data || data
+}
+
+/**
+ * Обновить сценарий (универсальная функция)
+ * Эндпоинт: PATCH /api/scripts/:id
+ */
+export async function updateScript(
+  id: string,
+  updates: Partial<Script>
+): Promise<Script> {
+  const response = await apiRequest('PATCH', `/api/scripts/${id}`, updates)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Удалить сценарий
+ * Эндпоинт: DELETE /api/scripts/:id
  */
 export async function deleteScript(id: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/scripts/${id}`, { method: 'DELETE' })
+  await apiRequest('DELETE', `/api/scripts/${id}`)
+  return { success: true }
 }
 
 /**
  * Запустить генерацию сценария для новости
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/generation/start
+ * TODO: Реализовать на сервере
  */
 export async function startGeneration(newsId: string): Promise<GenerationStartResponse> {
-  return apiRequest<GenerationStartResponse>('/generation/start', {
-    method: 'POST',
-    body: JSON.stringify({ newsId }),
-  })
+  const response = await apiRequest('POST', '/api/generation/start', { newsId })
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Остановить генерацию
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/generation/stop/:scriptId
+ * TODO: Реализовать на сервере
  */
 export async function stopGeneration(scriptId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/generation/stop/${scriptId}`, {
-    method: 'POST',
-  })
+  const response = await apiRequest('POST', `/api/generation/stop/${scriptId}`)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Перезапустить генерацию
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/generation/retry/:scriptId
+ * TODO: Реализовать на сервере
  */
 export async function retryGeneration(scriptId: string): Promise<{ success: boolean }> {
-  return apiRequest<{ success: boolean }>(`/generation/retry/${scriptId}`, {
-    method: 'POST',
-  })
+  const response = await apiRequest('POST', `/api/generation/retry/${scriptId}`)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
@@ -194,72 +198,127 @@ export function subscribeToGeneration(
 
 /**
  * Получить настройки AI
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: GET /api/settings
+ * На сервере используйте: GET /api/conveyor/settings
+ * TODO: Обновить путь или создать соответствующий эндпоинт
  */
 export async function getAISettings(): Promise<AISettings> {
-  return apiRequest<AISettings>('/settings')
+  const response = await apiRequest('GET', '/api/conveyor/settings')
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Обновить настройки AI
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: PATCH /api/settings
+ * На сервере используйте: PUT /api/conveyor/settings
+ * TODO: Обновить путь или создать соответствующий эндпоинт
  */
 export async function updateAISettings(settings: Partial<AISettings>): Promise<AISettings> {
-  return apiRequest<AISettings>('/settings', {
-    method: 'PATCH',
-    body: JSON.stringify(settings),
-  })
+  const response = await apiRequest('PUT', '/api/conveyor/settings', settings)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Добавить пример сценария
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/settings/examples
+ * TODO: Реализовать на сервере
  */
 export async function addExample(example: {
   filename: string
   content: string
 }): Promise<{ id: string; filename: string; content: string }> {
-  return apiRequest('/settings/examples', {
-    method: 'POST',
-    body: JSON.stringify(example),
-  })
+  const response = await apiRequest('POST', '/api/settings/examples', example)
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Удалить пример сценария
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: DELETE /api/settings/examples/:exampleId
+ * TODO: Реализовать на сервере
  */
 export async function deleteExample(exampleId: string): Promise<{ success: boolean }> {
-  return apiRequest(`/settings/examples/${exampleId}`, { method: 'DELETE' })
+  await apiRequest('DELETE', `/api/settings/examples/${exampleId}`)
+  return { success: true }
 }
 
 // === API Keys ===
 
 /**
  * Сохранить API ключ
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/settings/api-key
+ * На сервере используйте модуль api-keys
+ * TODO: Проверить правильный путь на сервере
  */
 export async function saveApiKey(
   provider: 'anthropic' | 'deepseek',
   apiKey: string
 ): Promise<{ success: boolean; provider: string; last4: string }> {
-  return apiRequest('/settings/api-key', {
-    method: 'POST',
-    body: JSON.stringify({ provider, apiKey }),
-  })
+  const response = await apiRequest('POST', '/api/settings/api-key', { provider, apiKey })
+  const data = await response.json()
+  return data.data || data
 }
 
 /**
  * Удалить API ключ
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: DELETE /api/settings/api-key/:provider
+ * TODO: Проверить правильный путь на сервере
  */
 export async function deleteApiKey(
   provider: 'anthropic' | 'deepseek'
 ): Promise<{ success: boolean }> {
-  return apiRequest(`/settings/api-key/${provider}`, { method: 'DELETE' })
+  await apiRequest('DELETE', `/api/settings/api-key/${provider}`)
+  return { success: true }
 }
 
 /**
  * Протестировать API ключ
+ * ⚠️ ЭНДПОИНТ НЕ СУЩЕСТВУЕТ: POST /api/settings/api-key/:provider/test
+ * TODO: Проверить правильный путь на сервере
  */
 export async function testApiKey(
   provider: 'anthropic' | 'deepseek'
 ): Promise<{ success: boolean; message: string }> {
-  return apiRequest(`/settings/api-key/${provider}/test`, { method: 'POST' })
+  const response = await apiRequest('POST', `/api/settings/api-key/${provider}/test`)
+  const data = await response.json()
+  return data.data || data
+}
+
+/**
+ * Генерация вариантов сценария
+ * Эндпоинт: POST /api/scripts/generate-variants
+ */
+export async function generateVariants(data: {
+  sourceText: string
+  prompt?: string
+  format: string
+}): Promise<{ variants: string[] }> {
+  const response = await apiRequest('POST', '/api/scripts/generate-variants', data)
+  const result = await response.json()
+  return result.data || result
+}
+
+/**
+ * Обновить сцену сценария
+ * Использует PATCH /api/scripts/:id для обновления сцен
+ */
+export async function updateScene(
+  scriptId: string,
+  sceneId: string,
+  updates: Partial<Scene>
+): Promise<Script> {
+  // Сначала получаем текущий скрипт
+  const script = await getScript(scriptId)
+  
+  // Обновляем нужную сцену
+  const updatedScenes = script.scenes.map(scene =>
+    scene.id === sceneId ? { ...scene, ...updates } : scene
+  )
+  
+  // Отправляем обновленный скрипт
+  return updateScript(scriptId, { scenes: updatedScenes })
 }
 
 export const scriptsService = {
@@ -268,6 +327,7 @@ export const scriptsService = {
   getScript,
   getScriptIterations,
   updateScriptStatus,
+  updateScript,
   deleteScript,
   startGeneration,
   stopGeneration,
@@ -280,4 +340,6 @@ export const scriptsService = {
   saveApiKey,
   deleteApiKey,
   testApiKey,
+  generateVariants,
+  updateScene,
 }
