@@ -85,7 +85,7 @@ export async function analyzeScript(
 
 Content: "${sanitizedContent}"
 Format: ${format}
-${customPrompt ? `\n🔥 HIGHEST PRIORITY INSTRUCTIONS (OVERRIDE ALL OTHER RULES):\n${customPrompt}\n` : ''}
+${customPrompt ? `\n🔥 HIGHEST PRIORITY INSTRUCTIONS (OVERRIDE ALL OTHER RULES):\n${customPrompt}\n\nIMPORTANT: This is a SINGLE SCENE text. Create only ONE scene with variants.\nDO NOT split into multiple scenes. The entire content is ONE complete scene.\nEach variant should have similar length to the original content.\n` : ''}
 
 🎯 CRITICAL REQUIREMENTS FOR EACH SCENE:
 
@@ -107,16 +107,18 @@ MUST HAVE (обязательно):
    - ❌ BAD: "люди делают", "они думают"
    - ✅ GOOD: "ты делаешь", "твоя ошибка", "попробуй завтра"
 
+✅ Scene length: ${customPrompt ? 'Follow the length instructions in HIGHEST PRIORITY section above' : '1-2 sentences max, 5-15 words per scene'}
+   - Each scene should be punchy, no filler words
 
 FORBIDDEN (запрещено):
 ❌ Generic phrases: "очень интересно", "давайте разберем", "как вы знаете"
 ❌ Passive voice: "было сделано", "можно увидеть"
 ❌ Weak CTAs: "подписывайтесь", "ставьте лайк" (only at the end, and make it specific)
 
-Task 1: Create 3-5 compelling scenes. For each scene:
+Task 1: ${customPrompt ? 'Create ONLY ONE scene (the entire content is one scene)' : 'Create 3-5 compelling scenes'}. For each scene:
 1. Write scene text (MUST follow requirements above)
 2. Score viral potential (0-100) - be strict, generic = 20-40, specific = 80-95
-3. Generate 3 alternative variants (each improving on previous)
+3. Generate 3 alternative variants${customPrompt ? ' (each variant should match the target length specified above)' : ' (each improving on previous)'}
 
 Task 2: As multi-agent team, provide improvement recommendations:
 - Hook Expert: First 3 seconds, attention grab, pattern interrupts
@@ -138,7 +140,7 @@ SELF-CHECK before responding:
 2. All scenes use "ты" or direct address? (if not, -10 points)
 3. No generic phrases? (if found, -15 points)
 4. Each scene is 1-2 sentences? (if longer, -10 points)
-5. CTA is specific and actionable? (if generic, -20 points)
+5. CTA is specific and actionable? (if generic, -20 points)${customPrompt ? '\n6. Each variant matches the target length from HIGHEST PRIORITY section? (CRITICAL!)' : ''}
 
 Respond ONLY in valid JSON:
 {
@@ -146,14 +148,14 @@ Respond ONLY in valid JSON:
   "scenes": [
     {
       "sceneNumber": 1,
-      "text": "<compelling scene text in Russian, 5-15 words, specific, emotional>",
+      "text": "<compelling scene text in Russian${customPrompt ? ', matching target length from HIGHEST PRIORITY section' : ', 5-15 words'}, specific, emotional>",
       "score": <0-100, be strict: generic=20-40, specific=80-95>,
       "variants": [
-        "<variant 1: even more specific>",
-        "<variant 2: stronger emotional trigger>",
-        "<variant 3: better hook pattern>"
+        "<variant 1: ${customPrompt ? 'same length as main text, different approach' : 'even more specific'}>",
+        "<variant 2: ${customPrompt ? 'same length as main text, different angle' : 'stronger emotional trigger'}>",
+        "<variant 3: ${customPrompt ? 'same length as main text, different style' : 'better hook pattern'}>"
       ]
-    }
+    }${customPrompt ? '' : ',\n    // ... more scenes (3-5 total)'}
   ],
   "recommendations": [
     {
