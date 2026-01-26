@@ -72,6 +72,12 @@ class GenerationPipeline {
 
     try {
       for (const newsId of newsIds) {
+        // Пропустить невалидные ID
+        if (!newsId || typeof newsId !== 'string') {
+          console.warn(`[Pipeline] Пропущен невалидный newsId:`, newsId);
+          continue;
+        }
+
         // Проверка на остановку
         if (!generationSSE.isRunning(userId)) {
           console.log(`[Pipeline] Генерация остановлена пользователем`);
@@ -79,9 +85,11 @@ class GenerationPipeline {
         }
 
         try {
+          console.log(`[Pipeline] Обработка новости ${newsId}`);
           await this.runSingle(userId, newsId, settings);
         } catch (error: any) {
           console.error(`[Pipeline] Ошибка генерации для newsId ${newsId}:`, error);
+          console.error(`[Pipeline] Error stack:`, error.stack);
           // Продолжаем с остальными
         }
       }
@@ -101,18 +109,31 @@ class GenerationPipeline {
     newsId: string,
     settings: PipelineSettings
   ): Promise<GenerationResult> {
-    console.log(`[Pipeline] Генерация для newsId: ${newsId}`);
+    console.log(`[Pipeline] Генерация для newsId: ${newsId}, userId: ${userId}`);
 
     try {
       // 1. Получить новость
+      console.log(`[Pipeline] Получение новости с ID: ${newsId}`);
       const news = await this.getNews(newsId);
+      
       if (!news) {
+        console.error(`[Pipeline] Новость с ID ${newsId} не найдена в БД`);
         throw new Error(`Новость с ID ${newsId} не найдена`);
       }
+      
+      console.log(`[Pipeline] Новость найдена: ${news.title}`);
 
       // 2. Создать запись auto_script
+      console.log(`[Pipeline] Создание auto_script для новости ${newsId}`);
       const autoScript = await this.createAutoScript(userId, news);
+      
+      if (!autoScript || !autoScript.id) {
+        console.error(`[Pipeline] autoScript не создан или не имеет ID`);
+        throw new Error('Failed to create autoScript');
+      }
+      
       const scriptId = autoScript.id;
+      console.log(`[Pipeline] AutoScript создан с ID: ${scriptId}`);
 
       // Track this generation
       const abortController = new AbortController();
@@ -126,7 +147,8 @@ class GenerationPipeline {
         activeGenerations.delete(scriptId);
       }
     } catch (error: any) {
-      console.error(`[Pipeline] Ошибка:`, error);
+      console.error(`[Pipeline] Ошибка в runSingle:`, error);
+      console.error(`[Pipeline] Stack trace:`, error.stack);
       return { success: false, error: error.message };
     }
   }
@@ -275,8 +297,14 @@ class GenerationPipeline {
   }
 
   private async createAutoScript(userId: string, news: any): Promise<AutoScript> {
+    console.log(`[Pipeline] createAutoScript called with newsId: ${news?.id}, userId: ${userId}`);
+    
+    if (!news || !news.id) {
+      throw new Error('News object is invalid or missing id');
+    }
+
     // Сначала создаём conveyor_item для связи
-    const [conveyorItem] = await db
+    const conveyorItemResult = await db
       .insert(conveyorItems)
       .values({
         userId,
@@ -287,10 +315,16 @@ class GenerationPipeline {
       })
       .returning();
 
+    const conveyorItem = conveyorItemResult[0];
+    
+    if (!conveyorItem) {
+      throw new Error('Failed to create conveyor_item');
+    }
+
     console.log(`[Pipeline] Создан conveyor_item: ${conveyorItem.id}`);
 
     // Теперь создаём auto_script с реальным conveyorItemId
-    const [script] = await db
+    const scriptResult = await db
       .insert(autoScripts)
       .values({
         userId,
@@ -307,6 +341,12 @@ class GenerationPipeline {
         finalScore: 0,
       })
       .returning();
+
+    const script = scriptResult[0];
+    
+    if (!script) {
+      throw new Error('Failed to create auto_script');
+    }
 
     console.log(`[Pipeline] Создан auto_script: ${script.id}`);
     return script;
@@ -469,18 +509,28 @@ class GenerationPipeline {
    * @param maxAgeDays - максимальный возраст новости в днях (опционально)
    */
   async getNewsForGeneration(userId: string, limit: number = 10, maxAgeDays?: number): Promise<any[]> {
-    let query = db
+    console.log(`[Pipeline] getNewsForGeneration: userId=${userId}, limit=${limit}, maxAgeDays=${maxAgeDays}`);
+    
+    const allNews = await db
       .select()
       .from(rssItems)
       .where(
-        or(
-          eq(rssItems.userAction, 'selected'),
-          // Also include items with high AI score that haven't been dismissed
-          and(
-            sql`${rssItems.aiScore} >= 70`,
-            or(
-              sql`${rssItems.userAction} IS NULL`,
-              sql`${rssItems.userAction} != 'dismissed'`
+        and(
+          // Только новости этого пользователя (или общие, если userId null)
+          or(
+            eq(rssItems.userId, userId),
+            sql`${rssItems.userId} IS NULL`
+          ),
+          // Выбранные вручную или с высоким AI score
+          or(
+            eq(rssItems.userAction, 'selected'),
+            // Include items with high AI score that haven't been dismissed
+            and(
+              sql`${rssItems.aiScore} >= 70`,
+              or(
+                sql`${rssItems.userAction} IS NULL`,
+                sql`${rssItems.userAction} != 'dismissed'`
+              )
             )
           )
         )
@@ -488,18 +538,21 @@ class GenerationPipeline {
       .orderBy(desc(rssItems.publishedAt))
       .limit(limit);
 
-    // Фильтрация по возрасту будет применяться в JS, т.к. сложно сделать это в запросе
-    const allNews = await query;
+    console.log(`[Pipeline] Найдено новостей из БД: ${allNews.length}`);
     
+    // Фильтрация по возрасту
     if (maxAgeDays && maxAgeDays > 0) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
       
-      return allNews.filter(n => {
+      const filtered = allNews.filter(n => {
         const newsDate = n.publishedAt || n.parsedAt;
-        if (!newsDate) return true;
+        if (!newsDate) return true; // Включаем новости без даты
         return new Date(newsDate) >= cutoffDate;
       });
+      
+      console.log(`[Pipeline] После фильтрации по возрасту (${maxAgeDays} дней): ${filtered.length} новостей`);
+      return filtered;
     }
 
     return allNews;

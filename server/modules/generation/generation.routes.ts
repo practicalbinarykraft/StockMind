@@ -110,12 +110,21 @@ router.post('/start', requireAuth, async (req: AuthRequest, res: Response) => {
         limit, 
         conveyorSettings.dailyLimit - conveyorSettings.itemsProcessedToday
       );
+      
+      console.log(`[Generation] Получение новостей для генерации, лимит: ${remainingLimit}, maxAgeDays: ${conveyorSettings.maxAgeDays}`);
+      
       const news = await generationPipeline.getNewsForGeneration(
         userId, 
         remainingLimit,
         conveyorSettings.maxAgeDays
       );
-      targetNewsIds = news.map(n => n.id);
+      
+      console.log(`[Generation] Найдено новостей: ${news.length}`);
+      
+      // Фильтруем новости с валидными ID
+      targetNewsIds = news.filter(n => n && n.id).map(n => n.id);
+      
+      console.log(`[Generation] Валидных ID новостей: ${targetNewsIds.length}`);
     }
 
     if (targetNewsIds.length === 0) {
@@ -124,6 +133,8 @@ router.post('/start', requireAuth, async (req: AuthRequest, res: Response) => {
         code: 'NO_NEWS',
       });
     }
+    
+    console.log(`[Generation] Запуск batch генерации для ${targetNewsIds.length} новостей:`, targetNewsIds);
 
     // Извлечь настройки стиля
     const stylePreferences = conveyorSettings.stylePreferences as {
