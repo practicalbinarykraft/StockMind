@@ -72,7 +72,10 @@ class GenerationPipeline {
     await this.refreshUserStats(userId);
 
     try {
-      for (const newsId of newsIds) {
+      for (let i = 0; i < newsIds.length; i++) {
+        const newsId = newsIds[i];
+        console.log(`[Pipeline] ===== Итерация ${i + 1}/${newsIds.length} =====`);
+        
         // Пропустить невалидные ID
         if (!newsId || typeof newsId !== 'string') {
           console.warn(`[Pipeline] Пропущен невалидный newsId:`, newsId);
@@ -80,7 +83,9 @@ class GenerationPipeline {
         }
 
         // Проверка на остановку пользователем
-        if (!generationSSE.isRunning(userId)) {
+        const isRunning = generationSSE.isRunning(userId);
+        console.log(`[Pipeline] isRunning: ${isRunning}`);
+        if (!isRunning) {
           console.log(`[Pipeline] Генерация остановлена пользователем`);
           break;
         }
@@ -92,6 +97,7 @@ class GenerationPipeline {
           break;
         }
         
+        console.log(`[Pipeline] Проверка лимита: processed=${conveyorSettings.itemsProcessedToday}, limit=${conveyorSettings.dailyLimit}`);
         if (conveyorSettings.itemsProcessedToday >= conveyorSettings.dailyLimit) {
           console.log(`[Pipeline] Достигнут дневной лимит (${conveyorSettings.dailyLimit} сценариев)`);
           generationSSE.sendEvent(userId, {
@@ -108,10 +114,31 @@ class GenerationPipeline {
         try {
           console.log(`[Pipeline] Обработка новости ${newsId}`);
           await this.runSingle(userId, newsId, settings);
+          console.log(`[Pipeline] Обработка новости ${newsId} завершена успешно`);
         } catch (error: any) {
-          console.error(`[Pipeline] Ошибка генерации для newsId ${newsId}:`, error);
-          console.error(`[Pipeline] Error stack:`, error.stack);
-          // Продолжаем с остальными
+          console.error(`[Pipeline] Ошибка генерации для newsId ${newsId}:`, error.message);
+          
+          // Если ошибка связана с дубликатом - сообщаем пользователю через SSE
+          if (error.message && error.message.includes('уже создан')) {
+            generationSSE.sendEvent(userId, {
+              type: 'script_skipped',
+              data: {
+                newsId,
+                reason: 'Сценарий для этой новости уже существует',
+              },
+            });
+          } else {
+            // Для других ошибок отправляем уведомление об ошибке
+            generationSSE.sendEvent(userId, {
+              type: 'script_error',
+              data: {
+                newsId,
+                error: error.message,
+              },
+            });
+          }
+          
+          // Продолжаем с остальными новостями
         }
       }
     } finally {
@@ -187,7 +214,9 @@ class GenerationPipeline {
     let previousReview: EditorOutput | null = null;
 
     const maxIterations = settings.maxIterations || 3;
-    const minScore = settings.minApprovalScore || 8;
+    // minScore в шкале 1-10 (Editor работает в этой шкале)
+    // При передаче из routes конвертируется из minScoreThreshold (50-95 из 100) делением на 10
+    const minScore = settings.minApprovalScore || 8; // По умолчанию 8/10 = 80/100
 
     while (currentIteration < maxIterations) {
       // Check if stopped
@@ -239,17 +268,22 @@ class GenerationPipeline {
         });
 
         await this.saveReview(scriptId, reviewResult, currentIteration);
-        generationSSE.editorCompleted(userId, scriptId, reviewResult.overallScore, reviewResult.verdict);
+        // Конвертируем оценку в шкалу 0-100 для отправки на клиент
+        const scoreFor100 = Math.round(reviewResult.overallScore * 10);
+        generationSSE.editorCompleted(userId, scriptId, scoreFor100, reviewResult.verdict);
 
         // --- DECISION ---
         if (reviewResult.verdict === 'approved' || reviewResult.overallScore >= minScore) {
+          // Конвертируем оценку в шкалу 0-100 для сохранения и отправки на клиент
+          const finalScore = Math.round(reviewResult.overallScore * 10);
+          
           // Успех!
-          await this.completeScript(scriptId, reviewResult.overallScore, userId);
-          generationSSE.scriptCompleted(userId, scriptId, reviewResult.overallScore);
-          console.log(`[Pipeline] Сценарий одобрен с оценкой ${reviewResult.overallScore}/10`);
+          await this.completeScript(scriptId, finalScore, userId);
+          generationSSE.scriptCompleted(userId, scriptId, finalScore);
+          console.log(`[Pipeline] Сценарий одобрен с оценкой ${reviewResult.overallScore}/10 (${finalScore}/100)`);
           // Обновить статистику из БД
           await this.refreshUserStats(userId);
-          return { success: true, scriptId, finalScore: reviewResult.overallScore };
+          return { success: true, scriptId, finalScore };
         }
 
         if (reviewResult.verdict === 'rejected') {
@@ -322,6 +356,23 @@ class GenerationPipeline {
     
     if (!news || !news.id) {
       throw new Error('News object is invalid or missing id');
+    }
+
+    // Проверяем, существует ли уже сценарий для этой новости
+    const [existingScript] = await db
+      .select()
+      .from(autoScripts)
+      .where(
+        and(
+          eq(autoScripts.userId, userId),
+          eq(autoScripts.sourceItemId, news.id)
+        )
+      )
+      .limit(1);
+
+    if (existingScript) {
+      console.log(`[Pipeline] Сценарий для новости ${news.id} уже существует: ${existingScript.id}`);
+      throw new Error(`Сценарий для этой новости уже создан (ID: ${existingScript.id})`);
     }
 
     // Сначала создаём conveyor_item для связи
@@ -406,18 +457,21 @@ class GenerationPipeline {
     result: EditorOutput,
     iteration: number
   ): Promise<void> {
+    // Конвертируем оценку из шкалы 1-10 в 0-100
+    const finalScore = Math.round(result.overallScore * 10);
+    
     // Сохраняем результат рецензии
     // gateDecision: 'PASS' | 'NEEDS_REVIEW' | 'FAIL' (uppercase as per schema)
     await db
       .update(autoScripts)
       .set({
-        finalScore: result.overallScore,
+        finalScore,
         gateDecision: result.verdict === 'approved' ? 'PASS' : 
                       result.verdict === 'rejected' ? 'FAIL' : 'NEEDS_REVIEW',
       })
       .where(eq(autoScripts.id, scriptId));
 
-    console.log(`[Pipeline] Сохранена рецензия для scriptId: ${scriptId}, оценка: ${result.overallScore}/10`);
+    console.log(`[Pipeline] Сохранена рецензия для scriptId: ${scriptId}, оценка: ${result.overallScore}/10 (${finalScore}/100)`);
   }
 
   private async completeScript(scriptId: string, finalScore: number, userId: string): Promise<void> {
@@ -436,7 +490,7 @@ class GenerationPipeline {
     // Примерная стоимость за сценарий (можно рассчитать точнее на основе токенов)
     await conveyorSettingsService.addCost(userId, 0.05);
 
-    console.log(`[Pipeline] Сценарий ${scriptId} завершен с оценкой ${finalScore}/10`);
+    console.log(`[Pipeline] Сценарий ${scriptId} завершен с оценкой ${finalScore}/100, счетчик увеличен`);
   }
 
   private async markForHumanReview(scriptId: string, userId?: string): Promise<void> {
@@ -453,9 +507,10 @@ class GenerationPipeline {
       await conveyorSettingsService.incrementDailyCount(userId);
       await conveyorSettingsService.incrementFailed(userId);
       await conveyorSettingsService.addCost(userId, 0.05);
+      console.log(`[Pipeline] Сценарий ${scriptId} отправлен на рецензию человека, счетчик увеличен`);
+    } else {
+      console.log(`[Pipeline] Сценарий ${scriptId} отправлен на рецензию человека, счетчик НЕ увеличен (userId отсутствует)`);
     }
-
-    console.log(`[Pipeline] Сценарий ${scriptId} отправлен на рецензию человека`);
   }
 
   private async updateIteration(scriptId: string, iteration: number): Promise<void> {
@@ -538,6 +593,15 @@ class GenerationPipeline {
   ): Promise<any[]> {
     console.log(`[Pipeline] getNewsForGeneration: userId=${userId}, limit=${limit}, maxAgeDays=${maxAgeDays}, autoParseIfNeeded=${autoParseIfNeeded}`);
     
+    // Получаем ID новостей, для которых уже созданы сценарии
+    const existingScripts = await db
+      .select({ sourceItemId: autoScripts.sourceItemId })
+      .from(autoScripts)
+      .where(eq(autoScripts.userId, userId));
+    
+    const existingNewsIds = new Set(existingScripts.map(s => s.sourceItemId));
+    console.log(`[Pipeline] Уже создано сценариев для ${existingNewsIds.size} новостей`);
+    
     const allNews = await db
       .select()
       .from(rssItems)
@@ -563,17 +627,19 @@ class GenerationPipeline {
         )
       )
       .orderBy(desc(rssItems.publishedAt))
-      .limit(limit);
+      .limit(limit * 2); // Берём больше, чтобы после фильтрации осталось достаточно
 
-    console.log(`[Pipeline] Найдено новостей из БД: ${allNews.length}`);
+    // Фильтруем новости, для которых уже есть сценарии
+    const newsWithoutScripts = allNews.filter(news => !existingNewsIds.has(news.id));
+    console.log(`[Pipeline] Найдено новостей из БД: ${allNews.length}, без существующих сценариев: ${newsWithoutScripts.length}`);
     
     // Фильтрация по возрасту
-    let filtered = allNews;
+    let filtered = newsWithoutScripts;
     if (maxAgeDays && maxAgeDays > 0) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
       
-      filtered = allNews.filter(n => {
+      filtered = newsWithoutScripts.filter(n => {
         const newsDate = n.publishedAt || n.parsedAt;
         if (!newsDate) return true; // Включаем новости без даты
         return new Date(newsDate) >= cutoffDate;
@@ -581,6 +647,9 @@ class GenerationPipeline {
       
       console.log(`[Pipeline] После фильтрации по возрасту (${maxAgeDays} дней): ${filtered.length} новостей`);
     }
+    
+    // Применяем лимит
+    filtered = filtered.slice(0, limit);
 
     // Если нет свежих/высокооценённых новостей и включён автопарсинг - парсим источники
     if (filtered.length === 0 && autoParseIfNeeded) {
@@ -589,6 +658,14 @@ class GenerationPipeline {
       
       // Подождём немного, чтобы парсинг успел создать записи
       await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Повторно получаем ID существующих сценариев (могли создаться новые)
+      const updatedExistingScripts = await db
+        .select({ sourceItemId: autoScripts.sourceItemId })
+        .from(autoScripts)
+        .where(eq(autoScripts.userId, userId));
+      
+      const updatedExistingNewsIds = new Set(updatedExistingScripts.map(s => s.sourceItemId));
       
       // Повторно получаем новости после парсинга
       const newNews = await db
@@ -613,21 +690,27 @@ class GenerationPipeline {
           )
         )
         .orderBy(desc(rssItems.publishedAt))
-        .limit(limit);
+        .limit(limit * 2);
+      
+      // Фильтруем новости без сценариев
+      const newNewsWithoutScripts = newNews.filter(news => !updatedExistingNewsIds.has(news.id));
       
       // Применяем фильтр по возрасту к новым новостям
       if (maxAgeDays && maxAgeDays > 0) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
         
-        filtered = newNews.filter(n => {
+        filtered = newNewsWithoutScripts.filter(n => {
           const newsDate = n.publishedAt || n.parsedAt;
           if (!newsDate) return true;
           return new Date(newsDate) >= cutoffDate;
         });
       } else {
-        filtered = newNews;
+        filtered = newNewsWithoutScripts;
       }
+      
+      // Применяем лимит
+      filtered = filtered.slice(0, limit);
       
       console.log(`[Pipeline] После автопарсинга найдено новостей: ${filtered.length}`);
     }
