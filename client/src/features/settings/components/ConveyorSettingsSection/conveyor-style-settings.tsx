@@ -157,8 +157,6 @@ export function ConveyorStyleSettings({
         </p>
       </div>
 
-      {/* Custom Guidelines */}
-
       <Button onClick={onSave} disabled={isSaving}>
         Сохранить стиль
       </Button>

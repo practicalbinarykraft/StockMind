@@ -179,29 +179,6 @@ export function ConveyorSettingsSection() {
           onSave={handleSave}
           isSaving={updateMutation.isPending}
         />
-
-        <Separator />
-
-        {/* Custom Prompts */}
-        <ConveyorCustomPrompts
-          customPrompts={localSettings.customPrompts}
-          onPromptsChange={(prompts: CustomPrompts | null) =>
-            setLocalSettings({ ...localSettings, customPrompts: prompts })
-          }
-          onSave={handleSave}
-          isSaving={updateMutation.isPending}
-        />
-
-        <Separator />
-
-        {/* Stats Summary */}
-        <ConveyorStatsSummary
-          totalProcessed={stats?.totalProcessed || 0}
-          totalPassed={stats?.totalPassed || 0}
-          totalFailed={stats?.totalFailed || 0}
-          totalApproved={stats?.totalApproved || 0}
-          totalRejected={stats?.totalRejected || 0}
-        />
       </CardContent>
     </Card>
   );

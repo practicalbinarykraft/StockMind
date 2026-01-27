@@ -196,13 +196,11 @@ function ScriptsAllContent() {
   }
 
   const handleStartProduction = (script: any) => {
-    if (script.id) {
-      startProductionMutation.mutate(script.id)
+    if (script.projectId) {
+      setLocation(`/project/${script.projectId}`)
     } else {
       // Otherwise create a new project at Stage 3 (script editing)
-      toast({
-        title: "Не получилось",
-      })
+      startProductionMutation.mutate(script.id)
     }
   }
 
