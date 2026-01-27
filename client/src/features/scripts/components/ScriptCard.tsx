@@ -8,9 +8,9 @@ import { ru } from "date-fns/locale";
 interface ScriptCardProps {
   script: any;
   onEdit: (script: any) => void;
-  onDelete: (id: string) => void;
-  onAnalyze: (id: string) => void;
-  onStartProduction: (id: string) => void;
+  onDelete: (script: any) => void;
+  onAnalyze: (script: any) => void;
+  onStartProduction: (script: any) => void;
   isDeleting?: boolean;
   isAnalyzing?: boolean;
   isStartingProduction?: boolean;
@@ -95,7 +95,7 @@ export function ScriptCard({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onAnalyze(script.id)}
+              onClick={() => onAnalyze(script)}
               disabled={isAnalyzing}
               className="flex-1"
             >
@@ -106,7 +106,7 @@ export function ScriptCard({
           {script.status === "ready" && (
             <Button
               size="sm"
-              onClick={() => onStartProduction(script.id)}
+              onClick={() => onStartProduction(script)}
               disabled={isStartingProduction}
               className="flex-1"
             >
@@ -125,7 +125,7 @@ export function ScriptCard({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onDelete(script.id)}
+            onClick={() => onDelete(script)}
             disabled={isDeleting}
           >
             <Trash2 className="h-3 w-3" />

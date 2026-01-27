@@ -172,7 +172,7 @@ function ScriptsAllContent() {
 
   const handleDelete = (script: any) => {
     // If script is already linked to a project, go to that project
-    if (script.projectId) {
+    if (script.id) {
       deleteMutation.mutate(script.id)
     } else {
       // Otherwise create a new project at Stage 3 (script editing)
@@ -184,7 +184,7 @@ function ScriptsAllContent() {
   }
 
   const handleAnalyze = (script: any) => {
-    if (script.projectId) {
+    if (script.id) {
       analyzeMutation.mutate(script.id)
     } else {
       // Otherwise create a new project at Stage 3 (script editing)
@@ -196,7 +196,7 @@ function ScriptsAllContent() {
   }
 
   const handleStartProduction = (script: any) => {
-    if (script.projectId) {
+    if (script.id) {
       startProductionMutation.mutate(script.id)
     } else {
       // Otherwise create a new project at Stage 3 (script editing)
