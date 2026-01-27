@@ -627,11 +627,13 @@ class GenerationPipeline {
         )
       )
       .orderBy(desc(rssItems.publishedAt))
-      .limit(limit * 2); // Берём больше, чтобы после фильтрации осталось достаточно
+      .limit(Math.max(limit * 5, 50)); // Берём значительно больше (минимум 50), чтобы после фильтрации осталось достаточно
 
+    console.log(`[Pipeline] Запрошено из БД: ${allNews.length} новостей (лимит запроса: ${Math.max(limit * 5, 50)})`);
+    
     // Фильтруем новости, для которых уже есть сценарии
     const newsWithoutScripts = allNews.filter(news => !existingNewsIds.has(news.id));
-    console.log(`[Pipeline] Найдено новостей из БД: ${allNews.length}, без существующих сценариев: ${newsWithoutScripts.length}`);
+    console.log(`[Pipeline] После фильтрации дубликатов: ${newsWithoutScripts.length} новостей (было ${allNews.length}, отфильтровано ${allNews.length - newsWithoutScripts.length})`);
     
     // Фильтрация по возрасту
     let filtered = newsWithoutScripts;
@@ -649,7 +651,9 @@ class GenerationPipeline {
     }
     
     // Применяем лимит
+    const beforeLimit = filtered.length;
     filtered = filtered.slice(0, limit);
+    console.log(`[Pipeline] После применения лимита (${limit}): ${filtered.length} новостей (было ${beforeLimit})`);
 
     // Если нет свежих/высокооценённых новостей и включён автопарсинг - парсим источники
     if (filtered.length === 0 && autoParseIfNeeded) {
@@ -690,10 +694,13 @@ class GenerationPipeline {
           )
         )
         .orderBy(desc(rssItems.publishedAt))
-        .limit(limit * 2);
+        .limit(Math.max(limit * 5, 50)); // Увеличенный лимит запроса
+      
+      console.log(`[Pipeline] После автопарсинга запрошено из БД: ${newNews.length} новостей`);
       
       // Фильтруем новости без сценариев
       const newNewsWithoutScripts = newNews.filter(news => !updatedExistingNewsIds.has(news.id));
+      console.log(`[Pipeline] После фильтрации дубликатов: ${newNewsWithoutScripts.length} новостей`);
       
       // Применяем фильтр по возрасту к новым новостям
       if (maxAgeDays && maxAgeDays > 0) {
@@ -710,11 +717,16 @@ class GenerationPipeline {
       }
       
       // Применяем лимит
+      const beforeLimitAfterParsing = filtered.length;
       filtered = filtered.slice(0, limit);
       
-      console.log(`[Pipeline] После автопарсинга найдено новостей: ${filtered.length}`);
+      console.log(`[Pipeline] После автопарсинга и применения лимита (${limit}): ${filtered.length} новостей (было ${beforeLimitAfterParsing})`);
     }
 
+    console.log(`[Pipeline] ========================================`);
+    console.log(`[Pipeline] ИТОГО возвращается новостей: ${filtered.length}`);
+    console.log(`[Pipeline] ========================================`);
+    
     return filtered;
   }
 
