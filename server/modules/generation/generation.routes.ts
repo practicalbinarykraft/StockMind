@@ -104,6 +104,13 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
     // Получить настройки конвейера (включает все настройки стиля, лимитов и т.д.)
     const conveyorSettings = await conveyorSettingsService.getSettings(userId);
 
+    if (!conveyorSettings) {
+      return res.status(500).json({
+        error: 'Не удалось загрузить настройки конвейера',
+        code: 'SETTINGS_NOT_FOUND',
+      });
+    }
+
     // Проверить дневной лимит
     if (conveyorSettings.itemsProcessedToday >= conveyorSettings.dailyLimit) {
       return res.status(429).json({
@@ -140,7 +147,8 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
       const news = await generationPipeline.getNewsForGeneration(
         userId, 
         remainingLimit,
-        conveyorSettings.maxAgeDays
+        conveyorSettings.maxAgeDays,
+        true // autoParseIfNeeded - автоматически парсить источники, если нет свежих новостей
       );
       
       console.log(`[Generation] Найдено новостей: ${news.length}`);
@@ -153,7 +161,7 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
 
     if (targetNewsIds.length === 0) {
       return res.status(400).json({
-        error: 'Нет новостей для генерации',
+        error: 'Нет новостей для генерации. Проверьте настройки RSS источников.',
         code: 'NO_NEWS',
       });
     }
@@ -161,16 +169,16 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
     console.log(`[Generation] Запуск batch генерации для ${targetNewsIds.length} новостей:`, targetNewsIds);
 
     // Извлечь настройки стиля
-    const stylePreferences = conveyorSettings.stylePreferences as {
-      formality: string;
-      tone: string;
-      language: string;
-    } || { formality: 'conversational', tone: 'engaging', language: 'ru' };
+    const stylePreferences = (conveyorSettings.stylePreferences as {
+      formality: 'formal' | 'conversational' | 'casual';
+      tone: 'serious' | 'engaging' | 'funny' | 'motivational';
+      language: 'ru' | 'en';
+    } | null) || { formality: 'conversational' as const, tone: 'engaging' as const, language: 'ru' as const };
 
-    const durationRange = conveyorSettings.durationRange as {
+    const durationRange = (conveyorSettings.durationRange as {
       min: number;
       max: number;
-    } || { min: 30, max: 90 };
+    } | null) || { min: 30, max: 90 };
 
     const customPrompts = conveyorSettings.customPrompts as {
       writerPrompt?: string;
@@ -272,24 +280,31 @@ router.post('/start-single', requireAuth, async (req: Request, res: Response) =>
     // Получить настройки конвейера
     const conveyorSettings = await conveyorSettingsService.getSettings(userId);
 
-    // Извлечь настройки стиля
-    const stylePreferences = conveyorSettings.stylePreferences as {
-      formality: string;
-      tone: string;
-      language: string;
-    } || { formality: 'conversational', tone: 'engaging', language: 'ru' };
+    if (!conveyorSettings) {
+      return res.status(500).json({
+        error: 'Не удалось загрузить настройки конвейера',
+        code: 'SETTINGS_NOT_FOUND',
+      });
+    }
 
-    const durationRange = conveyorSettings.durationRange as {
+    // Извлечь настройки стиля
+    const stylePreferences = (conveyorSettings.stylePreferences as {
+      formality: 'formal' | 'conversational' | 'casual';
+      tone: 'serious' | 'engaging' | 'funny' | 'motivational';
+      language: 'ru' | 'en';
+    } | null) || { formality: 'conversational' as const, tone: 'engaging' as const, language: 'ru' as const };
+
+    const durationRange = (conveyorSettings.durationRange as {
       min: number;
       max: number;
-    } || { min: 30, max: 90 };
+    } | null) || { min: 30, max: 90 };
 
-    const customPrompts = conveyorSettings.customPrompts as {
+    const customPrompts = (conveyorSettings.customPrompts as {
       writerPrompt?: string;
       editorPrompt?: string;
-    } || {};
+    } | null) || {};
 
-    const scriptExamples = conveyorSettings.scriptExamples as string[] || [];
+    const scriptExamples = (conveyorSettings.scriptExamples as string[] | null) || [];
 
     // Запустить генерацию в фоне
     generationPipeline.runSingle(userId, newsId, {

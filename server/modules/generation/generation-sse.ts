@@ -288,6 +288,13 @@ class GenerationSSEManager {
     this.emitToScript(scriptId, 'error', { message: error });
     this.closeScriptConnections(scriptId);
   }
+
+  /**
+   * Универсальный метод для отправки любых событий
+   */
+  sendEvent(userId: string, event: { type: string; data: any }): void {
+    this.emitToUser(userId, event.type, event.data);
+  }
 }
 
 // Singleton

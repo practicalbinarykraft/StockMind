@@ -3,13 +3,14 @@
  * Оркестрирует генерацию сценариев через Scriptwriter и Editor агентов
  */
 import { db } from '../../db';
-import { rssItems, autoScripts, conveyorItems, type AutoScript } from '@shared/schema';
+import { rssItems, autoScripts, conveyorItems, rssSources, type AutoScript } from '@shared/schema';
 import { eq, and, or, sql, desc } from 'drizzle-orm';
 import { scriptwriterAgent, editorAgent } from './agents';
 import type { ScriptwriterOutput, EditorOutput, SceneComment } from './agents';
 import { generationSSE } from './generation-sse';
 import { apiKeysService } from '../api-keys/api-keys.service';
 import { conveyorSettingsService } from '../conveyor-settings/conveyor-settings.service';
+import { parseRssSource } from '../../lib/rss-background-tasks';
 
 interface StylePreferences {
   formality: 'formal' | 'conversational' | 'casual';
@@ -78,9 +79,29 @@ class GenerationPipeline {
           continue;
         }
 
-        // Проверка на остановку
+        // Проверка на остановку пользователем
         if (!generationSSE.isRunning(userId)) {
           console.log(`[Pipeline] Генерация остановлена пользователем`);
+          break;
+        }
+
+        // Проверка дневного лимита перед каждой генерацией
+        const conveyorSettings = await conveyorSettingsService.getSettings(userId);
+        if (!conveyorSettings) {
+          console.error(`[Pipeline] Не удалось получить настройки конвейера для userId: ${userId}`);
+          break;
+        }
+        
+        if (conveyorSettings.itemsProcessedToday >= conveyorSettings.dailyLimit) {
+          console.log(`[Pipeline] Достигнут дневной лимит (${conveyorSettings.dailyLimit} сценариев)`);
+          generationSSE.sendEvent(userId, {
+            type: 'limit_reached',
+            data: {
+              message: `Достигнут дневной лимит (${conveyorSettings.dailyLimit} сценариев)`,
+              processed: conveyorSettings.itemsProcessedToday,
+              limit: conveyorSettings.dailyLimit,
+            },
+          });
           break;
         }
 
@@ -507,9 +528,15 @@ class GenerationPipeline {
    * @param userId - ID пользователя
    * @param limit - максимальное количество новостей
    * @param maxAgeDays - максимальный возраст новости в днях (опционально)
+   * @param autoParseIfNeeded - автоматически парсить источники, если нет свежих новостей
    */
-  async getNewsForGeneration(userId: string, limit: number = 10, maxAgeDays?: number): Promise<any[]> {
-    console.log(`[Pipeline] getNewsForGeneration: userId=${userId}, limit=${limit}, maxAgeDays=${maxAgeDays}`);
+  async getNewsForGeneration(
+    userId: string, 
+    limit: number = 10, 
+    maxAgeDays?: number,
+    autoParseIfNeeded: boolean = false
+  ): Promise<any[]> {
+    console.log(`[Pipeline] getNewsForGeneration: userId=${userId}, limit=${limit}, maxAgeDays=${maxAgeDays}, autoParseIfNeeded=${autoParseIfNeeded}`);
     
     const allNews = await db
       .select()
@@ -541,21 +568,135 @@ class GenerationPipeline {
     console.log(`[Pipeline] Найдено новостей из БД: ${allNews.length}`);
     
     // Фильтрация по возрасту
+    let filtered = allNews;
     if (maxAgeDays && maxAgeDays > 0) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
       
-      const filtered = allNews.filter(n => {
+      filtered = allNews.filter(n => {
         const newsDate = n.publishedAt || n.parsedAt;
         if (!newsDate) return true; // Включаем новости без даты
         return new Date(newsDate) >= cutoffDate;
       });
       
       console.log(`[Pipeline] После фильтрации по возрасту (${maxAgeDays} дней): ${filtered.length} новостей`);
-      return filtered;
     }
 
-    return allNews;
+    // Если нет свежих/высокооценённых новостей и включён автопарсинг - парсим источники
+    if (filtered.length === 0 && autoParseIfNeeded) {
+      console.log(`[Pipeline] Нет свежих новостей, запускаем автоматический парсинг источников`);
+      await this.parseAllUserSources(userId);
+      
+      // Подождём немного, чтобы парсинг успел создать записи
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Повторно получаем новости после парсинга
+      const newNews = await db
+        .select()
+        .from(rssItems)
+        .where(
+          and(
+            or(
+              eq(rssItems.userId, userId),
+              sql`${rssItems.userId} IS NULL`
+            ),
+            or(
+              eq(rssItems.userAction, 'selected'),
+              and(
+                sql`${rssItems.aiScore} >= 70`,
+                or(
+                  sql`${rssItems.userAction} IS NULL`,
+                  sql`${rssItems.userAction} != 'dismissed'`
+                )
+              )
+            )
+          )
+        )
+        .orderBy(desc(rssItems.publishedAt))
+        .limit(limit);
+      
+      // Применяем фильтр по возрасту к новым новостям
+      if (maxAgeDays && maxAgeDays > 0) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+        
+        filtered = newNews.filter(n => {
+          const newsDate = n.publishedAt || n.parsedAt;
+          if (!newsDate) return true;
+          return new Date(newsDate) >= cutoffDate;
+        });
+      } else {
+        filtered = newNews;
+      }
+      
+      console.log(`[Pipeline] После автопарсинга найдено новостей: ${filtered.length}`);
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Парсить все активные источники пользователя
+   */
+  async parseAllUserSources(userId: string): Promise<void> {
+    try {
+      console.log(`[Pipeline] Запуск парсинга всех источников для userId: ${userId}`);
+      
+      const sources = await db
+        .select()
+        .from(rssSources)
+        .where(
+          and(
+            eq(rssSources.userId, userId),
+            eq(rssSources.isActive, true)
+          )
+        );
+      
+      console.log(`[Pipeline] Найдено активных источников: ${sources.length}`);
+      
+      if (sources.length === 0) {
+        console.log(`[Pipeline] У пользователя нет активных RSS источников`);
+        return;
+      }
+
+      // Отправляем уведомление через SSE
+      generationSSE.sendEvent(userId, {
+        type: 'parsing_started',
+        data: {
+          message: `Запущен парсинг ${sources.length} источников`,
+          sourcesCount: sources.length,
+        },
+      });
+
+      // Запускаем парсинг всех источников параллельно
+      const parsePromises = sources.map(source => 
+        parseRssSource(source.id, source.url, userId)
+          .catch(err => {
+            console.error(`[Pipeline] Ошибка парсинга источника ${source.id}:`, err);
+          })
+      );
+
+      await Promise.allSettled(parsePromises);
+      
+      console.log(`[Pipeline] Парсинг всех источников завершён`);
+
+      // Отправляем уведомление о завершении
+      generationSSE.sendEvent(userId, {
+        type: 'parsing_completed',
+        data: {
+          message: `Парсинг ${sources.length} источников завершён`,
+          sourcesCount: sources.length,
+        },
+      });
+    } catch (error: any) {
+      console.error(`[Pipeline] Ошибка при парсинге источников:`, error);
+      generationSSE.sendEvent(userId, {
+        type: 'parsing_error',
+        data: {
+          message: `Ошибка парсинга источников: ${error.message}`,
+        },
+      });
+    }
   }
 }
 

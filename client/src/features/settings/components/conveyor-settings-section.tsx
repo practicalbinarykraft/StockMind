@@ -194,31 +194,6 @@ export function ConveyorSettingsSection() {
 
         <Separator />
 
-        {/* Script Examples */}
-        <ConveyorScriptExamples
-          examples={localSettings.scriptExamples}
-          onExamplesChange={(examples: string[]) =>
-            setLocalSettings({ ...localSettings, scriptExamples: examples })
-          }
-          onSave={handleSave}
-          isSaving={updateMutation.isPending}
-        />
-
-        <Separator />
-
-        {/* Learning System */}
-        <ConveyorLearningSystem
-          stats={{
-            learnedThreshold: settings?.learnedThreshold || null,
-            avoidedTopics: settings?.avoidedTopics || null,
-            preferredFormats: settings?.preferredFormats || null,
-          }}
-          onResetLearning={() => resetLearningMutation.mutate()}
-          isResetPending={resetLearningMutation.isPending}
-        />
-
-        <Separator />
-
         {/* Stats Summary */}
         <ConveyorStatsSummary
           totalProcessed={stats?.totalProcessed || 0}

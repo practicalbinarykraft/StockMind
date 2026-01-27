@@ -158,41 +158,6 @@ export function ConveyorStyleSettings({
       </div>
 
       {/* Custom Guidelines */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <Label>Ваши правила для агентов</Label>
-        </div>
-        <div className="flex gap-2">
-          <Input
-            value={newGuideline}
-            onChange={(e) => setNewGuideline(e.target.value)}
-            placeholder="Добавьте правило (например: 'Не использовать слово хайп')"
-            onKeyDown={(e) => e.key === "Enter" && addGuideline()}
-          />
-          <Button variant="outline" size="icon" onClick={addGuideline}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-        {customGuidelines.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {customGuidelines.map((guideline, i) => (
-              <Badge key={i} variant="secondary" className="gap-1 pr-1">
-                {guideline}
-                <button
-                  onClick={() => removeGuideline(i)}
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Эти правила будут использоваться при генерации каждого сценария
-        </p>
-      </div>
 
       <Button onClick={onSave} disabled={isSaving}>
         Сохранить стиль
