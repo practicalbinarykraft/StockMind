@@ -543,7 +543,7 @@ export function ConveyorDashboard() {
                           script.finalScore >= 5 ? 'text-yellow-400' : 
                           'text-red-400'
                         }>
-                          Оценка: {script.finalScore}/10
+                          Оценка: {script.finalScore}/100
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
