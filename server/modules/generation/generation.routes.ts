@@ -142,13 +142,14 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
         conveyorSettings.dailyLimit - conveyorSettings.itemsProcessedToday
       );
       
-      console.log(`[Generation] Получение новостей для генерации, лимит: ${remainingLimit}, maxAgeDays: ${conveyorSettings.maxAgeDays}`);
+      console.log(`[Generation] Получение новостей для генерации, лимит: ${remainingLimit}, maxAgeDays: ${conveyorSettings.maxAgeDays}, minScoreThreshold: ${conveyorSettings.minScoreThreshold || 70}`);
       
       const news = await generationPipeline.getNewsForGeneration(
         userId, 
         remainingLimit,
         conveyorSettings.maxAgeDays,
-        true // autoParseIfNeeded - автоматически парсить источники, если нет свежих новостей
+        true, // autoParseIfNeeded - автоматически парсить источники, если нет свежих новостей
+        conveyorSettings.minScoreThreshold || 70 // минимальный score для новостей
       );
       
       console.log(`[Generation] Найдено новостей: ${news.length}`);
@@ -161,8 +162,16 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
 
     if (targetNewsIds.length === 0) {
       return res.status(400).json({
-        error: 'Нет новостей для генерации. Проверьте настройки RSS источников.',
-        code: 'NO_NEWS',
+        error: 'Не найдено новостей, подходящих по настройкам конвейера',
+        details: {
+          message: 'Попробуйте:',
+          suggestions: [
+            `Добавить больше RSS источников`,
+            `Уменьшить минимальный score (сейчас: ${conveyorSettings.minScoreThreshold || 70})`,
+            `Увеличить максимальный возраст новостей (сейчас: ${conveyorSettings.maxAgeDays || 'не ограничен'} дней)`,
+          ]
+        },
+        code: 'NO_SUITABLE_NEWS',
       });
     }
     

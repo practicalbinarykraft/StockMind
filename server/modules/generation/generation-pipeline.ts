@@ -584,14 +584,16 @@ class GenerationPipeline {
    * @param limit - максимальное количество новостей
    * @param maxAgeDays - максимальный возраст новости в днях (опционально)
    * @param autoParseIfNeeded - автоматически парсить источники, если нет свежих новостей
+   * @param minScoreThreshold - минимальный score для новостей (по умолчанию 70)
    */
   async getNewsForGeneration(
     userId: string, 
     limit: number = 10, 
     maxAgeDays?: number,
-    autoParseIfNeeded: boolean = false
+    autoParseIfNeeded: boolean = false,
+    minScoreThreshold: number = 70
   ): Promise<any[]> {
-    console.log(`[Pipeline] getNewsForGeneration: userId=${userId}, limit=${limit}, maxAgeDays=${maxAgeDays}, autoParseIfNeeded=${autoParseIfNeeded}`);
+    console.log(`[Pipeline] getNewsForGeneration: userId=${userId}, limit=${limit}, maxAgeDays=${maxAgeDays}, minScoreThreshold=${minScoreThreshold}, autoParseIfNeeded=${autoParseIfNeeded}`);
     
     // Получаем ID новостей, для которых уже созданы сценарии
     const existingScripts = await db
@@ -601,90 +603,42 @@ class GenerationPipeline {
     
     const existingNewsIds = new Set(existingScripts.map(s => s.sourceItemId));
     console.log(`[Pipeline] Уже создано сценариев для ${existingNewsIds.size} новостей`);
-    
-    const allNews = await db
-      .select()
-      .from(rssItems)
-      .where(
-        and(
-          // Только новости этого пользователя (или общие, если userId null)
-          or(
-            eq(rssItems.userId, userId),
-            sql`${rssItems.userId} IS NULL`
-          ),
-          // Выбранные вручную или с высоким AI score
-          or(
-            eq(rssItems.userAction, 'selected'),
-            // Include items with high AI score that haven't been dismissed
-            and(
-              sql`${rssItems.aiScore} >= 70`,
-              or(
-                sql`${rssItems.userAction} IS NULL`,
-                sql`${rssItems.userAction} != 'dismissed'`
-              )
-            )
-          )
-        )
-      )
-      .orderBy(desc(rssItems.publishedAt))
-      .limit(Math.max(limit * 5, 50)); // Берём значительно больше (минимум 50), чтобы после фильтрации осталось достаточно
 
-    console.log(`[Pipeline] Запрошено из БД: ${allNews.length} новостей (лимит запроса: ${Math.max(limit * 5, 50)})`);
+    // Дата отсечки для фильтрации по возрасту
+    const cutoffDate = maxAgeDays && maxAgeDays > 0 
+      ? new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000)
+      : null;
     
-    // Фильтруем новости, для которых уже есть сценарии
-    const newsWithoutScripts = allNews.filter(news => !existingNewsIds.has(news.id));
-    console.log(`[Pipeline] После фильтрации дубликатов: ${newsWithoutScripts.length} новостей (было ${allNews.length}, отфильтровано ${allNews.length - newsWithoutScripts.length})`);
-    
-    // Фильтрация по возрасту
-    let filtered = newsWithoutScripts;
-    if (maxAgeDays && maxAgeDays > 0) {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
-      
-      filtered = newsWithoutScripts.filter(n => {
-        const newsDate = n.publishedAt || n.parsedAt;
-        if (!newsDate) return true; // Включаем новости без даты
-        return new Date(newsDate) >= cutoffDate;
-      });
-      
-      console.log(`[Pipeline] После фильтрации по возрасту (${maxAgeDays} дней): ${filtered.length} новостей`);
+    if (cutoffDate) {
+      console.log(`[Pipeline] Фильтр по дате: новости новее ${cutoffDate.toISOString()}`);
     }
-    
-    // Применяем лимит
-    const beforeLimit = filtered.length;
-    filtered = filtered.slice(0, limit);
-    console.log(`[Pipeline] После применения лимита (${limit}): ${filtered.length} новостей (было ${beforeLimit})`);
 
-    // Если нет свежих/высокооценённых новостей и включён автопарсинг - парсим источники
-    if (filtered.length === 0 && autoParseIfNeeded) {
-      console.log(`[Pipeline] Нет свежих новостей, запускаем автоматический парсинг источников`);
-      await this.parseAllUserSources(userId);
+    // ПАГИНАЦИЯ: Запрашиваем новости порциями пока не наберем нужное количество
+    const batchSize = 50;
+    let offset = 0;
+    let filtered: any[] = [];
+    let totalFetched = 0;
+    let totalFiltered = 0;
+
+    while (filtered.length < limit) {
+      console.log(`[Pipeline] Запрос порции ${offset / batchSize + 1}: offset=${offset}, limit=${batchSize}`);
       
-      // Подождём немного, чтобы парсинг успел создать записи
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Повторно получаем ID существующих сценариев (могли создаться новые)
-      const updatedExistingScripts = await db
-        .select({ sourceItemId: autoScripts.sourceItemId })
-        .from(autoScripts)
-        .where(eq(autoScripts.userId, userId));
-      
-      const updatedExistingNewsIds = new Set(updatedExistingScripts.map(s => s.sourceItemId));
-      
-      // Повторно получаем новости после парсинга
-      const newNews = await db
+      const batch = await db
         .select()
         .from(rssItems)
         .where(
           and(
+            // Только новости этого пользователя (или общие, если userId null)
             or(
               eq(rssItems.userId, userId),
               sql`${rssItems.userId} IS NULL`
             ),
+            // Выбранные вручную или с подходящим AI score
             or(
               eq(rssItems.userAction, 'selected'),
+              // Include items with score >= minScoreThreshold that haven't been dismissed
               and(
-                sql`${rssItems.aiScore} >= 70`,
+                sql`${rssItems.aiScore} >= ${minScoreThreshold}`,
                 or(
                   sql`${rssItems.userAction} IS NULL`,
                   sql`${rssItems.userAction} != 'dismissed'`
@@ -694,37 +648,135 @@ class GenerationPipeline {
           )
         )
         .orderBy(desc(rssItems.publishedAt))
-        .limit(Math.max(limit * 5, 50)); // Увеличенный лимит запроса
+        .limit(batchSize)
+        .offset(offset);
+
+      totalFetched += batch.length;
+      console.log(`[Pipeline] Получено из БД: ${batch.length} новостей (всего запрошено: ${totalFetched})`);
+
+      // Если больше новостей нет - выходим
+      if (batch.length === 0) {
+        console.log(`[Pipeline] Новости в БД закончились после ${totalFetched} записей`);
+        break;
+      }
+
+      // Фильтруем: убираем дубликаты
+      const batchWithoutScripts = batch.filter(news => !existingNewsIds.has(news.id));
       
-      console.log(`[Pipeline] После автопарсинга запрошено из БД: ${newNews.length} новостей`);
+      // Фильтруем: по возрасту
+      const batchFiltered = cutoffDate
+        ? batchWithoutScripts.filter(n => {
+            const newsDate = n.publishedAt || n.parsedAt;
+            if (!newsDate) return true; // Включаем новости без даты
+            return new Date(newsDate) >= cutoffDate;
+          })
+        : batchWithoutScripts;
+
+      totalFiltered += batchFiltered.length;
+      console.log(`[Pipeline] Подходящих новостей в порции: ${batchFiltered.length} (отфильтровано: дубликатов ${batch.length - batchWithoutScripts.length}, по дате ${batchWithoutScripts.length - batchFiltered.length})`);
+
+      // Добавляем подходящие новости
+      filtered.push(...batchFiltered);
+
+      // Если уже достаточно - обрезаем и выходим
+      if (filtered.length >= limit) {
+        filtered = filtered.slice(0, limit);
+        console.log(`[Pipeline] Набрано достаточно новостей: ${filtered.length}`);
+        break;
+      }
+
+      // Переходим к следующей порции
+      offset += batchSize;
+    }
+
+    console.log(`[Pipeline] Итого запрошено из БД: ${totalFetched} новостей, подходящих после фильтров: ${totalFiltered}`);
+
+    // Если не нашли достаточно новостей и включён автопарсинг - парсим источники
+    if (filtered.length < limit && autoParseIfNeeded) {
+      console.log(`[Pipeline] Найдено только ${filtered.length} из ${limit} новостей, запускаем автоматический парсинг источников`);
+      await this.parseAllUserSources(userId);
       
-      // Фильтруем новости без сценариев
-      const newNewsWithoutScripts = newNews.filter(news => !updatedExistingNewsIds.has(news.id));
-      console.log(`[Pipeline] После фильтрации дубликатов: ${newNewsWithoutScripts.length} новостей`);
+      // Подождём немного, чтобы парсинг успел создать записи
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
-      // Применяем фильтр по возрасту к новым новостям
-      if (maxAgeDays && maxAgeDays > 0) {
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+      // Повторяем поиск после парсинга
+      console.log(`[Pipeline] Повторный поиск новостей после парсинга...`);
+      
+      // Обновляем список существующих сценариев
+      const updatedExistingScripts = await db
+        .select({ sourceItemId: autoScripts.sourceItemId })
+        .from(autoScripts)
+        .where(eq(autoScripts.userId, userId));
+      
+      const updatedExistingNewsIds = new Set(updatedExistingScripts.map(s => s.sourceItemId));
+
+      // Продолжаем пагинацию с того места где остановились
+      while (filtered.length < limit) {
+        console.log(`[Pipeline] Запрос порции ${offset / batchSize + 1} после парсинга: offset=${offset}, limit=${batchSize}`);
         
-        filtered = newNewsWithoutScripts.filter(n => {
-          const newsDate = n.publishedAt || n.parsedAt;
-          if (!newsDate) return true;
-          return new Date(newsDate) >= cutoffDate;
-        });
-      } else {
-        filtered = newNewsWithoutScripts;
+        const batch = await db
+          .select()
+          .from(rssItems)
+          .where(
+            and(
+              or(
+                eq(rssItems.userId, userId),
+                sql`${rssItems.userId} IS NULL`
+              ),
+              or(
+                eq(rssItems.userAction, 'selected'),
+                and(
+                  sql`${rssItems.aiScore} >= ${minScoreThreshold}`,
+                  or(
+                    sql`${rssItems.userAction} IS NULL`,
+                    sql`${rssItems.userAction} != 'dismissed'`
+                  )
+                )
+              )
+            )
+          )
+          .orderBy(desc(rssItems.publishedAt))
+          .limit(batchSize)
+          .offset(offset);
+
+        totalFetched += batch.length;
+
+        if (batch.length === 0) {
+          console.log(`[Pipeline] После парсинга новых новостей не найдено (всего запрошено: ${totalFetched})`);
+          break;
+        }
+
+        const batchWithoutScripts = batch.filter(news => !updatedExistingNewsIds.has(news.id));
+        const batchFiltered = cutoffDate
+          ? batchWithoutScripts.filter(n => {
+              const newsDate = n.publishedAt || n.parsedAt;
+              if (!newsDate) return true;
+              return new Date(newsDate) >= cutoffDate;
+            })
+          : batchWithoutScripts;
+
+        totalFiltered += batchFiltered.length;
+        filtered.push(...batchFiltered);
+
+        if (filtered.length >= limit) {
+          filtered = filtered.slice(0, limit);
+          break;
+        }
+
+        offset += batchSize;
       }
       
-      // Применяем лимит
-      const beforeLimitAfterParsing = filtered.length;
-      filtered = filtered.slice(0, limit);
-      
-      console.log(`[Pipeline] После автопарсинга и применения лимита (${limit}): ${filtered.length} новостей (было ${beforeLimitAfterParsing})`);
+      console.log(`[Pipeline] После автопарсинга найдено еще новостей: ${filtered.length} (всего запрошено: ${totalFetched})`);
     }
 
     console.log(`[Pipeline] ========================================`);
-    console.log(`[Pipeline] ИТОГО возвращается новостей: ${filtered.length}`);
+    console.log(`[Pipeline] ИТОГО возвращается новостей: ${filtered.length} из запрошенных ${limit}`);
+    if (filtered.length < limit) {
+      console.log(`[Pipeline] ⚠️  Новостей меньше запрошенного! Причины:`);
+      console.log(`[Pipeline]    - Минимальный score: ${minScoreThreshold}`);
+      console.log(`[Pipeline]    - Максимальный возраст: ${maxAgeDays || 'не ограничен'} дней`);
+      console.log(`[Pipeline]    - Уже обработано: ${existingNewsIds.size} новостей`);
+    }
     console.log(`[Pipeline] ========================================`);
     
     return filtered;
