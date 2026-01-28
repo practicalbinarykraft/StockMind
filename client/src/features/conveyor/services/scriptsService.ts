@@ -557,6 +557,42 @@ export async function updateScene(
   return updateScriptUniversal(scriptId, { scenes: updatedScenes })
 }
 
+// === Scene Comments ===
+
+/**
+ * Сохранить комментарий к сцене
+ */
+export async function saveSceneComment(data: {
+  scriptId: string
+  scriptType: 'library' | 'auto'
+  sceneId: string
+  sceneIndex: number
+  commentText: string
+  commentType?: 'prompt' | 'note' | 'feedback'
+}): Promise<any> {
+  const response = await apiRequest('POST', '/api/scene-comments', data)
+  const result = await response.json()
+  return result.data || result
+}
+
+/**
+ * Получить комментарии для сценария
+ */
+export async function getScriptComments(scriptId: string): Promise<any[]> {
+  const response = await apiRequest('GET', `/api/scene-comments/${scriptId}`)
+  const result = await response.json()
+  return result.data || result
+}
+
+/**
+ * Получить комментарии для конкретной сцены
+ */
+export async function getSceneComments(scriptId: string, sceneId: string): Promise<any[]> {
+  const response = await apiRequest('GET', `/api/scene-comments/${scriptId}/scenes/${sceneId}`)
+  const result = await response.json()
+  return result.data || result
+}
+
 export const scriptsService = {
   getDrafts,
   getReadyScripts,
@@ -585,4 +621,7 @@ export const scriptsService = {
   testApiKey,
   generateVariants,
   updateScene,
+  saveSceneComment,
+  getScriptComments,
+  getSceneComments,
 }

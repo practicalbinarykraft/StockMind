@@ -265,6 +265,25 @@ export function ScriptEditorPage() {
         alternatives,
       })
       
+      // Если есть промпт, сохраняем комментарий к сцене
+      if (customPrompt && customPrompt.trim() && script) {
+        try {
+          const sceneIndex = script.scenes.findIndex((s: Scene) => s.id === selectedScene.id)
+          await scriptsService.saveSceneComment({
+            scriptId,
+            scriptType: isAutoScript ? 'auto' : 'library',
+            sceneId: selectedScene.id,
+            sceneIndex,
+            commentText: customPrompt.trim(),
+            commentType: 'prompt',
+          })
+          console.log('[Regenerate] Scene comment saved')
+        } catch (commentError) {
+          console.error('[Regenerate] Failed to save comment:', commentError)
+          // Не показываем ошибку пользователю, так как главное действие (генерация) успешно
+        }
+      }
+      
       // Инвалидируем кеш для обновления данных
       await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
       

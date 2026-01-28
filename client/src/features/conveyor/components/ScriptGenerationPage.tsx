@@ -15,7 +15,6 @@ import { Card } from '@/shared/ui/card'
 export function ScriptGenerationPage() {
   const [, navigate] = useLocation()
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
-  const [selectedScript, setSelectedScript] = useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(true)
 
   // Загрузка данных
@@ -23,6 +22,9 @@ export function ScriptGenerationPage() {
   const { data: aiSettings } = useAISettings()
   const { updateSettings } = useAISettingsActions()
   const newsScripts = scriptsData?.items || []
+  
+  // Загрузка выбранного сценария
+  const { data: selectedScript, isLoading: isScriptLoading } = useScript(selectedScriptId || '')
 
   const handleRefresh = useCallback(() => {
     refetch()
@@ -30,8 +32,6 @@ export function ScriptGenerationPage() {
 
   const handleSelectScript = useCallback((scriptId: string) => {
     setSelectedScriptId(scriptId)
-    const { data: script, isLoading } = useScript(scriptId)
-    setSelectedScript(script)
   }, [])
 
   const handleBack = useCallback(() => {
@@ -113,6 +113,11 @@ export function ScriptGenerationPage() {
           scripts={newsScripts}
           onSelectScript={handleSelectScript}
         />
+      ) : isScriptLoading ? (
+        <Card className="p-12 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <span className="ml-3 text-muted-foreground">Загрузка сценария...</span>
+        </Card>
       ) : selectedScript ? (
         <IterationTimeline
           script={selectedScript}

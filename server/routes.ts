@@ -37,6 +37,7 @@ import { registerScriptsLibraryRoutes } from "./modules/scripts-library/scripts-
 import { registerSceneEditingRoutes } from "./modules/scene-editing/scene-editing.routes";
 import { registerReanalysisRoutes } from "./modules/reanalysis/reanalysis.routes";
 import { registerVersionComparisonRoutes } from "./modules/version-comparison/version-comparison.routes";
+import { registerSceneCommentsRoutes } from "./modules/scene-comments/scene-comments.routes";
 
 // Conveyor (Content Factory) routes - Modularized
 import { registerConveyorSettingsRoutes } from "./modules/conveyor-settings/conveyor-settings.routes";
@@ -89,6 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerSceneEditingRoutes(app);
   registerReanalysisRoutes(app);
   registerVersionComparisonRoutes(app);
+  registerSceneCommentsRoutes(app);
 
   // Instagram Analytics OAuth routes (already modularized)
   app.use('/api/ig', igRouter);
