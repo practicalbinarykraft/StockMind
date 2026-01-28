@@ -181,19 +181,40 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
     if (versions && versions.length > 0) {
       const timelineItems: TimelineItem[] = []
       
-      versions.forEach((version: any, index: number) => {
-        const versionNumber = version.versionNumber || (index + 1)
+      // Всегда показываем первую версию (версия из конвейера)
+      const firstVersion = versions[0]
+      if (firstVersion) {
+        const versionNumber = firstVersion.versionNumber || 1
+        const scriptVersion = convertVersionToScriptVersion(firstVersion, versionNumber)
+        timelineItems.push({ type: 'script', data: scriptVersion })
+        
+        // Если у первой версии есть рецензия и оценка, показываем её
+        if (firstVersion.feedbackText || firstVersion.finalScore) {
+          const review = createReviewFromFeedback(
+            firstVersion,
+            versionNumber,
+            firstVersion.scenes || []
+          )
+          if (review) {
+            timelineItems.push({ type: 'review', data: review })
+          }
+        }
+      }
+      
+      // Показываем вторую и последующие версии только если они существуют
+      // (т.е. были созданы через revision)
+      for (let i = 1; i < versions.length; i++) {
+        const version = versions[i]
+        const versionNumber = version.versionNumber || (i + 1)
         
         // Добавляем версию скрипта
         const scriptVersion = convertVersionToScriptVersion(version, versionNumber)
         timelineItems.push({ type: 'script', data: scriptVersion })
         
-        // Если есть следующая версия, создаем review из feedbackText следующей версии
-        // (feedbackText в следующей версии - это комментарии к текущей версии)
-        if (index < versions.length - 1) {
-          const nextVersion = versions[index + 1]
+        // Если у этой версии есть рецензия и оценка, показываем её
+        if (version.feedbackText || version.finalScore) {
           const review = createReviewFromFeedback(
-            nextVersion,
+            version,
             versionNumber,
             version.scenes || []
           )
@@ -201,7 +222,7 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
             timelineItems.push({ type: 'review', data: review })
           }
         }
-      })
+      }
       
       return timelineItems
     }

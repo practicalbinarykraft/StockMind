@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { useLocation, useRoute } from 'wouter'
-import { Save, ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle } from 'lucide-react'
 import { useScript } from '../hooks/use-scripts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
@@ -55,32 +55,7 @@ export function ScriptEditorPage() {
     setHasUnsavedChanges(text !== selectedScene?.text)
   }
 
-  const handleSaveScene = async () => {
-    if (!selectedSceneId || !script || !scriptId) return
-    
-    try {
-      setIsSaving(true)
-      await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
-      
-      // Инвалидируем кеш для обновления данных
-      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
-      
-      setHasUnsavedChanges(false)
-      toast({
-        title: 'Успешно',
-        description: 'Сцена сохранена',
-      })
-    } catch (error) {
-      console.error('Error saving scene:', error)
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось сохранить сцену',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  // Удалена функция handleSaveScene - теперь сохранение только через кнопки "в черновики" и "в готовые"
 
   const handleCancelScene = () => {
     if (selectedScene) {
@@ -158,6 +133,9 @@ export function ScriptEditorPage() {
         })
       }
       
+      // Сбрасываем флаг несохранённых изменений
+      setHasUnsavedChanges(false)
+      
       // Инвалидируем кеши
       await queryClient.invalidateQueries({ queryKey: ['scripts'] })
       
@@ -197,6 +175,9 @@ export function ScriptEditorPage() {
           description: 'Сценарий готов к использованию',
         })
       }
+      
+      // Сбрасываем флаг несохранённых изменений
+      setHasUnsavedChanges(false)
       
       // Инвалидируем кеши
       await queryClient.invalidateQueries({ queryKey: ['scripts'] })
@@ -398,12 +379,7 @@ export function ScriptEditorPage() {
               {script.scenes?.map((scene: Scene) => (
                 <button
                   key={scene.id}
-                  onClick={() => {
-                    if (hasUnsavedChanges && selectedSceneId) {
-                      handleSaveScene()
-                    }
-                    setSelectedSceneId(scene.id)
-                  }}
+                  onClick={() => setSelectedSceneId(scene.id)}
                   className={`w-full text-left p-3 rounded-lg transition-all ${
                     selectedSceneId === scene.id
                       ? 'bg-primary/20 border border-primary/30 text-primary'
@@ -450,14 +426,6 @@ export function ScriptEditorPage() {
                 />
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
                   <Button
-                    onClick={handleSaveScene}
-                    disabled={!hasUnsavedChanges || !editingText.trim()}
-                    className="gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    Сохранить
-                  </Button>
-                  <Button
                     onClick={handleCancelScene}
                     disabled={!hasUnsavedChanges}
                     variant="outline"
@@ -468,7 +436,7 @@ export function ScriptEditorPage() {
                   </Button>
                   {hasUnsavedChanges && (
                     <span className="text-xs text-yellow-400 ml-auto">
-                      Есть несохраненные изменения
+                      Есть несохраненные изменения. Используйте кнопки "Сохранить в черновики" или "Сохранить в готовые" для сохранения.
                     </span>
                   )}
                 </div>

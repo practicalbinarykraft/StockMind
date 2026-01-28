@@ -1,9 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import fs from 'fs';
 
 const { Pool } = pg;
+
+dotenv.config();
 
 async function runSingleMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
