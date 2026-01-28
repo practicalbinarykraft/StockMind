@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react'
 import { useLocation } from 'wouter'
 import { ArrowLeft, RefreshCw, Loader2 } from 'lucide-react'
-import { useScripts, useAISettings, useAISettingsActions } from '../hooks/use-scripts'
+import { useScripts, useAISettings, useAISettingsActions, useScript } from '../hooks/use-scripts'
 import { AISettingsPanel } from './script-generation/AISettingsPanel'
 import { NewsScriptList } from './script-generation/NewsScriptList'
 import { IterationTimeline } from './script-generation/IterationTimeline'
@@ -15,6 +15,7 @@ import { Card } from '@/shared/ui/card'
 export function ScriptGenerationPage() {
   const [, navigate] = useLocation()
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
+  const [selectedScript, setSelectedScript] = useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(true)
 
   // Загрузка данных
@@ -23,14 +24,14 @@ export function ScriptGenerationPage() {
   const { updateSettings } = useAISettingsActions()
   const newsScripts = scriptsData?.items || []
 
-  const selectedScript = newsScripts.find(s => s.id === selectedScriptId)
-
   const handleRefresh = useCallback(() => {
     refetch()
   }, [refetch])
 
   const handleSelectScript = useCallback((scriptId: string) => {
     setSelectedScriptId(scriptId)
+    const { data: script, isLoading } = useScript(scriptId)
+    setSelectedScript(script)
   }, [])
 
   const handleBack = useCallback(() => {
