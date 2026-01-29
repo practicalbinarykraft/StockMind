@@ -119,7 +119,7 @@ export function ScriptsPage() {
                     </div>
                     <div className="flex items-center gap-2 ml-4">
                       <Button
-                        onClick={() => navigate(`/conveyor/drafts/${script.id}`)}
+                        onClick={() => navigate(`/conveyor/editor/${script.id}`)}
                         variant="outline"
                         className="gap-2"
                       >

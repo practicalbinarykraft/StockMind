@@ -470,7 +470,7 @@ export function ConveyorDashboard() {
 
         {/* На рецензии */}
         <div 
-          onClick={() => navigate("/conveyor/scripts/review")}
+          onClick={() => navigate("/conveyor/reviews")}
           className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0 cursor-pointer"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/0 to-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -504,7 +504,7 @@ export function ConveyorDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate("/conveyor/scripts/review")}
+              onClick={() => navigate("/conveyor/reviews")}
               className="gap-2"
             >
               Смотреть все
@@ -524,7 +524,7 @@ export function ConveyorDashboard() {
               {dashboard.pendingReview.scripts.map((script) => (
                 <div
                   key={script.id}
-                  onClick={() => navigate(`/conveyor/drafts/${script.id}`)}
+                  onClick={() => navigate(`/conveyor/editor/${script.id}`)}
                   className="glass rounded-lg p-5 hover:bg-muted/50 transition-all border border-border hover:border-primary/30 group cursor-pointer"
                 >
                   <div className="flex items-center justify-between">

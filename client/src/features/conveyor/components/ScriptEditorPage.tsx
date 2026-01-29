@@ -19,7 +19,7 @@ import type { Scene } from '../types'
 
 export function ScriptEditorPage() {
   const [, navigate] = useLocation()
-  const [, params] = useRoute('/conveyor/drafts/:id')
+  const [, params] = useRoute('/conveyor/editor/:id')
   const scriptId = params?.id || ''
   const { toast } = useToast()
 
