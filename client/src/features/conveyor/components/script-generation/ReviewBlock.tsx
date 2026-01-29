@@ -11,7 +11,7 @@ export function ReviewBlock({ review }: ReviewBlockProps) {
   const scorePercentage = (review.overallScore / 10) * 100
 
   return (
-    <Card className="p-6 border-l-4 border-green-500">
+    <Card className="p-4 border-l-4 border-green-500">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -40,15 +40,15 @@ export function ReviewBlock({ review }: ReviewBlockProps) {
       </div>
 
       {/* Overall Comment */}
-      <Card className="p-4 mb-4 bg-muted/50">
+      <Card className="p-2 mb-4 bg-muted/50">
         <h5 className="text-md font-semibold mb-2">Общий комментарий</h5>
         <p className="text-sm leading-relaxed text-muted-foreground">{review.overallComment}</p>
       </Card>
 
       {/* Scene Comments */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {review.sceneComments.map((sceneComment) => (
-          <Card key={sceneComment.sceneId} className="p-4 bg-muted/30">
+          <Card key={sceneComment.sceneId} className="p-2 bg-muted/30">
             <h5 className="text-md font-semibold mb-3">
               Сцена {sceneComment.sceneNumber} - Комментарии
             </h5>

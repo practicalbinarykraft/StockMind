@@ -10,7 +10,7 @@ interface ScriptVersionBlockProps {
 
 export function ScriptVersionBlock({ script }: ScriptVersionBlockProps) {
   return (
-    <Card className="p-6 border-l-4 border-purple-500">
+    <Card className="p-4 border-l border-purple-500">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -49,7 +49,7 @@ export function ScriptVersionBlock({ script }: ScriptVersionBlockProps) {
       </div>
 
       {/* Scenes */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {script.scenes.map((scene) => (
           <SceneCard key={scene.id} scene={scene} />
         ))}
