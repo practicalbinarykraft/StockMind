@@ -201,6 +201,67 @@ export class AutoScriptsRepo {
       .orderBy(desc(autoScriptVersions.versionNumber));
   }
 
+  async createVersion(
+    autoScriptId: string,
+    userId: string,
+    versionData: {
+      title: string;
+      scenes: any;
+      fullScript: string;
+      finalScore?: number | null;
+      hookScore?: number | null;
+      structureScore?: number | null;
+      emotionalScore?: number | null;
+      ctaScore?: number | null;
+      feedbackText?: string | null;
+      feedbackSceneIds?: any;
+    }
+  ): Promise<AutoScriptVersion | undefined> {
+    // Получаем максимальный номер версии
+    const versions = await this.getScriptVersions(autoScriptId);
+    const maxVersionNumber = versions.length > 0 
+      ? Math.max(...versions.map(v => v.versionNumber))
+      : 0;
+    
+    const newVersionNumber = maxVersionNumber + 1;
+
+    // Создаем новую версию
+    const [version] = await db
+      .insert(autoScriptVersions)
+      .values({
+        autoScriptId,
+        userId,
+        versionNumber: newVersionNumber,
+        title: versionData.title,
+        scenes: versionData.scenes,
+        fullScript: versionData.fullScript,
+        finalScore: versionData.finalScore,
+        hookScore: versionData.hookScore,
+        structureScore: versionData.structureScore,
+        emotionalScore: versionData.emotionalScore,
+        ctaScore: versionData.ctaScore,
+        feedbackText: versionData.feedbackText,
+        feedbackSceneIds: versionData.feedbackSceneIds,
+        isCurrent: true,
+      })
+      .returning();
+
+    // Помечаем все остальные версии как не текущие
+    if (version) {
+      await db
+        .update(autoScriptVersions)
+        .set({ isCurrent: false })
+        .where(
+          and(
+            eq(autoScriptVersions.autoScriptId, autoScriptId),
+            sql`${autoScriptVersions.id} != ${version.id}`
+          )
+        );
+    }
+
+    return version;
+  }
+
   // ============================================================================
   // CONVEYOR ITEMS
   // ============================================================================

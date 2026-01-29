@@ -2,7 +2,7 @@
  * Страница редактора сценария
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation, useRoute } from 'wouter'
 import { ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle } from 'lucide-react'
 import { useScript } from '../hooks/use-scripts'
@@ -49,6 +49,40 @@ export function ScriptEditorPage() {
       setHasUnsavedChanges(false)
     }
   }, [selectedSceneId, selectedScene])
+
+  // Автосохранение при переходе между сценами
+  const prevSceneIdRef = useRef<string | null>(null)
+  const prevEditingTextRef = useRef<string>('')
+
+  useEffect(() => {
+    const autosave = async () => {
+      // Сохраняем изменения предыдущей сцены перед переходом к новой
+      if (prevSceneIdRef.current && prevEditingTextRef.current && scriptId) {
+        const prevScene = script?.scenes?.find((s: any) => s.id === prevSceneIdRef.current)
+        if (prevScene && prevScene.text !== prevEditingTextRef.current) {
+          try {
+            const currentScript = await scriptsService.getScriptUniversal(scriptId)
+            const updatedScenes = currentScript.scenes.map(scene =>
+              scene.id === prevSceneIdRef.current ? { ...scene, text: prevEditingTextRef.current } : scene
+            )
+            await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
+            console.log('[Autosave] Saved changes for scene', prevSceneIdRef.current)
+          } catch (error) {
+            console.error('[Autosave] Failed to save:', error)
+          }
+        }
+      }
+    }
+
+    // Запускаем автосохранение при смене сцены
+    if (prevSceneIdRef.current !== selectedSceneId) {
+      autosave()
+      prevSceneIdRef.current = selectedSceneId
+    }
+    
+    // Обновляем текст для следующего автосохранения
+    prevEditingTextRef.current = editingText
+  }, [selectedSceneId, editingText, scriptId, script])
 
   const handleTextChange = (text: string) => {
     setEditingText(text)
@@ -107,44 +141,38 @@ export function ScriptEditorPage() {
   // Определяем, является ли скрипт auto_script (по наличию специфичных полей)
   const isAutoScript = !!(script as any)?.conveyorItemId || !!(script as any)?.finalScore || !!(script as any)?.gateDecision
 
-  const handleSaveToDrafts = async () => {
+  // Кнопка "Сохранить" - обновляет auto_script напрямую (для блока "Сценарии на рецензии")
+  const handleSave = async () => {
+    if (!hasUnsavedChanges || !selectedSceneId) {
+      toast({
+        title: 'Нет изменений',
+        description: 'Нет несохраненных изменений',
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
-      // Сохраняем текущие изменения если есть
-      if (hasUnsavedChanges && selectedSceneId) {
-        await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
-      }
+      // Обновляем текущую сцену
+      const currentScript = await scriptsService.getScriptUniversal(scriptId)
+      const updatedScenes = currentScript.scenes.map(scene =>
+        scene.id === selectedSceneId ? { ...scene, text: editingText } : scene
+      )
       
-      // Если это auto_script - создаём копию в библиотеке
-      if (isAutoScript) {
-        await scriptsService.saveAutoScriptToLibrary(scriptId, 'draft')
-        toast({
-          title: 'Успешно',
-          description: 'Сценарий сохранён в черновики',
-        })
-      } else {
-        // Обновляем статус на draft (если он другой)
-        if (script?.status !== 'draft') {
-          await scriptsService.updateScript(scriptId, { status: 'draft' })
-        }
-        toast({
-          title: 'Успешно',
-          description: 'Сохранено в черновики',
-        })
-      }
+      await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
       
-      // Сбрасываем флаг несохранённых изменений
       setHasUnsavedChanges(false)
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
       
-      // Инвалидируем кеши
-      await queryClient.invalidateQueries({ queryKey: ['scripts'] })
-      
-      navigate('/conveyor/drafts')
+      toast({
+        title: 'Успешно',
+        description: 'Изменения сохранены',
+      })
     } catch (error) {
-      console.error('Error saving to drafts:', error)
+      console.error('Error saving:', error)
       toast({
         title: 'Ошибка',
-        description: 'Не удалось сохранить в черновики',
+        description: 'Не удалось сохранить изменения',
         variant: 'destructive',
       })
     } finally {
@@ -152,42 +180,34 @@ export function ScriptEditorPage() {
     }
   }
 
-  const handleSaveToScripts = async () => {
+  // Кнопка "Сохранить новую версию в черновики" - создает версию в timeline + черновик
+  const handleSaveNewVersionAsDraft = async () => {
     setIsSaving(true)
     try {
       // Сохраняем текущие изменения если есть
       if (hasUnsavedChanges && selectedSceneId) {
-        await scriptsService.updateScene(scriptId, selectedSceneId, { text: editingText })
+        const currentScript = await scriptsService.getScriptUniversal(scriptId)
+        const updatedScenes = currentScript.scenes.map(scene =>
+          scene.id === selectedSceneId ? { ...scene, text: editingText } : scene
+        )
+        await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
       }
+
+      // Создаем новую версию в timeline + сохраняем в черновики
+      const result = await scriptsService.saveNewVersionAsDraft(scriptId)
       
-      // Если это auto_script - создаём копию в библиотеке со статусом ready
-      if (isAutoScript) {
-        await scriptsService.saveAutoScriptToLibrary(scriptId, 'ready')
-        toast({
-          title: 'Успешно',
-          description: 'Сценарий сохранён в готовые',
-        })
-      } else {
-        // Обновляем статус на ready (готов к использованию)
-        await scriptsService.updateScript(scriptId, { status: 'ready' })
-        toast({
-          title: 'Успешно',
-          description: 'Сценарий готов к использованию',
-        })
-      }
-      
-      // Сбрасываем флаг несохранённых изменений
       setHasUnsavedChanges(false)
-      
-      // Инвалидируем кеши
       await queryClient.invalidateQueries({ queryKey: ['scripts'] })
       
-      navigate('/conveyor/scripts')
+      toast({
+        title: 'Успешно',
+        description: result.message || 'Новая версия сохранена в черновики',
+      })
     } catch (error) {
-      console.error('Error saving to scripts:', error)
+      console.error('Error saving new version:', error)
       toast({
         title: 'Ошибка',
-        description: 'Не удалось сохранить сценарий',
+        description: 'Не удалось сохранить новую версию',
         variant: 'destructive',
       })
     } finally {
@@ -346,21 +366,21 @@ export function ScriptEditorPage() {
         </div>
         <div className="flex items-center gap-3">
           <Button
-            onClick={handleSaveToDrafts}
-            disabled={isSaving}
+            onClick={handleSave}
+            disabled={isSaving || !hasUnsavedChanges}
             variant="outline"
             className="gap-2"
           >
-            <FileText className="w-4 h-4" />
-            Сохранить в черновики
+            <CheckCircle className="w-4 h-4" />
+            Сохранить
           </Button>
           <Button
-            onClick={handleSaveToScripts}
+            onClick={handleSaveNewVersionAsDraft}
             disabled={isSaving}
             className="gap-2"
           >
-            <CheckCircle className="w-4 h-4" />
-            Сохранить в готовые
+            <FileText className="w-4 h-4" />
+            Сохранить новую версию в черновики
           </Button>
         </div>
       </div>
@@ -436,7 +456,7 @@ export function ScriptEditorPage() {
                   </Button>
                   {hasUnsavedChanges && (
                     <span className="text-xs text-yellow-400 ml-auto">
-                      Есть несохраненные изменения. Используйте кнопки "Сохранить в черновики" или "Сохранить в готовые" для сохранения.
+                      Есть несохраненные изменения. Нажмите "Сохранить" в шапке или перейдите к другой сцене для автосохранения.
                     </span>
                   )}
                 </div>

@@ -11,6 +11,7 @@ import { generationSSE } from './generation-sse';
 import { apiKeysService } from '../api-keys/api-keys.service';
 import { conveyorSettingsService } from '../conveyor-settings/conveyor-settings.service';
 import { parseRssSource } from '../../lib/rss-background-tasks';
+import { AutoScriptsRepo } from '../auto-scripts/auto-scripts.repo';
 
 interface StylePreferences {
   formality: 'formal' | 'conversational' | 'casual';
@@ -484,6 +485,9 @@ class GenerationPipeline {
       })
       .where(eq(autoScripts.id, scriptId));
 
+    // Создаем первую версию (из конвейера) для timeline
+    await this.createInitialVersion(scriptId, userId);
+
     // Обновить счётчики в настройках конвейера
     await conveyorSettingsService.incrementDailyCount(userId);
     await conveyorSettingsService.incrementPassed(userId);
@@ -501,6 +505,11 @@ class GenerationPipeline {
         gateDecision: 'NEEDS_REVIEW', // uppercase as per schema
       })
       .where(eq(autoScripts.id, scriptId));
+
+    // Создаем первую версию (из конвейера) для timeline
+    if (userId) {
+      await this.createInitialVersion(scriptId, userId);
+    }
 
     // Обновить счётчики если userId передан
     if (userId) {
@@ -520,6 +529,48 @@ class GenerationPipeline {
         revisionCount: iteration,
       })
       .where(eq(autoScripts.id, scriptId));
+  }
+
+  /**
+   * Создать первую версию (из конвейера) для timeline
+   * Первая версия создается автоматически и никогда не изменяется
+   */
+  private async createInitialVersion(scriptId: string, userId: string): Promise<void> {
+    try {
+      const repo = new AutoScriptsRepo();
+      
+      // Проверяем, есть ли уже версии
+      const existingVersions = await repo.getScriptVersions(scriptId);
+      if (existingVersions.length > 0) {
+        console.log(`[Pipeline] Версии для скрипта ${scriptId} уже существуют, пропускаем создание`);
+        return;
+      }
+
+      // Получаем текущее состояние скрипта
+      const script = await repo.getById(scriptId);
+      if (!script) {
+        console.error(`[Pipeline] Скрипт ${scriptId} не найден, не могу создать версию`);
+        return;
+      }
+
+      // Создаем первую версию из текущего состояния
+      await repo.createVersion(scriptId, userId, {
+        title: script.title,
+        scenes: script.scenes,
+        fullScript: script.fullScript,
+        finalScore: script.finalScore,
+        hookScore: script.hookScore,
+        structureScore: script.structureScore,
+        emotionalScore: script.emotionalScore,
+        ctaScore: script.ctaScore,
+        feedbackText: 'Исходная версия из конвейера',
+      });
+
+      console.log(`[Pipeline] Создана первая версия (из конвейера) для скрипта ${scriptId}`);
+    } catch (error: any) {
+      console.error(`[Pipeline] Ошибка при создании первой версии для ${scriptId}:`, error.message);
+      // Не прерываем процесс, если не удалось создать версию
+    }
   }
 
   /**

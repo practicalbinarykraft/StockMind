@@ -510,4 +510,67 @@ export const autoScriptsService = {
 
     return updatedScript;
   },
+
+  /**
+   * Save new version to drafts (creates version in timeline + saves to library)
+   * Первая версия автоматически создается конвейером, не создаем её здесь
+   */
+  async saveNewVersionAsDraft(scriptId: string, userId: string) {
+    const script = await repo.getById(scriptId);
+
+    if (!script) {
+      throw new AutoScriptNotFoundError();
+    }
+
+    if (script.userId !== userId) {
+      throw new AutoScriptAccessDeniedError();
+    }
+
+    // Создаем новую версию с текущим состоянием сценария
+    const newVersion = await repo.createVersion(scriptId, userId, {
+      title: script.title,
+      scenes: script.scenes,
+      fullScript: script.fullScript,
+      finalScore: script.finalScore,
+      hookScore: script.hookScore,
+      structureScore: script.structureScore,
+      emotionalScore: script.emotionalScore,
+      ctaScore: script.ctaScore,
+    });
+
+    // Создаем или обновляем сценарий в библиотеке (scripts_library)
+    const scriptData = script as any;
+    const libraryScript = await scriptsLibraryService.createScript(userId, {
+      title: script.title,
+      status: "draft",
+      scenes: script.scenes || [],
+      fullText: script.fullScript,
+      format: script.formatId || undefined,
+      durationSeconds: scriptData.durationSeconds || undefined,
+      wordCount: script.fullScript
+        ? script.fullScript.split(/\s+/).length
+        : undefined,
+      aiScore: script.finalScore || undefined,
+      aiAnalysis: scriptData.scoring || undefined,
+      sourceType: script.sourceType,
+      sourceId: scriptData.sourceContentId || script.sourceItemId || undefined,
+      sourceTitle: scriptData.sourceTitle || undefined,
+      sourceUrl: scriptData.sourceUrl || undefined,
+    });
+
+    logger.info("New version saved as draft", {
+      userId,
+      scriptId,
+      versionId: newVersion?.id,
+      versionNumber: newVersion?.versionNumber,
+      libraryScriptId: libraryScript.id,
+    });
+
+    return {
+      success: true,
+      version: newVersion,
+      libraryScriptId: libraryScript.id,
+      message: "Новая версия сохранена в черновики",
+    };
+  },
 };

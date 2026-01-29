@@ -76,6 +76,13 @@ router.post(
   autoScriptsController.resetRevision
 );
 
+// POST /api/auto-scripts/:id/save-new-version - Save new version as draft
+router.post(
+  "/:id/save-new-version",
+  requireAuth,
+  autoScriptsController.saveNewVersionAsDraft
+);
+
 export function registerAutoScriptsRoutes(app: Express) {
   app.use("/api/auto-scripts", router);
 }

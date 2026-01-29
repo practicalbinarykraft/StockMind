@@ -25,9 +25,16 @@ export function ScriptVersionBlock({ script }: ScriptVersionBlockProps) {
             </div>
           </div>
         </div>
-        <Badge variant={script.status === 'draft' ? 'secondary' : 'default'}>
-          {script.status === 'draft' ? 'Черновик' : 'Отправлен на рецензию'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {script.isFromConveyor && (
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
+              Конвейер
+            </Badge>
+          )}
+          <Badge variant={script.status === 'draft' ? 'secondary' : 'default'}>
+            {script.status === 'draft' ? 'Черновик' : 'Отправлен на рецензию'}
+          </Badge>
+        </div>
       </div>
 
       {/* Scenes */}

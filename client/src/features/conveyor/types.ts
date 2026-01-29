@@ -174,6 +174,7 @@ export interface ScriptVersion {
   scenes: ScriptScene[]
   generatedAt: Date
   status: 'draft' | 'sent_for_review'
+  isFromConveyor?: boolean // Помечает версию как созданную конвейером (первая версия)
 }
 
 export interface ScriptScene {

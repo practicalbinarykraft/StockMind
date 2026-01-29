@@ -457,4 +457,36 @@ export const autoScriptsController = {
       return res.status(500).json({ message: "Failed to update script" });
     }
   },
+
+  /**
+   * POST /api/auto-scripts/:id/save-new-version
+   * Save new version to drafts (creates version in timeline + saves to library)
+   */
+  async saveNewVersionAsDraft(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+
+      const result = await autoScriptsService.saveNewVersionAsDraft(id, userId);
+
+      return res.json(result);
+    } catch (error: any) {
+      if (error instanceof AutoScriptNotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+
+      if (error instanceof AutoScriptAccessDeniedError) {
+        return res.status(403).json({ message: error.message });
+      }
+
+      logger.error("Error saving new version as draft", {
+        userId: getUserId(req),
+        scriptId: req.params.id,
+        error: error.message,
+      });
+      return res.status(500).json({ message: "Failed to save new version" });
+    }
+  },
 };

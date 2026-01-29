@@ -19,7 +19,7 @@ type TimelineItem =
   | { type: 'review'; data: Review }
 
 // Преобразование версии из API в формат ScriptVersion
-function convertVersionToScriptVersion(version: any, versionNumber: number): ScriptVersion {
+function convertVersionToScriptVersion(version: any, versionNumber: number, isFirst: boolean = false): ScriptVersion {
   return {
     id: version.id,
     version: versionNumber,
@@ -32,6 +32,7 @@ function convertVersionToScriptVersion(version: any, versionNumber: number): Scr
     })),
     generatedAt: new Date(version.createdAt || Date.now()),
     status: version.isCurrent ? 'draft' : 'sent_for_review',
+    isFromConveyor: isFirst, // Первая версия всегда из конвейера
   }
 }
 
@@ -185,7 +186,7 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
       const firstVersion = versions[0]
       if (firstVersion) {
         const versionNumber = firstVersion.versionNumber || 1
-        const scriptVersion = convertVersionToScriptVersion(firstVersion, versionNumber)
+        const scriptVersion = convertVersionToScriptVersion(firstVersion, versionNumber, true)
         timelineItems.push({ type: 'script', data: scriptVersion })
         
         // Если у первой версии есть рецензия и оценка, показываем её

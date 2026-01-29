@@ -63,7 +63,7 @@ export function Router() {
       <Route path="/conveyor/drafts">
         {() => <PrivateRoute component={ConveyorDrafts} />}
       </Route>
-      <Route path="/conveyor/drafts/:id">
+      <Route path="/conveyor/editor/:id">
         {() => <PrivateRoute component={ScriptEditor} />}
       </Route>
       <Route path="/conveyor/scripts">
@@ -72,7 +72,7 @@ export function Router() {
       <Route path="/conveyor/scripts/generation">
         {() => <PrivateRoute component={ScriptGeneration} />}
       </Route>
-      <Route path="/conveyor/scripts/review">
+      <Route path="/conveyor/reviews">
         {() => <PrivateRoute component={ScriptsReview} />}
       </Route>
       <Route component={NotFound} />

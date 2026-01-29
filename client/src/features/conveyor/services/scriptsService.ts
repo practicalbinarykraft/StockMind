@@ -593,6 +593,21 @@ export async function getSceneComments(scriptId: string, sceneId: string): Promi
   return result.data || result
 }
 
+/**
+ * Сохранить новую версию в черновики
+ * Создает версию в timeline + сохраняет в scripts_library
+ */
+export async function saveNewVersionAsDraft(scriptId: string): Promise<{
+  success: boolean
+  version: any
+  libraryScriptId: string
+  message: string
+}> {
+  const response = await apiRequest('POST', `/api/auto-scripts/${scriptId}/save-new-version`)
+  const result = await response.json()
+  return result
+}
+
 export const scriptsService = {
   getDrafts,
   getReadyScripts,
@@ -624,4 +639,5 @@ export const scriptsService = {
   saveSceneComment,
   getScriptComments,
   getSceneComments,
+  saveNewVersionAsDraft,
 }
