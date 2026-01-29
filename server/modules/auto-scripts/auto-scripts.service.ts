@@ -540,37 +540,82 @@ export const autoScriptsService = {
 
     // Создаем или обновляем сценарий в библиотеке (scripts_library)
     const scriptData = script as any;
-    const libraryScript = await scriptsLibraryService.createScript(userId, {
-      title: script.title,
-      status: "draft",
-      scenes: script.scenes || [],
-      fullText: script.fullScript,
-      format: script.formatId || undefined,
-      durationSeconds: scriptData.durationSeconds || undefined,
-      wordCount: script.fullScript
-        ? script.fullScript.split(/\s+/).length
-        : undefined,
-      aiScore: script.finalScore || undefined,
-      aiAnalysis: scriptData.scoring || undefined,
-      sourceType: script.sourceType,
-      sourceId: scriptData.sourceContentId || script.sourceItemId || undefined,
-      sourceTitle: scriptData.sourceTitle || undefined,
-      sourceUrl: scriptData.sourceUrl || undefined,
-    });
-
-    logger.info("New version saved as draft", {
+    const sourceId = scriptData.sourceContentId || script.sourceItemId || scriptId;
+    
+    // Проверяем, существует ли уже скрипт в библиотеке с таким sourceId
+    const existingLibraryScript = await scriptsLibraryService.findBySource(
       userId,
-      scriptId,
-      versionId: newVersion?.id,
-      versionNumber: newVersion?.versionNumber,
-      libraryScriptId: libraryScript.id,
-    });
+      sourceId,
+      script.sourceType
+    );
+
+    let libraryScript;
+    
+    if (existingLibraryScript) {
+      // Обновляем существующий скрипт
+      libraryScript = await scriptsLibraryService.updateScript(
+        existingLibraryScript.id,
+        userId,
+        {
+          title: script.title,
+          status: "draft",
+          scenes: script.scenes || [],
+          fullText: script.fullScript,
+          format: script.formatId || undefined,
+          durationSeconds: scriptData.durationSeconds || undefined,
+          wordCount: script.fullScript
+            ? script.fullScript.split(/\s+/).length
+            : undefined,
+          aiScore: script.finalScore || undefined,
+          aiAnalysis: scriptData.scoring || undefined,
+          sourceTitle: scriptData.sourceTitle || undefined,
+          sourceUrl: scriptData.sourceUrl || undefined,
+        }
+      );
+      
+      logger.info("Existing draft updated", {
+        userId,
+        scriptId,
+        versionId: newVersion?.id,
+        versionNumber: newVersion?.versionNumber,
+        libraryScriptId: libraryScript.id,
+      });
+    } else {
+      // Создаем новый скрипт
+      libraryScript = await scriptsLibraryService.createScript(userId, {
+        title: script.title,
+        status: "draft",
+        scenes: script.scenes || [],
+        fullText: script.fullScript,
+        format: script.formatId || undefined,
+        durationSeconds: scriptData.durationSeconds || undefined,
+        wordCount: script.fullScript
+          ? script.fullScript.split(/\s+/).length
+          : undefined,
+        aiScore: script.finalScore || undefined,
+        aiAnalysis: scriptData.scoring || undefined,
+        sourceType: script.sourceType,
+        sourceId: sourceId,
+        sourceTitle: scriptData.sourceTitle || undefined,
+        sourceUrl: scriptData.sourceUrl || undefined,
+      });
+      
+      logger.info("New version saved as draft", {
+        userId,
+        scriptId,
+        versionId: newVersion?.id,
+        versionNumber: newVersion?.versionNumber,
+        libraryScriptId: libraryScript.id,
+      });
+    }
 
     return {
       success: true,
       version: newVersion,
       libraryScriptId: libraryScript.id,
-      message: "Новая версия сохранена в черновики",
+      message: existingLibraryScript 
+        ? "Черновик обновлен" 
+        : "Новая версия сохранена в черновики",
     };
   },
 };

@@ -58,6 +58,25 @@ export class ScriptsLibraryRepo {
   }
 
   /**
+   * Find a script by source ID and source type
+   */
+  async findBySource(userId: string, sourceId: string, sourceType: string) {
+    const [script] = await db
+      .select()
+      .from(scriptsLibrary)
+      .where(
+        and(
+          eq(scriptsLibrary.userId, userId),
+          eq(scriptsLibrary.sourceId, sourceId),
+          eq(scriptsLibrary.sourceType, sourceType)
+        )
+      )
+      .limit(1);
+
+    return script;
+  }
+
+  /**
    * Create a new script
    */
   async createScript(userId: string, data: any) {

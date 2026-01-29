@@ -238,16 +238,33 @@ export function ScriptEditorPage() {
         await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
       }
 
-      // Создаем новую версию в timeline + сохраняем в черновики
-      const result = await scriptsService.saveNewVersionAsDraft(scriptId)
-      
-      setHasUnsavedChanges(false)
-      await queryClient.invalidateQueries({ queryKey: ['scripts'] })
-      
-      toast({
-        title: 'Успешно',
-        description: result.message || 'Новая версия сохранена в черновики',
-      })
+      // Проверяем тип скрипта и используем правильный метод сохранения
+      if (isAutoScript) {
+        // Для auto_scripts - создаем новую версию в timeline + сохраняем в черновики
+        const result = await scriptsService.saveNewVersionAsDraft(scriptId)
+        
+        setHasUnsavedChanges(false)
+        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        
+        toast({
+          title: 'Успешно',
+          description: result.message || 'Новая версия сохранена в черновики',
+        })
+      } else {
+        // Для scripts_library - обновляем существующий черновик
+        await scriptsService.updateScript(scriptId, { 
+          status: 'draft',
+          updatedAt: new Date().toISOString()
+        })
+        
+        setHasUnsavedChanges(false)
+        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        
+        toast({
+          title: 'Успешно',
+          description: 'Черновик обновлен',
+        })
+      }
     } catch (error) {
       console.error('Error saving new version:', error)
       toast({

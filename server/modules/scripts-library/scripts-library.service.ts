@@ -48,6 +48,14 @@ export const scriptsLibraryService = {
   },
 
   /**
+   * Find a script by source ID and source type
+   */
+  async findBySource(userId: string, sourceId: string, sourceType: string) {
+    const script = await repo.findBySource(userId, sourceId, sourceType);
+    return script;
+  },
+
+  /**
    * Create a new script
    */
   async createScript(userId: string, data: any) {
