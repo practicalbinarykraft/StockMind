@@ -40,7 +40,7 @@ export function ReviewBlock({ review }: ReviewBlockProps) {
       </div>
 
       {/* Overall Comment */}
-      <Card className="p-2 mb-4 bg-muted/50">
+      <Card className="p-2 mb-2 bg-muted/50">
         <h5 className="text-md font-semibold mb-2">Общий комментарий</h5>
         <p className="text-sm leading-relaxed text-muted-foreground">{review.overallComment}</p>
       </Card>

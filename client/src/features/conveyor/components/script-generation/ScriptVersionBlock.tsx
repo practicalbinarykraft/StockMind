@@ -49,7 +49,7 @@ export function ScriptVersionBlock({ script }: ScriptVersionBlockProps) {
       </div>
 
       {/* Scenes */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {script.scenes.map((scene) => (
           <SceneCard key={scene.id} scene={scene} />
         ))}
