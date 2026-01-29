@@ -18,6 +18,14 @@ scriptsRouter.post("/:id/analyze", requireAuth, scriptsLibraryController.analyze
 scriptsRouter.post("/:id/start-production", requireAuth, scriptsLibraryController.startProduction);
 scriptsRouter.post("/generate-variants", requireAuth, scriptsLibraryController.generateVariants);
 
+// Editor state and checkpoint routes
+scriptsRouter.post("/:id/save", requireAuth, scriptsLibraryController.saveWorkingState);
+scriptsRouter.post("/:id/checkpoint", requireAuth, scriptsLibraryController.createCheckpoint);
+scriptsRouter.get("/:id/checkpoints", requireAuth, scriptsLibraryController.getCheckpoints);
+scriptsRouter.post("/:id/restore-checkpoint", requireAuth, scriptsLibraryController.restoreFromCheckpoint);
+scriptsRouter.post("/:id/operation-log", requireAuth, scriptsLibraryController.logOperation);
+scriptsRouter.get("/:id/operation-log", requireAuth, scriptsLibraryController.getOperationLog);
+
 // Articles routes (script generation from articles)
 articlesRouter.post("/:id/generate-script", requireAuth, scriptsLibraryController.generateScriptFromArticle);
 

@@ -11,7 +11,7 @@ async function runSingleMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
 
-  const migrationFile = './drizzle/migrations/0009_add_scene_comments.sql';
+  const migrationFile = './drizzle/migrations/0010_add_editor_tables.sql';
   const sql = fs.readFileSync(migrationFile, 'utf-8');
 
   // Выполнить SQL напрямую

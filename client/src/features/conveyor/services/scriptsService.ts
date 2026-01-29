@@ -641,6 +641,90 @@ export async function getLibraryScriptVersions(scriptId: string): Promise<any> {
   return data
 }
 
+// ============================================================================
+// CHECKPOINT & EDITOR STATE API
+// ============================================================================
+
+/**
+ * Сохранить рабочее состояние (не создаёт версию)
+ * Эндпоинт: POST /api/scripts/:id/save
+ */
+export async function saveWorkingState(scriptId: string, data: {
+  scenes: Scene[]
+  fullText: string
+  editorState: any
+}): Promise<Script> {
+  const response = await apiRequest('POST', `/api/scripts/${scriptId}/save`, data)
+  const result = await response.json()
+  return result.data?.script || result.script || result
+}
+
+/**
+ * Создать checkpoint
+ * Эндпоинт: POST /api/scripts/:id/checkpoint
+ */
+export async function createCheckpoint(scriptId: string, data: {
+  reason: 'exit' | 'ttl' | 'pre_ai' | 'auto' | 'recovery'
+  scenes: Scene[]
+  fullText: string
+  metadata?: any
+}): Promise<void> {
+  await apiRequest('POST', `/api/scripts/${scriptId}/checkpoint`, data)
+}
+
+/**
+ * Получить checkpoint'ы для recovery
+ * Эндпоинт: GET /api/scripts/:id/checkpoints
+ */
+export async function getCheckpoints(scriptId: string): Promise<{
+  hasCheckpoints: boolean
+  checkpoints: Array<{
+    id: string
+    reason: string
+    createdAt: string
+    metadata: any
+  }>
+}> {
+  const response = await apiRequest('GET', `/api/scripts/${scriptId}/checkpoints`)
+  const result = await response.json()
+  return result.data || result
+}
+
+/**
+ * Восстановить из checkpoint
+ * Эндпоинт: POST /api/scripts/:id/restore-checkpoint
+ */
+export async function restoreFromCheckpoint(scriptId: string, checkpointId: string): Promise<Script> {
+  const response = await apiRequest('POST', `/api/scripts/${scriptId}/restore-checkpoint`, {
+    checkpointId
+  })
+  const result = await response.json()
+  return result.data?.script || result.script || result
+}
+
+/**
+ * Логировать операцию редактора
+ * Эндпоинт: POST /api/scripts/:id/operation-log
+ */
+export async function logEditorOperation(scriptId: string, data: {
+  operationType: string
+  sceneId?: string
+  details?: any
+}): Promise<void> {
+  await apiRequest('POST', `/api/scripts/${scriptId}/operation-log`, data)
+}
+
+/**
+ * Получить лог операций (для debugging)
+ * Эндпоинт: GET /api/scripts/:id/operation-log
+ */
+export async function getOperationLog(scriptId: string, limit?: number): Promise<any[]> {
+  const params = limit ? `?limit=${limit}` : ''
+  const response = await apiRequest('GET', `/api/scripts/${scriptId}/operation-log${params}`)
+  const result = await response.json()
+  return result.data?.logs || result.logs || result
+}
+
 export const scriptsService = {
   getDrafts,
   getReadyScripts,
@@ -675,4 +759,11 @@ export const scriptsService = {
   saveNewVersionAsDraft,
   createLibraryScriptVersion,
   getLibraryScriptVersions,
+  // Checkpoint & Editor State
+  saveWorkingState,
+  createCheckpoint,
+  getCheckpoints,
+  restoreFromCheckpoint,
+  logEditorOperation,
+  getOperationLog,
 }

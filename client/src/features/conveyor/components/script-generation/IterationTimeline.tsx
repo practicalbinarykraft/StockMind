@@ -144,6 +144,7 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   
   // Загружаем итерации из API (только для auto_scripts)
+  // Получаем версии (только пользовательские версии, checkpoint'ы находятся в отдельной таблице)
   const { data: versionsData, isLoading } = useScriptIterations(script.id)
   
   // Загружаем комментарии к сценам

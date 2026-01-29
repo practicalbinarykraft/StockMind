@@ -15,6 +15,7 @@ import { ScrollArea } from '@/shared/ui/scroll-area'
 import { scriptsService } from '../services/scriptsService'
 import { useToast } from '@/shared/hooks/use-toast'
 import { queryClient } from '@/shared/api'
+import { RecoveryBanner } from './script-generation/RecoveryBanner'
 import type { Scene } from '../types'
 
 export function ScriptEditorPage() {
@@ -33,7 +34,71 @@ export function ScriptEditorPage() {
   const [promptText, setPromptText] = useState<string>('')
   const [lengthOption, setLengthOption] = useState<'keep' | 'increase' | 'decrease'>('keep')
 
+  // Recovery state
+  const [hasRecoverableCheckpoints, setHasRecoverableCheckpoints] = useState(false)
+  const [checkpoints, setCheckpoints] = useState<Array<any>>([])
+
   const selectedScene = script?.scenes?.find((s: any) => s.id === selectedSceneId)
+  
+  // Проверка checkpoint'ов при загрузке
+  useEffect(() => {
+    const checkRecovery = async () => {
+      if (!scriptId) return
+      
+      try {
+        const result = await scriptsService.getCheckpoints(scriptId)
+        
+        if (result.hasCheckpoints && result.checkpoints.length > 0) {
+          setHasRecoverableCheckpoints(true)
+          setCheckpoints(result.checkpoints)
+        }
+      } catch (error) {
+        console.error('Failed to check for checkpoints:', error)
+      }
+    }
+    
+    checkRecovery()
+  }, [scriptId])
+  
+  // Восстановление из checkpoint
+  const handleRestoreCheckpoint = async (checkpointId: string) => {
+    setIsSaving(true)
+    try {
+      const restoredScript = await scriptsService.restoreFromCheckpoint(scriptId, checkpointId)
+      
+      // Скрыть баннер recovery
+      setHasRecoverableCheckpoints(false)
+      setCheckpoints([])
+      
+      // Инвалидировать кэш
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      
+      // Обновить UI
+      if (restoredScript.scenes.length > 0) {
+        setSelectedSceneId(restoredScript.scenes[0].id)
+        setEditingText(restoredScript.scenes[0].text || '')
+      }
+      
+      toast({ 
+        title: 'Успешно', 
+        description: 'Изменения восстановлены' 
+      })
+    } catch (error: any) {
+      console.error('Failed to restore checkpoint:', error)
+      toast({ 
+        title: 'Ошибка', 
+        description: error.message || 'Не удалось восстановить изменения', 
+        variant: 'destructive' 
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+  
+  const dismissCheckpoints = () => {
+    setHasRecoverableCheckpoints(false)
+    setCheckpoints([])
+  }
 
   // Инициализация при загрузке скрипта
   useEffect(() => {
@@ -411,6 +476,15 @@ export function ScriptEditorPage() {
 
   return (
     <div className="space-y-6">
+      {/* Recovery Banner */}
+      {hasRecoverableCheckpoints && checkpoints.length > 0 && (
+        <RecoveryBanner
+          checkpoints={checkpoints}
+          onRestore={handleRestoreCheckpoint}
+          onDismiss={dismissCheckpoints}
+        />
+      )}
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

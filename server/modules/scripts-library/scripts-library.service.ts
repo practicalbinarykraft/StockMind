@@ -438,4 +438,185 @@ export const scriptsLibraryService = {
       variants,
     };
   },
+
+  // ============================================================================
+  // CHECKPOINT & EDITOR STATE MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Save working state (не создаёт версию, только обновляет рабочее состояние)
+   */
+  async saveWorkingState(scriptId: string, userId: string, data: {
+    scenes: any[];
+    fullText: string;
+    editorState: any;
+  }) {
+    const script = await repo.saveWorkingState(scriptId, userId, {
+      scenes: data.scenes,
+      fullText: data.fullText,
+      editorState: data.editorState,
+    });
+
+    if (!script) {
+      throw new ScriptNotFoundError();
+    }
+
+    logger.info("Script working state saved", {
+      userId,
+      scriptId,
+      scenesCount: data.scenes.length,
+    });
+
+    return {
+      success: true,
+      script,
+      message: "Рабочее состояние сохранено",
+    };
+  },
+
+  /**
+   * Create checkpoint (автоматически при определённых условиях)
+   */
+  async createCheckpoint(scriptId: string, userId: string, reason: string, currentState: {
+    scenes: any[];
+    fullText: string;
+    metadata?: any;
+  }) {
+    // Проверить что скрипт существует
+    const script = await repo.getScriptById(scriptId, userId);
+    if (!script) {
+      throw new ScriptNotFoundError();
+    }
+
+    const checkpoint = await repo.createCheckpoint({
+      scriptId,
+      userId,
+      reason,
+      scenes: currentState.scenes,
+      fullText: currentState.fullText,
+      metadata: currentState.metadata || {},
+    });
+
+    logger.info("Checkpoint created", {
+      userId,
+      scriptId,
+      checkpointId: checkpoint.id,
+      reason,
+    });
+
+    return checkpoint;
+  },
+
+  /**
+   * Restore from checkpoint (UI для recovery)
+   */
+  async restoreFromCheckpoint(scriptId: string, checkpointId: string, userId: string) {
+    // Получить checkpoint
+    const checkpoint = await repo.getCheckpointById(checkpointId, userId);
+    if (!checkpoint) {
+      throw new ScriptValidationError("Checkpoint not found");
+    }
+
+    // Проверить что checkpoint принадлежит этому скрипту
+    if (checkpoint.scriptId !== scriptId) {
+      throw new ScriptValidationError("Checkpoint does not belong to this script");
+    }
+
+    // Восстановить данные из checkpoint
+    const script = await repo.saveWorkingState(scriptId, userId, {
+      scenes: checkpoint.scenes as any[],
+      fullText: checkpoint.fullText,
+      editorState: {
+        lastEditedAt: new Date().toISOString(),
+        lastEditedSceneId: (checkpoint.metadata as any)?.editingSceneId || null,
+        restoredFrom: checkpointId,
+        restoredAt: new Date().toISOString(),
+      },
+    });
+
+    if (!script) {
+      throw new ScriptNotFoundError();
+    }
+
+    logger.info("Script restored from checkpoint", {
+      userId,
+      scriptId,
+      checkpointId,
+      reason: checkpoint.reason,
+    });
+
+    return script;
+  },
+
+  /**
+   * Check for recoverable checkpoints (при открытии редактора)
+   */
+  async checkForRecoverableCheckpoints(scriptId: string, userId: string) {
+    const script = await repo.getScriptById(scriptId, userId);
+    if (!script) {
+      throw new ScriptNotFoundError();
+    }
+
+    // Получить checkpoint'ы с reason 'exit' или 'ttl'
+    const checkpoints = await repo.getCheckpointsByReason(scriptId, userId, ['exit', 'ttl']);
+
+    // Фильтровать только свежие (не старше 7 дней)
+    const now = new Date();
+    const recoverableCheckpoints = checkpoints.filter(cp => {
+      const age = now.getTime() - new Date(cp.createdAt).getTime();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      return age < sevenDaysMs;
+    });
+
+    return {
+      hasCheckpoints: recoverableCheckpoints.length > 0,
+      checkpoints: recoverableCheckpoints.map(cp => ({
+        id: cp.id,
+        reason: cp.reason,
+        createdAt: cp.createdAt,
+        metadata: cp.metadata,
+      })),
+    };
+  },
+
+  /**
+   * Log editor operation (вызывается из разных мест)
+   */
+  async logEditorOperation(scriptId: string, userId: string, operation: {
+    operationType: string;
+    sceneId?: string;
+    details?: any;
+  }) {
+    const log = await repo.logOperation({
+      scriptId,
+      userId,
+      operationType: operation.operationType,
+      sceneId: operation.sceneId,
+      details: operation.details,
+    });
+
+    return log;
+  },
+
+  /**
+   * Get operation log (для debugging)
+   */
+  async getOperationLog(scriptId: string, userId: string, limit?: number) {
+    const script = await repo.getScriptById(scriptId, userId);
+    if (!script) {
+      throw new ScriptNotFoundError();
+    }
+
+    const logs = await repo.getOperationLog(scriptId, userId, limit);
+    return logs;
+  },
+
+  /**
+   * Delete expired checkpoints (для cron job)
+   */
+  async deleteExpiredCheckpoints() {
+    const deletedCount = await repo.deleteExpiredCheckpoints();
+    logger.info(`Deleted ${deletedCount} expired checkpoints`);
+    return deletedCount;
+  },
 };
