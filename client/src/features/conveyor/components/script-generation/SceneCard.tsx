@@ -13,7 +13,7 @@ export function SceneCard({ scene }: SceneCardProps) {
         <span className="text-sm text-muted-foreground">Длительность: {scene.duration} сек</span>
       </div>
       
-      <div className="mb-3">
+      <div className="mb-2">
         <p className="text-sm leading-relaxed">{scene.text}</p>
       </div>
 

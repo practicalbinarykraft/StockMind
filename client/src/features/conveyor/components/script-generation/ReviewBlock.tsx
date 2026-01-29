@@ -11,7 +11,7 @@ export function ReviewBlock({ review }: ReviewBlockProps) {
   const scorePercentage = (review.overallScore / 10) * 100
 
   return (
-    <Card className="p-4 border-l-4 border-green-500">
+    <Card className="p-4 border-l border-green-500">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
