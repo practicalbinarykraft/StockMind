@@ -180,6 +180,51 @@ export function ScriptEditorPage() {
     }
   }
 
+  // Кнопка "Сохранить в готовые" - сохраняет в scripts_library со статусом ready
+  const handleSaveToReady = async () => {
+    setIsSaving(true)
+    try {
+      // Сохраняем текущие изменения если есть
+      if (hasUnsavedChanges && selectedSceneId) {
+        const currentScript = await scriptsService.getScriptUniversal(scriptId)
+        const updatedScenes = currentScript.scenes.map(scene =>
+          scene.id === selectedSceneId ? { ...scene, text: editingText } : scene
+        )
+        await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
+      }
+
+      // Если это auto_script - создаём копию в библиотеке со статусом ready
+      if (isAutoScript) {
+        await scriptsService.saveAutoScriptToLibrary(scriptId, 'ready')
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий сохранён в готовые',
+        })
+      } else {
+        // Обновляем статус на ready (готов к использованию)
+        await scriptsService.updateScript(scriptId, { status: 'ready' })
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий готов к использованию',
+        })
+      }
+      
+      setHasUnsavedChanges(false)
+      await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+      
+      navigate('/conveyor/scripts')
+    } catch (error) {
+      console.error('Error saving to ready:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сохранить сценарий',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // Кнопка "Сохранить новую версию в черновики" - создает версию в timeline + черновик
   const handleSaveNewVersionAsDraft = async () => {
     setIsSaving(true)
@@ -366,21 +411,21 @@ export function ScriptEditorPage() {
         </div>
         <div className="flex items-center gap-3">
           <Button
-            onClick={handleSave}
-            disabled={isSaving || !hasUnsavedChanges}
-            variant="outline"
-            className="gap-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Сохранить
-          </Button>
-          <Button
             onClick={handleSaveNewVersionAsDraft}
             disabled={isSaving}
+            variant="outline"
             className="gap-2"
           >
             <FileText className="w-4 h-4" />
             Сохранить новую версию в черновики
+          </Button>
+          <Button
+            onClick={handleSaveToReady}
+            disabled={isSaving}
+            className="gap-2"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Сохранить в готовые
           </Button>
         </div>
       </div>
@@ -454,9 +499,17 @@ export function ScriptEditorPage() {
                     <X className="w-4 h-4" />
                     Отменить
                   </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={isSaving || !hasUnsavedChanges}
+                    className="gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Сохранить
+                  </Button>
                   {hasUnsavedChanges && (
                     <span className="text-xs text-yellow-400 ml-auto">
-                      Есть несохраненные изменения. Нажмите "Сохранить" в шапке или перейдите к другой сцене для автосохранения.
+                      Есть несохраненные изменения
                     </span>
                   )}
                 </div>
