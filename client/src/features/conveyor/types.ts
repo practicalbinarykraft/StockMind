@@ -175,6 +175,7 @@ export interface ScriptVersion {
   generatedAt: Date
   status: 'draft' | 'sent_for_review'
   isFromConveyor?: boolean // Помечает версию как созданную конвейером (первая версия)
+  source?: 'conveyor' | 'draft' // Источник версии: conveyor = сгенерировано AI, draft = ручное редактирование
 }
 
 export interface ScriptScene {

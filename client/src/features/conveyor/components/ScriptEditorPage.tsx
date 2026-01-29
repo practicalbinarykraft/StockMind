@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useRoute } from 'wouter'
-import { ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle, Edit } from 'lucide-react'
 import { useScript } from '../hooks/use-scripts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
@@ -24,6 +24,11 @@ export function ScriptEditorPage() {
   const scriptId = params?.id || ''
   const { toast } = useToast()
 
+  // Определяем режим работы из query параметра
+  const searchParams = new URLSearchParams(window.location.search)
+  const mode = (searchParams.get('mode') as 'review' | 'draft') || 'draft'
+  const isReviewMode = mode === 'review'
+
   const { data: script, isLoading } = useScript(scriptId)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   const [editingText, setEditingText] = useState<string>('')
@@ -33,6 +38,11 @@ export function ScriptEditorPage() {
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false)
   const [promptText, setPromptText] = useState<string>('')
   const [lengthOption, setLengthOption] = useState<'keep' | 'increase' | 'decrease'>('keep')
+  
+  // Состояния для регенерации всего сценария (режим рецензии)
+  const [isRegeneratingScript, setIsRegeneratingScript] = useState(false)
+  const [isScriptPromptModalOpen, setIsScriptPromptModalOpen] = useState(false)
+  const [scriptPromptText, setScriptPromptText] = useState('')
 
   // Recovery state
   const [hasRecoverableCheckpoints, setHasRecoverableCheckpoints] = useState(false)
@@ -150,6 +160,7 @@ export function ScriptEditorPage() {
   }, [selectedSceneId, editingText, scriptId, script])
 
   const handleTextChange = (text: string) => {
+    if (isReviewMode) return // В режиме рецензии редактирование отключено
     setEditingText(text)
     setHasUnsavedChanges(text !== selectedScene?.text)
   }
@@ -290,7 +301,7 @@ export function ScriptEditorPage() {
     }
   }
 
-  // Кнопка "Сохранить новую версию в черновики" - создает версию в timeline + черновик
+  // Кнопка "Сохранить новую версию в черновики" / "Редактировать сцены" (в зависимости от режима)
   const handleSaveNewVersionAsDraft = async () => {
     setIsSaving(true)
     try {
@@ -303,7 +314,23 @@ export function ScriptEditorPage() {
         await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
       }
 
-      // Проверяем тип скрипта и используем правильный метод сохранения
+      // В режиме рецензии - сохраняем в черновики и переходим на страницу черновиков
+      if (isReviewMode && isAutoScript) {
+        await scriptsService.saveAutoScriptToLibrary(scriptId, 'draft')
+        
+        setHasUnsavedChanges(false)
+        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий сохранён в черновики',
+        })
+        
+        navigate('/conveyor/drafts')
+        return
+      }
+
+      // В режиме черновика - создаем новую версию
       if (isAutoScript) {
         // Для auto_scripts - создаем новую версию в timeline + сохраняем в черновики
         const result = await scriptsService.saveNewVersionAsDraft(scriptId)
@@ -340,6 +367,39 @@ export function ScriptEditorPage() {
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Функция для регенерации всего сценария (режим рецензии)
+  const handleRegenerateScript = async (customPrompt?: string) => {
+    if (!scriptId) return
+    
+    setIsRegeneratingScript(true)
+    try {
+      const result = await scriptsService.regenerateScript(scriptId, customPrompt)
+      
+      toast({
+        title: 'Успешно',
+        description: result.message || 'Регенерация сценария запущена',
+      })
+      
+      if (customPrompt) {
+        setIsScriptPromptModalOpen(false)
+        setScriptPromptText('')
+      }
+      
+      // Инвалидируем кеш для обновления данных
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
+    } catch (error: any) {
+      console.error('Error regenerating script:', error)
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось запустить регенерацию сценария',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsRegeneratingScript(false)
     }
   }
 
@@ -489,36 +549,76 @@ export function ScriptEditorPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/conveyor/drafts')}
+            onClick={() => navigate(isReviewMode ? '/conveyor/reviews' : '/conveyor/drafts')}
             className="p-2 hover:bg-muted rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
           <div>
-            <h2 className="text-2xl font-bold">{script.newsTitle}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold">{script.newsTitle}</h2>
+              <Badge variant={isReviewMode ? 'default' : 'secondary'}>
+                {isReviewMode ? 'Рецензия' : 'Редактирование'}
+              </Badge>
+            </div>
             <p className="text-muted-foreground text-sm mt-1">
               {script.sourceName || 'Источник неизвестен'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            onClick={handleSaveNewVersionAsDraft}
-            disabled={isSaving}
-            variant="outline"
-            className="gap-2"
-          >
-            <FileText className="w-4 h-4" />
-            Сохранить новую версию в черновики
-          </Button>
-          <Button
-            onClick={handleSaveToReady}
-            disabled={isSaving}
-            className="gap-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Сохранить в готовые
-          </Button>
+          {isReviewMode ? (
+            // Режим рецензии
+            <>
+              <Button
+                onClick={() => handleRegenerateScript()}
+                disabled={isRegeneratingScript}
+                variant="outline"
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRegeneratingScript ? 'animate-spin' : ''}`} />
+                Перегенерировать сценарий
+              </Button>
+              <Button
+                onClick={() => setIsScriptPromptModalOpen(true)}
+                disabled={isRegeneratingScript}
+                variant="outline"
+                className="gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Перегенерировать с промптом
+              </Button>
+              <Button
+                onClick={handleSaveNewVersionAsDraft}
+                disabled={isSaving}
+                className="gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Редактировать сцены
+              </Button>
+            </>
+          ) : (
+            // Режим черновика
+            <>
+              <Button
+                onClick={handleSaveNewVersionAsDraft}
+                disabled={isSaving}
+                variant="outline"
+                className="gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Сохранить новую версию
+              </Button>
+              <Button
+                onClick={handleSaveToReady}
+                disabled={isSaving}
+                className="gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Сохранить в готовые
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -578,37 +678,44 @@ export function ScriptEditorPage() {
                 <Textarea
                   value={editingText}
                   onChange={(e) => handleTextChange(e.target.value)}
-                  className="w-full h-32 bg-muted/50 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all"
-                  placeholder="Введите текст сцены..."
+                  className={`w-full h-32 bg-muted/50 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all ${
+                    isReviewMode ? 'cursor-not-allowed opacity-60' : ''
+                  }`}
+                  placeholder={isReviewMode ? 'Текст доступен только для просмотра' : 'Введите текст сцены...'}
+                  readOnly={isReviewMode}
+                  disabled={isReviewMode}
                 />
-                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving || !hasUnsavedChanges}
-                    className="gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Сохранить
-                  </Button>
-                  <Button
-                    onClick={handleCancelScene}
-                    disabled={!hasUnsavedChanges}
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Отменить
-                  </Button>
-                  {hasUnsavedChanges && (
-                    <span className="text-xs text-yellow-400 ml-auto">
-                      Есть несохраненные изменения
-                    </span>
-                  )}
-                </div>
+                {!isReviewMode && (
+                  <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
+                    <Button
+                      onClick={handleSave}
+                      disabled={isSaving || !hasUnsavedChanges}
+                      className="gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Сохранить
+                    </Button>
+                    <Button
+                      onClick={handleCancelScene}
+                      disabled={!hasUnsavedChanges}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Отменить
+                    </Button>
+                    {hasUnsavedChanges && (
+                      <span className="text-xs text-yellow-400 ml-auto">
+                        Есть несохраненные изменения
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Варианты замены */}
-              <div className="glass rounded-xl p-6 glow-border">
+              {/* Варианты замены (скрыто в режиме рецензии) */}
+              {!isReviewMode && (
+                <div className="glass rounded-xl p-6 glow-border">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
@@ -681,6 +788,7 @@ export function ScriptEditorPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           ) : (
             <div className="glass rounded-xl p-12 text-center">
@@ -789,6 +897,58 @@ export function ScriptEditorPage() {
               >
                 <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
                 {isRegenerating ? 'Генерация...' : 'Перегенерировать'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для промпта регенерации всего сценария (режим рецензии) */}
+      {isScriptPromptModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass rounded-xl p-6 glow-border max-w-2xl w-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-bold">Инструкции для перегенерации сценария</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsScriptPromptModalOpen(false)
+                  setScriptPromptText('')
+                }}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-4">
+              Опишите, как должен измениться сценарий. AI перегенерирует его полностью с учётом ваших пожеланий.
+            </p>
+            <Textarea
+              value={scriptPromptText}
+              onChange={(e) => setScriptPromptText(e.target.value)}
+              className="w-full h-32 bg-muted/50 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all mb-4"
+              placeholder="Например: Сделать более эмоциональным, добавить конкретные примеры, убрать воду..."
+            />
+            <div className="flex items-center gap-3 justify-end">
+              <Button
+                onClick={() => {
+                  setIsScriptPromptModalOpen(false)
+                  setScriptPromptText('')
+                }}
+                variant="outline"
+              >
+                Отмена
+              </Button>
+              <Button
+                onClick={() => handleRegenerateScript(scriptPromptText.trim() || undefined)}
+                disabled={isRegeneratingScript}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRegeneratingScript ? 'animate-spin' : ''}`} />
+                {isRegeneratingScript ? 'Запуск...' : 'Перегенерировать'}
               </Button>
             </div>
           </div>

@@ -83,7 +83,7 @@ export function DraftsPage() {
               {filteredScripts.map((draft) => (
                 <div
                   key={draft.id}
-                  onClick={() => navigate(`/conveyor/editor/${draft.id}`)}
+                  onClick={() => navigate(`/conveyor/editor/${draft.id}?mode=draft`)}
                   className="block rounded-lg p-5 border hover:bg-muted/50 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between">

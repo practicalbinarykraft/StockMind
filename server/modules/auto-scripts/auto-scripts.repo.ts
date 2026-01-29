@@ -215,6 +215,7 @@ export class AutoScriptsRepo {
       ctaScore?: number | null;
       feedbackText?: string | null;
       feedbackSceneIds?: any;
+      source?: 'conveyor' | 'draft';
     }
   ): Promise<AutoScriptVersion | undefined> {
     // Получаем максимальный номер версии
@@ -242,6 +243,7 @@ export class AutoScriptsRepo {
         ctaScore: versionData.ctaScore,
         feedbackText: versionData.feedbackText,
         feedbackSceneIds: versionData.feedbackSceneIds,
+        source: versionData.source || 'conveyor',
         isCurrent: true,
       })
       .returning();

@@ -304,10 +304,133 @@ export const autoScriptsService = {
         ctaScore: v.ctaScore,
         feedbackText: v.feedbackText,
         feedbackSceneIds: v.feedbackSceneIds,
+        source: v.source,
         isCurrent: v.isCurrent,
         createdAt: v.createdAt,
       })),
       currentVersion: script.revisionCount + 1,
+    };
+  },
+
+  /**
+   * Regenerate entire script (for review mode)
+   * Similar to reviseScript but regenerates the whole script
+   */
+  async regenerateScript(
+    scriptId: string,
+    userId: string,
+    customPrompt?: string
+  ) {
+    const script = await repo.getById(scriptId);
+
+    if (!script) {
+      throw new AutoScriptNotFoundError();
+    }
+
+    if (script.userId !== userId) {
+      throw new AutoScriptAccessDeniedError();
+    }
+
+    // Allow regeneration for scripts in "pending" or "revision" status
+    if (script.status !== "pending" && script.status !== "revision") {
+      throw new InvalidScriptStatusError(script.status);
+    }
+
+    // Check revision limit
+    if (script.revisionCount >= MAX_REVISIONS) {
+      // Auto-reject after max revisions
+      await repo.reject(
+        scriptId,
+        "Maximum revision limit reached",
+        RejectionCategory.OTHER
+      );
+
+      throw new MaxRevisionsReachedError(MAX_REVISIONS);
+    }
+
+    // Use custom prompt or default regeneration instructions
+    const feedbackText = customPrompt || "Перегенерировать сценарий полностью с учетом общих рекомендаций";
+
+    // Mark for revision
+    await repo.markRevision(scriptId, feedbackText);
+
+    // Get user's API key for conveyor processing
+    let apiKey: string | null = null;
+    try {
+      const apiKeyRecord = await apiKeysService.getUserApiKey(userId, "anthropic");
+      if (apiKeyRecord?.decryptedKey) {
+        apiKey = apiKeyRecord.decryptedKey;
+      }
+    } catch (keyError: any) {
+      logger.warn("Failed to get API key for regeneration", {
+        userId,
+        error: keyError.message,
+      });
+    }
+
+    // Create revision conveyor item and start processing
+    if (apiKey) {
+      try {
+        // Create revision item (undefined selectedSceneIds = regenerate entire script)
+        const revisionResult = await revisionProcessor.createRevisionItem(
+          script,
+          feedbackText,
+          undefined // No specific scenes = regenerate entire script
+        );
+
+        if (revisionResult.success && revisionResult.conveyorItemId) {
+          // Start processing asynchronously (don't await)
+          conveyorOrchestrator
+            .processRevisionItem(revisionResult.conveyorItemId, apiKey)
+            .then((result) => {
+              logger.info("Script regeneration completed", {
+                userId,
+                scriptId,
+                conveyorItemId: revisionResult.conveyorItemId,
+                success: result.success,
+              });
+            })
+            .catch((err) => {
+              logger.error("Script regeneration failed", {
+                userId,
+                scriptId,
+                conveyorItemId: revisionResult.conveyorItemId,
+                error: err.message,
+              });
+            });
+
+          logger.info("Script regeneration started", {
+            userId,
+            scriptId,
+            conveyorItemId: revisionResult.conveyorItemId,
+            customPrompt: !!customPrompt,
+          });
+        } else {
+          logger.warn("Failed to create regeneration item", {
+            userId,
+            scriptId,
+            error: revisionResult.error,
+          });
+        }
+      } catch (regenerationError: any) {
+        logger.error("Error creating regeneration item", {
+          userId,
+          scriptId,
+          error: regenerationError.message,
+        });
+        // Don't fail the request - revision is already marked
+      }
+    } else {
+      logger.warn("No API key available for script regeneration", {
+        userId,
+        scriptId,
+      });
+    }
+
+    return {
+      success: true,
+      message: "Регенерация сценария запущена",
+      revisionCount: script.revisionCount + 1,
     };
   },
 
@@ -536,6 +659,7 @@ export const autoScriptsService = {
       structureScore: script.structureScore,
       emotionalScore: script.emotionalScore,
       ctaScore: script.ctaScore,
+      source: 'draft',
     });
 
     // Создаем или обновляем сценарий в библиотеке (scripts_library)

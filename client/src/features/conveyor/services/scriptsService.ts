@@ -632,6 +632,21 @@ export async function createLibraryScriptVersion(scriptId: string): Promise<{
 }
 
 /**
+ * Перегенерировать весь сценарий (для режима рецензии)
+ * Эндпоинт: POST /api/auto-scripts/:id/regenerate
+ */
+export async function regenerateScript(
+  scriptId: string,
+  prompt?: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await apiRequest('POST', `/api/auto-scripts/${scriptId}/regenerate`, {
+    prompt
+  })
+  const result = await response.json()
+  return result
+}
+
+/**
  * Получить версии скрипта из библиотеки
  * Эндпоинт: GET /api/scripts/:id/versions
  */
@@ -757,6 +772,7 @@ export const scriptsService = {
   getScriptComments,
   getSceneComments,
   saveNewVersionAsDraft,
+  regenerateScript,
   createLibraryScriptVersion,
   getLibraryScriptVersions,
   // Checkpoint & Editor State

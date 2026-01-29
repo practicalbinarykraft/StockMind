@@ -489,4 +489,45 @@ export const autoScriptsController = {
       return res.status(500).json({ message: "Failed to save new version" });
     }
   },
+
+  /**
+   * POST /api/auto-scripts/:id/regenerate
+   * Regenerate entire script (for review mode)
+   */
+  async regenerateScript(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const { prompt } = req.body;
+
+      const result = await autoScriptsService.regenerateScript(id, userId, prompt);
+
+      return res.json(result);
+    } catch (error: any) {
+      if (error instanceof AutoScriptNotFoundError) {
+        return res.status(404).json({ message: error.message });
+      }
+
+      if (error instanceof AutoScriptAccessDeniedError) {
+        return res.status(403).json({ message: error.message });
+      }
+
+      if (error instanceof InvalidScriptStatusError) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      if (error instanceof MaxRevisionsReachedError) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      logger.error("Error regenerating script", {
+        userId: getUserId(req),
+        scriptId: req.params.id,
+        error: error.message,
+      });
+      return res.status(500).json({ message: "Failed to regenerate script" });
+    }
+  },
 };

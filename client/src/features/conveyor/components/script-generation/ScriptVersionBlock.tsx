@@ -26,7 +26,18 @@ export function ScriptVersionBlock({ script }: ScriptVersionBlockProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {script.isFromConveyor && (
+          {/* Метка источника версии */}
+          {script.source ? (
+            <Badge 
+              variant={script.source === 'conveyor' ? 'default' : 'secondary'}
+              className={script.source === 'conveyor' 
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' 
+                : 'bg-green-500/10 text-green-400 border-green-500/30'
+              }
+            >
+              {script.source === 'conveyor' ? 'Конвейер' : 'Черновик'}
+            </Badge>
+          ) : script.isFromConveyor && (
             <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
               Конвейер
             </Badge>

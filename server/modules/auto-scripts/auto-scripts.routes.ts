@@ -83,6 +83,13 @@ router.post(
   autoScriptsController.saveNewVersionAsDraft
 );
 
+// POST /api/auto-scripts/:id/regenerate - Regenerate entire script
+router.post(
+  "/:id/regenerate",
+  requireAuth,
+  autoScriptsController.regenerateScript
+);
+
 export function registerAutoScriptsRoutes(app: Express) {
   app.use("/api/auto-scripts", router);
 }
