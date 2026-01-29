@@ -9,11 +9,11 @@ export function SceneCard({ scene }: SceneCardProps) {
   return (
     <Card className="p-2">
       <div className="flex items-center justify-between mb-3">
-        <h5 className="text-md font-semibold">Сцена {scene.number}</h5>
+        <h6 className="text-md font-semibold">Сцена {scene.number}</h6>
         <span className="text-sm text-muted-foreground">Длительность: {scene.duration} сек</span>
       </div>
       
-      <div className="mb-2">
+      <div>
         <p className="text-sm leading-relaxed">{scene.text}</p>
       </div>
 
