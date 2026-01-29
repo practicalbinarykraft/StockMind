@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { scriptsLibrary } from "@shared/schema";
-import { eq, and, desc, like } from "drizzle-orm";
+import { eq, and, or, desc, like } from "drizzle-orm";
 
 /**
  * Repository for Scripts Library
@@ -74,6 +74,68 @@ export class ScriptsLibraryRepo {
       .limit(1);
 
     return script;
+  }
+
+  /**
+   * Get all versions of a script (by parentScriptId or id)
+   */
+  async getScriptVersions(scriptId: string, userId: string) {
+    // Сначала получаем сам скрипт
+    const script = await this.getScriptById(scriptId, userId);
+    if (!script) return [];
+
+    // Если это версия (есть parentScriptId), получаем все версии родительского скрипта
+    const parentId = script.parentScriptId || script.id;
+
+    // Получаем родительский скрипт и все его версии
+    const versions = await db
+      .select()
+      .from(scriptsLibrary)
+      .where(
+        and(
+          eq(scriptsLibrary.userId, userId),
+          or(
+            eq(scriptsLibrary.id, parentId),
+            eq(scriptsLibrary.parentScriptId, parentId)
+          )
+        )
+      )
+      .orderBy(scriptsLibrary.version); // По возрастанию (v1, v2, v3...)
+
+    return versions;
+  }
+
+  /**
+   * Create a new version of a script
+   */
+  async createScriptVersion(scriptId: string, userId: string, data: any) {
+    // Получаем исходный скрипт
+    const originalScript = await this.getScriptById(scriptId, userId);
+    if (!originalScript) return null;
+
+    // Определяем родительский ID (если это уже версия, используем её parentScriptId)
+    const parentId = originalScript.parentScriptId || originalScript.id;
+
+    // Получаем максимальный номер версии
+    const versions = await this.getScriptVersions(scriptId, userId);
+    const maxVersion = versions.length > 0
+      ? Math.max(...versions.map(v => v.version || 1))
+      : 1;
+    const newVersion = maxVersion + 1;
+
+    // Создаем новую версию
+    const [newScript] = await db
+      .insert(scriptsLibrary)
+      .values({
+        ...data,
+        userId,
+        version: newVersion,
+        parentScriptId: parentId,
+        status: 'draft', // Новая версия всегда черновик
+      })
+      .returning();
+
+    return newScript;
   }
 
   /**

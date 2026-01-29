@@ -244,25 +244,26 @@ export function ScriptEditorPage() {
         const result = await scriptsService.saveNewVersionAsDraft(scriptId)
         
         setHasUnsavedChanges(false)
+        // Инвалидируем запросы для обновления списка и версий
         await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
         
         toast({
           title: 'Успешно',
           description: result.message || 'Новая версия сохранена в черновики',
         })
       } else {
-        // Для scripts_library - обновляем существующий черновик
-        await scriptsService.updateScript(scriptId, { 
-          status: 'draft',
-          updatedAt: new Date().toISOString()
-        })
+        // Для scripts_library - создаем новую версию в timeline
+        const result = await scriptsService.createLibraryScriptVersion(scriptId)
         
         setHasUnsavedChanges(false)
+        // Инвалидируем запросы для обновления списка и версий
         await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
         
         toast({
           title: 'Успешно',
-          description: 'Черновик обновлен',
+          description: result.message || 'Новая версия создана',
         })
       }
     } catch (error) {
@@ -507,6 +508,14 @@ export function ScriptEditorPage() {
                   placeholder="Введите текст сцены..."
                 />
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
+                <Button
+                    onClick={handleSave}
+                    disabled={isSaving || !hasUnsavedChanges}
+                    className="gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Сохранить
+                  </Button>
                   <Button
                     onClick={handleCancelScene}
                     disabled={!hasUnsavedChanges}
@@ -515,14 +524,6 @@ export function ScriptEditorPage() {
                   >
                     <X className="w-4 h-4" />
                     Отменить
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={isSaving || !hasUnsavedChanges}
-                    className="gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Сохранить
                   </Button>
                   {hasUnsavedChanges && (
                     <span className="text-xs text-yellow-400 ml-auto">

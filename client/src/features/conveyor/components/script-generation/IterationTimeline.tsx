@@ -27,11 +27,11 @@ function convertVersionToScriptVersion(version: any, versionNumber: number, isFi
       id: scene.id || `scene-${index}`,
       number: index + 1,
       text: scene.text || '',
-      visual: scene.visualNotes || '',
-      duration: scene.duration || 0,
+      visual: scene.visualNotes || scene.visualSource || '',
+      duration: scene.duration || (scene.durationInFrames ? scene.durationInFrames / 30 : 0),
     })),
-    generatedAt: new Date(version.createdAt || Date.now()),
-    status: version.isCurrent ? 'draft' : 'sent_for_review',
+    generatedAt: new Date(version.createdAt || version.updatedAt || Date.now()),
+    status: version.isCurrent || version.status === 'draft' ? 'draft' : 'sent_for_review',
     isFromConveyor: isFirst, // Первая версия всегда из конвейера
   }
 }
@@ -177,20 +177,20 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
       ])
     }
     
-    // Если есть данные из API (версии auto_script)
+    // Если есть данные из API (версии auto_script или scripts_library)
     const versions = (versionsData as any)?.versions
     if (versions && versions.length > 0) {
       const timelineItems: TimelineItem[] = []
       
-      // Всегда показываем первую версию (версия из конвейера)
+      // Всегда показываем первую версию (версия из конвейера или первая версия из библиотеки)
       const firstVersion = versions[0]
       if (firstVersion) {
-        const versionNumber = firstVersion.versionNumber || 1
+        const versionNumber = firstVersion.versionNumber || firstVersion.version || 1
         const scriptVersion = convertVersionToScriptVersion(firstVersion, versionNumber, true)
         timelineItems.push({ type: 'script', data: scriptVersion })
         
         // Если у первой версии есть рецензия и оценка, показываем её
-        if (firstVersion.feedbackText || firstVersion.finalScore) {
+        if (firstVersion.feedbackText || firstVersion.finalScore || firstVersion.aiScore) {
           const review = createReviewFromFeedback(
             firstVersion,
             versionNumber,
@@ -203,17 +203,16 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
       }
       
       // Показываем вторую и последующие версии только если они существуют
-      // (т.е. были созданы через revision)
       for (let i = 1; i < versions.length; i++) {
         const version = versions[i]
-        const versionNumber = version.versionNumber || (i + 1)
+        const versionNumber = version.versionNumber || version.version || (i + 1)
         
         // Добавляем версию скрипта
         const scriptVersion = convertVersionToScriptVersion(version, versionNumber)
         timelineItems.push({ type: 'script', data: scriptVersion })
         
         // Если у этой версии есть рецензия и оценка, показываем её
-        if (version.feedbackText || version.finalScore) {
+        if (version.feedbackText || version.finalScore || version.aiScore) {
           const review = createReviewFromFeedback(
             version,
             versionNumber,

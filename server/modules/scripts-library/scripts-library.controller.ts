@@ -116,6 +116,56 @@ export const scriptsLibraryController = {
   },
 
   /**
+   * GET /api/scripts/:id/versions
+   * Get all versions of a script
+   */
+  async getScriptVersions(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const versions = await scriptsLibraryService.getScriptVersions(id, userId);
+
+      return apiResponse.ok(res, { versions });
+    } catch (error: any) {
+      logger.error("Error fetching script versions", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * POST /api/scripts/:id/create-version
+   * Create a new version of a script
+   */
+  async createScriptVersion(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const newVersion = await scriptsLibraryService.createScriptVersion(id, userId);
+
+      return apiResponse.ok(res, {
+        success: true,
+        version: newVersion,
+        message: "Новая версия создана",
+      });
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      if (error instanceof ScriptValidationError) {
+        return apiResponse.badRequest(res, error.message);
+      }
+
+      logger.error("Error creating script version", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
    * DELETE /api/scripts/:id
    * Delete a script
    */

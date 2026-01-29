@@ -198,7 +198,7 @@ export class AutoScriptsRepo {
       .select()
       .from(autoScriptVersions)
       .where(eq(autoScriptVersions.autoScriptId, autoScriptId))
-      .orderBy(desc(autoScriptVersions.versionNumber));
+      .orderBy(autoScriptVersions.versionNumber); // По возрастанию (v1, v2, v3...)
   }
 
   async createVersion(

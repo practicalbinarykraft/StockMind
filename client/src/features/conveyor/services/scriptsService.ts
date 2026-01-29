@@ -234,9 +234,18 @@ export async function getScriptUniversal(id: string): Promise<Script> {
  * Эндпоинт: GET /api/auto-scripts/:id/versions
  */
 export async function getScriptIterations(id: string): Promise<NewsScript['iterations']> {
-  const response = await apiRequest('GET', `/api/auto-scripts/${id}/versions`)
-  const data = await response.json()
-  return data.data || data
+  try {
+    // Сначала пробуем получить версии из auto_scripts
+    const response = await apiRequest('GET', `/api/auto-scripts/${id}/versions`)
+    const data = await response.json()
+    return data.data || data
+  } catch (error: any) {
+    // Если 404, пробуем получить версии из scripts_library
+    if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+      return await getLibraryScriptVersions(id)
+    }
+    throw error
+  }
 }
 
 /**
@@ -608,6 +617,30 @@ export async function saveNewVersionAsDraft(scriptId: string): Promise<{
   return result
 }
 
+/**
+ * Создать новую версию для scripts_library
+ * Эндпоинт: POST /api/scripts/:id/create-version
+ */
+export async function createLibraryScriptVersion(scriptId: string): Promise<{
+  success: boolean
+  version: any
+  message: string
+}> {
+  const response = await apiRequest('POST', `/api/scripts/${scriptId}/create-version`)
+  const result = await response.json()
+  return result
+}
+
+/**
+ * Получить версии скрипта из библиотеки
+ * Эндпоинт: GET /api/scripts/:id/versions
+ */
+export async function getLibraryScriptVersions(scriptId: string): Promise<any> {
+  const response = await apiRequest('GET', `/api/scripts/${scriptId}/versions`)
+  const data = await response.json()
+  return data
+}
+
 export const scriptsService = {
   getDrafts,
   getReadyScripts,
@@ -640,4 +673,6 @@ export const scriptsService = {
   getScriptComments,
   getSceneComments,
   saveNewVersionAsDraft,
+  createLibraryScriptVersion,
+  getLibraryScriptVersions,
 }

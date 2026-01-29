@@ -56,6 +56,55 @@ export const scriptsLibraryService = {
   },
 
   /**
+   * Get all versions of a script
+   */
+  async getScriptVersions(scriptId: string, userId: string) {
+    const versions = await repo.getScriptVersions(scriptId, userId);
+    return versions;
+  },
+
+  /**
+   * Create a new version of a script
+   */
+  async createScriptVersion(scriptId: string, userId: string) {
+    const originalScript = await repo.getScriptById(scriptId, userId);
+    
+    if (!originalScript) {
+      throw new ScriptNotFoundError();
+    }
+
+    // Создаем новую версию с данными из оригинального скрипта
+    const newVersion = await repo.createScriptVersion(scriptId, userId, {
+      title: originalScript.title,
+      scenes: originalScript.scenes,
+      fullText: originalScript.fullText,
+      format: originalScript.format,
+      durationSeconds: originalScript.durationSeconds,
+      wordCount: originalScript.wordCount,
+      aiScore: originalScript.aiScore,
+      aiAnalysis: originalScript.aiAnalysis,
+      aiRecommendations: originalScript.aiRecommendations,
+      sourceType: originalScript.sourceType,
+      sourceId: originalScript.sourceId,
+      sourceTitle: originalScript.sourceTitle,
+      sourceUrl: originalScript.sourceUrl,
+    });
+
+    if (!newVersion) {
+      throw new ScriptValidationError("Failed to create new version");
+    }
+
+    logger.info("New script version created", {
+      userId,
+      scriptId,
+      newVersionId: newVersion.id,
+      versionNumber: newVersion.version,
+    });
+
+    return newVersion;
+  },
+
+  /**
    * Create a new script
    */
   async createScript(userId: string, data: any) {

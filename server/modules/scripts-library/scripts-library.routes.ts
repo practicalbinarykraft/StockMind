@@ -12,6 +12,8 @@ scriptsRouter.post("/", requireAuth, scriptsLibraryController.createScript);
 scriptsRouter.get("/:id", requireAuth, scriptsLibraryController.getScriptById);
 scriptsRouter.patch("/:id", requireAuth, scriptsLibraryController.updateScript);
 scriptsRouter.delete("/:id", requireAuth, scriptsLibraryController.deleteScript);
+scriptsRouter.get("/:id/versions", requireAuth, scriptsLibraryController.getScriptVersions);
+scriptsRouter.post("/:id/create-version", requireAuth, scriptsLibraryController.createScriptVersion);
 scriptsRouter.post("/:id/analyze", requireAuth, scriptsLibraryController.analyzeScript);
 scriptsRouter.post("/:id/start-production", requireAuth, scriptsLibraryController.startProduction);
 scriptsRouter.post("/generate-variants", requireAuth, scriptsLibraryController.generateVariants);
