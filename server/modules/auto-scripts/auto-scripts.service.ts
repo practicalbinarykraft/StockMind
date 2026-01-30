@@ -6,6 +6,7 @@ import { learningService } from "../../conveyor/learning-service";
 import { conveyorOrchestrator } from "../../conveyor/conveyor-orchestrator";
 import { createFeedbackProcessor } from "../../conveyor/feedback-processor";
 import { revisionProcessor } from "../../conveyor/revision-processor";
+import { generationPipeline } from "../generation/generation-pipeline";
 import { RejectionCategory } from "@shared/schema";
 import {
   AutoScriptNotFoundError,
@@ -314,7 +315,8 @@ export const autoScriptsService = {
 
   /**
    * Regenerate entire script (for review mode)
-   * Similar to reviseScript but regenerates the whole script
+   * Uses the same scriptwriter + editor agents as generation-pipeline
+   * Creates a completely new script based on the same source
    */
   async regenerateScript(
     scriptId: string,
@@ -348,94 +350,39 @@ export const autoScriptsService = {
       throw new MaxRevisionsReachedError(MAX_REVISIONS);
     }
 
-    // Use custom prompt or default regeneration instructions
-    const feedbackText = customPrompt || "Перегенерировать сценарий полностью с учетом общих рекомендаций";
+    logger.info("Starting script regeneration", {
+      userId,
+      scriptId,
+      customPrompt: !!customPrompt,
+      currentRevisionCount: script.revisionCount,
+    });
 
-    // Mark for revision
-    await repo.markRevision(scriptId, feedbackText);
-
-    // Get user's API key for conveyor processing
-    let apiKey: string | null = null;
-    try {
-      const apiKeyRecord = await apiKeysService.getUserApiKey(userId, "anthropic");
-      if (apiKeyRecord?.decryptedKey) {
-        apiKey = apiKeyRecord.decryptedKey;
-      }
-    } catch (keyError: any) {
-      logger.warn("Failed to get API key for regeneration", {
-        userId,
-        error: keyError.message,
-      });
-    }
-
-    // Validate API key
-    if (!apiKey) {
-      logger.warn("No API key available for script regeneration", {
-        userId,
-        scriptId,
-      });
-      throw new Error("API ключ не настроен. Добавьте ключ Anthropic в настройках.");
-    }
-
-    // Create revision conveyor item and start processing
-    try {
-      // Create revision item (undefined selectedSceneIds = regenerate entire script)
-      const revisionResult = await revisionProcessor.createRevisionItem(
-        script,
-        feedbackText,
-        undefined // No specific scenes = regenerate entire script
-      );
-
-      if (!revisionResult.success || !revisionResult.conveyorItemId) {
-        logger.error("Failed to create regeneration item", {
+    // Start regeneration asynchronously using generation-pipeline
+    // This uses the same scriptwriter + editor agents
+    generationPipeline
+      .regenerateScript(userId, scriptId, customPrompt)
+      .then((result) => {
+        logger.info("Script regeneration completed", {
           userId,
           scriptId,
-          error: revisionResult.error,
+          success: result.success,
+          finalScore: result.finalScore,
+          error: result.error,
         });
-        throw new Error(revisionResult.error || "Не удалось создать задачу регенерации");
-      }
-
-      // Start processing asynchronously (don't await)
-      conveyorOrchestrator
-        .processRevisionItem(revisionResult.conveyorItemId, apiKey)
-        .then((result) => {
-          logger.info("Script regeneration completed", {
-            userId,
-            scriptId,
-            conveyorItemId: revisionResult.conveyorItemId,
-            success: result.success,
-          });
-        })
-        .catch((err) => {
-          logger.error("Script regeneration failed", {
-            userId,
-            scriptId,
-            conveyorItemId: revisionResult.conveyorItemId,
-            error: err.message,
-          });
+      })
+      .catch((err) => {
+        logger.error("Script regeneration failed", {
+          userId,
+          scriptId,
+          error: err.message,
         });
-
-      logger.info("Script regeneration started", {
-        userId,
-        scriptId,
-        conveyorItemId: revisionResult.conveyorItemId,
-        customPrompt: !!customPrompt,
       });
 
-      return {
-        success: true,
-        message: "Регенерация сценария запущена",
-        revisionCount: script.revisionCount + 1,
-        conveyorItemId: revisionResult.conveyorItemId,
-      };
-    } catch (regenerationError: any) {
-      logger.error("Error creating regeneration item", {
-        userId,
-        scriptId,
-        error: regenerationError.message,
-      });
-      throw regenerationError;
-    }
+    return {
+      success: true,
+      message: "Регенерация сценария запущена. AI создаст новый сценарий на основе того же источника.",
+      revisionCount: script.revisionCount + 1,
+    };
   },
 
   /**

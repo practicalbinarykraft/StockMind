@@ -6,7 +6,7 @@ import { db } from '../../db';
 import { rssItems, autoScripts, conveyorItems, rssSources, type AutoScript } from '@shared/schema';
 import { eq, and, or, sql, desc } from 'drizzle-orm';
 import { scriptwriterAgent, editorAgent } from './agents';
-import type { ScriptwriterOutput, EditorOutput, SceneComment } from './agents';
+import type { ScriptwriterOutput, EditorOutput } from './agents';
 import { generationSSE } from './generation-sse';
 import { apiKeysService } from '../api-keys/api-keys.service';
 import { conveyorSettingsService } from '../conveyor-settings/conveyor-settings.service';
@@ -315,6 +315,340 @@ class GenerationPipeline {
     // Обновить статистику из БД
     await this.refreshUserStats(userId);
     return { success: false, scriptId, error: 'Достигнут лимит итераций' };
+  }
+
+  /**
+   * Регенерация существующего сценария
+   * Использует те же агенты (scriptwriter + editor) для создания нового сценария
+   * на основе того же источника, но с учётом кастомного промпта
+   */
+  async regenerateScript(
+    userId: string,
+    scriptId: string,
+    customPrompt?: string
+  ): Promise<GenerationResult> {
+    console.log(`[Pipeline] Регенерация сценария ${scriptId} для userId: ${userId}`);
+
+    try {
+      // 1. Получить API ключ
+      const apiKey = await this.getApiKey(userId);
+      if (!apiKey) {
+        throw new Error('API ключ Anthropic не настроен');
+      }
+
+      // Установить ключи агентам
+      scriptwriterAgent.setApiKey(apiKey);
+      editorAgent.setApiKey(apiKey);
+
+      // 2. Получить существующий сценарий
+      const [script] = await db
+        .select()
+        .from(autoScripts)
+        .where(eq(autoScripts.id, scriptId))
+        .limit(1);
+
+      if (!script) {
+        throw new Error(`Сценарий ${scriptId} не найден`);
+      }
+
+      if (script.userId !== userId) {
+        throw new Error('Нет доступа к этому сценарию');
+      }
+
+      // 3. Получить источник (новость)
+      const news = await this.getNews(script.sourceItemId);
+      if (!news) {
+        throw new Error(`Источник для сценария не найден`);
+      }
+
+      console.log(`[Pipeline] Регенерация для новости: ${news.title}`);
+
+      // 4. Получить настройки пользователя
+      const conveyorSettings = await conveyorSettingsService.getSettings(userId);
+      const settings: PipelineSettings = {
+        maxIterations: 3,
+        minApprovalScore: 8,
+        scriptwriterPrompt: customPrompt, // Кастомный промпт от пользователя
+      };
+
+      // Уведомление через SSE
+      generationSSE.sendEvent(userId, {
+        type: 'regeneration_started',
+        data: {
+          scriptId,
+          newsTitle: news.title,
+          customPrompt: !!customPrompt,
+        },
+      });
+
+      // 5. Запустить цикл итераций с теми же агентами
+      const result = await this.runRegenerationIterations(
+        userId,
+        scriptId,
+        news,
+        settings
+      );
+
+      // 6. Обновить статистику
+      await this.refreshUserStats(userId);
+
+      return result;
+    } catch (error: any) {
+      console.error(`[Pipeline] Ошибка регенерации:`, error);
+      
+      // Уведомление об ошибке через SSE
+      generationSSE.sendEvent(userId, {
+        type: 'regeneration_error',
+        data: {
+          scriptId,
+          error: error.message,
+        },
+      });
+
+      return { success: false, scriptId, error: error.message };
+    }
+  }
+
+  /**
+   * Цикл итераций для регенерации (использует те же агенты)
+   */
+  private async runRegenerationIterations(
+    userId: string,
+    scriptId: string,
+    news: any,
+    settings: PipelineSettings
+  ): Promise<GenerationResult> {
+    let currentIteration = 0;
+    let previousReview: EditorOutput | null = null;
+
+    const maxIterations = settings.maxIterations || 3;
+    const minScore = settings.minApprovalScore || 8;
+
+    while (currentIteration < maxIterations) {
+      currentIteration++;
+      console.log(`[Pipeline] Итерация регенерации ${currentIteration}/${maxIterations} для scriptId: ${scriptId}`);
+
+      try {
+        // --- SCRIPTWRITER ---
+        generationSSE.sendEvent(userId, {
+          type: 'regeneration_progress',
+          data: {
+            scriptId,
+            stage: 'scriptwriter',
+            iteration: currentIteration,
+            message: `Генерация сценария (итерация ${currentIteration})...`,
+          },
+        });
+
+        const scriptResult = await scriptwriterAgent.process({
+          newsTitle: news.title,
+          newsContent: news.content || news.fullContent || '',
+          previousReview: previousReview ? {
+            overallComment: previousReview.overallComment,
+            sceneComments: previousReview.sceneComments,
+          } : undefined,
+          version: currentIteration,
+          customPrompt: settings.scriptwriterPrompt,
+          examples: settings.examples,
+          stylePreferences: settings.stylePreferences,
+          durationRange: settings.durationRange,
+          onThinking: (content) => {
+            generationSSE.sendEvent(userId, {
+              type: 'regeneration_thinking',
+              data: { scriptId, agent: 'scriptwriter', content },
+            });
+          },
+        });
+
+        // Сохраняем результат в auto_script
+        await this.saveRegeneratedScript(scriptId, scriptResult, currentIteration);
+
+        // --- EDITOR ---
+        generationSSE.sendEvent(userId, {
+          type: 'regeneration_progress',
+          data: {
+            scriptId,
+            stage: 'editor',
+            iteration: currentIteration,
+            message: `Оценка сценария (итерация ${currentIteration})...`,
+          },
+        });
+
+        const reviewResult = await editorAgent.process({
+          script: scriptResult,
+          newsTitle: news.title,
+          newsContent: news.content || news.fullContent || '',
+          customPrompt: settings.editorPrompt,
+          minApprovalScore: minScore,
+          onThinking: (content) => {
+            generationSSE.sendEvent(userId, {
+              type: 'regeneration_thinking',
+              data: { scriptId, agent: 'editor', content },
+            });
+          },
+        });
+
+        // Сохраняем оценку
+        const finalScore = Math.round(reviewResult.overallScore * 10);
+        await this.saveRegenerationReview(scriptId, reviewResult, finalScore);
+
+        // --- DECISION ---
+        if (reviewResult.verdict === 'approved' || reviewResult.overallScore >= minScore) {
+          // Успех! Завершаем регенерацию
+          await this.completeRegeneration(scriptId, finalScore, userId);
+          
+          generationSSE.sendEvent(userId, {
+            type: 'regeneration_completed',
+            data: {
+              scriptId,
+              score: finalScore,
+              iterations: currentIteration,
+              verdict: 'approved',
+            },
+          });
+
+          console.log(`[Pipeline] Регенерация успешна: ${finalScore}/100`);
+          return { success: true, scriptId, finalScore };
+        }
+
+        if (reviewResult.verdict === 'rejected') {
+          // Отклонен - оставляем на рецензию человеку
+          generationSSE.sendEvent(userId, {
+            type: 'regeneration_completed',
+            data: {
+              scriptId,
+              score: finalScore,
+              iterations: currentIteration,
+              verdict: 'rejected',
+              message: 'Сценарий отклонён редактором',
+            },
+          });
+
+          console.log(`[Pipeline] Регенерация отклонена редактором`);
+          return { success: false, scriptId, error: 'Отклонён редактором' };
+        }
+
+        // Нужна доработка - продолжаем итерации
+        previousReview = reviewResult;
+        console.log(`[Pipeline] Итерация ${currentIteration}: нужна доработка (${reviewResult.overallScore}/10)`);
+      } catch (error: any) {
+        console.error(`[Pipeline] Ошибка в итерации регенерации ${currentIteration}:`, error);
+        
+        generationSSE.sendEvent(userId, {
+          type: 'regeneration_error',
+          data: {
+            scriptId,
+            error: error.message,
+            iteration: currentIteration,
+          },
+        });
+
+        return { success: false, scriptId, error: error.message };
+      }
+    }
+
+    // Достигнут лимит итераций
+    generationSSE.sendEvent(userId, {
+      type: 'regeneration_completed',
+      data: {
+        scriptId,
+        iterations: currentIteration,
+        verdict: 'max_iterations',
+        message: 'Достигнут лимит итераций',
+      },
+    });
+
+    console.log(`[Pipeline] Регенерация: достигнут лимит итераций`);
+    return { success: false, scriptId, error: 'Достигнут лимит итераций' };
+  }
+
+  /**
+   * Сохранить результат регенерации сценария
+   */
+  private async saveRegeneratedScript(
+    scriptId: string,
+    result: ScriptwriterOutput,
+    iteration: number
+  ): Promise<void> {
+    const scenes = result.scenes.map((s, i) => ({
+      id: `scene-${scriptId}-regen-${iteration}-${i}`,
+      order: s.number,
+      text: s.text,
+      visual: s.visual,
+      duration: s.duration,
+      alternatives: [],
+    }));
+
+    const fullScript = result.scenes.map(s => s.text).join('\n\n');
+
+    await db
+      .update(autoScripts)
+      .set({
+        scenes: scenes as any,
+        fullScript,
+        status: 'revision', // Помечаем что идёт регенерация
+      })
+      .where(eq(autoScripts.id, scriptId));
+
+    console.log(`[Pipeline] Сохранена регенерация итерации ${iteration} для scriptId: ${scriptId}`);
+  }
+
+  /**
+   * Сохранить оценку регенерации
+   */
+  private async saveRegenerationReview(
+    scriptId: string,
+    result: EditorOutput,
+    finalScore: number
+  ): Promise<void> {
+    await db
+      .update(autoScripts)
+      .set({
+        finalScore,
+        gateDecision: result.verdict === 'approved' ? 'PASS' : 
+                      result.verdict === 'rejected' ? 'FAIL' : 'NEEDS_REVIEW',
+      })
+      .where(eq(autoScripts.id, scriptId));
+  }
+
+  /**
+   * Завершить регенерацию успешно
+   */
+  private async completeRegeneration(
+    scriptId: string,
+    finalScore: number,
+    userId: string
+  ): Promise<void> {
+    await db
+      .update(autoScripts)
+      .set({
+        status: 'pending', // Готов к рецензии человека
+        gateDecision: 'PASS',
+        finalScore,
+        revisionCount: sql`${autoScripts.revisionCount} + 1`,
+      })
+      .where(eq(autoScripts.id, scriptId));
+
+    // Создаем новую версию для timeline
+    const repo = new AutoScriptsRepo();
+    const script = await repo.getById(scriptId);
+    
+    if (script) {
+      await repo.createVersion(scriptId, userId, {
+        title: script.title,
+        scenes: script.scenes,
+        fullScript: script.fullScript,
+        finalScore: script.finalScore,
+        hookScore: script.hookScore,
+        structureScore: script.structureScore,
+        emotionalScore: script.emotionalScore,
+        ctaScore: script.ctaScore,
+        feedbackText: 'Регенерация AI',
+        source: 'conveyor',
+      });
+    }
+
+    console.log(`[Pipeline] Регенерация завершена для scriptId: ${scriptId}`);
   }
 
   /**
