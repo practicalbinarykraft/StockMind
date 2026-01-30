@@ -2,10 +2,11 @@
  * Страница редактора сценария
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useRoute } from 'wouter'
-import { ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle, Edit } from 'lucide-react'
+import { ArrowLeft, Plus, Sparkles, Check, X, RefreshCw, MessageSquare, FileText, CheckCircle, Edit, Loader2 } from 'lucide-react'
 import { useScript } from '../hooks/use-scripts'
+import { useConveyorEvents } from '../hooks/use-conveyor-events'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
@@ -47,6 +48,22 @@ export function ScriptEditorPage() {
   // Recovery state
   const [hasRecoverableCheckpoints, setHasRecoverableCheckpoints] = useState(false)
   const [checkpoints, setCheckpoints] = useState<Array<any>>([])
+
+  // Conveyor events for regeneration tracking
+  const { messages: conveyorMessages, isProcessing: isConveyorProcessing, isConnected: isConveyorConnected } = useConveyorEvents()
+  
+  // Determine if regeneration is in progress based on conveyor events
+  const regenerationStatus = useCallback(() => {
+    if (!isRegeneratingScript && !isConveyorProcessing) return null
+    
+    // Find the latest message related to our script
+    const relevantMessages = conveyorMessages
+      .filter(m => m.message?.toLowerCase().includes('ревизия') || m.message?.toLowerCase().includes('регенер'))
+      .slice(-5)
+    
+    const lastMessage = relevantMessages[relevantMessages.length - 1]
+    return lastMessage?.message || 'Регенерация в процессе...'
+  }, [conveyorMessages, isRegeneratingScript, isConveyorProcessing])
 
   const selectedScene = script?.scenes?.find((s: any) => s.id === selectedSceneId)
   
@@ -128,6 +145,30 @@ export function ScriptEditorPage() {
   // Автосохранение при переходе между сценами
   const prevSceneIdRef = useRef<string | null>(null)
   const prevEditingTextRef = useRef<string>('')
+  const hasUnsavedChangesRef = useRef(false)
+  
+  // Обновляем ref при изменении hasUnsavedChanges
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges
+  }, [hasUnsavedChanges])
+
+  // Функция сохранения текущих изменений
+  const saveCurrentChanges = useCallback(async () => {
+    if (!scriptId || !selectedSceneId || !hasUnsavedChangesRef.current) return false
+    
+    try {
+      const currentScript = await scriptsService.getScriptUniversal(scriptId)
+      const updatedScenes = currentScript.scenes.map(scene =>
+        scene.id === selectedSceneId ? { ...scene, text: editingText } : scene
+      )
+      await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
+      console.log('[Autosave] Saved changes for scene', selectedSceneId)
+      return true
+    } catch (error) {
+      console.error('[Autosave] Failed to save:', error)
+      return false
+    }
+  }, [scriptId, selectedSceneId, editingText])
 
   useEffect(() => {
     const autosave = async () => {
@@ -158,6 +199,40 @@ export function ScriptEditorPage() {
     // Обновляем текст для следующего автосохранения
     prevEditingTextRef.current = editingText
   }, [selectedSceneId, editingText, scriptId, script])
+  
+  // Автосохранение при выходе из редактора (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChangesRef.current) {
+        // Пытаемся сохранить синхронно (для beforeunload нельзя async)
+        // Показываем предупреждение пользователю
+        e.preventDefault()
+        e.returnValue = 'У вас есть несохранённые изменения. Вы уверены, что хотите покинуть страницу?'
+        
+        // Также отправляем beacon для сохранения (если браузер поддерживает)
+        if (navigator.sendBeacon && scriptId && selectedSceneId) {
+          const data = JSON.stringify({
+            scriptId,
+            sceneId: selectedSceneId,
+            text: editingText
+          })
+          navigator.sendBeacon('/api/scripts/autosave', data)
+        }
+        
+        return e.returnValue
+      }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      // При размонтировании компонента сохраняем изменения
+      if (hasUnsavedChangesRef.current) {
+        saveCurrentChanges()
+      }
+    }
+  }, [scriptId, selectedSceneId, editingText, saveCurrentChanges])
 
   const handleTextChange = (text: string) => {
     if (isReviewMode) return // В режиме рецензии редактирование отключено
@@ -319,7 +394,12 @@ export function ScriptEditorPage() {
         await scriptsService.saveAutoScriptToLibrary(scriptId, 'draft')
         
         setHasUnsavedChanges(false)
-        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        // Инвалидируем все связанные кэши
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['scripts'] }),
+          queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] }),
+          queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] }),
+        ])
         
         toast({
           title: 'Успешно',
@@ -335,13 +415,21 @@ export function ScriptEditorPage() {
         // Для auto_scripts - создаем новую версию в timeline + сохраняем в черновики
         const result = await scriptsService.saveNewVersionAsDraft(scriptId)
         
+        console.log('[SaveVersion] Result:', result)
+        
         setHasUnsavedChanges(false)
-        // Инвалидируем запросы для обновления списка и версий
-        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
-        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
+        // Инвалидируем все связанные кэши сразу
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['scripts'] }),
+          queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] }),
+          queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] }),
+        ])
+        
+        // Также обновляем кэш для конкретного скрипта чтобы таймлайн обновился
+        queryClient.refetchQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
         
         toast({
-          title: 'Успешно',
+          title: (result as any).isUpdate ? 'Черновик обновлён' : 'Версия сохранена',
           description: result.message || 'Новая версия сохранена в черновики',
         })
       } else {
@@ -349,9 +437,15 @@ export function ScriptEditorPage() {
         const result = await scriptsService.createLibraryScriptVersion(scriptId)
         
         setHasUnsavedChanges(false)
-        // Инвалидируем запросы для обновления списка и версий
-        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
-        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
+        // Инвалидируем все связанные кэши
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['scripts'] }),
+          queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] }),
+          queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] }),
+        ])
+        
+        // Также обновляем кэш для конкретного скрипта
+        queryClient.refetchQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
         
         toast({
           title: 'Успешно',
@@ -372,15 +466,27 @@ export function ScriptEditorPage() {
 
   // Функция для регенерации всего сценария (режим рецензии)
   const handleRegenerateScript = async (customPrompt?: string) => {
-    if (!scriptId) return
+    if (!scriptId) {
+      console.error('[Regenerate] No scriptId')
+      return
+    }
+    
+    console.log('[Regenerate] Starting regeneration', { 
+      scriptId, 
+      customPrompt,
+      scriptStatus: (script as any)?.status,
+      isAutoScript 
+    })
     
     setIsRegeneratingScript(true)
     try {
       const result = await scriptsService.regenerateScript(scriptId, customPrompt)
       
+      console.log('[Regenerate] API response:', result)
+      
       toast({
-        title: 'Успешно',
-        description: result.message || 'Регенерация сценария запущена',
+        title: 'Регенерация запущена',
+        description: result.message || 'AI перегенерирует сценарий. Это может занять несколько минут.',
       })
       
       if (customPrompt) {
@@ -388,14 +494,30 @@ export function ScriptEditorPage() {
         setScriptPromptText('')
       }
       
-      // Инвалидируем кеш для обновления данных
-      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
-      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
+      // Инвалидируем кеш для обновления данных через небольшую задержку
+      // чтобы дать время бэкенду начать обработку
+      setTimeout(async () => {
+        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId, 'iterations'] })
+      }, 2000)
     } catch (error: any) {
-      console.error('Error regenerating script:', error)
+      console.error('[Regenerate] Error:', error)
+      
+      // Более подробная обработка ошибок
+      let errorMessage = 'Не удалось запустить регенерацию сценария'
+      if (error.message?.includes('400')) {
+        errorMessage = 'Сценарий в неподходящем статусе для регенерации. Возможно, он уже обрабатывается.'
+      } else if (error.message?.includes('404')) {
+        errorMessage = 'Сценарий не найден'
+      } else if (error.message?.includes('403')) {
+        errorMessage = 'Нет доступа к этому сценарию'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
       toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось запустить регенерацию сценария',
+        title: 'Ошибка регенерации',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -567,21 +689,31 @@ export function ScriptEditorPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Индикатор процесса регенерации */}
+          {(isRegeneratingScript || isConveyorProcessing) && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20 animate-pulse">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm text-primary">
+                {regenerationStatus() || 'Регенерация...'}
+              </span>
+            </div>
+          )}
+          
           {isReviewMode ? (
             // Режим рецензии
             <>
               <Button
                 onClick={() => handleRegenerateScript()}
-                disabled={isRegeneratingScript}
+                disabled={isRegeneratingScript || isConveyorProcessing}
                 variant="outline"
                 className="gap-2"
               >
-                <RefreshCw className={`w-4 h-4 ${isRegeneratingScript ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isRegeneratingScript || isConveyorProcessing ? 'animate-spin' : ''}`} />
                 Перегенерировать сценарий
               </Button>
               <Button
                 onClick={() => setIsScriptPromptModalOpen(true)}
-                disabled={isRegeneratingScript}
+                disabled={isRegeneratingScript || isConveyorProcessing}
                 variant="outline"
                 className="gap-2"
               >
@@ -590,7 +722,7 @@ export function ScriptEditorPage() {
               </Button>
               <Button
                 onClick={handleSaveNewVersionAsDraft}
-                disabled={isSaving}
+                disabled={isSaving || isRegeneratingScript || isConveyorProcessing}
                 className="gap-2"
               >
                 <FileText className="w-4 h-4" />

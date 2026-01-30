@@ -168,6 +168,7 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
   }, [script.id])
   
   // Формируем timeline items из версий или из текущего сценария
+  // Логика: Версия 1 → Рецензия 1 (пустая или с комментариями) → Версия 2 → Рецензия 2 → ...
   const items: TimelineItem[] = useMemo(() => {
     // Если есть iterations в script (NewsScript), используем их
     const newsScript = script as NewsScript
@@ -183,37 +184,26 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
     if (versions && versions.length > 0) {
       const timelineItems: TimelineItem[] = []
       
-      // Всегда показываем первую версию (версия из конвейера или первая версия из библиотеки)
-      const firstVersion = versions[0]
-      if (firstVersion) {
-        const versionNumber = firstVersion.versionNumber || firstVersion.version || 1
-        const scriptVersion = convertVersionToScriptVersion(firstVersion, versionNumber, true)
-        timelineItems.push({ type: 'script', data: scriptVersion })
-        
-        // Если у первой версии есть рецензия и оценка, показываем её
-        if (firstVersion.feedbackText || firstVersion.finalScore || firstVersion.aiScore) {
-          const review = createReviewFromFeedback(
-            firstVersion,
-            versionNumber,
-            firstVersion.scenes || []
-          )
-          if (review) {
-            timelineItems.push({ type: 'review', data: review })
-          }
-        }
-      }
-      
-      // Показываем вторую и последующие версии только если они существуют
-      for (let i = 1; i < versions.length; i++) {
+      // Обрабатываем каждую версию
+      for (let i = 0; i < versions.length; i++) {
         const version = versions[i]
         const versionNumber = version.versionNumber || version.version || (i + 1)
+        const isFirst = i === 0
+        const isLast = i === versions.length - 1
         
         // Добавляем версию скрипта
-        const scriptVersion = convertVersionToScriptVersion(version, versionNumber)
+        const scriptVersion = convertVersionToScriptVersion(version, versionNumber, isFirst)
         timelineItems.push({ type: 'script', data: scriptVersion })
         
-        // Если у этой версии есть рецензия и оценка, показываем её
-        if (version.feedbackText || version.finalScore || version.aiScore) {
+        // После каждой версии добавляем рецензию:
+        // - Если есть feedbackText или finalScore - полная рецензия
+        // - Если есть следующая версия но нет feedbackText - пустая рецензия (показывает что была проверка)
+        // - Для последней версии - рецензия только если есть данные или комментарии
+        const hasFeedback = version.feedbackText || version.finalScore || version.aiScore
+        const hasNextVersion = i < versions.length - 1
+        
+        if (hasFeedback) {
+          // Есть данные рецензии - создаём полную
           const review = createReviewFromFeedback(
             version,
             versionNumber,
@@ -221,6 +211,23 @@ export function IterationTimeline({ script, onBack }: IterationTimelineProps) {
           )
           if (review) {
             timelineItems.push({ type: 'review', data: review })
+          }
+        } else if (hasNextVersion) {
+          // Нет данных но есть следующая версия - создаём пустую рецензию
+          // (это показывает что версия была проверена перед созданием следующей)
+          const emptyReview: Review = {
+            id: `review-empty-${version.id || i}`,
+            overallScore: 0,
+            overallComment: 'Версия проверена без замечаний',
+            sceneComments: [],
+            createdAt: new Date(version.createdAt || Date.now()),
+          }
+          timelineItems.push({ type: 'review', data: emptyReview })
+        } else if (isLast && sceneComments.length > 0) {
+          // Последняя версия и есть комментарии к сценам
+          const commentsReview = createReviewFromSceneComments(sceneComments, scriptVersion.scenes)
+          if (commentsReview) {
+            timelineItems.push({ type: 'review', data: commentsReview })
           }
         }
       }

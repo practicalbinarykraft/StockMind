@@ -664,14 +664,34 @@ export const autoScriptsService = {
 
     // Создаем или обновляем сценарий в библиотеке (scripts_library)
     const scriptData = script as any;
-    const sourceId = scriptData.sourceContentId || script.sourceItemId || scriptId;
+    
+    // Используем sourceItemId как основной идентификатор источника
+    // или сам scriptId если sourceItemId отсутствует
+    const sourceId = script.sourceItemId || scriptId;
+    
+    logger.debug("Looking for existing library script", {
+      userId,
+      sourceId,
+      sourceType: script.sourceType,
+      autoScriptId: scriptId,
+    });
     
     // Проверяем, существует ли уже скрипт в библиотеке с таким sourceId
-    const existingLibraryScript = await scriptsLibraryService.findBySource(
+    let existingLibraryScript = await scriptsLibraryService.findBySource(
       userId,
       sourceId,
       script.sourceType
     );
+    
+    // Если не нашли по sourceId, пробуем найти по autoScriptId
+    // (некоторые скрипты могут использовать autoScriptId как sourceId)
+    if (!existingLibraryScript && sourceId !== scriptId) {
+      existingLibraryScript = await scriptsLibraryService.findBySource(
+        userId,
+        scriptId,
+        script.sourceType
+      );
+    }
 
     let libraryScript;
     
@@ -737,6 +757,7 @@ export const autoScriptsService = {
       success: true,
       version: newVersion,
       libraryScriptId: libraryScript.id,
+      isUpdate: !!existingLibraryScript,
       message: existingLibraryScript 
         ? "Черновик обновлен" 
         : "Новая версия сохранена в черновики",
