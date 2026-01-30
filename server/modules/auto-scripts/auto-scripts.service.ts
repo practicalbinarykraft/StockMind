@@ -7,7 +7,7 @@ import { conveyorOrchestrator } from "../../conveyor/conveyor-orchestrator";
 import { createFeedbackProcessor } from "../../conveyor/feedback-processor";
 import { revisionProcessor } from "../../conveyor/revision-processor";
 import { generationPipeline } from "../generation/generation-pipeline";
-import { RejectionCategory } from "@shared/schema";
+import { RejectionCategory, type AutoScript } from "@shared/schema";
 import {
   AutoScriptNotFoundError,
   AutoScriptAccessDeniedError,

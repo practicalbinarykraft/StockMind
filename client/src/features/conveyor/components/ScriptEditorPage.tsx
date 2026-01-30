@@ -214,7 +214,8 @@ export function ScriptEditorPage() {
         lastSavedScenesRef.current.set(selectedScene.id, selectedScene.text)
       }
     }
-  }, [selectedSceneId]) // Только при смене ID сцены, не при изменении selectedScene
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSceneId]) // Намеренно игнорируем selectedScene и isRegenerating - нужна инициализация только при смене ID
   
   // Автосохранение при выходе из редактора (beforeunload) и при размонтировании
   useEffect(() => {
