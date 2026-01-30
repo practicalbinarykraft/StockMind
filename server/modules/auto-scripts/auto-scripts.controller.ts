@@ -527,7 +527,13 @@ export const autoScriptsController = {
         scriptId: req.params.id,
         error: error.message,
       });
-      return res.status(500).json({ message: "Failed to regenerate script" });
+      
+      // Return user-friendly error message
+      const errorMessage = error.message || "Не удалось запустить регенерацию сценария";
+      return res.status(500).json({ 
+        success: false,
+        message: errorMessage,
+      });
     }
   },
 };

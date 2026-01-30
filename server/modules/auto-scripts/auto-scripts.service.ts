@@ -368,70 +368,74 @@ export const autoScriptsService = {
       });
     }
 
-    // Create revision conveyor item and start processing
-    if (apiKey) {
-      try {
-        // Create revision item (undefined selectedSceneIds = regenerate entire script)
-        const revisionResult = await revisionProcessor.createRevisionItem(
-          script,
-          feedbackText,
-          undefined // No specific scenes = regenerate entire script
-        );
-
-        if (revisionResult.success && revisionResult.conveyorItemId) {
-          // Start processing asynchronously (don't await)
-          conveyorOrchestrator
-            .processRevisionItem(revisionResult.conveyorItemId, apiKey)
-            .then((result) => {
-              logger.info("Script regeneration completed", {
-                userId,
-                scriptId,
-                conveyorItemId: revisionResult.conveyorItemId,
-                success: result.success,
-              });
-            })
-            .catch((err) => {
-              logger.error("Script regeneration failed", {
-                userId,
-                scriptId,
-                conveyorItemId: revisionResult.conveyorItemId,
-                error: err.message,
-              });
-            });
-
-          logger.info("Script regeneration started", {
-            userId,
-            scriptId,
-            conveyorItemId: revisionResult.conveyorItemId,
-            customPrompt: !!customPrompt,
-          });
-        } else {
-          logger.warn("Failed to create regeneration item", {
-            userId,
-            scriptId,
-            error: revisionResult.error,
-          });
-        }
-      } catch (regenerationError: any) {
-        logger.error("Error creating regeneration item", {
-          userId,
-          scriptId,
-          error: regenerationError.message,
-        });
-        // Don't fail the request - revision is already marked
-      }
-    } else {
+    // Validate API key
+    if (!apiKey) {
       logger.warn("No API key available for script regeneration", {
         userId,
         scriptId,
       });
+      throw new Error("API ключ не настроен. Добавьте ключ Anthropic в настройках.");
     }
 
-    return {
-      success: true,
-      message: "Регенерация сценария запущена",
-      revisionCount: script.revisionCount + 1,
-    };
+    // Create revision conveyor item and start processing
+    try {
+      // Create revision item (undefined selectedSceneIds = regenerate entire script)
+      const revisionResult = await revisionProcessor.createRevisionItem(
+        script,
+        feedbackText,
+        undefined // No specific scenes = regenerate entire script
+      );
+
+      if (!revisionResult.success || !revisionResult.conveyorItemId) {
+        logger.error("Failed to create regeneration item", {
+          userId,
+          scriptId,
+          error: revisionResult.error,
+        });
+        throw new Error(revisionResult.error || "Не удалось создать задачу регенерации");
+      }
+
+      // Start processing asynchronously (don't await)
+      conveyorOrchestrator
+        .processRevisionItem(revisionResult.conveyorItemId, apiKey)
+        .then((result) => {
+          logger.info("Script regeneration completed", {
+            userId,
+            scriptId,
+            conveyorItemId: revisionResult.conveyorItemId,
+            success: result.success,
+          });
+        })
+        .catch((err) => {
+          logger.error("Script regeneration failed", {
+            userId,
+            scriptId,
+            conveyorItemId: revisionResult.conveyorItemId,
+            error: err.message,
+          });
+        });
+
+      logger.info("Script regeneration started", {
+        userId,
+        scriptId,
+        conveyorItemId: revisionResult.conveyorItemId,
+        customPrompt: !!customPrompt,
+      });
+
+      return {
+        success: true,
+        message: "Регенерация сценария запущена",
+        revisionCount: script.revisionCount + 1,
+        conveyorItemId: revisionResult.conveyorItemId,
+      };
+    } catch (regenerationError: any) {
+      logger.error("Error creating regeneration item", {
+        userId,
+        scriptId,
+        error: regenerationError.message,
+      });
+      throw regenerationError;
+    }
   },
 
   /**
