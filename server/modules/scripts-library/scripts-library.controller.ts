@@ -495,4 +495,48 @@ export const scriptsLibraryController = {
       return apiResponse.serverError(res, error.message);
     }
   },
+
+  /**
+   * POST /api/scripts/autosave
+   * Autosave scene text (called by sendBeacon on page unload)
+   * Handles both scripts_library and auto_scripts
+   */
+  async autosave(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { scriptId, sceneId, text } = req.body;
+
+      if (!scriptId || !sceneId || text === undefined) {
+        return apiResponse.badRequest(res, "Missing required fields: scriptId, sceneId, text");
+      }
+
+      logger.info("[Autosave] Received autosave request", {
+        userId,
+        scriptId,
+        sceneId,
+        textLength: text?.length,
+      });
+
+      const result = await scriptsLibraryService.autosaveScene(
+        scriptId,
+        sceneId,
+        text,
+        userId
+      );
+
+      return apiResponse.ok(res, result);
+    } catch (error: any) {
+      // Don't log as error for autosave failures, just warn
+      // Autosave is best-effort
+      logger.warn("[Autosave] Failed to autosave", { 
+        error: error.message,
+        userId: getUserId(req),
+      });
+      
+      // Still return 200 for beacon requests (they don't process responses anyway)
+      return res.status(200).json({ success: false, message: error.message });
+    }
+  },
 };

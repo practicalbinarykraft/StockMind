@@ -619,4 +619,61 @@ export const scriptsLibraryService = {
     logger.info(`Deleted ${deletedCount} expired checkpoints`);
     return deletedCount;
   },
+
+  /**
+   * Autosave scene text (called from beacon on page unload)
+   * Works with both scripts_library and auto_scripts
+   */
+  async autosaveScene(
+    scriptId: string,
+    sceneId: string,
+    text: string,
+    userId: string
+  ) {
+    // Try to find script in scripts_library first
+    let script = await repo.getScriptById(scriptId, userId);
+    
+    if (script) {
+      // Update scene in scripts_library
+      const scenes = Array.isArray(script.scenes) ? script.scenes : [];
+      const updatedScenes = scenes.map((scene: any) =>
+        scene.id === sceneId ? { ...scene, text } : scene
+      );
+
+      await repo.updateScript(scriptId, userId, { scenes: updatedScenes });
+      
+      logger.info("[Autosave] Saved to scripts_library", {
+        userId,
+        scriptId,
+        sceneId,
+      });
+
+      return { success: true, source: "scripts_library" };
+    }
+
+    // Try auto_scripts
+    const { AutoScriptsRepo } = await import("../auto-scripts/auto-scripts.repo");
+    const autoScriptsRepo = new AutoScriptsRepo();
+    const autoScript = await autoScriptsRepo.getById(scriptId);
+
+    if (autoScript && autoScript.userId === userId) {
+      // Update scene in auto_scripts
+      const autoScenes = Array.isArray(autoScript.scenes) ? autoScript.scenes : [];
+      const updatedScenes = autoScenes.map((scene: any) =>
+        scene.id === sceneId ? { ...scene, text } : scene
+      );
+
+      await autoScriptsRepo.update(scriptId, { scenes: updatedScenes });
+
+      logger.info("[Autosave] Saved to auto_scripts", {
+        userId,
+        scriptId,
+        sceneId,
+      });
+
+      return { success: true, source: "auto_scripts" };
+    }
+
+    throw new ScriptNotFoundError();
+  },
 };

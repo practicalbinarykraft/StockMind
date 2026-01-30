@@ -134,92 +134,127 @@ export function ScriptEditorPage() {
     }
   }, [script, selectedSceneId])
 
-  // Инициализация текста для редактирования при выборе сцены
-  useEffect(() => {
-    if (selectedScene) {
-      setEditingText(selectedScene.text)
-      setHasUnsavedChanges(false)
-    }
-  }, [selectedSceneId, selectedScene])
-
-  // Автосохранение при переходе между сценами
+  // Refs для автосохранения
   const prevSceneIdRef = useRef<string | null>(null)
-  const prevEditingTextRef = useRef<string>('')
+  const editingTextRef = useRef<string>('')
   const hasUnsavedChangesRef = useRef(false)
+  const isChangingSceneRef = useRef(false)
+  const lastSavedScenesRef = useRef<Map<string, string>>(new Map())
   
-  // Обновляем ref при изменении hasUnsavedChanges
+  // Обновляем refs при изменении состояния
   useEffect(() => {
     hasUnsavedChangesRef.current = hasUnsavedChanges
   }, [hasUnsavedChanges])
+  
+  useEffect(() => {
+    editingTextRef.current = editingText
+  }, [editingText])
 
-  // Функция сохранения текущих изменений
-  const saveCurrentChanges = useCallback(async () => {
-    if (!scriptId || !selectedSceneId || !hasUnsavedChangesRef.current) return false
+  // Функция сохранения текущих изменений (async)
+  const saveCurrentChanges = useCallback(async (sceneId?: string, text?: string) => {
+    const targetSceneId = sceneId || selectedSceneId
+    const targetText = text ?? editingTextRef.current
+    
+    if (!scriptId || !targetSceneId) return false
+    
+    // Проверяем, изменился ли текст с последнего сохранения
+    const lastSavedText = lastSavedScenesRef.current.get(targetSceneId)
+    if (lastSavedText === targetText) {
+      console.log('[Autosave] No changes to save for scene', targetSceneId)
+      return true
+    }
     
     try {
       const currentScript = await scriptsService.getScriptUniversal(scriptId)
       const updatedScenes = currentScript.scenes.map(scene =>
-        scene.id === selectedSceneId ? { ...scene, text: editingText } : scene
+        scene.id === targetSceneId ? { ...scene, text: targetText } : scene
       )
       await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
-      console.log('[Autosave] Saved changes for scene', selectedSceneId)
+      
+      // Запоминаем что сохранили
+      lastSavedScenesRef.current.set(targetSceneId, targetText)
+      
+      console.log('[Autosave] Saved changes for scene', targetSceneId)
       return true
     } catch (error) {
       console.error('[Autosave] Failed to save:', error)
       return false
     }
-  }, [scriptId, selectedSceneId, editingText])
+  }, [scriptId, selectedSceneId])
 
-  useEffect(() => {
-    const autosave = async () => {
-      // Сохраняем изменения предыдущей сцены перед переходом к новой
-      if (prevSceneIdRef.current && prevEditingTextRef.current && scriptId) {
-        const prevScene = script?.scenes?.find((s: any) => s.id === prevSceneIdRef.current)
-        if (prevScene && prevScene.text !== prevEditingTextRef.current) {
-          try {
-            const currentScript = await scriptsService.getScriptUniversal(scriptId)
-            const updatedScenes = currentScript.scenes.map(scene =>
-              scene.id === prevSceneIdRef.current ? { ...scene, text: prevEditingTextRef.current } : scene
-            )
-            await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
-            console.log('[Autosave] Saved changes for scene', prevSceneIdRef.current)
-          } catch (error) {
-            console.error('[Autosave] Failed to save:', error)
-          }
-        }
-      }
-    }
-
-    // Запускаем автосохранение при смене сцены
-    if (prevSceneIdRef.current !== selectedSceneId) {
-      autosave()
-      prevSceneIdRef.current = selectedSceneId
+  // Функция переключения сцены с автосохранением
+  const handleSceneChange = useCallback(async (newSceneId: string) => {
+    if (newSceneId === selectedSceneId || isChangingSceneRef.current) return
+    
+    isChangingSceneRef.current = true
+    
+    // Сохраняем текущую сцену перед переключением
+    if (selectedSceneId && hasUnsavedChangesRef.current) {
+      console.log('[SceneChange] Saving current scene before switch:', selectedSceneId)
+      await saveCurrentChanges(selectedSceneId, editingTextRef.current)
     }
     
-    // Обновляем текст для следующего автосохранения
-    prevEditingTextRef.current = editingText
-  }, [selectedSceneId, editingText, scriptId, script])
+    // Переключаемся на новую сцену
+    prevSceneIdRef.current = selectedSceneId
+    setSelectedSceneId(newSceneId)
+    setHasUnsavedChanges(false)
+    
+    isChangingSceneRef.current = false
+  }, [selectedSceneId, saveCurrentChanges])
+
+  // Инициализация текста для редактирования при выборе сцены
+  // НЕ обновляем текст если сейчас идёт смена сцены или перегенерация
+  useEffect(() => {
+    if (selectedScene && !isChangingSceneRef.current && !isRegenerating) {
+      // Проверяем, что мы не перезаписываем пользовательские изменения
+      const savedText = lastSavedScenesRef.current.get(selectedScene.id)
+      if (savedText === undefined || savedText === selectedScene.text) {
+        setEditingText(selectedScene.text)
+        setHasUnsavedChanges(false)
+        lastSavedScenesRef.current.set(selectedScene.id, selectedScene.text)
+      }
+    }
+  }, [selectedSceneId]) // Только при смене ID сцены, не при изменении selectedScene
   
-  // Автосохранение при выходе из редактора (beforeunload)
+  // Автосохранение при выходе из редактора (beforeunload) и при размонтировании
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChangesRef.current) {
-        // Пытаемся сохранить синхронно (для beforeunload нельзя async)
-        // Показываем предупреждение пользователю
-        e.preventDefault()
-        e.returnValue = 'У вас есть несохранённые изменения. Вы уверены, что хотите покинуть страницу?'
-        
-        // Также отправляем beacon для сохранения (если браузер поддерживает)
-        if (navigator.sendBeacon && scriptId && selectedSceneId) {
+      if (hasUnsavedChangesRef.current && selectedSceneId) {
+        // Сохраняем через sendBeacon (работает даже при закрытии страницы)
+        if (navigator.sendBeacon && scriptId) {
           const data = JSON.stringify({
             scriptId,
             sceneId: selectedSceneId,
-            text: editingText
+            text: editingTextRef.current
           })
           navigator.sendBeacon('/api/scripts/autosave', data)
+          console.log('[Autosave] Sent beacon on beforeunload')
         }
         
+        // Показываем предупреждение пользователю
+        e.preventDefault()
+        e.returnValue = 'У вас есть несохранённые изменения. Вы уверены, что хотите покинуть страницу?'
         return e.returnValue
+      }
+    }
+    
+    // Сохраняем при размонтировании (навигация внутри приложения)
+    const saveOnUnmount = () => {
+      if (hasUnsavedChangesRef.current && scriptId && selectedSceneId) {
+        // Используем синхронный XMLHttpRequest для гарантии сохранения
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', '/api/scripts/autosave', false) // sync
+        xhr.setRequestHeader('Content-Type', 'application/json')
+        try {
+          xhr.send(JSON.stringify({
+            scriptId,
+            sceneId: selectedSceneId,
+            text: editingTextRef.current
+          }))
+          console.log('[Autosave] Saved on unmount via XHR')
+        } catch (e) {
+          console.error('[Autosave] Failed to save on unmount:', e)
+        }
       }
     }
     
@@ -227,12 +262,9 @@ export function ScriptEditorPage() {
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      // При размонтировании компонента сохраняем изменения
-      if (hasUnsavedChangesRef.current) {
-        saveCurrentChanges()
-      }
+      saveOnUnmount()
     }
-  }, [scriptId, selectedSceneId, editingText, saveCurrentChanges])
+  }, [scriptId, selectedSceneId])
 
   const handleTextChange = (text: string) => {
     if (isReviewMode) return // В режиме рецензии редактирование отключено
@@ -255,6 +287,11 @@ export function ScriptEditorPage() {
     try {
       setIsSaving(true)
       
+      // Сначала сохраняем текущую сцену если есть изменения
+      if (selectedSceneId && hasUnsavedChangesRef.current) {
+        await saveCurrentChanges(selectedSceneId, editingTextRef.current)
+      }
+      
       // Создаем новую сцену
       const newScene = {
         id: `scene-${Date.now()}`,
@@ -270,8 +307,11 @@ export function ScriptEditorPage() {
       // Инвалидируем кеш для обновления данных
       await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
       
-      // Выбираем новую сцену
+      // Выбираем новую сцену (напрямую, так как это новая сцена)
       setSelectedSceneId(newScene.id)
+      setEditingText(newScene.text)
+      setHasUnsavedChanges(false)
+      lastSavedScenesRef.current.set(newScene.id, newScene.text)
       
       toast({
         title: 'Успешно',
@@ -533,20 +573,27 @@ export function ScriptEditorPage() {
   }
 
   const handleRegenerateAlternatives = async (customPrompt?: string, lengthOpt?: 'keep' | 'increase' | 'decrease') => {
-    if (!selectedScene || !scriptId) return
+    if (!selectedScene || !scriptId || !selectedSceneId) return
     
     setIsRegenerating(true)
+    
+    // ВАЖНО: Сохраняем текущий текст из редактора (не из кэша!)
+    // Это предотвращает подмену текста при обновлении кэша
+    const currentEditingText = editingTextRef.current
+    const currentSceneId = selectedSceneId
+    
     try {
-      const sourceWordCount = selectedScene.text.split(/\s+/).length
+      const sourceWordCount = currentEditingText.split(/\s+/).length
       console.log(`[Regenerate] Source text: ${sourceWordCount} words`, {
-        text: selectedScene.text,
+        text: currentEditingText,
         customPrompt,
         lengthOption: lengthOpt || lengthOption,
       })
       
       // Генерируем новые варианты для текущей сцены
+      // ВАЖНО: Используем текст из редактора, а не из selectedScene
       const result = await scriptsService.generateVariants({
-        sourceText: selectedScene.text,
+        sourceText: currentEditingText,
         prompt: customPrompt,
         format: lengthOpt === 'increase' ? 'long' : lengthOpt === 'decrease' ? 'short' : 'base',
         lengthOption: lengthOpt || lengthOption,
@@ -571,19 +618,23 @@ export function ScriptEditorPage() {
         alternatives = result.variants
       }
       
-      // Обновляем альтернативы сцены
-      await scriptsService.updateScene(scriptId, selectedScene.id, {
+      // Обновляем альтернативы сцены, сохраняя текущий текст!
+      await scriptsService.updateScene(scriptId, currentSceneId, {
         alternatives,
+        text: currentEditingText, // Сохраняем текущий текст вместе с альтернативами
       })
+      
+      // Обновляем lastSavedScenesRef чтобы не сбросился текст
+      lastSavedScenesRef.current.set(currentSceneId, currentEditingText)
       
       // Если есть промпт, сохраняем комментарий к сцене
       if (customPrompt && customPrompt.trim() && script) {
         try {
-          const sceneIndex = script.scenes.findIndex((s: Scene) => s.id === selectedScene.id)
+          const sceneIndex = script.scenes.findIndex((s: Scene) => s.id === currentSceneId)
           await scriptsService.saveSceneComment({
             scriptId,
             scriptType: isAutoScript ? 'auto' : 'library',
-            sceneId: selectedScene.id,
+            sceneId: currentSceneId,
             sceneIndex,
             commentText: customPrompt.trim(),
             commentType: 'prompt',
@@ -597,6 +648,13 @@ export function ScriptEditorPage() {
       
       // Инвалидируем кеш для обновления данных
       await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      
+      // ВАЖНО: Восстанавливаем текст после инвалидации кэша
+      // чтобы он не сбросился к старому значению
+      if (selectedSceneId === currentSceneId) {
+        setEditingText(currentEditingText)
+        setHasUnsavedChanges(false)
+      }
       
       toast({
         title: 'Успешно',
@@ -768,7 +826,7 @@ export function ScriptEditorPage() {
               {script.scenes?.map((scene: Scene) => (
                 <button
                   key={scene.id}
-                  onClick={() => setSelectedSceneId(scene.id)}
+                  onClick={() => handleSceneChange(scene.id)}
                   className={`w-full text-left p-3 rounded-lg transition-all ${
                     selectedSceneId === scene.id
                       ? 'bg-primary/20 border border-primary/30 text-primary'

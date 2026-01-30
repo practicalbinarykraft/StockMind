@@ -6,6 +6,20 @@ import type { Express } from "express";
 const scriptsRouter = Router();
 const articlesRouter = Router();
 
+// ============================================================================
+// STATIC ROUTES (must be defined BEFORE parameterized routes like :id)
+// ============================================================================
+
+// Autosave endpoint (for beacon requests on page unload)
+scriptsRouter.post("/autosave", requireAuth, scriptsLibraryController.autosave);
+
+// Generate variants
+scriptsRouter.post("/generate-variants", requireAuth, scriptsLibraryController.generateVariants);
+
+// ============================================================================
+// PARAMETERIZED ROUTES (must come AFTER static routes)
+// ============================================================================
+
 // Scripts routes
 scriptsRouter.get("/", requireAuth, scriptsLibraryController.getScripts);
 scriptsRouter.post("/", requireAuth, scriptsLibraryController.createScript);
@@ -16,7 +30,6 @@ scriptsRouter.get("/:id/versions", requireAuth, scriptsLibraryController.getScri
 scriptsRouter.post("/:id/create-version", requireAuth, scriptsLibraryController.createScriptVersion);
 scriptsRouter.post("/:id/analyze", requireAuth, scriptsLibraryController.analyzeScript);
 scriptsRouter.post("/:id/start-production", requireAuth, scriptsLibraryController.startProduction);
-scriptsRouter.post("/generate-variants", requireAuth, scriptsLibraryController.generateVariants);
 
 // Editor state and checkpoint routes
 scriptsRouter.post("/:id/save", requireAuth, scriptsLibraryController.saveWorkingState);

@@ -587,7 +587,7 @@ export const autoScriptsService = {
 
   /**
    * Save new version to drafts (creates version in timeline + saves to library)
-   * Первая версия автоматически создается конвейером, не создаем её здесь
+   * Если последняя версия уже draft - обновляем её, иначе создаём новую
    */
   async saveNewVersionAsDraft(scriptId: string, userId: string) {
     const script = await repo.getById(scriptId);
@@ -600,8 +600,10 @@ export const autoScriptsService = {
       throw new AutoScriptAccessDeniedError();
     }
 
-    // Создаем новую версию с текущим состоянием сценария
-    const newVersion = await repo.createVersion(scriptId, userId, {
+    // Создаем или обновляем версию с текущим состоянием сценария
+    // Если последняя версия - draft, она будет обновлена
+    // Если последняя версия - conveyor, будет создана новая draft-версия
+    const { version: newVersion, isUpdate } = await repo.createOrUpdateVersion(scriptId, userId, {
       title: script.title,
       scenes: script.scenes,
       fullScript: script.fullScript,
@@ -674,6 +676,7 @@ export const autoScriptsService = {
         versionId: newVersion?.id,
         versionNumber: newVersion?.versionNumber,
         libraryScriptId: libraryScript.id,
+        versionIsUpdate: isUpdate,
       });
     } else {
       // Создаем новый скрипт
@@ -701,16 +704,19 @@ export const autoScriptsService = {
         versionId: newVersion?.id,
         versionNumber: newVersion?.versionNumber,
         libraryScriptId: libraryScript.id,
+        versionIsUpdate: isUpdate,
       });
     }
 
+    // isUpdate теперь относится к версии в timeline (auto_script_versions)
+    // existingLibraryScript относится к скрипту в библиотеке (scripts_library)
     return {
       success: true,
       version: newVersion,
       libraryScriptId: libraryScript.id,
-      isUpdate: !!existingLibraryScript,
-      message: existingLibraryScript 
-        ? "Черновик обновлен" 
+      isUpdate: isUpdate, // Была ли обновлена версия (а не создана новая)
+      message: isUpdate 
+        ? "Черновик обновлён" 
         : "Новая версия сохранена в черновики",
     };
   },
