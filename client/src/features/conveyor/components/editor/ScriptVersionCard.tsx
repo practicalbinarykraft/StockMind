@@ -37,14 +37,14 @@ export function ScriptVersionCard({ version = 1, status, createdAt }: ScriptVers
   }
 
   return (
-    <div className="glass rounded-xl p-4">
+    <div className="glass rounded-xl p-2">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
             <FileText className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold gradient-text">
+            <h3 className="text-md font-semibold gradient-text">
               Сценарий v{version}
             </h3>
             <p className="text-xs text-muted-foreground mt-1">

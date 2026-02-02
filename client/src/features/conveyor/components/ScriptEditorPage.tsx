@@ -327,6 +327,56 @@ export function ScriptEditorPage() {
     }
   }
 
+  const handleDeleteScene = async () => {
+    if (!script || !scriptId || !selectedSceneId) return
+    
+    // Не даем удалить последнюю сцену
+    if (script.scenes.length <= 1) {
+      toast({
+        title: 'Предупреждение',
+        description: 'Нельзя удалить последнюю сцену',
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    try {
+      setIsSaving(true)
+      
+      // Удаляем сцену и пересчитываем order
+      const updatedScenes = script.scenes
+        .filter(scene => scene.id !== selectedSceneId)
+        .map((scene, index) => ({ ...scene, order: index + 1 }))
+      
+      await scriptsService.updateScriptUniversal(scriptId, { scenes: updatedScenes })
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      
+      // Выбираем первую сцену после удаления
+      if (updatedScenes.length > 0) {
+        setSelectedSceneId(updatedScenes[0].id)
+        setEditingText(updatedScenes[0].text)
+      } else {
+        setSelectedSceneId(null)
+        setEditingText('')
+      }
+      setHasUnsavedChanges(false)
+      
+      toast({
+        title: 'Успешно',
+        description: 'Сцена удалена',
+      })
+    } catch (error) {
+      console.error('Error deleting scene:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить сцену',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleSelectAlternative = async (index: number) => {
     if (!selectedScene) return
     
@@ -559,6 +609,7 @@ export function ScriptEditorPage() {
           isRegenerating={isRegenerating}
           onSave={handleSaveScene}
           onCancel={handleCancelScene}
+          onDelete={handleDeleteScene}
           onSelectAlternative={handleSelectAlternative}
           onOpenPrompt={() => setIsPromptModalOpen(true)}
           onRegenerate={() => handleRegenerateAlternatives()}
