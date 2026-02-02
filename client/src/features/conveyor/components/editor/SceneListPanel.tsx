@@ -17,7 +17,7 @@ export function SceneListPanel({
   onAddScene,
 }: SceneListPanelProps) {
   return (
-    <div className="glass rounded-xl p-4 flex flex-col max-h-[calc(100vh-200px)]">
+    <div className="glass rounded-xl p-4 flex flex-col max-h-[calc(100vh-160px)]">
       <div className="mb-4">
         <h3 className="text-lg font-semibold gradient-text flex items-center gap-2">
           <span>✦</span>

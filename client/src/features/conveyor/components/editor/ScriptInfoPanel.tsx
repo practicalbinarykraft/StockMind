@@ -17,7 +17,7 @@ export function ScriptInfoPanel({
   scenes,
 }: ScriptInfoPanelProps) {
   return (
-    <div className="glass rounded-xl p-4 flex flex-col space-y-3 max-h-[calc(100vh-200px)]">
+    <div className="glass rounded-xl p-4 flex flex-col space-y-3 max-h-[calc(100vh-160px)]">
       <ScriptVersionCard
         version={version}
         status={status}
