@@ -162,6 +162,8 @@ export function DraftsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
+                      <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                       <button
                         onClick={(e) => handleDeleteClick(e, draft.id)}
                         className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
@@ -169,8 +171,6 @@ export function DraftsPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
                 </div>

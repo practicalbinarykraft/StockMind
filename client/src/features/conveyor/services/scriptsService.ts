@@ -347,10 +347,10 @@ export async function saveAutoScriptToLibrary(
 
 /**
  * Удалить сценарий
- * Эндпоинт: DELETE /api/auto-scripts/:id
+ * Эндпоинт: DELETE /api/scripts/:id
  */
 export async function deleteScript(id: string): Promise<{ success: boolean }> {
-  await apiRequest('DELETE', `/api/auto-scripts/${id}`)
+  await apiRequest('DELETE', `/api/scripts/${id}`)
   return { success: true }
 }
 
