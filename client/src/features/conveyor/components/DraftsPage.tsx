@@ -4,18 +4,35 @@
 
 import { useState } from 'react'
 import { useLocation } from 'wouter'
-import { FileText, ArrowRight, Edit } from 'lucide-react'
+import { FileText, ArrowRight, Edit, Trash2 } from 'lucide-react'
 import { useDrafts } from '../hooks/use-scripts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { useToast } from '@/shared/hooks/use-toast'
+import { queryClient } from '@/shared/api'
+import { scriptsService } from '../services/scriptsService'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog'
 
 type FilterType = 'all' | 'rss' | 'instagram'
 
 export function DraftsPage() {
   const [, navigate] = useLocation()
   const [filter, setFilter] = useState<FilterType>('all')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [scriptToDelete, setScriptToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const { toast } = useToast()
 
   const { data: draftsResponse, isLoading } = useDrafts()
   const scripts = draftsResponse?.items || []
@@ -23,6 +40,45 @@ export function DraftsPage() {
   const filteredScripts = filter === 'all' 
     ? scripts 
     : scripts.filter(script => script.sourceType === filter)
+
+  const handleDeleteClick = (e: React.MouseEvent, scriptId: string) => {
+    e.stopPropagation()
+    setScriptToDelete(scriptId)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!scriptToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await scriptsService.deleteScript(scriptToDelete)
+      
+      // Обновляем кэш списка черновиков
+      await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
+      
+      toast({
+        title: 'Успешно',
+        description: 'Черновик удалён',
+      })
+    } catch (error: any) {
+      console.error('Error deleting draft:', error)
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось удалить черновик',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setScriptToDelete(null)
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false)
+    setScriptToDelete(null)
+  }
 
   if (isLoading) {
     return (
@@ -106,6 +162,13 @@ export function DraftsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={(e) => handleDeleteClick(e, draft.id)}
+                        className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Удалить черновик"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                       <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                       <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
@@ -116,6 +179,30 @@ export function DraftsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить черновик?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Черновик будет удалён безвозвратно.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete} disabled={isDeleting}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Удаление...' : 'Удалить'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

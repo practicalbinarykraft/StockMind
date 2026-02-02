@@ -2,6 +2,7 @@
  * Страница готовых сценариев
  */
 
+import { useState } from 'react'
 import { useLocation } from 'wouter'
 import { CheckCircle, Calendar, Edit, Film, Trash2 } from 'lucide-react'
 import { useReadyScripts, useScriptActions } from '../hooks/use-scripts'
@@ -11,19 +12,44 @@ import { Badge } from '@/shared/ui/badge'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog'
 
 export function ScriptsPage() {
   const [, navigate] = useLocation()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [scriptToDelete, setScriptToDelete] = useState<string | null>(null)
+  
   // Используем useReadyScripts для получения готовых скриптов из scripts_library
   const { data: scriptsData, isLoading } = useReadyScripts()
   const { deleteScript } = useScriptActions()
   const scripts = scriptsData?.items || []
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (confirm('Вы уверены, что хотите удалить этот сценарий?')) {
-      deleteScript.mutate(id)
+    setScriptToDelete(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (scriptToDelete) {
+      deleteScript.mutate(scriptToDelete)
     }
+    setDeleteDialogOpen(false)
+    setScriptToDelete(null)
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false)
+    setScriptToDelete(null)
   }
 
   // Получить количество сцен из скрипта
@@ -127,9 +153,10 @@ export function ScriptsPage() {
                         Редактировать
                       </Button>
                       <Button
-                        onClick={(e) => handleDelete(script.id, e)}
+                        onClick={(e) => handleDeleteClick(script.id, e)}
                         variant="destructive"
                         size="icon"
+                        title="Удалить сценарий"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -141,6 +168,30 @@ export function ScriptsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить сценарий?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Сценарий будет удалён безвозвратно.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete} disabled={deleteScript.isPending}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleteScript.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteScript.isPending ? 'Удаление...' : 'Удалить'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
