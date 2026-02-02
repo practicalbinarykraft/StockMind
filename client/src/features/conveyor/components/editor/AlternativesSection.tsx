@@ -3,6 +3,7 @@ import { AlternativeCard } from './AlternativeCard'
 
 interface AlternativesSectionProps {
   alternatives: string[]
+  selectedAlternativeIndex?: number | null
   isRegenerating?: boolean
   onSelectAlternative: (index: number) => void
   onOpenPrompt: () => void
@@ -11,6 +12,7 @@ interface AlternativesSectionProps {
 
 export function AlternativesSection({
   alternatives,
+  selectedAlternativeIndex = null,
   isRegenerating = false,
   onSelectAlternative,
   onOpenPrompt,
@@ -50,6 +52,7 @@ export function AlternativesSection({
               key={index}
               text={alt}
               variantNumber={index + 1}
+              isSelected={selectedAlternativeIndex === index}
               onSelect={() => onSelectAlternative(index)}
             />
           ))}

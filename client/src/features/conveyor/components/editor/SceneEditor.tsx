@@ -28,16 +28,27 @@ export function SceneEditor({
   onRegenerate,
 }: SceneEditorProps) {
   const [editingText, setEditingText] = useState('')
+  const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (scene) {
       setEditingText(scene.text)
+      setSelectedAlternativeIndex(null)
     }
   }, [scene?.id])
 
   const handleSave = () => {
     if (editingText.trim() && editingText !== scene?.text) {
       onSave(editingText)
+      setSelectedAlternativeIndex(null)
+    }
+  }
+
+  const handleSelectAlternative = (index: number) => {
+    if (scene) {
+      setEditingText(scene.alternatives[index])
+      setSelectedAlternativeIndex(index)
+      onSelectAlternative(index)
     }
   }
 
@@ -69,7 +80,10 @@ export function SceneEditor({
 
         <Textarea
           value={editingText}
-          onChange={(e) => setEditingText(e.target.value)}
+          onChange={(e) => {
+            setEditingText(e.target.value)
+            setSelectedAlternativeIndex(null) // Сбрасываем выбор при ручном редактировании
+          }}
           className="min-h-[180px] resize-none bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
           placeholder="Введите текст сцены..."
         />
@@ -110,11 +124,9 @@ export function SceneEditor({
       {/* Варианты замены */}
       <AlternativesSection
         alternatives={scene.alternatives}
+        selectedAlternativeIndex={selectedAlternativeIndex}
         isRegenerating={isRegenerating}
-        onSelectAlternative={(index) => {
-          setEditingText(scene.alternatives[index])
-          onSelectAlternative(index)
-        }}
+        onSelectAlternative={handleSelectAlternative}
         onOpenPrompt={onOpenPrompt}
         onRegenerate={onRegenerate}
       />

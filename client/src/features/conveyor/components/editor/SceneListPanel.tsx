@@ -24,7 +24,7 @@ export function SceneListPanel({
         </h3>
       </div>
 
-      <div className="max-h-[calc(100vh-300px)] overflow-y-auto space-y-2">
+      <div className="max-h-[calc(100vh-320px)] overflow-y-auto space-y-2">
         {scenes.map((scene) => (
           <SceneListItem
             key={scene.id}
