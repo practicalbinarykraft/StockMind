@@ -542,7 +542,7 @@ export function ScriptEditorPage() {
       </div>
 
       {/* Main Content - 3 Column Layout */}
-      <div className="grid grid-cols-[280px_1fr_320px] gap-6 h-[calc(100vh-theme(spacing.14)-theme(spacing.32))]">
+      <div className="grid grid-cols-[280px_minmax(600px,1fr)_380px] gap-6 h-[calc(100vh-theme(spacing.14)-theme(spacing.32))]">
         {/* Left Panel - Scene List */}
         <SceneListPanel
           scenes={script.scenes}

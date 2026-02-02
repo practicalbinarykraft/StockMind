@@ -10,12 +10,12 @@ export function SceneSummaryItem({ scene }: SceneSummaryItemProps) {
     ? `${Math.round(scene.durationInFrames / 30)} сек` 
     : 'Не указано'
   
-  const truncatedText = scene.text.length > 100 
-    ? `${scene.text.slice(0, 100)}...` 
+  const truncatedText = scene.text.length > 80 
+    ? `${scene.text.slice(0, 80)}...` 
     : scene.text
 
   return (
-    <div className="border-b border-border last:border-0 pb-3 mb-3 last:mb-0 last:pb-0">
+    <div className="border-b border-border last:border-0 pb-2 mb-2 last:mb-0 last:pb-0">
       <div className="flex items-center justify-between mb-2">
         <h5 className="text-sm font-semibold">Сцена {scene.order}</h5>
         <span className="text-xs text-muted-foreground">
