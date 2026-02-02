@@ -37,7 +37,7 @@ export function ScriptVersionCard({ version = 1, status, createdAt }: ScriptVers
   }
 
   return (
-    <div className="glass rounded-xl p-6">
+    <div className="glass rounded-xl p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">

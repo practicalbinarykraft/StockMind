@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react'
-import { ScrollArea } from '@/shared/ui/scroll-area'
 import { SceneListItem } from './SceneListItem'
 import type { Scene } from '../../types'
 
@@ -17,7 +16,7 @@ export function SceneListPanel({
   onAddScene,
 }: SceneListPanelProps) {
   return (
-    <div className="glass rounded-xl p-4 flex flex-col max-h-[calc(100vh-160px)]">
+    <div className="glass rounded-xl p-4 flex flex-col">
       <div className="mb-4">
         <h3 className="text-lg font-semibold gradient-text flex items-center gap-2">
           <span>✦</span>
@@ -25,18 +24,16 @@ export function SceneListPanel({
         </h3>
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="space-y-2 pr-2">
-          {scenes.map((scene) => (
-            <SceneListItem
-              key={scene.id}
-              scene={scene}
-              isSelected={selectedSceneId === scene.id}
-              onClick={() => onSceneSelect(scene.id)}
-            />
-          ))}
-        </div>
-      </ScrollArea>
+      <div className="max-h-[calc(100vh-300px)] overflow-y-auto space-y-2">
+        {scenes.map((scene) => (
+          <SceneListItem
+            key={scene.id}
+            scene={scene}
+            isSelected={selectedSceneId === scene.id}
+            onClick={() => onSceneSelect(scene.id)}
+          />
+        ))}
+      </div>
 
       <div className="mt-4 pt-4 border-t border-border/30">
         <button
