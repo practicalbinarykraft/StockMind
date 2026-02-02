@@ -466,10 +466,10 @@ export function ScriptEditorPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-16 w-full" />
-        <div className="grid grid-cols-[280px_1fr_380px] gap-6">
+        <div className="grid grid-cols-[280px_minmax(500px,650px)_1fr] gap-6">
+          <Skeleton className="h-[400px]" />
           <Skeleton className="h-[600px]" />
-          <Skeleton className="h-[600px]" />
-          <Skeleton className="h-[600px]" />
+          <Skeleton className="h-[500px]" />
         </div>
       </div>
     )
@@ -543,7 +543,7 @@ export function ScriptEditorPage() {
       </div>
 
       {/* Main Content - 3 Column Layout */}
-      <div className="grid grid-cols-[280px_1fr_380px] gap-6 h-[calc(100vh-theme(spacing.14)-theme(spacing.32))]">
+      <div className="grid grid-cols-[280px_minmax(500px,650px)_1fr] gap-6 items-start">
         {/* Left Panel - Scene List */}
         <SceneListPanel
           scenes={script.scenes}

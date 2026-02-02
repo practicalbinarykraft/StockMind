@@ -17,7 +17,7 @@ export function SceneListPanel({
   onAddScene,
 }: SceneListPanelProps) {
   return (
-    <div className="glass rounded-xl p-4 h-full flex flex-col">
+    <div className="glass rounded-xl p-4 flex flex-col max-h-[calc(100vh-200px)]">
       <div className="mb-4">
         <h3 className="text-lg font-semibold gradient-text flex items-center gap-2">
           <span>✦</span>
@@ -25,8 +25,8 @@ export function SceneListPanel({
         </h3>
       </div>
 
-      <ScrollArea className="flex-1 pr-2">
-        <div className="space-y-2">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="space-y-2 pr-2">
           {scenes.map((scene) => (
             <SceneListItem
               key={scene.id}
