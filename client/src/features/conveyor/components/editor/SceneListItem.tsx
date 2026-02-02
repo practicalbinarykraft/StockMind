@@ -8,19 +8,19 @@ interface SceneListItemProps {
 }
 
 export function SceneListItem({ scene, isSelected, onClick }: SceneListItemProps) {
-  const truncatedText = scene.text.length > 50 ? `${scene.text.slice(0, 50)}...` : scene.text
+  const truncatedText = scene.text.length > 30 ? `${scene.text.slice(0, 30)}...` : scene.text
 
   return (
     <div
       className={cn(
-        'p-3 rounded-lg cursor-pointer transition-all duration-300',
+        'p-2 rounded-lg cursor-pointer transition-all duration-300',
         'glass border border-border/30',
         'hover:bg-card/70 hover:border-primary/30 hover-lift',
         isSelected && 'glow-border-cyan bg-cyan-500/5'
       )}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1">
         <h4 className={cn(
           "text-sm font-semibold",
           isSelected ? "text-cyan-400" : "text-foreground"
@@ -31,7 +31,7 @@ export function SceneListItem({ scene, isSelected, onClick }: SceneListItemProps
           <span className="text-xs text-muted-foreground">Генерация...</span>
         )}
       </div>
-      <p className="text-xs text-muted-foreground line-clamp-2">{truncatedText}</p>
+      <p className="text-xs text-muted-foreground truncate">{truncatedText}</p>
     </div>
   )
 }
