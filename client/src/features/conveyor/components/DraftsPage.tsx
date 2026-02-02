@@ -54,15 +54,19 @@ export function DraftsPage() {
     setAnalyzingScripts(prev => new Set(prev).add(scriptId))
     
     try {
-      await scriptsService.analyzeScript(scriptId)
+      const analyzedScript = await scriptsService.analyzeScript(scriptId)
       
       // Обновляем кэш
       await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
       await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
       
+      // Показываем оценку в уведомлении
+      const score = analyzedScript.aiScore || 0
+      const scoreColor = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+      
       toast({
-        title: 'Успешно',
-        description: 'Сценарий проанализирован AI',
+        title: 'Анализ завершён',
+        description: `${scoreColor} Оценка: ${score}/100`,
       })
     } catch (error: any) {
       console.error('Error analyzing script:', error)

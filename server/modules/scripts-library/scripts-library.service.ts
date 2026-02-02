@@ -1,6 +1,5 @@
 import { ScriptsLibraryRepo } from "./scripts-library.repo";
 import { logger } from "../../lib/logger";
-import { analyzeScriptAdvanced } from "../../ai-services/advanced";
 import { analyzeScript } from "../../ai-services/analyze-script";
 import { ProjectsService } from "../projects/projects.service";
 import { apiKeysService } from "../api-keys/api-keys.service";
@@ -144,7 +143,7 @@ export const scriptsLibraryService = {
   },
 
   /**
-   * Analyze a script using AI
+   * Analyze a script using AI (EditorAgent - как в конвейере)
    */
   async analyzeScript(scriptId: string, userId: string) {
     const script = await repo.getScriptById(scriptId, userId);
@@ -159,23 +158,64 @@ export const scriptsLibraryService = {
       throw new NoApiKeyConfiguredError("Anthropic");
     }
 
-    // Convert scenes to text for analysis
-    const scriptText = Array.isArray(script.scenes)
-      ? script.scenes.map((s: any) => s.text || s).join("\n")
-      : "";
+    // Используем EditorAgent как в конвейере
+    const { EditorAgent } = await import("../generation/agents/editor-agent");
+    const editorAgent = new EditorAgent();
+    
+    // Устанавливаем API ключ
+    editorAgent.setApiKey(apiKey.decryptedKey);
+    
+    // Подготавливаем сцены в формате ScriptwriterOutput
+    const scenes = Array.isArray(script.scenes)
+      ? script.scenes.map((s: any, index: number) => ({
+          number: s.order || s.sceneNumber || index + 1,
+          text: s.text || "",
+          visual: s.visual || s.visualSource || "Визуал не указан",
+          duration: s.duration || 5,
+        }))
+      : [];
 
-    const analysis = await analyzeScriptAdvanced(
-      apiKey.decryptedKey,
-      scriptText,
-      script.sourceType === "rss" ? "news" : "custom_script"
-    );
+    const totalDuration = scenes.reduce((sum: number, s: any) => sum + (s.duration || 0), 0);
+
+    const scriptwriterOutput = {
+      scenes,
+      totalDuration,
+    };
+
+    // Вызываем EditorAgent
+    const editorResult = await editorAgent.process({
+      script: scriptwriterOutput,
+      newsTitle: script.title || "Без названия",
+      newsContent: script.sourceTitle || script.fullText || "",
+      customPrompt: undefined,
+    });
+
+    // Конвертируем оценку из 10-балльной в 100-балльную
+    const aiScore = Math.round((editorResult.overallScore / 10) * 100);
+
+    // Сохраняем полный результат анализа
+    const aiAnalysis = {
+      overallScore: aiScore, // 0-100
+      overallComment: editorResult.overallComment,
+      verdict: editorResult.verdict,
+      sceneComments: editorResult.sceneComments,
+      // Оригинальная оценка 1-10 для справки
+      rawScore: editorResult.overallScore,
+    };
 
     // Update script with analysis
     const updated = await repo.updateScript(scriptId, userId, {
-      aiAnalysis: analysis,
-      aiScore: analysis.overallScore,
+      aiAnalysis,
+      aiScore,
       analyzedAt: new Date(),
       status: script.status === "draft" ? "analyzed" : script.status,
+    });
+
+    logger.info("Script analyzed successfully", {
+      scriptId,
+      userId,
+      aiScore,
+      verdict: editorResult.verdict,
     });
 
     return updated;
