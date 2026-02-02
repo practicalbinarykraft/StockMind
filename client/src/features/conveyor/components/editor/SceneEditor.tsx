@@ -30,17 +30,34 @@ export function SceneEditor({
   const [editingText, setEditingText] = useState('')
   const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState<number | null>(null)
 
+  // Проверяем соответствие текста альтернативам
+  const checkAlternativeMatch = (text: string, alternatives: string[]) => {
+    const index = alternatives.findIndex(alt => alt === text)
+    return index !== -1 ? index : null
+  }
+
   useEffect(() => {
     if (scene) {
       setEditingText(scene.text)
-      setSelectedAlternativeIndex(null)
+      // Проверяем, соответствует ли текущий текст какой-то альтернативе
+      const matchIndex = checkAlternativeMatch(scene.text, scene.alternatives)
+      setSelectedAlternativeIndex(matchIndex)
     }
-  }, [scene?.id])
+  }, [scene?.id, scene?.text, scene?.alternatives])
 
   const handleSave = () => {
     if (editingText.trim() && editingText !== scene?.text) {
       onSave(editingText)
-      setSelectedAlternativeIndex(null)
+      // НЕ сбрасываем selectedAlternativeIndex - он обновится автоматически через useEffect
+    }
+  }
+
+  const handleTextChange = (newText: string) => {
+    setEditingText(newText)
+    // Проверяем, соответствует ли новый текст какой-то альтернативе
+    if (scene) {
+      const matchIndex = checkAlternativeMatch(newText, scene.alternatives)
+      setSelectedAlternativeIndex(matchIndex)
     }
   }
 
@@ -80,10 +97,7 @@ export function SceneEditor({
 
         <Textarea
           value={editingText}
-          onChange={(e) => {
-            setEditingText(e.target.value)
-            setSelectedAlternativeIndex(null) // Сбрасываем выбор при ручном редактировании
-          }}
+          onChange={(e) => handleTextChange(e.target.value)}
           className="min-h-[180px] resize-none bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
           placeholder="Введите текст сцены..."
         />

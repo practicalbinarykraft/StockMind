@@ -579,7 +579,7 @@ export function ScriptEditorPage() {
             className="px-4 py-2 border border-border/50 text-foreground rounded-lg font-medium hover:bg-accent/50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2"
           >
             <FileArchive className="h-4 w-4" />
-            Сохранить в черновиках
+            Сохранить в черновики
           </button>
           <button
             onClick={handleSaveToReady}
