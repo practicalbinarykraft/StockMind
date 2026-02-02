@@ -59,7 +59,7 @@ export async function getDrafts(params?: {
       // Маппинг полей для совместимости с UI компонентами
       newsTitle: s.newsTitle || s.title,
       sourceName: s.sourceName || s.sourceTitle || (normalizedSourceType === 'instagram' ? 'Instagram' : 'Новости'),
-      score: s.score ?? s.aiScore ?? 0,
+      score: s.aiScore ?? s.score ?? 0,  // aiScore - основное поле оценки от сервера
       // Нормализованный sourceType для фильтрации
       sourceType: normalizedSourceType,
     }
@@ -99,7 +99,7 @@ export async function getReadyScripts(params?: {
       // Маппинг полей для совместимости с UI компонентами
       newsTitle: s.newsTitle || s.title,
       sourceName: s.sourceName || s.sourceTitle || (normalizedSourceType === 'instagram' ? 'Instagram' : 'Новости'),
-      score: s.score ?? s.aiScore ?? 0,
+      score: s.aiScore ?? s.score ?? 0,  // aiScore - основное поле оценки от сервера
       // Нормализованный sourceType для фильтрации
       sourceType: normalizedSourceType,
     }
@@ -326,8 +326,26 @@ export async function saveAutoScriptToLibrary(
   autoScriptId: string,
   status: 'draft' | 'ready' | 'completed'
 ): Promise<Script> {
-  // Получаем auto_script
+  // Получаем auto_script с итерациями и рецензиями
   const autoScript = await getAutoScript(autoScriptId)
+  
+  // Ищем оценку из последней рецензии
+  let aiScore = autoScript.score ?? (autoScript as any).finalScore ?? 0
+  
+  // Если есть итерации с рецензиями, берём оценку из последней
+  if ((autoScript as any).iterations && Array.isArray((autoScript as any).iterations)) {
+    const iterations = (autoScript as any).iterations
+    // Ищем последнюю итерацию с рецензией
+    for (let i = iterations.length - 1; i >= 0; i--) {
+      const iteration = iterations[i]
+      if (iteration.review && iteration.review.overallScore) {
+        // Конвертируем оценку из 10-балльной в 100-балльную систему
+        aiScore = Math.round((iteration.review.overallScore / 10) * 100)
+        console.log('[saveAutoScriptToLibrary] Оценка из рецензии:', aiScore, 'из итерации', i + 1)
+        break
+      }
+    }
+  }
   
   // Создаём новую запись в scripts_library
   const libraryScript = await createScriptInLibrary({
@@ -336,7 +354,7 @@ export async function saveAutoScriptToLibrary(
     scenes: autoScript.scenes || [],
     fullText: autoScript.scenes?.map((s: any) => s.text).join('\n') || '',
     format: (autoScript as any).formatId || (autoScript as any).formatName || undefined,
-    aiScore: autoScript.score ?? (autoScript as any).finalScore ?? 0,
+    aiScore: aiScore,
     sourceType: (autoScript as any).sourceType || 'rss',
     sourceId: autoScriptId,
     sourceTitle: autoScript.title || autoScript.newsTitle,
@@ -352,6 +370,16 @@ export async function saveAutoScriptToLibrary(
 export async function deleteScript(id: string): Promise<{ success: boolean }> {
   await apiRequest('DELETE', `/api/scripts/${id}`)
   return { success: true }
+}
+
+/**
+ * Анализировать сценарий с помощью AI
+ * Эндпоинт: POST /api/scripts/:id/analyze
+ */
+export async function analyzeScript(scriptId: string): Promise<Script> {
+  const response = await apiRequest('POST', `/api/scripts/${scriptId}/analyze`)
+  const result = await response.json()
+  return result.data || result
 }
 
 /**
@@ -755,6 +783,7 @@ export const scriptsService = {
   createScriptInLibrary,
   saveAutoScriptToLibrary,
   deleteScript,
+  analyzeScript,
   startGeneration,
   stopGeneration,
   retryGeneration,

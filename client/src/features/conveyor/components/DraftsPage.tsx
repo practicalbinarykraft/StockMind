@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useLocation } from 'wouter'
-import { FileText, ArrowRight, Edit, Trash2 } from 'lucide-react'
+import { FileText, ArrowRight, Edit, Trash2, Sparkles } from 'lucide-react'
 import { useDrafts } from '../hooks/use-scripts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
@@ -32,6 +32,7 @@ export function DraftsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scriptToDelete, setScriptToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [analyzingScripts, setAnalyzingScripts] = useState<Set<string>>(new Set())
   const { toast } = useToast()
 
   const { data: draftsResponse, isLoading } = useDrafts()
@@ -45,6 +46,38 @@ export function DraftsPage() {
     e.stopPropagation()
     setScriptToDelete(scriptId)
     setDeleteDialogOpen(true)
+  }
+
+  const handleAnalyzeClick = async (e: React.MouseEvent, scriptId: string) => {
+    e.stopPropagation()
+    
+    setAnalyzingScripts(prev => new Set(prev).add(scriptId))
+    
+    try {
+      await scriptsService.analyzeScript(scriptId)
+      
+      // Обновляем кэш
+      await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
+      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      
+      toast({
+        title: 'Успешно',
+        description: 'Сценарий проанализирован AI',
+      })
+    } catch (error: any) {
+      console.error('Error analyzing script:', error)
+      toast({
+        title: 'Ошибка анализа',
+        description: error.message || 'Не удалось проанализировать сценарий. Проверьте настройки API ключа.',
+        variant: 'destructive',
+      })
+    } finally {
+      setAnalyzingScripts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(scriptId)
+        return newSet
+      })
+    }
   }
 
   const handleConfirmDelete = async () => {
@@ -156,14 +189,35 @@ export function DraftsPage() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span>Источник: {draft.sourceName}</span>
                         <span>•</span>
-                        <span>Оценка: {draft.score}/100</span>
+                        {(draft.score ?? 0) > 0 ? (
+                          <span className={
+                            (draft.score ?? 0) >= 80 ? 'text-green-400' :
+                            (draft.score ?? 0) >= 50 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }>
+                            Оценка: {draft.score}/100
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Оценка: не проверено
+                          </span>
+                        )}
                         <span>•</span>
-                        <span>{draft.scenes.length} сцен</span>
+                        <span>{draft.scenes?.length || 0} сцен</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                      <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                      {/* Кнопка анализа для непроверенных скриптов */}
+                      {(draft.score ?? 0) === 0 && (
+                        <button
+                          onClick={(e) => handleAnalyzeClick(e, draft.id)}
+                          disabled={analyzingScripts.has(draft.id)}
+                          className="p-2 rounded-lg hover:bg-primary/10 text-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Анализировать с помощью AI"
+                        >
+                          <Sparkles className={`w-4 h-4 ${analyzingScripts.has(draft.id) ? 'animate-pulse' : ''}`} />
+                        </button>
+                      )}
                       <button
                         onClick={(e) => handleDeleteClick(e, draft.id)}
                         className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
@@ -171,6 +225,8 @@ export function DraftsPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                      <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
                 </div>

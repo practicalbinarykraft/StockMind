@@ -464,12 +464,47 @@ export function ScriptEditorPage() {
         await saveCurrentChanges(selectedSceneId, editingTextRef.current)
       }
       
-      await scriptsService.updateScriptUniversal(scriptId, { status: 'draft' })
+      // Получаем текущий скрипт для анализа изменений
+      const currentScript = await scriptsService.getScriptUniversal(scriptId)
+      
+      // Подготовка данных для сохранения
+      const updateData: any = { status: 'draft' }
+      
+      // Если скрипт из конвейера (auto_scripts) и имеет оценку, копируем её
+      if ((currentScript as any).score || (currentScript as any).finalScore) {
+        const score = (currentScript as any).score ?? (currentScript as any).finalScore
+        updateData.aiScore = score
+        console.log('[SaveToDraft] Копируем оценку из конвейера:', score)
+      }
+      
+      // Если скрипт из библиотеки и был изменён, помечаем для переоценки
+      if (currentScript.aiScore && currentScript.analyzedAt) {
+        const lastAnalyzed = new Date(currentScript.analyzedAt).getTime()
+        const lastUpdated = new Date(currentScript.updatedAt).getTime()
+        
+        // Если скрипт изменялся после последнего анализа
+        if (lastUpdated > lastAnalyzed) {
+          console.log('[SaveToDraft] Скрипт изменён после анализа, сбрасываем оценку')
+          updateData.aiScore = null
+          updateData.analyzedAt = null
+          
+          toast({
+            title: 'Требуется переоценка',
+            description: 'Скрипт изменён. Запустите анализ для получения новой оценки.',
+            variant: 'default',
+          })
+        }
+      }
+      
+      await scriptsService.updateScriptUniversal(scriptId, updateData)
       await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+      await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
       
       toast({
         title: 'Успешно',
-        description: 'Сценарий сохранён в черновики',
+        description: updateData.aiScore 
+          ? `Сценарий сохранён в черновики с оценкой ${updateData.aiScore}/100`
+          : 'Сценарий сохранён в черновики',
       })
     } catch (error) {
       console.error('Error saving to draft:', error)
