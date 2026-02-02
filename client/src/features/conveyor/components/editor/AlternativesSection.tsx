@@ -1,5 +1,4 @@
 import { MessageSquare, RefreshCw } from 'lucide-react'
-import { Button, Card } from '@/shared/ui'
 import { AlternativeCard } from './AlternativeCard'
 
 interface AlternativesSectionProps {
@@ -18,36 +17,34 @@ export function AlternativesSection({
   onRegenerate,
 }: AlternativesSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="glass rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-md font-semibold flex items-center gap-2">
-          <span className="text-cyan-400">✦</span>
+        <h3 className="text-md font-semibold gradient-text flex items-center gap-2">
+          <span>✦</span>
           Варианты замены
         </h3>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={onOpenPrompt}
             disabled={isRegenerating}
+            className="px-3 py-1.5 text-sm border border-border/50 text-foreground rounded-lg hover:bg-accent/50 hover:border-primary/30 transition-all duration-300 disabled:opacity-50 flex items-center gap-1.5"
           >
-            <MessageSquare className="h-4 w-4 mr-2" />
+            <MessageSquare className="h-4 w-4" />
             Промпт
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+          </button>
+          <button
             onClick={onRegenerate}
             disabled={isRegenerating}
+            className="px-3 py-1.5 text-sm border border-primary/30 text-primary rounded-lg hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 disabled:opacity-50 flex items-center gap-1.5"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRegenerating ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
             Перегенерировать
-          </Button>
+          </button>
         </div>
       </div>
 
       {alternatives.length > 0 ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           {alternatives.slice(0, 3).map((alt, index) => (
             <AlternativeCard
               key={index}
@@ -58,11 +55,11 @@ export function AlternativesSection({
           ))}
         </div>
       ) : (
-        <Card className="p-6 bg-card/50">
+        <div className="glass-strong rounded-lg p-6">
           <p className="text-sm text-muted-foreground text-center">
             Нет доступных вариантов. Нажмите "Перегенерировать" для создания альтернатив.
           </p>
-        </Card>
+        </div>
       )}
     </div>
   )

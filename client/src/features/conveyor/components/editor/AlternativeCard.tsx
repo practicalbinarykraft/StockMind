@@ -1,5 +1,3 @@
-import { Card } from '@/shared/ui/card'
-import { Button } from '@/shared/ui/button'
 import { Check } from 'lucide-react'
 
 interface AlternativeCardProps {
@@ -10,22 +8,20 @@ interface AlternativeCardProps {
 
 export function AlternativeCard({ text, variantNumber, onSelect }: AlternativeCardProps) {
   return (
-    <Card className="p-4 bg-card/50 hover:bg-card/80 transition-colors">
+    <div className="glass rounded-lg p-3 hover:bg-card/70 hover:border-primary/30 transition-all duration-300 hover-lift border border-border/30">
       <div className="flex items-start justify-between mb-2">
         <h4 className="text-sm font-medium text-cyan-400">
           Вариант {variantNumber}
         </h4>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 w-6 p-0"
+        <button
           onClick={onSelect}
+          className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-primary/20 transition-colors"
           title="Выбрать этот вариант"
         >
-          <Check className="h-4 w-4" />
-        </Button>
+          <Check className="h-4 w-4 text-primary" />
+        </button>
       </div>
       <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
-    </Card>
+    </div>
   )
 }

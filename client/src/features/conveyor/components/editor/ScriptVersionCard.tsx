@@ -1,5 +1,4 @@
 import { FileText, CheckCircle } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@/shared/ui/card'
 import { Badge } from '@/shared/ui/badge'
 
 interface ScriptVersionCardProps {
@@ -38,24 +37,26 @@ export function ScriptVersionCard({ version = 1, status, createdAt }: ScriptVers
   }
 
   return (
-    <Card className="bg-card/50">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <FileText className="h-5 w-5 text-cyan-400" />
-            Сценарий v{version}
-          </CardTitle>
-          <Badge variant={statusVariants[status] || 'outline'} className="ml-2">
-            {status === 'ready' && <CheckCircle className="h-3 w-3 mr-1" />}
-            {statusLabels[status] || status}
-          </Badge>
+    <div className="glass rounded-xl p-6">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold gradient-text">
+              Сценарий v{version}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatDate(createdAt)}
+            </p>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-xs text-muted-foreground">
-          {formatDate(createdAt)}
-        </div>
-      </CardContent>
-    </Card>
+        <Badge variant={statusVariants[status] || 'outline'} className="ml-2">
+          {status === 'ready' && <CheckCircle className="h-3 w-3 mr-1" />}
+          {statusLabels[status] || status}
+        </Badge>
+      </div>
+    </div>
   )
 }

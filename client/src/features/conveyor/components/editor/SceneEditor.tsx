@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Save, X } from 'lucide-react'
-import { Button } from '@/shared/ui/button'
 import { Textarea } from '@/shared/ui/textarea'
-import { Card } from '@/shared/ui/card'
 import { AlternativesSection } from './AlternativesSection'
 import type { Scene } from '../../types'
 
@@ -46,22 +44,22 @@ export function SceneEditor({
   if (!scene) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Card className="p-8 bg-card/50">
+        <div className="glass rounded-xl p-8">
           <p className="text-muted-foreground text-center">
             Выберите сцену из списка для редактирования
           </p>
-        </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full space-y-6">
+    <div className="flex flex-col h-full space-y-4">
       {/* Текущий текст сцены */}
-      <div className="space-y-4">
+      <div className="glass rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-md font-semibold flex items-center gap-2">
-            <span className="text-cyan-400">✦</span>
+          <h3 className="text-md font-semibold gradient-text flex items-center gap-2">
+            <span>✦</span>
             Текущий текст сцены
             <span className="text-sm text-muted-foreground font-normal">— Сцена {scene.order}</span>
           </h3>
@@ -70,27 +68,27 @@ export function SceneEditor({
         <Textarea
           value={editingText}
           onChange={(e) => setEditingText(e.target.value)}
-          className="min-h-[200px] resize-none bg-card/50 border-border focus:border-cyan-500 transition-colors"
+          className="min-h-[180px] resize-none bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
           placeholder="Введите текст сцены..."
         />
 
         <div className="flex gap-2">
-          <Button
+          <button
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
-            className="bg-cyan-500 hover:bg-cyan-600 text-white"
+            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-cyan-700 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="h-4 w-4" />
             {isSaving ? 'Сохранение...' : 'Сохранить'}
-          </Button>
-          <Button
-            variant="outline"
+          </button>
+          <button
             onClick={onCancel}
             disabled={isSaving}
+            className="px-4 py-2 border border-border/50 text-foreground rounded-lg font-medium hover:bg-accent/50 hover:border-primary/30 transition-all duration-300 disabled:opacity-50 flex items-center gap-2"
           >
-            <X className="h-4 w-4 mr-2" />
+            <X className="h-4 w-4" />
             Назад
-          </Button>
+          </button>
         </div>
       </div>
 

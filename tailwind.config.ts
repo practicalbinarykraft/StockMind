@@ -81,6 +81,19 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        dark: {
+          950: "rgb(3, 7, 18)",
+          900: "rgb(15, 23, 42)",
+          800: "rgb(30, 41, 59)",
+          700: "rgb(51, 65, 85)",
+          600: "rgb(71, 85, 105)",
+          500: "rgb(100, 116, 139)",
+        },
+        neon: {
+          cyan: "rgb(34, 211, 238)",
+          blue: "rgb(59, 130, 246)",
+          purple: "rgb(168, 85, 247)",
+        },
       },
       fontFamily: {
         sans: ["Inter", "var(--font-sans)"],

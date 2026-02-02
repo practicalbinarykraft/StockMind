@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react'
-import { Button } from '@/shared/ui/button'
 import { ScrollArea } from '@/shared/ui/scroll-area'
 import { SceneListItem } from './SceneListItem'
 import type { Scene } from '../../types'
@@ -18,16 +17,16 @@ export function SceneListPanel({
   onAddScene,
 }: SceneListPanelProps) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="glass rounded-xl p-4 h-full flex flex-col">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <span className="text-cyan-400">✦</span>
+        <h3 className="text-lg font-semibold gradient-text flex items-center gap-2">
+          <span>✦</span>
           Сцены
         </h3>
       </div>
 
-      <ScrollArea className="flex-1 pr-4">
-        <div className="space-y-3">
+      <ScrollArea className="flex-1 pr-2">
+        <div className="space-y-2">
           {scenes.map((scene) => (
             <SceneListItem
               key={scene.id}
@@ -39,15 +38,14 @@ export function SceneListPanel({
         </div>
       </ScrollArea>
 
-      <div className="mt-4 pt-4 border-t border-border">
-        <Button
-          variant="outline"
-          className="w-full"
+      <div className="mt-4 pt-4 border-t border-border/30">
+        <button
           onClick={onAddScene}
+          className="w-full px-4 py-2 text-sm font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 flex items-center justify-center gap-2"
         >
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4" />
           Добавить сцену
-        </Button>
+        </button>
       </div>
     </div>
   )

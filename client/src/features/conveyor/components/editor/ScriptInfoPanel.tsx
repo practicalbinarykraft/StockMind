@@ -17,7 +17,7 @@ export function ScriptInfoPanel({
   scenes,
 }: ScriptInfoPanelProps) {
   return (
-    <div className="flex flex-col h-full space-y-3">
+    <div className="glass rounded-xl p-4 h-full flex flex-col space-y-3">
       <ScriptVersionCard
         version={version}
         status={status}
@@ -25,9 +25,9 @@ export function ScriptInfoPanel({
       />
 
       <div className="flex-1 overflow-hidden">
-        <h4 className="text-sm font-semibold mb-2">Обзор сцен</h4>
-        <ScrollArea className="h-[calc(100%-2rem)]">
-          <div className="pr-4">
+        <h4 className="text-sm font-semibold mb-2 text-foreground">Обзор сцен</h4>
+        <ScrollArea className="h-[calc(100%-1.5rem)]">
+          <div className="pr-3">
             {scenes.map((scene) => (
               <SceneSummaryItem key={scene.id} scene={scene} />
             ))}

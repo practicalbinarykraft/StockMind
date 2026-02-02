@@ -7,14 +7,12 @@ import { useLocation, useRoute } from 'wouter'
 import { ArrowLeft, Save, FileArchive } from 'lucide-react'
 import { useScript } from '../hooks/use-scripts'
 import { useConveyorEvents } from '../hooks/use-conveyor-events'
-import { Button } from '@/shared/ui/button'
-import { Badge } from '@/shared/ui/badge'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/ui/dialog'
 import { Textarea } from '@/shared/ui/textarea'
 import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
-import { Card } from '@/shared/ui/card'
+import { Button } from '@/shared/ui/button'
 import { scriptsService } from '../services/scriptsService'
 import { useToast } from '@/shared/hooks/use-toast'
 import { queryClient } from '@/shared/api'
@@ -468,7 +466,7 @@ export function ScriptEditorPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-16 w-full" />
-        <div className="grid grid-cols-[280px_1fr_320px] gap-6">
+        <div className="grid grid-cols-[280px_minmax(550px,700px)_420px] gap-6">
           <Skeleton className="h-[600px]" />
           <Skeleton className="h-[600px]" />
           <Skeleton className="h-[600px]" />
@@ -480,11 +478,14 @@ export function ScriptEditorPage() {
   if (!script) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-muted-foreground">Сценарий не найден</p>
-          <Button onClick={() => navigate('/conveyor')} className="mt-4">
+        <div className="glass rounded-xl p-8">
+          <p className="text-muted-foreground text-center mb-4">Сценарий не найден</p>
+          <button
+            onClick={() => navigate('/conveyor')}
+            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-cyan-700 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 flex items-center gap-2 mx-auto"
+          >
             Вернуться к списку
-          </Button>
+          </button>
         </div>
       </div>
     )
@@ -502,47 +503,47 @@ export function ScriptEditorPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="glass rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => navigate('/conveyor')}
+            className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
+          </button>
           <div>
-            <h1 className="text-2xl font-bold">Редактор сценария</h1>
+            <h1 className="text-2xl font-bold gradient-text">Редактор сценария</h1>
             <p className="text-sm text-muted-foreground">{script.title}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {(isConveyorProcessing || isRegeneratingScript) && (
-            <Badge variant="outline" className="animate-pulse">
-              Система активна
-            </Badge>
+            <div className="px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-green-400 font-medium">Система активна</span>
+            </div>
           )}
-          <Button
-            variant="outline"
+          <button
             onClick={handleSaveToDraft}
             disabled={isSaving}
+            className="px-4 py-2 border border-border/50 text-foreground rounded-lg font-medium hover:bg-accent/50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2"
           >
-            <FileArchive className="h-4 w-4 mr-2" />
+            <FileArchive className="h-4 w-4" />
             Сохранить в черновиках
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={handleSaveToReady}
             disabled={isSaving}
-            className="bg-cyan-500 hover:bg-cyan-600 text-white"
+            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-cyan-700 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 flex items-center gap-2 hover-lift"
           >
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="h-4 w-4" />
             Сохранить в готовые
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Main Content - 3 Column Layout */}
-      <div className="grid grid-cols-[280px_minmax(600px,1fr)_380px] gap-6 h-[calc(100vh-theme(spacing.14)-theme(spacing.32))]">
+      <div className="grid grid-cols-[280px_minmax(550px,700px)_420px] gap-6 h-[calc(100vh-theme(spacing.14)-theme(spacing.32))]">
         {/* Left Panel - Scene List */}
         <SceneListPanel
           scenes={script.scenes}
