@@ -203,12 +203,12 @@ export const scriptsLibraryService = {
       rawScore: editorResult.overallScore,
     };
 
-    // Update script with analysis
+    // Update script with analysis (не меняем статус, только добавляем оценку)
     const updated = await repo.updateScript(scriptId, userId, {
       aiAnalysis,
       aiScore,
       analyzedAt: new Date(),
-      status: script.status === "draft" ? "analyzed" : script.status,
+      // Статус не меняем - анализ это просто добавление оценки, не изменение состояния
     });
 
     logger.info("Script analyzed successfully", {

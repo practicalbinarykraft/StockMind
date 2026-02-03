@@ -120,17 +120,19 @@ export function ScriptsPage() {
                             locale: ru,
                           })}
                         </span>
-                        {(script.aiScore !== null && script.aiScore !== undefined) && (
-                          <>
-                            <span>•</span>
-                            <span className={
-                              script.aiScore >= 80 ? 'text-green-400' :
-                              script.aiScore >= 50 ? 'text-yellow-400' :
-                              'text-red-400'
-                            }>
-                              Оценка: {script.aiScore}/100
-                            </span>
-                          </>
+                        <span>•</span>
+                        {(script.aiScore !== null && script.aiScore !== undefined && script.aiScore > 0) ? (
+                          <span className={
+                            script.aiScore >= 80 ? 'text-green-400' :
+                            script.aiScore >= 50 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }>
+                            Оценка: {script.aiScore}/100
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Оценка: не оценено
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
