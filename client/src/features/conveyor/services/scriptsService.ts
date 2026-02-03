@@ -59,7 +59,9 @@ export async function getDrafts(params?: {
       // Маппинг полей для совместимости с UI компонентами
       newsTitle: s.newsTitle || s.title,
       sourceName: s.sourceName || s.sourceTitle || (normalizedSourceType === 'instagram' ? 'Instagram' : 'Новости'),
-      score: s.aiScore ?? s.score ?? 0,  // aiScore - основное поле оценки от сервера
+      // Сохраняем aiScore как основное поле, score для обратной совместимости
+      aiScore: s.aiScore ?? s.score ?? 0,
+      score: s.aiScore ?? s.score ?? 0,
       // Нормализованный sourceType для фильтрации
       sourceType: normalizedSourceType,
     }
@@ -99,7 +101,9 @@ export async function getReadyScripts(params?: {
       // Маппинг полей для совместимости с UI компонентами
       newsTitle: s.newsTitle || s.title,
       sourceName: s.sourceName || s.sourceTitle || (normalizedSourceType === 'instagram' ? 'Instagram' : 'Новости'),
-      score: s.aiScore ?? s.score ?? 0,  // aiScore - основное поле оценки от сервера
+      // Сохраняем aiScore как основное поле, score для обратной совместимости
+      aiScore: s.aiScore ?? s.score ?? 0,
+      score: s.aiScore ?? s.score ?? 0,
       // Нормализованный sourceType для фильтрации
       sourceType: normalizedSourceType,
     }

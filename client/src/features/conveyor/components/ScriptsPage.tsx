@@ -101,7 +101,7 @@ export function ScriptsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="text-lg font-semibold group-hover:text-primary transition-colors">
-                          {(script as any).title || script.newsTitle || 'Без названия'}
+                          {script.title || script.newsTitle || 'Без названия'}
                         </h4>
                         <Badge variant="default" className="bg-green-500">
                           Готов
@@ -120,25 +120,25 @@ export function ScriptsPage() {
                             locale: ru,
                           })}
                         </span>
-                        {((script as any).aiScore !== null && (script as any).aiScore !== undefined) && (
+                        {(script.aiScore !== null && script.aiScore !== undefined) && (
                           <>
                             <span>•</span>
                             <span className={
-                              (script as any).aiScore >= 80 ? 'text-green-400' :
-                              (script as any).aiScore >= 50 ? 'text-yellow-400' :
+                              script.aiScore >= 80 ? 'text-green-400' :
+                              script.aiScore >= 50 ? 'text-yellow-400' :
                               'text-red-400'
                             }>
-                              Оценка: {(script as any).aiScore}/100
+                              Оценка: {script.aiScore}/100
                             </span>
                           </>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        {(script as any).sourceType && (
+                        {script.sourceType && (
                           <Badge variant="outline">
-                            {(script as any).sourceType === 'rss' ? '📰 RSS' : 
-                             (script as any).sourceType === 'instagram' ? '📱 Instagram' : 
-                             (script as any).sourceType}
+                            {script.sourceType === 'rss' ? '📰 RSS' : 
+                             script.sourceType === 'instagram' ? '📱 Instagram' : 
+                             script.sourceType}
                           </Badge>
                         )}
                       </div>

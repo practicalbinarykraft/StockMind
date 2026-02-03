@@ -67,6 +67,7 @@ export function DraftsPage() {
       toast({
         title: 'Анализ завершён',
         description: `${scoreColor} Оценка: ${score}/100`,
+        duration: 3000,
       })
     } catch (error: any) {
       console.error('Error analyzing script:', error)
@@ -193,13 +194,13 @@ export function DraftsPage() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span>Источник: {draft.sourceName}</span>
                         <span>•</span>
-                        {(draft.score ?? 0) > 0 ? (
+                        {(draft.aiScore ?? draft.score ?? 0) > 0 ? (
                           <span className={
-                            (draft.score ?? 0) >= 80 ? 'text-green-400' :
-                            (draft.score ?? 0) >= 50 ? 'text-yellow-400' :
+                            (draft.aiScore ?? draft.score ?? 0) >= 80 ? 'text-green-400' :
+                            (draft.aiScore ?? draft.score ?? 0) >= 50 ? 'text-yellow-400' :
                             'text-red-400'
                           }>
-                            Оценка: {draft.score}/100
+                            Оценка: {draft.aiScore ?? draft.score}/100
                           </span>
                         ) : (
                           <span className="text-muted-foreground">
@@ -210,9 +211,10 @@ export function DraftsPage() {
                         <span>{draft.scenes?.length || 0} сцен</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-4 ml-4">
                       {/* Кнопка анализа для непроверенных скриптов */}
-                      {(draft.score ?? 0) === 0 && (
+                      <div className='flex items-center gap-2'>
+                      {(draft.aiScore ?? draft.score ?? 0) === 0 && (
                         <button
                           onClick={(e) => handleAnalyzeClick(e, draft.id)}
                           disabled={analyzingScripts.has(draft.id)}
@@ -222,6 +224,9 @@ export function DraftsPage() {
                           <Sparkles className={`w-4 h-4 ${analyzingScripts.has(draft.id) ? 'animate-pulse' : ''}`} />
                         </button>
                       )}
+                      <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                      </div>
                       <button
                         onClick={(e) => handleDeleteClick(e, draft.id)}
                         className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
@@ -229,8 +234,6 @@ export function DraftsPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      <Edit className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
                 </div>
