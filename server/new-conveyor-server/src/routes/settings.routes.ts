@@ -68,7 +68,7 @@ router.get('/', async (req: Request, res: Response) => {
       scriptwriterPrompt: '',
       editorPrompt: '',
       maxIterations: 3,
-      minApprovalScore: 8,
+      minApprovalScore: 80,
       autoSendToHumanReview: true,
       examples: [],
     };
@@ -88,7 +88,7 @@ router.get('/', async (req: Request, res: Response) => {
         scriptwriterPrompt: '',
         editorPrompt: '',
         maxIterations: 3,
-        minApprovalScore: 8,
+        minApprovalScore: 80,
         autoSendToHumanReview: true,
         examples: [],
         hasAnthropicKey: false,
@@ -120,7 +120,7 @@ router.patch('/', async (req: Request, res: Response) => {
         scriptwriterPrompt: '',
         editorPrompt: '',
         maxIterations: 3,
-        minApprovalScore: 8,
+        minApprovalScore: 80,
         autoSendToHumanReview: true,
         examples: [],
       };
@@ -176,9 +176,9 @@ router.patch('/', async (req: Request, res: Response) => {
     }
 
     if (updateData.minApprovalScore !== undefined) {
-      if (typeof updateData.minApprovalScore !== 'number' || updateData.minApprovalScore < 1 || updateData.minApprovalScore > 10) {
+      if (typeof updateData.minApprovalScore !== 'number' || updateData.minApprovalScore < 0 || updateData.minApprovalScore > 100) {
         return res.status(400).json({
-          error: 'minApprovalScore должен быть числом от 1 до 10',
+          error: 'minApprovalScore должен быть числом от 0 до 100',
           code: 'VALIDATION_ERROR',
         });
       }
@@ -241,7 +241,7 @@ router.post('/api-key', async (req: Request, res: Response) => {
         .values({
           provider: 'anthropic' as LLMProvider,
           maxIterations: 3,
-          minApprovalScore: 8,
+          minApprovalScore: 80,
           autoSendToHumanReview: true,
           examples: [],
         })

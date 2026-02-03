@@ -190,8 +190,8 @@ export const scriptsLibraryService = {
       customPrompt: undefined,
     });
 
-    // Конвертируем оценку из 10-балльной в 100-балльную
-    const aiScore = Math.round((editorResult.overallScore / 10) * 100);
+    // EditorAgent уже возвращает оценку в шкале 0-100
+    const aiScore = editorResult.overallScore;
 
     // Сохраняем полный результат анализа
     const aiAnalysis = {
@@ -199,8 +199,6 @@ export const scriptsLibraryService = {
       overallComment: editorResult.overallComment,
       verdict: editorResult.verdict,
       sceneComments: editorResult.sceneComments,
-      // Оригинальная оценка 1-10 для справки
-      rawScore: editorResult.overallScore,
     };
 
     // Update script with analysis (не меняем статус, только добавляем оценку)

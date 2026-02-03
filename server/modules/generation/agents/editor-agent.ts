@@ -23,7 +23,7 @@ export interface SceneComment {
 }
 
 export interface EditorOutput {
-  overallScore: number; // 1-10
+  overallScore: number; // 0-100
   overallComment: string;
   verdict: 'needs_revision' | 'approved' | 'rejected';
   sceneComments: SceneComment[];
@@ -52,7 +52,7 @@ export class EditorAgent extends BaseAgent {
     // Валидация результата
     this.validateOutput(result);
 
-    this.log(`Оценка: ${result.overallScore}/10, вердикт: ${result.verdict}`);
+    this.log(`Оценка: ${result.overallScore}/100, вердикт: ${result.verdict}`);
 
     return result;
   }
@@ -64,11 +64,11 @@ export class EditorAgent extends BaseAgent {
     const basePrompt = `Ты - строгий редактор вирусного контента. Твоя задача - оценить сценарий и дать конструктивную критику.
 
 ЗАДАЧА:
-Проанализируй сценарий и дай оценку по шкале 1-10.
+Проанализируй сценарий и дай оценку по шкале 0-100 баллов.
 
 ФОРМАТ ВЫВОДА (СТРОГО JSON):
 {
-  "overallScore": 8,
+  "overallScore": 85,
   "overallComment": "Общий комментарий о сценарии",
   "verdict": "approved",
   "sceneComments": [
@@ -85,18 +85,18 @@ export class EditorAgent extends BaseAgent {
 }
 
 КРИТЕРИИ ОЦЕНКИ:
-1. Hook (0-2 балла) - захватывает ли первая сцена?
-2. Структура (0-2 балла) - логичное развитие?
-3. Факты (0-2 балла) - соответствуют ли оригиналу?
-4. Эмоции (0-2 балла) - вызывает ли отклик?
-5. CTA (0-2 балла) - есть ли призыв к действию?
+1. Hook (0-20 баллов) - захватывает ли первая сцена?
+2. Структура (0-20 баллов) - логичное развитие?
+3. Факты (0-20 баллов) - соответствуют ли оригиналу?
+4. Эмоции (0-20 баллов) - вызывает ли отклик?
+5. CTA (0-20 баллов) - есть ли призыв к действию?
 
 VERDICT:
-- "approved" (8-10 баллов): Сценарий готов к производству
-- "needs_revision" (5-7 баллов): Нужны доработки
-- "rejected" (1-4 балла): Полностью переписать
+- "approved" (80-100 баллов): Сценарий готов к производству
+- "needs_revision" (50-79 баллов): Нужны доработки
+- "rejected" (0-49 баллов): Полностью переписать
 
-ВАЖНО: Оценка выставляется по шкале 1-10 баллов (будет автоматически конвертирована в 0-100 для хранения).
+ВАЖНО: Оценка выставляется по шкале 0-100 баллов и хранится без конвертации.
 
 ТИПЫ КОММЕНТАРИЕВ:
 - positive: что хорошо, не менять
@@ -144,8 +144,8 @@ ${scriptText}
    */
   private validateOutput(output: EditorOutput): void {
     // Валидация overallScore
-    if (typeof output.overallScore !== 'number' || output.overallScore < 1 || output.overallScore > 10) {
-      throw new Error('overallScore должен быть числом от 1 до 10');
+    if (typeof output.overallScore !== 'number' || output.overallScore < 0 || output.overallScore > 100) {
+      throw new Error('overallScore должен быть числом от 0 до 100');
     }
 
     // Валидация overallComment
@@ -160,11 +160,11 @@ ${scriptText}
     }
 
     // Проверка соответствия verdict и overallScore
-    if (output.overallScore >= 8 && output.verdict !== 'approved') {
+    if (output.overallScore >= 80 && output.verdict !== 'approved') {
       this.log(`Предупреждение: overallScore ${output.overallScore} не соответствует verdict ${output.verdict}`);
-    } else if (output.overallScore >= 5 && output.overallScore < 8 && output.verdict !== 'needs_revision') {
+    } else if (output.overallScore >= 50 && output.overallScore < 80 && output.verdict !== 'needs_revision') {
       this.log(`Предупреждение: overallScore ${output.overallScore} не соответствует verdict ${output.verdict}`);
-    } else if (output.overallScore < 5 && output.verdict !== 'rejected') {
+    } else if (output.overallScore < 50 && output.verdict !== 'rejected') {
       this.log(`Предупреждение: overallScore ${output.overallScore} не соответствует verdict ${output.verdict}`);
     }
 

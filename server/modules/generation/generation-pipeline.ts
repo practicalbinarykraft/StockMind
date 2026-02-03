@@ -215,9 +215,8 @@ class GenerationPipeline {
     let previousReview: EditorOutput | null = null;
 
     const maxIterations = settings.maxIterations || 3;
-    // minScore в шкале 1-10 (Editor работает в этой шкале)
-    // При передаче из routes конвертируется из minScoreThreshold (50-95 из 100) делением на 10
-    const minScore = settings.minApprovalScore || 8; // По умолчанию 8/10 = 80/100
+    // minScore в шкале 0-100 (Editor работает в этой шкале)
+    const minScore = settings.minApprovalScore || 80; // По умолчанию 80/100
 
     while (currentIteration < maxIterations) {
       // Check if stopped
@@ -269,19 +268,16 @@ class GenerationPipeline {
         });
 
         await this.saveReview(scriptId, reviewResult, currentIteration);
-        // Конвертируем оценку в шкалу 0-100 для отправки на клиент
-        const scoreFor100 = Math.round(reviewResult.overallScore * 10);
-        generationSSE.editorCompleted(userId, scriptId, scoreFor100, reviewResult.verdict);
+        generationSSE.editorCompleted(userId, scriptId, reviewResult.overallScore, reviewResult.verdict);
 
         // --- DECISION ---
         if (reviewResult.verdict === 'approved' || reviewResult.overallScore >= minScore) {
-          // Конвертируем оценку в шкалу 0-100 для сохранения и отправки на клиент
-          const finalScore = Math.round(reviewResult.overallScore * 10);
+          const finalScore = reviewResult.overallScore;
           
           // Успех!
           await this.completeScript(scriptId, finalScore, userId);
           generationSSE.scriptCompleted(userId, scriptId, finalScore);
-          console.log(`[Pipeline] Сценарий одобрен с оценкой ${reviewResult.overallScore}/10 (${finalScore}/100)`);
+          console.log(`[Pipeline] Сценарий одобрен с оценкой ${finalScore}/100`);
           // Обновить статистику из БД
           await this.refreshUserStats(userId);
           return { success: true, scriptId, finalScore };
@@ -489,7 +485,7 @@ class GenerationPipeline {
         });
 
         // Сохраняем оценку
-        const finalScore = Math.round(reviewResult.overallScore * 10);
+        const finalScore = reviewResult.overallScore;
         await this.saveRegenerationReview(scriptId, reviewResult, finalScore);
 
         // --- DECISION ---
@@ -792,8 +788,7 @@ class GenerationPipeline {
     result: EditorOutput,
     iteration: number
   ): Promise<void> {
-    // Конвертируем оценку из шкалы 1-10 в 0-100
-    const finalScore = Math.round(result.overallScore * 10);
+    const finalScore = result.overallScore;
     
     // Сохраняем результат рецензии
     // gateDecision: 'PASS' | 'NEEDS_REVIEW' | 'FAIL' (uppercase as per schema)
@@ -806,7 +801,7 @@ class GenerationPipeline {
       })
       .where(eq(autoScripts.id, scriptId));
 
-    console.log(`[Pipeline] Сохранена рецензия для scriptId: ${scriptId}, оценка: ${result.overallScore}/10 (${finalScore}/100)`);
+    console.log(`[Pipeline] Сохранена рецензия для scriptId: ${scriptId}, оценка: ${finalScore}/100`);
   }
 
   private async completeScript(scriptId: string, finalScore: number, userId: string): Promise<void> {

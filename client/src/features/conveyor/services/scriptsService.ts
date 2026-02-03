@@ -343,9 +343,9 @@ export async function saveAutoScriptToLibrary(
     for (let i = iterations.length - 1; i >= 0; i--) {
       const iteration = iterations[i]
       if (iteration.review && iteration.review.overallScore) {
-        // Конвертируем оценку из 10-балльной в 100-балльную систему
-        aiScore = Math.round((iteration.review.overallScore / 10) * 100)
-        console.log('[saveAutoScriptToLibrary] Оценка из рецензии:', aiScore, 'из итерации', i + 1)
+        // overallScore уже в шкале 0-100
+        aiScore = iteration.review.overallScore
+        console.log('[saveAutoScriptToLibrary] Оценка из рецензии:', aiScore, '/100 из итерации', i + 1)
         break
       }
     }

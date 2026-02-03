@@ -196,9 +196,9 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
 
     const scriptExamples = conveyorSettings.scriptExamples as string[] || [];
 
-    // Конвертируем minScoreThreshold (50-95 из 100) в minApprovalScore (5-9.5 из 10) для Editor
+    // minScoreThreshold уже в шкале 0-100, используем напрямую
     const minScoreThreshold = conveyorSettings.minScoreThreshold || 70;
-    const minApprovalScore = minScoreThreshold / 10;
+    const minApprovalScore = minScoreThreshold;
 
     // Запустить генерацию в фоне
     generationPipeline.runBatch(userId, targetNewsIds, {
@@ -319,9 +319,9 @@ router.post('/start-single', requireAuth, async (req: Request, res: Response) =>
 
     const scriptExamples = (conveyorSettings.scriptExamples as string[] | null) || [];
 
-    // Конвертируем minScoreThreshold (50-95 из 100) в minApprovalScore (5-9.5 из 10) для Editor
+    // minScoreThreshold уже в шкале 0-100, используем напрямую
     const minScoreThreshold = conveyorSettings.minScoreThreshold || 70;
-    const minApprovalScore = minScoreThreshold / 10;
+    const minApprovalScore = minScoreThreshold;
 
     // Запустить генерацию в фоне
     generationPipeline.runSingle(userId, newsId, {
