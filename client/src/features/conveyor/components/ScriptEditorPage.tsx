@@ -470,8 +470,8 @@ export function ScriptEditorPage() {
         console.log('[SaveToDraft] Сохраняем auto_script в библиотеку как черновик')
         const libraryScript = await scriptsService.saveAutoScriptToLibrary(scriptId, 'draft')
         
-        // Помечаем исходный auto_script как rejected, чтобы он исчез из рецензии
-        await scriptsService.updateScriptStatus(scriptId, 'rejected')
+        // Помечаем исходный auto_script как rejected через PATCH (без reason/category)
+        await scriptsService.updateAutoScript(scriptId, { status: 'rejected' as any })
         
         // Инвалидируем кэш для обновления UI
         await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
@@ -548,8 +548,8 @@ export function ScriptEditorPage() {
         console.log('[SaveToReady] Сохраняем auto_script в библиотеку как готовый')
         const libraryScript = await scriptsService.saveAutoScriptToLibrary(scriptId, 'ready')
         
-        // Помечаем исходный auto_script как approved
-        await scriptsService.updateScriptStatus(scriptId, 'approved')
+        // Помечаем исходный auto_script как approved через PATCH
+        await scriptsService.updateAutoScript(scriptId, { status: 'approved' as any })
         
         // Инвалидируем кэш для обновления UI
         await queryClient.invalidateQueries({ queryKey: ['scripts', 'ready'] })

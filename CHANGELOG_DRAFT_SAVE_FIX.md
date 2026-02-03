@@ -5,6 +5,7 @@
 ### История изменений:
 - **v1.0** (2026-02-03 14:00): Первоначальное исправление с проверкой `isAutoScript`
 - **v1.1** (2026-02-03 14:30): Упрощение кода - убрана избыточная проверка `isAutoScript`
+- **v1.2** (2026-02-03 15:00): Исправлена ошибка 400 Bad Request при изменении статуса auto_script
 
 ## Проблема
 
@@ -163,10 +164,25 @@ export async function saveAutoScriptToLibrary(
 - `client/src/features/conveyor/components/ScriptEditorPage.tsx`
   - **v1.0**: Функции `handleSaveToDraft` и `handleSaveToReady` переработаны с проверкой `isAutoScript`
   - **v1.1**: Убрана избыточная проверка `isAutoScript`, код упрощен - режим определяет тип на 100%
+  - **v1.2**: Заменен `updateScriptStatus()` на `updateAutoScript()` для корректного изменения статуса без обязательных полей `reason` и `category`
 
 ## Результат
 
-### ✅ После исправления:
+### ✅ После исправления (v1.2):
+
+**Проблема в v1.0-v1.1:**
+- При сохранении сценария запрос на создание в библиотеке проходил успешно (200 OK)
+- Но запрос на изменение статуса через `/api/auto-scripts/:id/reject` падал с 400 Bad Request
+- Причина: эндпоинт `/reject` требует обязательные поля `reason` и `category`
+- Результат: пользователь видел toast с ошибкой, хотя сценарий сохранялся в черновики
+
+**Решение в v1.2:**
+- Заменен `updateScriptStatus(id, 'rejected')` на `updateAutoScript(id, { status: 'rejected' })`
+- Используется PATCH `/api/auto-scripts/:id` вместо POST `/api/auto-scripts/:id/reject`
+- PATCH не требует дополнительных полей, только изменяет статус
+- Аналогично для `'approved'` статуса
+
+**Итоговое поведение:**
 
 1. **Нажатие "Сохранить в черновики" в режиме рецензии:**
    - Создается новая запись в `scripts_library` со статусом `'draft'`
