@@ -363,7 +363,7 @@ class GenerationPipeline {
       const conveyorSettings = await conveyorSettingsService.getSettings(userId);
       const settings: PipelineSettings = {
         maxIterations: 3,
-        minApprovalScore: 8,
+        minApprovalScore: 80, // По шкале 0-100
         scriptwriterPrompt: customPrompt, // Кастомный промпт от пользователя
       };
 
@@ -418,7 +418,7 @@ class GenerationPipeline {
     let previousReview: EditorOutput | null = null;
 
     const maxIterations = settings.maxIterations || 3;
-    const minScore = settings.minApprovalScore || 8;
+    const minScore = settings.minApprovalScore || 80; // По шкале 0-100
 
     while (currentIteration < maxIterations) {
       currentIteration++;

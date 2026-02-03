@@ -183,11 +183,13 @@ export const scriptsLibraryService = {
     };
 
     // Вызываем EditorAgent
+    // minApprovalScore = 80 - стандартное значение для объективной оценки
     const editorResult = await editorAgent.process({
       script: scriptwriterOutput,
       newsTitle: script.title || "Без названия",
       newsContent: script.sourceTitle || script.fullText || "",
       customPrompt: undefined,
+      minApprovalScore: 80, // Стандартный порог для единообразия оценок
     });
 
     // EditorAgent уже возвращает оценку в шкале 0-100
