@@ -4,7 +4,7 @@
  */
 import { db } from '../../db';
 import { rssItems, autoScripts, conveyorItems, rssSources, type AutoScript } from '@shared/schema';
-import { eq, and, or, sql, desc } from 'drizzle-orm';
+import { eq, and, or, sql, desc, gte } from 'drizzle-orm';
 import { scriptwriterAgent, editorAgent } from './agents';
 import type { ScriptwriterOutput, EditorOutput } from './agents';
 import { generationSSE } from './generation-sse';
@@ -1029,7 +1029,14 @@ class GenerationPipeline {
                   sql`${rssItems.userAction} != 'dismissed'`
                 )
               )
-            )
+            ),
+            // Фильтр по дате на уровне SQL (если задан maxAgeDays)
+            cutoffDate
+              ? or(
+                  gte(rssItems.publishedAt, cutoffDate),
+                  sql`${rssItems.publishedAt} IS NULL`
+                )
+              : sql`1=1` // Если фильтра нет, условие всегда true
           )
         )
         .orderBy(desc(rssItems.publishedAt))
@@ -1048,7 +1055,7 @@ class GenerationPipeline {
       // Фильтруем: убираем дубликаты
       const batchWithoutScripts = batch.filter(news => !existingNewsIds.has(news.id));
       
-      // Фильтруем: по возрасту
+      // Фильтруем: по возрасту (дополнительная проверка для parsedAt, если publishedAt отсутствует)
       const batchFiltered = cutoffDate
         ? batchWithoutScripts.filter(n => {
             const newsDate = n.publishedAt || n.parsedAt;
@@ -1092,7 +1099,11 @@ class GenerationPipeline {
       
       const updatedExistingNewsIds = new Set(updatedExistingScripts.map(s => s.sourceItemId));
 
-      // Продолжаем пагинацию с того места где остановились
+      // ВАЖНО: Сбрасываем offset, чтобы искать новые новости с начала
+      // Свежеспарсенные новости будут в начале списка (orderBy publishedAt DESC)
+      offset = 0;
+
+      // Продолжаем пагинацию с начала
       while (filtered.length < limit) {
         console.log(`[Pipeline] Запрос порции ${offset / batchSize + 1} после парсинга: offset=${offset}, limit=${batchSize}`);
         
@@ -1114,7 +1125,14 @@ class GenerationPipeline {
                     sql`${rssItems.userAction} != 'dismissed'`
                   )
                 )
-              )
+              ),
+              // Фильтр по дате на уровне SQL (если задан maxAgeDays)
+              cutoffDate
+                ? or(
+                    gte(rssItems.publishedAt, cutoffDate),
+                    sql`${rssItems.publishedAt} IS NULL`
+                  )
+                : sql`1=1` // Если фильтра нет, условие всегда true
             )
           )
           .orderBy(desc(rssItems.publishedAt))
@@ -1129,6 +1147,7 @@ class GenerationPipeline {
         }
 
         const batchWithoutScripts = batch.filter(news => !updatedExistingNewsIds.has(news.id));
+        // Фильтруем: по возрасту (дополнительная проверка для parsedAt, если publishedAt отсутствует)
         const batchFiltered = cutoffDate
           ? batchWithoutScripts.filter(n => {
               const newsDate = n.publishedAt || n.parsedAt;
