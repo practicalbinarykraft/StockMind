@@ -464,48 +464,62 @@ export function ScriptEditorPage() {
         await saveCurrentChanges(selectedSceneId, editingTextRef.current)
       }
       
-      // Получаем текущий скрипт для анализа изменений
-      const currentScript = await scriptsService.getScriptUniversal(scriptId)
-      
-      // Подготовка данных для сохранения
-      const updateData: any = { status: 'draft' }
-      
-      // Если скрипт из конвейера (auto_scripts) и имеет оценку, копируем её
-      if ((currentScript as any).score || (currentScript as any).finalScore) {
-        const score = (currentScript as any).score ?? (currentScript as any).finalScore
-        updateData.aiScore = score
-        console.log('[SaveToDraft] Копируем оценку из конвейера:', score)
-      }
-      
-      // Если скрипт из библиотеки и был изменён, помечаем для переоценки
-      if (currentScript.aiScore && currentScript.analyzedAt) {
-        const lastAnalyzed = new Date(currentScript.analyzedAt).getTime()
-        const lastUpdated = new Date(currentScript.updatedAt).getTime()
+      if (isReviewMode) {
+        // Режим рецензии - это гарантированно auto_script
+        // Копируем в библиотеку как черновик
+        console.log('[SaveToDraft] Сохраняем auto_script в библиотеку как черновик')
+        const libraryScript = await scriptsService.saveAutoScriptToLibrary(scriptId, 'draft')
         
-        // Если скрипт изменялся после последнего анализа
-        if (lastUpdated > lastAnalyzed) {
-          console.log('[SaveToDraft] Скрипт изменён после анализа, сбрасываем оценку')
-          updateData.aiScore = null
-          updateData.analyzedAt = null
+        // Помечаем исходный auto_script как rejected, чтобы он исчез из рецензии
+        await scriptsService.updateScriptStatus(scriptId, 'rejected')
+        
+        // Инвалидируем кэш для обновления UI
+        await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
+        await queryClient.invalidateQueries({ queryKey: ['conveyor-dashboard'] })
+        await queryClient.invalidateQueries({ queryKey: ['auto-scripts'] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        
+        toast({
+          title: 'Успешно',
+          description: libraryScript.aiScore 
+            ? `Сценарий сохранён в черновики с оценкой ${libraryScript.aiScore}/100`
+            : 'Сценарий сохранён в черновики',
+        })
+        
+        // Переходим к просмотру сохраненного черновика
+        navigate(`/conveyor/editor/${libraryScript.id}?mode=draft`)
+      } else {
+        // Режим черновика - это library_script, просто обновляем статус
+        const currentScript = await scriptsService.getScriptUniversal(scriptId)
+        const updateData: any = { status: 'draft' }
+        
+        // Если скрипт был изменён после анализа, помечаем для переоценки
+        if (currentScript.aiScore && currentScript.analyzedAt) {
+          const lastAnalyzed = new Date(currentScript.analyzedAt).getTime()
+          const lastUpdated = new Date(currentScript.updatedAt).getTime()
           
-          toast({
-            title: 'Требуется переоценка',
-            description: 'Скрипт изменён. Запустите анализ для получения новой оценки.',
-            variant: 'default',
-          })
+          if (lastUpdated > lastAnalyzed) {
+            console.log('[SaveToDraft] Скрипт изменён после анализа, сбрасываем оценку')
+            updateData.aiScore = null
+            updateData.analyzedAt = null
+            
+            toast({
+              title: 'Требуется переоценка',
+              description: 'Скрипт изменён. Запустите анализ для получения новой оценки.',
+              variant: 'default',
+            })
+          }
         }
+        
+        await scriptsService.updateScript(scriptId, updateData)
+        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
+        
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий сохранён в черновики',
+        })
       }
-      
-      await scriptsService.updateScriptUniversal(scriptId, updateData)
-      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
-      await queryClient.invalidateQueries({ queryKey: ['scripts', 'draft'] })
-      
-      toast({
-        title: 'Успешно',
-        description: updateData.aiScore 
-          ? `Сценарий сохранён в черновики с оценкой ${updateData.aiScore}/100`
-          : 'Сценарий сохранён в черновики',
-      })
     } catch (error) {
       console.error('Error saving to draft:', error)
       toast({
@@ -528,13 +542,41 @@ export function ScriptEditorPage() {
         await saveCurrentChanges(selectedSceneId, editingTextRef.current)
       }
       
-      await scriptsService.updateScriptUniversal(scriptId, { status: 'ready' })
-      await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
-      
-      toast({
-        title: 'Успешно',
-        description: 'Сценарий сохранён в готовые',
-      })
+      if (isReviewMode) {
+        // Режим рецензии - это гарантированно auto_script
+        // Копируем в библиотеку как готовый
+        console.log('[SaveToReady] Сохраняем auto_script в библиотеку как готовый')
+        const libraryScript = await scriptsService.saveAutoScriptToLibrary(scriptId, 'ready')
+        
+        // Помечаем исходный auto_script как approved
+        await scriptsService.updateScriptStatus(scriptId, 'approved')
+        
+        // Инвалидируем кэш для обновления UI
+        await queryClient.invalidateQueries({ queryKey: ['scripts', 'ready'] })
+        await queryClient.invalidateQueries({ queryKey: ['conveyor-dashboard'] })
+        await queryClient.invalidateQueries({ queryKey: ['auto-scripts'] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts'] })
+        
+        toast({
+          title: 'Успешно',
+          description: libraryScript.aiScore 
+            ? `Сценарий сохранён в готовые с оценкой ${libraryScript.aiScore}/100`
+            : 'Сценарий сохранён в готовые',
+        })
+        
+        // Переходим к просмотру сохраненного готового сценария
+        navigate(`/conveyor/editor/${libraryScript.id}?mode=draft`)
+      } else {
+        // Режим черновика - это library_script, просто обновляем статус
+        await scriptsService.updateScript(scriptId, { status: 'ready' })
+        await queryClient.invalidateQueries({ queryKey: ['scripts', scriptId] })
+        await queryClient.invalidateQueries({ queryKey: ['scripts', 'ready'] })
+        
+        toast({
+          title: 'Успешно',
+          description: 'Сценарий сохранён в готовые',
+        })
+      }
     } catch (error) {
       console.error('Error saving to ready:', error)
       toast({
