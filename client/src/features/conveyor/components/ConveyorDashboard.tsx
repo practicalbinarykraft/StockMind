@@ -161,6 +161,31 @@ export function ConveyorDashboard() {
             ...prev,
             isRunning: event.data.isRunning,
           }));
+        } else if (event.event === 'parsing_started') {
+          // Парсинг RSS источников начался
+          toast({
+            title: "Парсинг источников",
+            description: event.data.message || `Запущен парсинг ${event.data.sourcesCount} источников`,
+          });
+        } else if (event.event === 'scoring_started') {
+          // Оценка новостей начата
+          toast({
+            title: "Оценка новостей",
+            description: event.data.message || "Оцениваем новости с помощью AI...",
+          });
+        } else if (event.event === 'parsing_completed') {
+          // Парсинг и оценка завершены
+          toast({
+            title: "Парсинг завершён",
+            description: event.data.message || "Все источники обработаны и новости оценены",
+          });
+        } else if (event.event === 'parsing_error') {
+          // Ошибка парсинга
+          toast({
+            title: "Ошибка парсинга",
+            description: event.data.message,
+            variant: "destructive",
+          });
         } else if (event.event === 'script:completed' || 
                    event.event === 'script:error') {
           // Статистика уже приходит через 'stats' событие от сервера
@@ -188,7 +213,7 @@ export function ConveyorDashboard() {
     return () => {
       unsubscribe();
     };
-  }, [queryClient]);
+  }, [queryClient, toast]);
 
   // Fetch dashboard data for legacy conveyor info
   const { data: dashboard, isLoading: dashboardLoading } = useQuery<DashboardData>({

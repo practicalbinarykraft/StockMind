@@ -1081,11 +1081,8 @@ class GenerationPipeline {
       console.log(`[Pipeline] Найдено только ${filtered.length} из ${limit} новостей, запускаем автоматический парсинг источников`);
       await this.parseAllUserSources(userId);
       
-      // Подождём немного, чтобы парсинг успел создать записи
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Повторяем поиск после парсинга
-      console.log(`[Pipeline] Повторный поиск новостей после парсинга...`);
+      // После парсинга и оценки повторяем поиск новостей
+      console.log(`[Pipeline] Повторный поиск новостей после парсинга и оценки...`);
       
       // Обновляем список существующих сценариев
       const updatedExistingScripts = await db
@@ -1210,13 +1207,27 @@ class GenerationPipeline {
 
       await Promise.allSettled(parsePromises);
       
-      console.log(`[Pipeline] Парсинг всех источников завершён`);
+      console.log(`[Pipeline] Парсинг всех источников завершён, ожидаем завершения оценки новостей...`);
+
+      // ВАЖНО: Ждём завершения оценки всех новостей
+      const { waitForAllScoring } = await import('../../lib/rss-background-tasks');
+      
+      generationSSE.sendEvent(userId, {
+        type: 'scoring_started',
+        data: {
+          message: `Оцениваем новости с помощью AI...`,
+        },
+      });
+
+      await waitForAllScoring(120000); // Ждём до 2 минут
+
+      console.log(`[Pipeline] Оценка новостей завершена`);
 
       // Отправляем уведомление о завершении
       generationSSE.sendEvent(userId, {
         type: 'parsing_completed',
         data: {
-          message: `Парсинг ${sources.length} источников завершён`,
+          message: `Парсинг и оценка ${sources.length} источников завершены`,
           sourcesCount: sources.length,
         },
       });
