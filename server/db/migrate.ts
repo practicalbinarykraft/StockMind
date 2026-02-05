@@ -11,7 +11,7 @@ async function runSingleMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
 
-  const migrationFile = './drizzle/migrations/0011_add_source_to_versions.sql';
+  const migrationFile = './drizzle/migrations/0012_add_scripts_media.sql';
   const sql = fs.readFileSync(migrationFile, 'utf-8');
 
   // Выполнить SQL напрямую
