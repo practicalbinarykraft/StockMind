@@ -52,8 +52,8 @@ export const UpdateScriptDto = z.object({
   wordCount: z.number().optional(),
   status: z.string().optional(),
   aiAnalysis: z.any().optional(),
-  aiScore: z.number().optional(),
-  analyzedAt: z.date().optional(),
+  aiScore: z.number().nullable().optional(),
+  analyzedAt: z.date().nullable().optional(),
 });
 
 /**
