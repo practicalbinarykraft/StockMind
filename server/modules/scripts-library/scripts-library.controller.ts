@@ -116,6 +116,56 @@ export const scriptsLibraryController = {
   },
 
   /**
+   * GET /api/scripts/:id/versions
+   * Get all versions of a script
+   */
+  async getScriptVersions(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const versions = await scriptsLibraryService.getScriptVersions(id, userId);
+
+      return apiResponse.ok(res, { versions });
+    } catch (error: any) {
+      logger.error("Error fetching script versions", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * POST /api/scripts/:id/create-version
+   * Create a new version of a script
+   */
+  async createScriptVersion(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const newVersion = await scriptsLibraryService.createScriptVersion(id, userId);
+
+      return apiResponse.ok(res, {
+        success: true,
+        version: newVersion,
+        message: "Новая версия создана",
+      });
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      if (error instanceof ScriptValidationError) {
+        return apiResponse.badRequest(res, error.message);
+      }
+
+      logger.error("Error creating script version", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
    * DELETE /api/scripts/:id
    * Delete a script
    */
@@ -241,7 +291,7 @@ export const scriptsLibraryController = {
       const userId = getUserId(req);
       if (!userId) return apiResponse.unauthorized(res);
 
-      const { sourceText, prompt, format } = GenerateVariantsDto.parse(
+      const { sourceText, prompt, format, lengthOption } = GenerateVariantsDto.parse(
         req.body
       );
 
@@ -249,7 +299,8 @@ export const scriptsLibraryController = {
         userId,
         sourceText,
         format,
-        prompt
+        prompt,
+        lengthOption
       );
 
       return apiResponse.ok(res, result);
@@ -266,6 +317,226 @@ export const scriptsLibraryController = {
         error: error.message,
       });
       return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  // ============================================================================
+  // CHECKPOINT & EDITOR STATE CONTROLLERS
+  // ============================================================================
+
+  /**
+   * POST /api/scripts/:id/save
+   * Save working state (не создаёт версию, только обновляет рабочее состояние)
+   */
+  async saveWorkingState(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const { scenes, fullText, editorState } = req.body;
+
+      const result = await scriptsLibraryService.saveWorkingState(id, userId, {
+        scenes,
+        fullText,
+        editorState,
+      });
+
+      return apiResponse.ok(res, result);
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      logger.error("Error saving working state", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * POST /api/scripts/:id/checkpoint
+   * Create checkpoint
+   */
+  async createCheckpoint(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const { reason, scenes, fullText, metadata } = req.body;
+
+      const checkpoint = await scriptsLibraryService.createCheckpoint(id, userId, reason, {
+        scenes,
+        fullText,
+        metadata,
+      });
+
+      return apiResponse.ok(res, {
+        success: true,
+        checkpoint,
+        message: "Checkpoint создан",
+      });
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      logger.error("Error creating checkpoint", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * GET /api/scripts/:id/checkpoints
+   * Get checkpoints for recovery UI
+   */
+  async getCheckpoints(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+
+      const result = await scriptsLibraryService.checkForRecoverableCheckpoints(id, userId);
+
+      return apiResponse.ok(res, result);
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      logger.error("Error fetching checkpoints", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * POST /api/scripts/:id/restore-checkpoint
+   * Restore from checkpoint
+   */
+  async restoreFromCheckpoint(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const { checkpointId } = req.body;
+
+      const script = await scriptsLibraryService.restoreFromCheckpoint(id, checkpointId, userId);
+
+      return apiResponse.ok(res, {
+        success: true,
+        script,
+        message: "Восстановлено из checkpoint",
+      });
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      if (error instanceof ScriptValidationError) {
+        return apiResponse.badRequest(res, error.message);
+      }
+
+      logger.error("Error restoring from checkpoint", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * POST /api/scripts/:id/operation-log
+   * Log editor operation
+   */
+  async logOperation(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const { operationType, sceneId, details } = req.body;
+
+      const log = await scriptsLibraryService.logEditorOperation(id, userId, {
+        operationType,
+        sceneId,
+        details,
+      });
+
+      return apiResponse.ok(res, {
+        success: true,
+        log,
+      });
+    } catch (error: any) {
+      logger.error("Error logging operation", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * GET /api/scripts/:id/operation-log
+   * Get operation log (для debugging)
+   */
+  async getOperationLog(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { id } = ScriptIdParamDto.parse(req.params);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+
+      const logs = await scriptsLibraryService.getOperationLog(id, userId, limit);
+
+      return apiResponse.ok(res, { logs });
+    } catch (error: any) {
+      if (error instanceof ScriptNotFoundError) {
+        return apiResponse.notFound(res, error.message);
+      }
+
+      logger.error("Error fetching operation log", { error: error.message });
+      return apiResponse.serverError(res, error.message);
+    }
+  },
+
+  /**
+   * POST /api/scripts/autosave
+   * Autosave scene text (called by sendBeacon on page unload)
+   * Handles both scripts_library and auto_scripts
+   */
+  async autosave(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { scriptId, sceneId, text } = req.body;
+
+      if (!scriptId || !sceneId || text === undefined) {
+        return apiResponse.badRequest(res, "Missing required fields: scriptId, sceneId, text");
+      }
+
+      logger.info("[Autosave] Received autosave request", {
+        userId,
+        scriptId,
+        sceneId,
+        textLength: text?.length,
+      });
+
+      const result = await scriptsLibraryService.autosaveScene(
+        scriptId,
+        sceneId,
+        text,
+        userId
+      );
+
+      return apiResponse.ok(res, result);
+    } catch (error: any) {
+      // Don't log as error for autosave failures, just warn
+      // Autosave is best-effort
+      logger.warn("[Autosave] Failed to autosave", { 
+        error: error.message,
+        userId: getUserId(req),
+      });
+      
+      // Still return 200 for beacon requests (they don't process responses anyway)
+      return res.status(200).json({ success: false, message: error.message });
     }
   },
 };

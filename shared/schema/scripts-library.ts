@@ -52,6 +52,10 @@ export const scriptsLibrary = pgTable("scripts_library", {
   version: integer("version").default(1).notNull(),
   parentScriptId: varchar("parent_script_id").references((): any => scriptsLibrary.id),
   
+  // Состояние редактора
+  editorState: jsonb("editor_state"), // {lastEditedAt, lastEditedSceneId}
+  lastCheckpointAt: timestamp("last_checkpoint_at"), // Время последнего checkpoint
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

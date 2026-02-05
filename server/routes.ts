@@ -37,6 +37,7 @@ import { registerScriptsLibraryRoutes } from "./modules/scripts-library/scripts-
 import { registerSceneEditingRoutes } from "./modules/scene-editing/scene-editing.routes";
 import { registerReanalysisRoutes } from "./modules/reanalysis/reanalysis.routes";
 import { registerVersionComparisonRoutes } from "./modules/version-comparison/version-comparison.routes";
+import { registerSceneCommentsRoutes } from "./modules/scene-comments/scene-comments.routes";
 
 // Conveyor (Content Factory) routes - Modularized
 import { registerConveyorSettingsRoutes } from "./modules/conveyor-settings/conveyor-settings.routes";
@@ -45,6 +46,8 @@ import { registerConveyorStatusRoutes } from "./modules/conveyor-status/conveyor
 import { registerConveyorTriggerRoutes } from "./modules/conveyor-trigger/conveyor-trigger.routes";
 import { registerConveyorEventsRoutes } from "./modules/conveyor-events/conveyor-events.routes";
 import { registerConveyorProgressRoutes } from "./modules/conveyor-progress/conveyor-progress.routes";
+import { registerAiSettingsRoutes } from "./modules/ai-settings/ai-settings.routes";
+import { registerGenerationRoutes } from "./modules/generation/generation.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all route modules
@@ -73,6 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Services
   registerAiRoutes(app);
   registerAdvancedAnalysisRoutes(app);
+  registerAiSettingsRoutes(app);
 
   // Media Generation
   registerAudioRoutes(app);
@@ -86,6 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerSceneEditingRoutes(app);
   registerReanalysisRoutes(app);
   registerVersionComparisonRoutes(app);
+  registerSceneCommentsRoutes(app);
 
   // Instagram Analytics OAuth routes (already modularized)
   app.use('/api/ig', igRouter);
@@ -97,6 +102,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerConveyorTriggerRoutes(app);
   registerConveyorEventsRoutes(app);
   registerConveyorProgressRoutes(app);
+
+  // Script Generation (Simplified Conveyor)
+  registerGenerationRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

@@ -8,7 +8,8 @@ async function repairScriptAnalysis(
   apiKey: string,
   format: string,
   content: string,
-  attemptNumber: number
+  attemptNumber: number,
+  customPrompt?: string
 ): Promise<ScriptAnalysis> {
   console.log(`[Repair Attempt ${attemptNumber}] Trying to generate scenes...`);
 
@@ -17,6 +18,7 @@ async function repairScriptAnalysis(
   const repairPrompt =
     SECURITY_PREFIX +
     `CRITICAL: Your previous response did not contain valid scenes array. This is attempt ${attemptNumber}/2.
+${customPrompt ? `\nADDITIONAL INSTRUCTIONS: ${customPrompt}\n` : ''}
 
 You MUST return a valid JSON with a "scenes" array containing 3-5 scenes.
 
@@ -68,9 +70,14 @@ Return ONLY valid JSON. The "scenes" field is REQUIRED and MUST be an array with
 export async function analyzeScript(
   apiKey: string,
   format: string,
-  content: string
+  content: string,
+  customPrompt?: string
 ): Promise<ScriptAnalysis> {
   const sanitizedContent = content.substring(0, 4000).replaceAll('"', '\\"');
+
+  if (customPrompt) {
+    console.log(`[analyzeScript] Custom prompt received:`, customPrompt);
+  }
 
   const prompt =
     SECURITY_PREFIX +
@@ -78,6 +85,7 @@ export async function analyzeScript(
 
 Content: "${sanitizedContent}"
 Format: ${format}
+${customPrompt ? `\n🔥🔥🔥 HIGHEST PRIORITY INSTRUCTIONS (OVERRIDE ALL OTHER RULES) 🔥🔥🔥:\n${customPrompt}\n\n❗ CRITICAL REQUIREMENT:\nThis is a SINGLE SCENE text. Create only ONE scene with variants.\nDO NOT split into multiple scenes. The entire content is ONE complete scene.\n\n❗ LENGTH IS MANDATORY:\nEach variant MUST match the word count specified above.\nDO NOT make variants shorter to be "punchy" or "concise".\nIf needed, add more details, examples, or emotional words to reach the target length.\nCountwords carefully before finalizing each variant.\n` : ''}
 
 🎯 CRITICAL REQUIREMENTS FOR EACH SCENE:
 
@@ -99,19 +107,19 @@ MUST HAVE (обязательно):
    - ❌ BAD: "люди делают", "они думают"
    - ✅ GOOD: "ты делаешь", "твоя ошибка", "попробуй завтра"
 
-✅ Scene length: 1-2 sentences max, 5-15 words per scene
-   - Each scene should be punchy, no filler words
+✅ Scene length: ${customPrompt ? '⚠️ OVERRIDE: Follow the EXACT word count from HIGHEST PRIORITY section. Do NOT apply the default 5-15 words rule!' : '1-2 sentences max, 5-15 words per scene'}
+   - ${customPrompt ? 'Reach the target word count by adding details, NOT by adding filler' : 'Each scene should be punchy, no filler words'}
 
 FORBIDDEN (запрещено):
 ❌ Generic phrases: "очень интересно", "давайте разберем", "как вы знаете"
 ❌ Passive voice: "было сделано", "можно увидеть"
-❌ Long sentences: >20 words per scene
 ❌ Weak CTAs: "подписывайтесь", "ставьте лайк" (only at the end, and make it specific)
 
-Task 1: Create 3-5 compelling scenes. For each scene:
+Task 1: ${customPrompt ? '⚠️ Create ONLY ONE scene (the entire content is one scene)' : 'Create 3-5 compelling scenes'}. For each scene:
 1. Write scene text (MUST follow requirements above)
 2. Score viral potential (0-100) - be strict, generic = 20-40, specific = 80-95
-3. Generate 3 alternative variants (each improving on previous)
+3. Generate 3 alternative variants${customPrompt ? ' - ⚠️ CRITICAL: Each variant MUST have the EXACT word count specified in HIGHEST PRIORITY (count words before submitting!)' : ' (each improving on previous)'}
+${customPrompt ? '\n⚠️ WORD COUNT VERIFICATION:\nBefore finalizing, count words in each variant. If below target, add specific details.\nIf above target, remove only redundant words while keeping key information.\n' : ''}
 
 Task 2: As multi-agent team, provide improvement recommendations:
 - Hook Expert: First 3 seconds, attention grab, pattern interrupts
@@ -133,7 +141,7 @@ SELF-CHECK before responding:
 2. All scenes use "ты" or direct address? (if not, -10 points)
 3. No generic phrases? (if found, -15 points)
 4. Each scene is 1-2 sentences? (if longer, -10 points)
-5. CTA is specific and actionable? (if generic, -20 points)
+5. CTA is specific and actionable? (if generic, -20 points)${customPrompt ? '\n6. 🔥 CRITICAL CHECK - Count words in EACH variant:\n   - Main text word count = ___\n   - Variant 1 word count = ___ (must match target!)\n   - Variant 2 word count = ___ (must match target!)\n   - Variant 3 word count = ___ (must match target!)\n   If any variant is shorter than target-3 words, ADD MORE DETAILS!' : ''}
 
 Respond ONLY in valid JSON:
 {
@@ -141,14 +149,14 @@ Respond ONLY in valid JSON:
   "scenes": [
     {
       "sceneNumber": 1,
-      "text": "<compelling scene text in Russian, 5-15 words, specific, emotional>",
+      "text": "<compelling scene text in Russian${customPrompt ? ', matching target length from HIGHEST PRIORITY section' : ', 5-15 words'}, specific, emotional>",
       "score": <0-100, be strict: generic=20-40, specific=80-95>,
       "variants": [
-        "<variant 1: even more specific>",
-        "<variant 2: stronger emotional trigger>",
-        "<variant 3: better hook pattern>"
+        "<variant 1: ${customPrompt ? 'same length as main text, different approach' : 'even more specific'}>",
+        "<variant 2: ${customPrompt ? 'same length as main text, different angle' : 'stronger emotional trigger'}>",
+        "<variant 3: ${customPrompt ? 'same length as main text, different style' : 'better hook pattern'}>"
       ]
-    }
+    }${customPrompt ? '' : ',\n    // ... more scenes (3-5 total)'}
   ],
   "recommendations": [
     {
@@ -165,10 +173,11 @@ Respond ONLY in valid JSON:
   "overallComment": "<1-2 sentence analysis in Russian>"
 }`;
 
-  console.log(`[AI] [analyzeScript] Generating script for format: ${format}`);
+  console.log(`[AI] [analyzeScript] Generating script for format: ${format}${customPrompt ? ' (with length constraints)' : ''}`);
   const rawResult = await callClaudeJson<any>(apiKey, prompt, {
     maxTokens: MAX_TOKENS_LONG,
     timeoutMs: 120_000, // 2 minutes timeout for script generation
+    temperature: customPrompt ? 0.8 : undefined, // Higher temperature for more creative length matching
   });
 
   console.log(`[analyzeScript] Raw LLM response keys:`, Object.keys(rawResult));
@@ -188,7 +197,8 @@ Respond ONLY in valid JSON:
           apiKey,
           format,
           content,
-          attempt
+          attempt,
+          customPrompt
         );
         if (repaired.scenes.length >= 3) {
           console.log(

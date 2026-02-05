@@ -135,6 +135,18 @@ export class AutoScriptsRepo {
     return script;
   }
 
+  async update(
+    id: string,
+    data: Partial<AutoScript>
+  ): Promise<AutoScript | undefined> {
+    const [script] = await db
+      .update(autoScripts)
+      .set(data)
+      .where(eq(autoScripts.id, id))
+      .returning();
+    return script;
+  }
+
   // ============================================================================
   // USER WRITING PROFILE
   // ============================================================================
@@ -186,7 +198,162 @@ export class AutoScriptsRepo {
       .select()
       .from(autoScriptVersions)
       .where(eq(autoScriptVersions.autoScriptId, autoScriptId))
-      .orderBy(desc(autoScriptVersions.versionNumber));
+      .orderBy(autoScriptVersions.versionNumber); // По возрастанию (v1, v2, v3...)
+  }
+
+  /**
+   * Получить последнюю draft-версию (если есть)
+   */
+  async getLastDraftVersion(autoScriptId: string): Promise<AutoScriptVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(autoScriptVersions)
+      .where(
+        and(
+          eq(autoScriptVersions.autoScriptId, autoScriptId),
+          eq(autoScriptVersions.source, 'draft'),
+          eq(autoScriptVersions.isCurrent, true)
+        )
+      )
+      .orderBy(desc(autoScriptVersions.versionNumber))
+      .limit(1);
+    return version;
+  }
+
+  /**
+   * Обновить существующую версию
+   */
+  async updateVersion(
+    versionId: string,
+    versionData: {
+      title?: string;
+      scenes?: any;
+      fullScript?: string;
+      finalScore?: number | null;
+      hookScore?: number | null;
+      structureScore?: number | null;
+      emotionalScore?: number | null;
+      ctaScore?: number | null;
+    }
+  ): Promise<AutoScriptVersion | undefined> {
+    const [version] = await db
+      .update(autoScriptVersions)
+      .set(versionData)
+      .where(eq(autoScriptVersions.id, versionId))
+      .returning();
+    return version;
+  }
+
+  /**
+   * Создать новую версию ИЛИ обновить последнюю draft-версию
+   * Если последняя текущая версия - draft, обновляем её
+   * Если последняя текущая версия - conveyor, создаём новую draft-версию
+   */
+  async createOrUpdateVersion(
+    autoScriptId: string,
+    userId: string,
+    versionData: {
+      title: string;
+      scenes: any;
+      fullScript: string;
+      finalScore?: number | null;
+      hookScore?: number | null;
+      structureScore?: number | null;
+      emotionalScore?: number | null;
+      ctaScore?: number | null;
+      feedbackText?: string | null;
+      feedbackSceneIds?: any;
+      source?: 'conveyor' | 'draft';
+    }
+  ): Promise<{ version: AutoScriptVersion | undefined; isUpdate: boolean }> {
+    // Получаем все версии
+    const versions = await this.getScriptVersions(autoScriptId);
+    
+    // Ищем текущую draft-версию
+    const currentDraftVersion = versions.find(v => v.isCurrent && v.source === 'draft');
+    
+    if (currentDraftVersion && versionData.source === 'draft') {
+      // Обновляем существующую draft-версию
+      const updatedVersion = await this.updateVersion(currentDraftVersion.id, {
+        title: versionData.title,
+        scenes: versionData.scenes,
+        fullScript: versionData.fullScript,
+        finalScore: versionData.finalScore,
+        hookScore: versionData.hookScore,
+        structureScore: versionData.structureScore,
+        emotionalScore: versionData.emotionalScore,
+        ctaScore: versionData.ctaScore,
+      });
+      
+      return { version: updatedVersion, isUpdate: true };
+    }
+    
+    // Создаём новую версию
+    const version = await this.createVersion(autoScriptId, userId, versionData);
+    return { version, isUpdate: false };
+  }
+
+  async createVersion(
+    autoScriptId: string,
+    userId: string,
+    versionData: {
+      title: string;
+      scenes: any;
+      fullScript: string;
+      finalScore?: number | null;
+      hookScore?: number | null;
+      structureScore?: number | null;
+      emotionalScore?: number | null;
+      ctaScore?: number | null;
+      feedbackText?: string | null;
+      feedbackSceneIds?: any;
+      source?: 'conveyor' | 'draft';
+    }
+  ): Promise<AutoScriptVersion | undefined> {
+    // Получаем максимальный номер версии
+    const versions = await this.getScriptVersions(autoScriptId);
+    const maxVersionNumber = versions.length > 0 
+      ? Math.max(...versions.map(v => v.versionNumber))
+      : 0;
+    
+    const newVersionNumber = maxVersionNumber + 1;
+
+    // Создаем новую версию
+    const [version] = await db
+      .insert(autoScriptVersions)
+      .values({
+        autoScriptId,
+        userId,
+        versionNumber: newVersionNumber,
+        title: versionData.title,
+        scenes: versionData.scenes,
+        fullScript: versionData.fullScript,
+        finalScore: versionData.finalScore,
+        hookScore: versionData.hookScore,
+        structureScore: versionData.structureScore,
+        emotionalScore: versionData.emotionalScore,
+        ctaScore: versionData.ctaScore,
+        feedbackText: versionData.feedbackText,
+        feedbackSceneIds: versionData.feedbackSceneIds,
+        source: versionData.source || 'conveyor',
+        isCurrent: true,
+      })
+      .returning();
+
+    // Помечаем все остальные версии как не текущие
+    if (version) {
+      await db
+        .update(autoScriptVersions)
+        .set({ isCurrent: false })
+        .where(
+          and(
+            eq(autoScriptVersions.autoScriptId, autoScriptId),
+            sql`${autoScriptVersions.id} != ${version.id}`
+          )
+        );
+    }
+
+    return version;
   }
 
   // ============================================================================

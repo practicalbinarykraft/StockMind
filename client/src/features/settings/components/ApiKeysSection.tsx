@@ -129,7 +129,7 @@ export function ApiKeysSection() {
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="font-semibold capitalize">{key.provider}</h4>
                     {key.isActive && (
-                      <StatusBadge status="success" text="Active" />
+                      <StatusBadge status="success" />
                     )}
                   </div>
                   {key.description && (

@@ -107,4 +107,32 @@ export const conveyorSettingsService = {
 
     return { success: true, message: "Learning data has been reset" };
   },
+
+  /**
+   * Increment daily script count
+   */
+  async incrementDailyCount(userId: string) {
+    await repo.incrementDailyCount(userId);
+  },
+
+  /**
+   * Add cost to monthly total
+   */
+  async addCost(userId: string, cost: number) {
+    await repo.addCost(userId, cost);
+  },
+
+  /**
+   * Increment passed count
+   */
+  async incrementPassed(userId: string) {
+    await repo.incrementPassed(userId);
+  },
+
+  /**
+   * Increment failed count
+   */
+  async incrementFailed(userId: string) {
+    await repo.incrementFailed(userId);
+  },
 };

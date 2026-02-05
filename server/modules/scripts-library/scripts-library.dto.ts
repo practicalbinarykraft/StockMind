@@ -52,8 +52,8 @@ export const UpdateScriptDto = z.object({
   wordCount: z.number().optional(),
   status: z.string().optional(),
   aiAnalysis: z.any().optional(),
-  aiScore: z.number().optional(),
-  analyzedAt: z.date().optional(),
+  aiScore: z.number().nullable().optional(),
+  analyzedAt: z.date().nullable().optional(),
 });
 
 /**
@@ -78,6 +78,7 @@ export const GenerateVariantsDto = z.object({
   sourceText: z.string(),
   prompt: z.string().optional(),
   format: z.string(),
+  lengthOption: z.enum(['keep', 'increase', 'decrease']).optional().default('keep'),
 });
 
 export type GetScriptsQueryDto = z.infer<typeof GetScriptsQueryDto>;

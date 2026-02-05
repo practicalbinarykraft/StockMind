@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   Card,
@@ -27,11 +28,15 @@ import {
   Calendar,
   FileText,
   Settings,
+  Sparkles,
+  ArrowRight,
+  Loader2,
+  Square,
 } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
-import { AgentThinkingSidebar } from "./AgentThinkingSidebar";
+import { generationService, type GenerationStats, type SSEEvent } from "../services/generationService";
 
 interface DashboardData {
   enabled: boolean;
@@ -119,7 +124,98 @@ export function ConveyorDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch dashboard data
+  // Generation state with SSE
+  const [generationStats, setGenerationStats] = useState<GenerationStats>({
+    parsed: 0,
+    analyzed: 0,
+    scriptsWritten: 0,
+    inReview: 0,
+    isRunning: false,
+  });
+  const [isConnected, setIsConnected] = useState(false);
+
+  // SSE connection for real-time updates
+  useEffect(() => {
+    const unsubscribe = generationService.subscribe(
+      (event: SSEEvent) => {
+        console.log('[ConveyorDashboard] SSE event:', event);
+        
+        if (event.event === 'state') {
+          // Начальное состояние при подключении
+          setGenerationStats(prev => ({
+            ...prev,
+            isRunning: event.data.isRunning,
+            ...(event.data.stats || {}),
+          }));
+        } else if (event.event === 'stats') {
+          // Обновление статистики из БД (приходит после завершения скрипта)
+          setGenerationStats(prev => ({
+            ...prev,
+            parsed: event.data.parsed ?? prev.parsed,
+            analyzed: event.data.analyzed ?? prev.analyzed,
+            scriptsWritten: event.data.scriptsWritten ?? prev.scriptsWritten,
+            inReview: event.data.inReview ?? prev.inReview,
+          }));
+        } else if (event.event === 'running_state') {
+          setGenerationStats(prev => ({
+            ...prev,
+            isRunning: event.data.isRunning,
+          }));
+        } else if (event.event === 'parsing_started') {
+          // Парсинг RSS источников начался
+          toast({
+            title: "Парсинг источников",
+            description: event.data.message || `Запущен парсинг ${event.data.sourcesCount} источников`,
+          });
+        } else if (event.event === 'scoring_started') {
+          // Оценка новостей начата
+          toast({
+            title: "Оценка новостей",
+            description: event.data.message || "Оцениваем новости с помощью AI...",
+          });
+        } else if (event.event === 'parsing_completed') {
+          // Парсинг и оценка завершены
+          toast({
+            title: "Парсинг завершён",
+            description: event.data.message || "Все источники обработаны и новости оценены",
+          });
+        } else if (event.event === 'parsing_error') {
+          // Ошибка парсинга
+          toast({
+            title: "Ошибка парсинга",
+            description: event.data.message,
+            variant: "destructive",
+          });
+        } else if (event.event === 'script:completed' || 
+                   event.event === 'script:error') {
+          // Статистика уже приходит через 'stats' событие от сервера
+          // Дополнительно invalidate query для обновления списка
+          queryClient.invalidateQueries({ queryKey: ["conveyor-dashboard"] });
+        } else if (event.event === 'scriptwriter:started' || 
+                   event.event === 'editor:started') {
+          // Индикация активной работы - показать что происходит обработка
+          console.log(`[ConveyorDashboard] ${event.event}:`, event.data);
+        }
+        
+        setIsConnected(true);
+      },
+      (error) => {
+        console.error('[ConveyorDashboard] SSE error:', error);
+        setIsConnected(false);
+      }
+    );
+
+    // Load initial stats
+    generationService.getStats().then(stats => {
+      setGenerationStats(stats);
+    }).catch(console.error);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient, toast]);
+
+  // Fetch dashboard data for legacy conveyor info
   const { data: dashboard, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ["conveyor-dashboard"],
     queryFn: async () => {
@@ -145,7 +241,51 @@ export function ConveyorDashboard() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  // Trigger mutation
+  // Start generation mutation
+  const startMutation = useMutation({
+    mutationFn: async () => {
+      return await generationService.start(undefined, 5);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["conveyor-dashboard"] });
+      toast({
+        title: "Генерация запущена",
+        description: `Обработка ${data.newsCount} новостей начата`,
+      });
+      setGenerationStats(prev => ({ ...prev, isRunning: true }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stop generation mutation
+  const stopMutation = useMutation({
+    mutationFn: async () => {
+      return await generationService.stop();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conveyor-dashboard"] });
+      toast({
+        title: "Генерация остановлена",
+        description: "Текущие задачи будут завершены",
+      });
+      setGenerationStats(prev => ({ ...prev, isRunning: false }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Legacy trigger mutation (kept for compatibility)
   const triggerMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/conveyor/trigger", {
@@ -254,35 +394,37 @@ export function ConveyorDashboard() {
               <Factory className="h-5 w-5" />
               <h1 className="text-xl font-semibold">Content Factory</h1>
             </div>
-            <Badge variant={dashboard?.enabled ? "default" : "secondary"}>
-              {dashboard?.enabled ? "Активен" : "Выключен"}
+            <Badge variant={generationStats.isRunning ? "default" : "secondary"} className="flex items-center gap-1">
+              {generationStats.isRunning && <Loader2 className="h-3 w-3 animate-spin" />}
+              {generationStats.isRunning ? "Генерация..." : "Ожидание"}
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              onClick={() => triggerMutation.mutate()}
-              disabled={
-                triggerMutation.isPending ||
-                dashboard?.enabled ||
-                (dashboard?.processingCount || 0) > 0 ||
-                (dashboard?.todayProgress.processed || 0) >=
-                  (dashboard?.todayProgress.limit || 10) ||
-                parseFloat(dashboard?.budget.used || "0") >=
-                  parseFloat(dashboard?.budget.limit || "0")
-              }
-              className="gap-2"
-            >
-              <Play className="h-4 w-4" />
-              Запустить
-            </Button>
-            {dashboard?.enabled && (
+            {!generationStats.isRunning ? (
               <Button
-                variant="destructive"
-                onClick={() => pauseMutation.mutate()}
-                disabled={pauseMutation.isPending}
+                onClick={() => startMutation.mutate()}
+                disabled={startMutation.isPending}
                 className="gap-2"
               >
-                <Pause className="h-4 w-4" />
+                {startMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Запустить
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={() => stopMutation.mutate()}
+                disabled={stopMutation.isPending}
+                className="gap-2"
+              >
+                {stopMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
                 Остановить
               </Button>
             )}
@@ -298,297 +440,154 @@ export function ConveyorDashboard() {
         </div>
       </div>
 
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Today's Progress */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Сегодня
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.todayProgress.processed}/
-              {dashboard?.todayProgress.limit}
+      {/* Top Stats - Using generationStats for real-time updates */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        {/* Спарсено новостей */}
+        <div className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-blue-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{generationStats.parsed}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">Спарсено новостей</div>
+              </div>
             </div>
-            <Progress
-              value={dashboard?.todayProgress.percentage || 0}
-              className="mt-2"
-            />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Budget */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Бюджет (месяц)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${dashboard?.budget.used}
-              <span className="text-muted-foreground text-sm">
-                /${dashboard?.budget.limit}
-              </span>
+        {/* Проанализировано */}
+        <div className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-green-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <CheckCircle className="w-6 h-6 text-green-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{generationStats.analyzed}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">Проанализировано</div>
+              </div>
             </div>
-            <Progress
-              value={dashboard?.budget.percentage || 0}
-              className="mt-2"
-            />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Pass Rate */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Pass Rate
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.stats.passRate || "—"}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {dashboard?.stats.totalPassed} из {dashboard?.stats.totalProcessed}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Pending Review */}
-        <Card
-          className="cursor-pointer hover:border-primary transition-colors"
-          onClick={() => navigate("/auto-scripts")}
+        {/* Сценариев написано */}
+        <div 
+          onClick={() => navigate("/conveyor/scripts/generation")}
+          className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0 cursor-pointer"
         >
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              На ревью
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboard?.pendingReview.count || 0}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-purple-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <FileText className="w-6 h-6 text-purple-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{generationStats.scriptsWritten}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">Сценариев написано</div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Нажмите для просмотра
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* На рецензии */}
+        <div 
+          onClick={() => navigate("/conveyor/reviews")}
+          className="glass rounded-xl p-6 glow-border hover-lift transition-transform relative overflow-hidden group min-w-0 cursor-pointer"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/0 to-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-lg bg-yellow-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+                <Clock className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div className="text-right min-w-0 flex-1 ml-2">
+                <div className="text-3xl font-bold">{generationStats.inReview}</div>
+                <div className="text-sm text-muted-foreground mt-1 truncate">На рецензии</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Agent Thinking Sidebar */}
-        <AgentThinkingSidebar className="lg:col-span-1 h-[500px]" />
-
-        {/* Recent Items */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Последние элементы</CardTitle>
-            <CardDescription>
-              История обработки контента
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px]">
-              {itemsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : items && items.length > 0 ? (
-                <div className="space-y-2">
-                  {items.map((item) => {
-                    const config = STATUS_CONFIG[item.status] || STATUS_CONFIG.processing;
-                    const StatusIcon = config.icon;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 rounded-lg border"
-                      >
-                        <div className="flex items-center gap-3">
-                          <StatusIcon className={`h-5 w-5 ${config.color}`} />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {item.sourceType}
-                              </Badge>
-                              <span className="text-sm font-medium">
-                                Stage {item.currentStage}:{" "}
-                                {STAGE_NAMES[item.currentStage]}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.startedAt), {
-                                addSuffix: true,
-                                locale: ru,
-                              })}
-                              {item.errorMessage && (
-                                <span className="text-red-500 ml-2">
-                                  {item.errorMessage}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        {item.status === "failed" && item.retryCount < 3 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => retryMutation.mutate(item.id)}
-                            disabled={retryMutation.isPending}
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Нет обработанных элементов</p>
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Side Panel */}
-        <div className="space-y-6">
-          {/* Pending Scripts Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Сценарии на ревью</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dashboard?.pendingReview.scripts &&
-              dashboard.pendingReview.scripts.length > 0 ? (
-                <div className="space-y-2">
-                  {dashboard.pendingReview.scripts.map((script) => (
-                    <div
-                      key={script.id}
-                      className="p-2 rounded border cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate("/auto-scripts")}
-                    >
-                      <div className="font-medium text-sm line-clamp-1">
+      {/* Сценарии на рецензии */}
+      <Card className="glass glow-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary-500/20">
+                <FileText className="w-5 h-5 text-primary-400" />
+              </div>
+              <CardTitle>Сценарии на рецензии</CardTitle>
+              <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
+                {generationStats.inReview}
+              </Badge>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/conveyor/reviews")}
+              className="gap-2"
+            >
+              Смотреть все
+              <CheckCircle className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!dashboard?.pendingReview.scripts || dashboard.pendingReview.scripts.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p>Нет сценариев на рецензии</p>
+              <p className="text-sm mt-2">Запустите генерацию в разделе "Сценариев написано"</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {dashboard.pendingReview.scripts.map((script) => (
+                <div
+                  key={script.id}
+                  onClick={() => navigate(`/conveyor/editor/${script.id}?mode=review`)}
+                  className="glass rounded-lg p-5 hover:bg-muted/50 transition-all border border-border hover:border-primary/30 group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
                         {script.title}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">
+                      </h4>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-4 h-4" />
                           {script.formatName}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Score: {script.finalScore}
+                        </span>
+                        <span>•</span>
+                        <span className={
+                          script.finalScore >= 8 ? 'text-green-400' : 
+                          script.finalScore >= 5 ? 'text-yellow-400' : 
+                          'text-red-400'
+                        }>
+                          Оценка: {script.finalScore}/100
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {formatDistanceToNow(new Date(script.createdAt), {
+                            addSuffix: true,
+                            locale: ru,
+                          })}
                         </span>
                       </div>
                     </div>
-                  ))}
-                  {dashboard.pendingReview.count > 5 && (
-                    <Button
-                      variant="ghost"
-                      className="w-full text-sm"
-                      onClick={() => navigate("/auto-scripts")}
-                    >
-                      Показать все ({dashboard.pendingReview.count})
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Нет сценариев на ревью
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Learning Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Система обучения</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Адаптивный порог
-                </span>
-                <span className="font-medium">
-                  {dashboard?.learning.learnedThreshold || "—"}
-                </span>
-              </div>
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Избегаемые темы
-                </span>
-                <span className="font-medium">
-                  {dashboard?.learning.avoidedTopicsCount || 0}
-                </span>
-              </div>
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Предпочитаемые форматы
-                </span>
-                <span className="font-medium">
-                  {dashboard?.learning.preferredFormatsCount || 0}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Статистика</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-xl font-bold">
-                    {dashboard?.stats.totalProcessed || 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Обработано
+                    <CheckCircle className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
-                <div>
-                  <div className="text-xl font-bold text-green-600">
-                    {dashboard?.stats.totalApproved || 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Одобрено
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-red-600">
-                    {dashboard?.failedCount || 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    С ошибками
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold">
-                    {dashboard?.stats.approvalRate || "—"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Approval Rate
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

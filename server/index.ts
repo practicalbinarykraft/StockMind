@@ -85,6 +85,11 @@ app.use(requestLogger);
   initConveyorRunner();
   logger.info('Content Factory (Conveyor) cron job initialized');
 
+  // Initialize Checkpoint Cleanup cron job
+  const { initCheckpointCleanup } = await import('./cron/checkpoint-cleanup');
+  initCheckpointCleanup();
+  logger.info('Checkpoint cleanup cron job initialized');
+
   // 8. Sentry error handler (must be before other error handlers)
   app.use(sentryErrorHandler());
 

@@ -6,6 +6,9 @@ export * from './projects';
 export * from './script-versions';
 export * from './analytics-instagram';
 export * from './scripts-library';
+export * from './scene-comments';
+export * from './script-checkpoints';
+export * from './editor-operation-log';
 export * from './post-analytics';
 
 // Conveyor (Content Factory)

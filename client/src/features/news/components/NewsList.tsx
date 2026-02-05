@@ -81,7 +81,7 @@ export function NewsListItem({
     <>
       {previewOpen && (
         <ArticlePreviewModal
-          isOpen={previewOpen}
+          open={previewOpen}
           article={item}
           onClose={() => setPreviewOpen(false)}
         />

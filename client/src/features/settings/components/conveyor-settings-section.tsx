@@ -179,54 +179,6 @@ export function ConveyorSettingsSection() {
           onSave={handleSave}
           isSaving={updateMutation.isPending}
         />
-
-        <Separator />
-
-        {/* Custom Prompts */}
-        <ConveyorCustomPrompts
-          customPrompts={localSettings.customPrompts}
-          onPromptsChange={(prompts: CustomPrompts | null) =>
-            setLocalSettings({ ...localSettings, customPrompts: prompts })
-          }
-          onSave={handleSave}
-          isSaving={updateMutation.isPending}
-        />
-
-        <Separator />
-
-        {/* Script Examples */}
-        <ConveyorScriptExamples
-          examples={localSettings.scriptExamples}
-          onExamplesChange={(examples: string[]) =>
-            setLocalSettings({ ...localSettings, scriptExamples: examples })
-          }
-          onSave={handleSave}
-          isSaving={updateMutation.isPending}
-        />
-
-        <Separator />
-
-        {/* Learning System */}
-        <ConveyorLearningSystem
-          stats={{
-            learnedThreshold: settings?.learnedThreshold || null,
-            avoidedTopics: settings?.avoidedTopics || null,
-            preferredFormats: settings?.preferredFormats || null,
-          }}
-          onResetLearning={() => resetLearningMutation.mutate()}
-          isResetPending={resetLearningMutation.isPending}
-        />
-
-        <Separator />
-
-        {/* Stats Summary */}
-        <ConveyorStatsSummary
-          totalProcessed={stats?.totalProcessed || 0}
-          totalPassed={stats?.totalPassed || 0}
-          totalFailed={stats?.totalFailed || 0}
-          totalApproved={stats?.totalApproved || 0}
-          totalRejected={stats?.totalRejected || 0}
-        />
       </CardContent>
     </Card>
   );

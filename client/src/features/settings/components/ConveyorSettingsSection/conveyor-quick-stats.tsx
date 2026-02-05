@@ -89,24 +89,6 @@ export function ConveyorQuickStats({
           </div>
         </div>
       </div>
-
-      {/* Quick Actions */}
-      <div className="flex gap-2">
-        <Button
-          onClick={onTrigger}
-          disabled={!canTrigger}
-          className="gap-2"
-        >
-          <Play className="h-4 w-4" />
-          Запустить сейчас
-        </Button>
-        <Button variant="outline" asChild>
-          <a href="/auto-scripts">Сценарии на ревью</a>
-        </Button>
-        <Button variant="outline" asChild>
-          <a href="/conveyor">Дашборд</a>
-        </Button>
-      </div>
     </div>
   );
 }

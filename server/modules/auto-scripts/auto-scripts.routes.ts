@@ -54,6 +54,9 @@ router.get("/", requireAuth, autoScriptsController.getScripts);
 // GET /api/auto-scripts/:id - Get specific script
 router.get("/:id", requireAuth, autoScriptsController.getScriptById);
 
+// PATCH /api/auto-scripts/:id - Update script content (manual edits)
+router.patch("/:id", requireAuth, autoScriptsController.updateScript);
+
 // POST /api/auto-scripts/:id/approve - Approve script and create project
 router.post("/:id/approve", requireAuth, autoScriptsController.approveScript);
 
@@ -71,6 +74,20 @@ router.post(
   "/:id/reset-revision",
   requireAuth,
   autoScriptsController.resetRevision
+);
+
+// POST /api/auto-scripts/:id/save-new-version - Save new version as draft
+router.post(
+  "/:id/save-new-version",
+  requireAuth,
+  autoScriptsController.saveNewVersionAsDraft
+);
+
+// POST /api/auto-scripts/:id/regenerate - Regenerate entire script
+router.post(
+  "/:id/regenerate",
+  requireAuth,
+  autoScriptsController.regenerateScript
 );
 
 export function registerAutoScriptsRoutes(app: Express) {

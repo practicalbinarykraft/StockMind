@@ -3,6 +3,11 @@ import { storage } from "../storage";
 import { scoreNewsItem } from "../ai-services";
 import { logger } from "../lib/logger";
 
+// Extend global namespace for tracking scoring promises
+declare global {
+  var activeScoringPromises: Map<string, Promise<void>> | undefined;
+}
+
 /**
  * Clean RSS content - remove extra whitespace, HTML tags, and junk
  */
@@ -281,9 +286,21 @@ export async function parseRssSource(
     }
 
     // Trigger AI scoring in background
-    scoreRssItems(createdItems, userId).catch((err) =>
+    // Return the promise so callers can wait for scoring to complete if needed
+    const scoringPromise = scoreRssItems(createdItems, userId).catch((err) =>
       console.error("AI scoring failed:", err)
     );
+    
+    // Store the promise for this source so we can wait for it later
+    if (!global.activeScoringPromises) {
+      global.activeScoringPromises = new Map<string, Promise<void>>();
+    }
+    global.activeScoringPromises.set(sourceId, scoringPromise);
+    
+    // Clean up after completion
+    scoringPromise.finally(() => {
+      global.activeScoringPromises?.delete(sourceId);
+    });
   } catch (error: any) {
     console.error(`[RSS] Parsing failed for ${sourceId}:`, error);
 
@@ -297,6 +314,36 @@ export async function parseRssSource(
       parseStatus: "error",
       parseError: errorMessage,
     });
+  }
+}
+
+/**
+ * Wait for all active scoring tasks to complete
+ */
+export async function waitForAllScoring(timeoutMs: number = 120000): Promise<void> {
+  if (!global.activeScoringPromises || global.activeScoringPromises.size === 0) {
+    logger.info('[RSS] No active scoring tasks to wait for');
+    return;
+  }
+
+  const activeTasks = Array.from(global.activeScoringPromises.values());
+  logger.info(`[RSS] Waiting for ${activeTasks.length} scoring tasks to complete (timeout: ${timeoutMs}ms)`);
+
+  try {
+    // Wait for all scoring tasks with a timeout
+    await Promise.race([
+      Promise.all(activeTasks),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Scoring timeout')), timeoutMs)
+      )
+    ]);
+    logger.info('[RSS] All scoring tasks completed successfully');
+  } catch (error: any) {
+    if (error.message === 'Scoring timeout') {
+      logger.warn(`[RSS] Scoring tasks timed out after ${timeoutMs}ms, continuing anyway`);
+    } else {
+      logger.error('[RSS] Error waiting for scoring tasks', { error: error.message });
+    }
   }
 }
 

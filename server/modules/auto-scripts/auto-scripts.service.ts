@@ -6,7 +6,8 @@ import { learningService } from "../../conveyor/learning-service";
 import { conveyorOrchestrator } from "../../conveyor/conveyor-orchestrator";
 import { createFeedbackProcessor } from "../../conveyor/feedback-processor";
 import { revisionProcessor } from "../../conveyor/revision-processor";
-import { RejectionCategory } from "@shared/schema";
+import { generationPipeline } from "../generation/generation-pipeline";
+import { RejectionCategory, type AutoScript } from "@shared/schema";
 import {
   AutoScriptNotFoundError,
   AutoScriptAccessDeniedError,
@@ -304,10 +305,83 @@ export const autoScriptsService = {
         ctaScore: v.ctaScore,
         feedbackText: v.feedbackText,
         feedbackSceneIds: v.feedbackSceneIds,
+        source: v.source,
         isCurrent: v.isCurrent,
         createdAt: v.createdAt,
       })),
       currentVersion: script.revisionCount + 1,
+    };
+  },
+
+  /**
+   * Regenerate entire script (for review mode)
+   * Uses the same scriptwriter + editor agents as generation-pipeline
+   * Creates a completely new script based on the same source
+   */
+  async regenerateScript(
+    scriptId: string,
+    userId: string,
+    customPrompt?: string
+  ) {
+    const script = await repo.getById(scriptId);
+
+    if (!script) {
+      throw new AutoScriptNotFoundError();
+    }
+
+    if (script.userId !== userId) {
+      throw new AutoScriptAccessDeniedError();
+    }
+
+    // Allow regeneration for scripts in "pending" or "revision" status
+    if (script.status !== "pending" && script.status !== "revision") {
+      throw new InvalidScriptStatusError(script.status);
+    }
+
+    // Check revision limit
+    if (script.revisionCount >= MAX_REVISIONS) {
+      // Auto-reject after max revisions
+      await repo.reject(
+        scriptId,
+        "Maximum revision limit reached",
+        RejectionCategory.OTHER
+      );
+
+      throw new MaxRevisionsReachedError(MAX_REVISIONS);
+    }
+
+    logger.info("Starting script regeneration", {
+      userId,
+      scriptId,
+      customPrompt: !!customPrompt,
+      currentRevisionCount: script.revisionCount,
+    });
+
+    // Start regeneration asynchronously using generation-pipeline
+    // This uses the same scriptwriter + editor agents
+    generationPipeline
+      .regenerateScript(userId, scriptId, customPrompt)
+      .then((result) => {
+        logger.info("Script regeneration completed", {
+          userId,
+          scriptId,
+          success: result.success,
+          finalScore: result.finalScore,
+          error: result.error,
+        });
+      })
+      .catch((err) => {
+        logger.error("Script regeneration failed", {
+          userId,
+          scriptId,
+          error: err.message,
+        });
+      });
+
+    return {
+      success: true,
+      message: "Регенерация сценария запущена. AI создаст новый сценарий на основе того же источника.",
+      revisionCount: script.revisionCount + 1,
     };
   },
 
@@ -478,6 +552,172 @@ export const autoScriptsService = {
       success: true,
       message: "Revision reset successfully",
       script: updatedScript,
+    };
+  },
+
+  /**
+   * Update script (for manual edits in editor)
+   */
+  async updateScript(
+    scriptId: string,
+    userId: string,
+    updates: Partial<AutoScript>
+  ) {
+    const script = await repo.getById(scriptId);
+
+    if (!script) {
+      throw new AutoScriptNotFoundError();
+    }
+
+    if (script.userId !== userId) {
+      throw new AutoScriptAccessDeniedError();
+    }
+
+    // Update the script
+    const updatedScript = await repo.update(scriptId, updates);
+
+    logger.info("Script updated", {
+      userId,
+      scriptId,
+      updatedFields: Object.keys(updates),
+    });
+
+    return updatedScript;
+  },
+
+  /**
+   * Save new version to drafts (creates version in timeline + saves to library)
+   * Если последняя версия уже draft - обновляем её, иначе создаём новую
+   */
+  async saveNewVersionAsDraft(scriptId: string, userId: string) {
+    const script = await repo.getById(scriptId);
+
+    if (!script) {
+      throw new AutoScriptNotFoundError();
+    }
+
+    if (script.userId !== userId) {
+      throw new AutoScriptAccessDeniedError();
+    }
+
+    // Создаем или обновляем версию с текущим состоянием сценария
+    // Если последняя версия - draft, она будет обновлена
+    // Если последняя версия - conveyor, будет создана новая draft-версия
+    const { version: newVersion, isUpdate } = await repo.createOrUpdateVersion(scriptId, userId, {
+      title: script.title,
+      scenes: script.scenes,
+      fullScript: script.fullScript,
+      finalScore: script.finalScore,
+      hookScore: script.hookScore,
+      structureScore: script.structureScore,
+      emotionalScore: script.emotionalScore,
+      ctaScore: script.ctaScore,
+      source: 'draft',
+    });
+
+    // Создаем или обновляем сценарий в библиотеке (scripts_library)
+    const scriptData = script as any;
+    
+    // Используем sourceItemId как основной идентификатор источника
+    // или сам scriptId если sourceItemId отсутствует
+    const sourceId = script.sourceItemId || scriptId;
+    
+    logger.debug("Looking for existing library script", {
+      userId,
+      sourceId,
+      sourceType: script.sourceType,
+      autoScriptId: scriptId,
+    });
+    
+    // Проверяем, существует ли уже скрипт в библиотеке с таким sourceId
+    let existingLibraryScript = await scriptsLibraryService.findBySource(
+      userId,
+      sourceId,
+      script.sourceType
+    );
+    
+    // Если не нашли по sourceId, пробуем найти по autoScriptId
+    // (некоторые скрипты могут использовать autoScriptId как sourceId)
+    if (!existingLibraryScript && sourceId !== scriptId) {
+      existingLibraryScript = await scriptsLibraryService.findBySource(
+        userId,
+        scriptId,
+        script.sourceType
+      );
+    }
+
+    let libraryScript;
+    
+    if (existingLibraryScript) {
+      // Обновляем существующий скрипт
+      libraryScript = await scriptsLibraryService.updateScript(
+        existingLibraryScript.id,
+        userId,
+        {
+          title: script.title,
+          status: "draft",
+          scenes: script.scenes || [],
+          fullText: script.fullScript,
+          format: script.formatId || undefined,
+          durationSeconds: scriptData.durationSeconds || undefined,
+          wordCount: script.fullScript
+            ? script.fullScript.split(/\s+/).length
+            : undefined,
+          aiScore: script.finalScore || undefined,
+          aiAnalysis: scriptData.scoring || undefined,
+          sourceTitle: scriptData.sourceTitle || undefined,
+          sourceUrl: scriptData.sourceUrl || undefined,
+        }
+      );
+      
+      logger.info("Existing draft updated", {
+        userId,
+        scriptId,
+        versionId: newVersion?.id,
+        versionNumber: newVersion?.versionNumber,
+        libraryScriptId: libraryScript.id,
+        versionIsUpdate: isUpdate,
+      });
+    } else {
+      // Создаем новый скрипт
+      libraryScript = await scriptsLibraryService.createScript(userId, {
+        title: script.title,
+        status: "draft",
+        scenes: script.scenes || [],
+        fullText: script.fullScript,
+        format: script.formatId || undefined,
+        durationSeconds: scriptData.durationSeconds || undefined,
+        wordCount: script.fullScript
+          ? script.fullScript.split(/\s+/).length
+          : undefined,
+        aiScore: script.finalScore || undefined,
+        aiAnalysis: scriptData.scoring || undefined,
+        sourceType: script.sourceType,
+        sourceId: sourceId,
+        sourceTitle: scriptData.sourceTitle || undefined,
+        sourceUrl: scriptData.sourceUrl || undefined,
+      });
+      
+      logger.info("New version saved as draft", {
+        userId,
+        scriptId,
+        versionId: newVersion?.id,
+        versionNumber: newVersion?.versionNumber,
+        libraryScriptId: libraryScript.id,
+        versionIsUpdate: isUpdate,
+      });
+    }
+
+    // isUpdate теперь относится к версии в timeline (auto_script_versions)
+    // existingLibraryScript относится к скрипту в библиотеке (scripts_library)
+    return {
+      success: true,
+      version: newVersion,
+      libraryScriptId: libraryScript.id,
+      isUpdate: isUpdate, // Была ли обновлена версия (а не создана новая)
+      message: isUpdate 
+        ? "Черновик обновлён" 
+        : "Новая версия сохранена в черновики",
     };
   },
 };
