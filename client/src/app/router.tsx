@@ -18,6 +18,10 @@ import ConveyorScripts from "@/pages/conveyor/scripts";
 import ScriptGeneration from "@/pages/conveyor/script-generation";
 import ScriptEditor from "@/pages/conveyor/script-editor";
 import ScriptsReview from "@/pages/conveyor/scripts-review";
+import VideoEditor from "@/pages/conveyor/video-editor";
+import VideoEditorAudio from "@/pages/conveyor/video-editor-audio";
+import VideoEditorAvatar from "@/pages/conveyor/video-editor-avatar";
+import VideoEditorExport from "@/pages/conveyor/video-editor-export";
 
 export function Router() {
   const { isAuthenticated } = useAuth();
@@ -74,6 +78,18 @@ export function Router() {
       </Route>
       <Route path="/conveyor/reviews">
         {() => <PrivateRoute component={ScriptsReview} />}
+      </Route>
+      <Route path="/conveyor/video-editor/:id">
+        {() => <PrivateRoute component={VideoEditor} />}
+      </Route>
+      <Route path="/conveyor/video-editor/:id/audio">
+        {() => <PrivateRoute component={VideoEditorAudio} />}
+      </Route>
+      <Route path="/conveyor/video-editor/:id/avatar">
+        {() => <PrivateRoute component={VideoEditorAvatar} />}
+      </Route>
+      <Route path="/conveyor/video-editor/:id/export">
+        {() => <PrivateRoute component={VideoEditorExport} />}
       </Route>
       <Route component={NotFound} />
     </Switch>

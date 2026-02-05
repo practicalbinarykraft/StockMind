@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useLocation } from 'wouter'
-import { CheckCircle, Calendar, Edit, Film, Trash2 } from 'lucide-react'
+import { CheckCircle, Calendar, Edit, Film, Trash2, Video } from 'lucide-react'
 import { useReadyScripts, useScriptActions } from '../hooks/use-scripts'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
@@ -146,6 +146,14 @@ export function ScriptsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
+                      <Button
+                        onClick={() => navigate(`/conveyor/video-editor/${script.id}`)}
+                        variant="default"
+                        className="gap-2"
+                      >
+                        <Video className="w-4 h-4" />
+                        Видео-редактор
+                      </Button>
                       <Button
                         onClick={() => navigate(`/conveyor/editor/${script.id}`)}
                         variant="outline"
