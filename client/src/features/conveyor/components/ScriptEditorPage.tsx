@@ -608,7 +608,7 @@ export function ScriptEditorPage() {
         <div className="glass rounded-xl p-8">
           <p className="text-muted-foreground text-center mb-4">Сценарий не найден</p>
           <button
-            onClick={() => navigate('/conveyor')}
+            onClick={() => navigate(`${isReviewMode ? '/conveyor' : '/drafts'}`)}
             className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-cyan-700 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 flex items-center gap-2 mx-auto"
           >
             Вернуться к списку
@@ -633,7 +633,7 @@ export function ScriptEditorPage() {
       <div className="glass rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/conveyor')}
+            onClick={() => navigate(`${isReviewMode ? '/conveyor' : '/drafts'}`)}
             className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
