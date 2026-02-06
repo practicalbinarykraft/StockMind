@@ -23,8 +23,7 @@ export const scriptsMediaController = {
    */
   async getMedia(req: Request, res: Response) {
     try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+      const userId = getUserId(req); // requireAuth middleware гарантирует наличие userId
 
       const { scriptId } = ScriptIdParamDto.parse(req.params);
       const media = await scriptsMediaService.findByScriptId(scriptId);
@@ -42,8 +41,7 @@ export const scriptsMediaController = {
    */
   async upsertMedia(req: Request, res: Response) {
     try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+      const userId = getUserId(req); // requireAuth middleware гарантирует наличие userId
 
       const { scriptId } = ScriptIdParamDto.parse(req.params);
       const data = UpdateScriptMediaDto.parse(req.body);
@@ -67,8 +65,7 @@ export const scriptsMediaController = {
    */
   async updateAudio(req: Request, res: Response) {
     try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+      const userId = getUserId(req); // requireAuth middleware гарантирует наличие userId
 
       const { scriptId } = ScriptIdParamDto.parse(req.params);
       const data = UpdateAudioDto.parse(req.body);
@@ -92,8 +89,7 @@ export const scriptsMediaController = {
    */
   async updateVideo(req: Request, res: Response) {
     try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+      const userId = getUserId(req); // requireAuth middleware гарантирует наличие userId
 
       const { scriptId } = ScriptIdParamDto.parse(req.params);
       const data = UpdateVideoDto.parse(req.body);
@@ -117,8 +113,7 @@ export const scriptsMediaController = {
    */
   async getStatus(req: Request, res: Response) {
     try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+      const userId = getUserId(req); // requireAuth middleware гарантирует наличие userId
 
       const { scriptId } = ScriptIdParamDto.parse(req.params);
       const status = await scriptsMediaService.getStatus(scriptId);
@@ -136,8 +131,7 @@ export const scriptsMediaController = {
    */
   async deleteMedia(req: Request, res: Response) {
     try {
-      const userId = getUserId(req);
-      if (!userId) return apiResponse.unauthorized(res);
+      const userId = getUserId(req); // requireAuth middleware гарантирует наличие userId
 
       const { scriptId } = ScriptIdParamDto.parse(req.params);
       const result = await scriptsMediaService.delete(scriptId);
