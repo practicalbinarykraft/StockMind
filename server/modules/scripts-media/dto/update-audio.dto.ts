@@ -10,7 +10,7 @@ export const UpdateAudioDto = z.object({
   selectedVoice: z.string().optional(),
   audioFilename: z.string().optional(),
   audioFilesize: z.number().optional(),
-  audioGeneratedAt: z.string().optional(),
+  audioGeneratedAt: z.string().transform((val) => new Date(val)).optional(),
 });
 
 export type UpdateAudioDto = z.infer<typeof UpdateAudioDto>;
