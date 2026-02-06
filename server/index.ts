@@ -64,32 +64,6 @@ app.use(requestLogger);
     serveStatic(app);
   }
 
-  // Initialize Instagram monitoring cron job (Apify scraping)
-  initInstagramMonitor(storage);
-  logger.info('Instagram monitoring cron job initialized');
-
-  // Initialize Instagram Analytics sync cron job (Graph API insights)
-  initIgAnalyticsSync(storage);
-  logger.info('Instagram Analytics sync cron job initialized');
-
-  // Initialize RSS monitoring cron job (automatic RSS parsing)
-  const { initRssMonitor } = await import('./cron/rss-monitor');
-  initRssMonitor(storage);
-  logger.info('RSS monitoring cron job initialized');
-
-  // Initialize analytics updater cron job
-  initAnalyticsUpdater();
-
-  // Initialize Content Factory (Conveyor) cron job
-  const { initConveyorRunner } = await import('./cron/conveyor-runner');
-  initConveyorRunner();
-  logger.info('Content Factory (Conveyor) cron job initialized');
-
-  // Initialize Checkpoint Cleanup cron job
-  const { initCheckpointCleanup } = await import('./cron/checkpoint-cleanup');
-  initCheckpointCleanup();
-  logger.info('Checkpoint cleanup cron job initialized');
-
   // 8. Sentry error handler (must be before other error handlers)
   app.use(sentryErrorHandler());
 

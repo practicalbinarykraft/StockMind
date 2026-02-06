@@ -52,7 +52,7 @@ export function initCheckpointCleanup() {
 /**
  * Ручной запуск очистки (для тестирования или административных целей)
  */
-export async function runCheckpointCleanupManually() {
-  logger.info('[Checkpoint Cleanup] Manual cleanup triggered');
-  await cleanupExpiredCheckpoints();
-}
+// export async function runCheckpointCleanupManually() {
+//   logger.info('[Checkpoint Cleanup] Manual cleanup triggered');
+//   await cleanupExpiredCheckpoints();
+// }
