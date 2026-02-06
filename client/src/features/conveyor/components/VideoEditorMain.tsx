@@ -6,7 +6,6 @@ import { useParams } from 'wouter'
 import { useVideoEditorData } from '../hooks/use-video-editor-data'
 import { VideoEditorHeader } from './video-editor/VideoEditorHeader'
 import { VideoEditorPreview } from './video-editor/VideoEditorPreview'
-import { VideoEditorActions } from './video-editor/VideoEditorActions'
 import { VideoEditorSidebar } from './video-editor/VideoEditorSidebar'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
@@ -53,16 +52,17 @@ export function VideoEditorMain() {
   }
 
   return (
-    <div className="space-y-6">
-      <VideoEditorHeader script={script} />
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="mb-6">
+        <VideoEditorHeader script={script} status={status} />
+      </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 min-h-0">
+        <div className="min-h-0">
           <VideoEditorPreview media={media} status={status} />
-          <VideoEditorActions scriptId={scriptId} status={status} />
         </div>
         
-        <div>
+        <div className="min-h-0 overflow-hidden">
           <VideoEditorSidebar script={script} status={status} />
         </div>
       </div>

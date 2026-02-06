@@ -3,7 +3,7 @@
  */
 
 import { Card, CardContent } from '@/shared/ui/card'
-import { Film, Video } from 'lucide-react'
+import { Video } from 'lucide-react'
 import type { ScriptMedia, ScriptMediaStatus } from '../../services/scriptMediaService'
 
 interface VideoEditorPreviewProps {
@@ -16,9 +16,9 @@ export function VideoEditorPreview({ media, status }: VideoEditorPreviewProps) {
   const isGenerating = status?.videoStatus === 'generating'
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+    <Card className="h-full">
+      <CardContent className="p-6 h-full">
+        <div className="h-full bg-muted rounded-lg flex items-center justify-center overflow-hidden">
           {hasVideo ? (
             <video
               src={media.videoUrl}
@@ -35,12 +35,11 @@ export function VideoEditorPreview({ media, status }: VideoEditorPreviewProps) {
             </div>
           ) : (
             <div className="text-center">
-              <Film className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Видео ещё не создано
+              <p className="text-lg font-medium text-muted-foreground mb-2">
+                Превью видео
               </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Сначала создайте аудио, затем выберите аватар
+              <p className="text-sm text-blue-400">
+                Будет реализовано позже
               </p>
             </div>
           )}
