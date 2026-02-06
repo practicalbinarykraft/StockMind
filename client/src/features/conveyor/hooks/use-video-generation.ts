@@ -28,6 +28,17 @@ export function useVideoGeneration(
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoId, setVideoId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [pollingIntervalId, setPollingIntervalId] = useState<NodeJS.Timeout | null>(null)
+
+  // Cleanup при unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalId) {
+        console.log('🧹 Очистка polling интервала при unmount')
+        clearInterval(pollingIntervalId)
+      }
+    }
+  }, [pollingIntervalId])
 
   // Загрузка существующего видео
   const loadExistingVideo = useCallback(async () => {
@@ -116,15 +127,20 @@ export function useVideoGeneration(
           videoGeneratedAt: new Date().toISOString(),
         })
 
-        // Шаг 2: Polling статуса генерации
+        // Шаг 3: Polling статуса генерации (УВЕЛИЧЕН ИНТЕРВАЛ)
         let attempts = 0
-        const maxAttempts = 120 // 10 минут (120 * 5 секунд)
+        const maxAttempts = 40 // 20 минут (40 * 30 секунд)
+        const pollInterval = 30000 // 30 секунд между проверками (было 5 сек)
+
+        console.log(`🎬 Начинаем polling для видео ${generateData.videoId}, интервал: ${pollInterval/1000}с`)
 
         const checkStatus = async (): Promise<boolean> => {
           attempts++
+          console.log(`📡 Проверка статуса (попытка ${attempts}/${maxAttempts})...`)
 
           if (attempts > maxAttempts) {
-            throw new Error('Превышено время ожидания генерации')
+            console.error(`⏰ Превышен лимит попыток (${maxAttempts})`)
+            throw new Error('Превышено время ожидания генерации (20 минут)')
           }
 
           const statusResponse = await apiRequest(
@@ -132,6 +148,8 @@ export function useVideoGeneration(
             `/api/heygen/status/${generateData.videoId}`
           )
           const statusData = await statusResponse.json()
+
+          console.log(`📊 Статус от HeyGen:`, statusData.status)
 
           // Обновление прогресса
           if (statusData.progress) {
@@ -143,6 +161,8 @@ export function useVideoGeneration(
             if (!statusData.videoUrl) {
               throw new Error('Видео готово, но URL отсутствует')
             }
+
+            console.log(`✅ Видео готово! URL:`, statusData.videoUrl)
 
             // Сохранение результата
             await scriptMediaService.updateVideo(scriptId, {
@@ -159,8 +179,10 @@ export function useVideoGeneration(
           }
 
           if (statusData.status === 'failed' || statusData.status === 'error') {
-            const error = statusData.error || 'Ошибка генерации на стороне HeyGen'
+            const error = statusData.error || statusData.error_message || 'Ошибка генерации на стороне HeyGen'
             
+            console.error(`❌ Генерация не удалась:`, error)
+
             await scriptMediaService.updateVideo(scriptId, {
               videoStatus: 'failed',
               videoErrorMessage: error,
@@ -170,29 +192,39 @@ export function useVideoGeneration(
           }
 
           // Продолжаем ожидание
+          console.log(`⏳ Генерация продолжается (${statusData.status})...`)
           return false
         }
 
-        // Polling с интервалом 5 секунд
-        const pollInterval = setInterval(async () => {
+        // Первая проверка сразу
+        console.log(`🔍 Немедленная проверка статуса...`)
+        const isCompletedImmediately = await checkStatus()
+        if (isCompletedImmediately) {
+          console.log(`✅ Видео уже готово!`)
+          setIsGenerating(false)
+          return
+        }
+
+        // Polling с увеличенным интервалом
+        const intervalId = setInterval(async () => {
           try {
             const isCompleted = await checkStatus()
             if (isCompleted) {
-              clearInterval(pollInterval)
+              console.log(`✅ Polling завершен - видео готово`)
+              clearInterval(intervalId)
+              setPollingIntervalId(null)
               setIsGenerating(false)
             }
           } catch (err) {
-            clearInterval(pollInterval)
+            console.error(`❌ Ошибка во время polling:`, err)
+            clearInterval(intervalId)
+            setPollingIntervalId(null)
             throw err
           }
-        }, 5000)
+        }, pollInterval)
 
-        // Первая проверка сразу
-        const isCompleted = await checkStatus()
-        if (isCompleted) {
-          clearInterval(pollInterval)
-          setIsGenerating(false)
-        }
+        // Сохраняем ID интервала для cleanup
+        setPollingIntervalId(intervalId)
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Ошибка генерации видео'

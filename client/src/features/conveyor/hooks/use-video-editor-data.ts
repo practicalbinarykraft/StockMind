@@ -25,11 +25,11 @@ export function useVideoEditorData(scriptId: string) {
     queryKey: ['script-media-status', scriptId],
     queryFn: () => scriptMediaService.getMediaStatus(scriptId),
     enabled: !!scriptId,
-    refetchInterval: (query) => {
-      // Polling если видео генерируется
-      const data = query.state.data
-      return data && data.videoStatus === 'generating' ? 5000 : false
-    },
+    // ОТКЛЮЧАЕМ автоматический polling - он управляется в use-video-generation.ts
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: 30000, // 30 секунд - данные считаются свежими
   })
   
   return {

@@ -47,19 +47,27 @@ export function VideoEditorAvatar() {
   const [hasAudio, setHasAudio] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
 
-  // Проверка наличия аудио
+  // Проверка наличия аудио (выполняется только один раз при монтировании)
   useEffect(() => {
+    let isMounted = true
+
     const checkAudio = async () => {
       try {
         const media = await scriptMediaService.getMedia(scriptId)
-        setHasAudio(!!media?.audioUrl)
-        setAudioUrl(media?.audioUrl || null)
+        if (isMounted) {
+          setHasAudio(!!media?.audioUrl)
+          setAudioUrl(media?.audioUrl || null)
+        }
       } catch (err) {
         console.error('Failed to check audio:', err)
       }
     }
 
     checkAudio()
+
+    return () => {
+      isMounted = false
+    }
   }, [scriptId])
 
   // Обработчик выбора аватара

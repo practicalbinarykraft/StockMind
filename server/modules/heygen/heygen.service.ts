@@ -305,15 +305,27 @@ export class HeygenService {
    */
   private async getHeyGenVideoStatusFromAPI(apiKey: string, videoId: string): Promise<HeyGenVideoStatus> {
     try {
+      const startTime = Date.now();
+      console.log(`📡 Запрос статуса видео ${videoId} к HeyGen API...`);
+
       const response = await axios.get(`${HEYGEN_API_BASE}/v1/video_status.get`, {
         params: { video_id: videoId },
         headers: {
           Accept: "application/json",
           "X-Api-Key": apiKey,
         },
+        timeout: 15000, // 15 second timeout for status check
       });
 
+      const duration = Date.now() - startTime;
       const data = response.data?.data;
+
+      console.log(`✅ Статус получен за ${duration}ms:`, {
+        videoId,
+        status: data?.status,
+        hasVideoUrl: !!data?.video_url,
+        error: data?.error_message,
+      });
 
       return {
         status: data?.status || "pending",
@@ -323,7 +335,20 @@ export class HeygenService {
         error_message: data?.error_message,
       };
     } catch (error: any) {
-      console.error("HeyGen status check error:", error.response?.data || error.message);
+      if (axios.isAxiosError(error)) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data;
+        
+        console.error("❌ Ошибка проверки статуса HeyGen:", {
+          videoId,
+          status: statusCode,
+          error: errorData,
+          message: error.message,
+        });
+      } else {
+        console.error("❌ Неожиданная ошибка проверки статуса:", error);
+      }
+
       throw new Error(error.response?.data?.message || "Failed to check video status");
     }
   }

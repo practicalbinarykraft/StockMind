@@ -16,8 +16,8 @@ interface UseVideoPollingReturn {
   stopPolling: () => void
 }
 
-const POLL_INTERVAL = 5000 // 5 секунд
-const MAX_ATTEMPTS = 120 // 10 минут
+const POLL_INTERVAL = 30000 // 30 секунд (было 5 сек)
+const MAX_ATTEMPTS = 40 // 20 минут (40 * 30 секунд)
 
 export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
   const [status, setStatus] = useState<
@@ -37,8 +37,11 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
 
     attemptsRef.current++
 
+    console.log(`📡 [useVideoPolling] Проверка статуса (попытка ${attemptsRef.current}/${MAX_ATTEMPTS})...`)
+
     if (attemptsRef.current > MAX_ATTEMPTS) {
-      setError('Превышено время ожидания генерации')
+      console.error(`⏰ [useVideoPolling] Превышен лимит попыток`)
+      setError('Превышено время ожидания генерации (20 минут)')
       setStatus('failed')
       stopPolling()
       return
@@ -51,6 +54,8 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
       )
       const data = await response.json()
 
+      console.log(`📊 [useVideoPolling] Статус:`, data.status)
+
       // Обновление прогресса
       if (data.progress) {
         setProgress(data.progress)
@@ -61,6 +66,7 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
 
       // Завершение
       if (data.status === 'completed') {
+        console.log(`✅ [useVideoPolling] Видео готово!`)
         setVideoUrl(data.videoUrl)
         setProgress(100)
 
@@ -77,7 +83,8 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
 
       // Ошибка
       if (data.status === 'failed' || data.status === 'error') {
-        const errorMsg = data.error || 'Ошибка генерации'
+        const errorMsg = data.error || data.error_message || 'Ошибка генерации'
+        console.error(`❌ [useVideoPolling] Ошибка:`, errorMsg)
         setError(errorMsg)
 
         await scriptMediaService.updateVideo(scriptId, {
@@ -90,9 +97,9 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Ошибка проверки статуса'
+      console.error('❌ [useVideoPolling] Ошибка проверки статуса:', err)
       setError(message)
       setStatus('failed')
-      console.error('Video polling error:', err)
       stopPolling()
     }
   }, [scriptId])
@@ -100,6 +107,8 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
   // Запуск polling
   const startPolling = useCallback(
     (videoId: string) => {
+      console.log(`🎬 [useVideoPolling] Начинаем polling для видео ${videoId}, интервал: ${POLL_INTERVAL/1000}с`)
+      
       videoIdRef.current = videoId
       attemptsRef.current = 0
       setStatus('processing')
@@ -122,6 +131,7 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
   // Остановка polling
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {
+      console.log(`🛑 [useVideoPolling] Остановка polling`)
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
