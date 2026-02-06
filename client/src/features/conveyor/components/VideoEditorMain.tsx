@@ -57,7 +57,7 @@ export function VideoEditorMain() {
         <VideoEditorHeader script={script} status={status} />
       </div>
       
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[600px_1fr] gap-6 min-h-0">
         <div className="min-h-0">
           <VideoEditorPreview media={media} status={status} />
         </div>
