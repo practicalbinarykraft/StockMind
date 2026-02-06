@@ -4,7 +4,7 @@
  */
 
 import { useParams } from 'wouter'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AudioPageHeader } from './video-editor/audio/AudioPageHeader'
 import { AudioTabs } from './video-editor/audio/AudioTabs'
 import { AudioPageFooter } from './video-editor/audio/AudioPageFooter'
@@ -22,26 +22,23 @@ export function VideoEditorAudio() {
   // Получаем текст сценария (из всех сцен)
   const scriptText = script?.fullText || script?.scenes?.map(s => s.text).join('\n\n') || ''
 
-  // Проверяем наличие аудио
-  useEffect(() => {
-    const checkAudio = async () => {
-      try {
-        const media = await scriptMediaService.getMedia(scriptId)
-        setHasAudio(!!media?.audioUrl)
-        if (media?.audioMode) {
-          setCurrentMode(media.audioMode as any)
-        }
-      } catch (err) {
-        console.error('Failed to check audio status:', err)
+  // Функция для обновления статуса аудио
+  const refreshAudioStatus = useCallback(async () => {
+    try {
+      const media = await scriptMediaService.getMedia(scriptId)
+      setHasAudio(!!media?.audioUrl)
+      if (media?.audioMode) {
+        setCurrentMode(media.audioMode as any)
       }
+    } catch (err) {
+      console.error('Failed to refresh audio status:', err)
     }
-
-    checkAudio()
-
-    // Проверяем каждые 3 секунды (на случай изменений)
-    const interval = setInterval(checkAudio, 3000)
-    return () => clearInterval(interval)
   }, [scriptId])
+
+  // Проверяем наличие аудио только при монтировании
+  useEffect(() => {
+    refreshAudioStatus()
+  }, [refreshAudioStatus])
 
   if (isLoading) {
     return (
@@ -60,6 +57,7 @@ export function VideoEditorAudio() {
         scriptText={scriptText}
         currentMode={currentMode}
         onModeChange={setCurrentMode}
+        onAudioGenerated={refreshAudioStatus}
       />
 
       <AudioPageFooter scriptId={scriptId} hasAudio={hasAudio} />

@@ -37,7 +37,10 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob(byteArrays as BlobPart[], { type: mimeType })
 }
 
-export function useAudioGeneration(scriptId: string): UseAudioGenerationReturn {
+export function useAudioGeneration(
+  scriptId: string,
+  onAudioGenerated?: () => void
+): UseAudioGenerationReturn {
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -96,6 +99,9 @@ export function useAudioGeneration(scriptId: string): UseAudioGenerationReturn {
 
         setAudioUrl(audioUrl)
         setSelectedVoice(voiceId)
+        
+        // Вызываем callback после успешной генерации
+        onAudioGenerated?.()
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Ошибка генерации аудио'
@@ -105,7 +111,7 @@ export function useAudioGeneration(scriptId: string): UseAudioGenerationReturn {
         setIsGenerating(false)
       }
     },
-    [scriptId]
+    [scriptId, onAudioGenerated]
   )
 
   return {

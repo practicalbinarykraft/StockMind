@@ -13,6 +13,7 @@ interface AudioTabsProps {
   scriptText: string
   currentMode?: 'generate' | 'upload' | 'record'
   onModeChange?: (mode: 'generate' | 'upload' | 'record') => void
+  onAudioGenerated?: () => void
 }
 
 export function AudioTabs({
@@ -20,6 +21,7 @@ export function AudioTabs({
   scriptText,
   currentMode = 'generate',
   onModeChange,
+  onAudioGenerated,
 }: AudioTabsProps) {
   return (
     <Tabs
@@ -34,7 +36,11 @@ export function AudioTabs({
       </TabsList>
 
       <TabsContent value="generate" className="mt-6">
-        <AudioGenerateTab scriptId={scriptId} scriptText={scriptText} />
+        <AudioGenerateTab 
+          scriptId={scriptId} 
+          scriptText={scriptText} 
+          onAudioGenerated={onAudioGenerated}
+        />
       </TabsContent>
 
       <TabsContent value="upload" className="mt-6">

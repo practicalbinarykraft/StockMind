@@ -13,9 +13,10 @@ import { useAudioGeneration } from '@/features/conveyor/hooks/use-audio-generati
 interface AudioGenerateTabProps {
   scriptId: string
   scriptText: string
+  onAudioGenerated?: () => void
 }
 
-export function AudioGenerateTab({ scriptId, scriptText }: AudioGenerateTabProps) {
+export function AudioGenerateTab({ scriptId, scriptText, onAudioGenerated }: AudioGenerateTabProps) {
   const {
     selectedVoice,
     setSelectedVoice,
@@ -23,7 +24,7 @@ export function AudioGenerateTab({ scriptId, scriptText }: AudioGenerateTabProps
     audioUrl,
     generate,
     error,
-  } = useAudioGeneration(scriptId)
+  } = useAudioGeneration(scriptId, onAudioGenerated)
 
   const handleGenerate = async () => {
     if (!selectedVoice) return
