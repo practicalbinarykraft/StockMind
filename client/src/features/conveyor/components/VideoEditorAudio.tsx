@@ -1,50 +1,68 @@
 /**
- * Страница генерации аудио (заглушка для Этапа 3)
+ * Страница генерации аудио
+ * ≤250 строк
  */
 
-import { useParams, useLocation } from 'wouter'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { useParams } from 'wouter'
+import { useState, useEffect } from 'react'
+import { AudioPageHeader } from './video-editor/audio/AudioPageHeader'
+import { AudioTabs } from './video-editor/audio/AudioTabs'
+import { AudioPageFooter } from './video-editor/audio/AudioPageFooter'
+import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-data'
+import { scriptMediaService } from '@/features/conveyor/services/scriptMediaService'
 
 export function VideoEditorAudio() {
   const params = useParams<{ id: string }>()
   const scriptId = params.id!
-  const [, navigate] = useLocation()
+
+  const { script, isLoading } = useVideoEditorData(scriptId)
+  const [currentMode, setCurrentMode] = useState<'generate' | 'upload' | 'record'>('generate')
+  const [hasAudio, setHasAudio] = useState(false)
+
+  // Получаем текст сценария (из всех сцен)
+  const scriptText = script?.fullText || script?.scenes?.map(s => s.text).join('\n\n') || ''
+
+  // Проверяем наличие аудио
+  useEffect(() => {
+    const checkAudio = async () => {
+      try {
+        const media = await scriptMediaService.getMedia(scriptId)
+        setHasAudio(!!media?.audioUrl)
+        if (media?.audioMode) {
+          setCurrentMode(media.audioMode as any)
+        }
+      } catch (err) {
+        console.error('Failed to check audio status:', err)
+      }
+    }
+
+    checkAudio()
+
+    // Проверяем каждые 3 секунды (на случай изменений)
+    const interval = setInterval(checkAudio, 3000)
+    return () => clearInterval(interval)
+  }, [scriptId])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-muted-foreground">Загрузка...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(`/conveyor/video-editor/${scriptId}`)}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Генерация аудио</h1>
-          <p className="text-sm text-muted-foreground">
-            Этап 3 - в разработке
-          </p>
-        </div>
-      </div>
+    <div className="container max-w-4xl mx-auto py-6 space-y-6">
+      <AudioPageHeader scriptId={scriptId} scriptTitle={script?.title} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Аудио будет реализовано на Этапе 3</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Этот компонент будет содержать:
-          </p>
-          <ul className="list-disc list-inside mt-2 space-y-1 text-sm text-muted-foreground">
-            <li>Генерацию через ElevenLabs</li>
-            <li>Загрузку файла</li>
-            <li>Запись через микрофон</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <AudioTabs
+        scriptId={scriptId}
+        scriptText={scriptText}
+        currentMode={currentMode}
+        onModeChange={setCurrentMode}
+      />
+
+      <AudioPageFooter scriptId={scriptId} hasAudio={hasAudio} />
     </div>
   )
 }
