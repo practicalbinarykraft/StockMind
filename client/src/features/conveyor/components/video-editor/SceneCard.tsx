@@ -15,8 +15,8 @@ interface SceneCardProps {
 export function SceneCard({ scene, index }: SceneCardProps) {
   return (
     <Card className="bg-slate-800/50 border-slate-700">
-      <div className="p-3">
-        <div className="flex items-center justify-between mb-1">
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 text-sm font-medium">
               {index + 1}
