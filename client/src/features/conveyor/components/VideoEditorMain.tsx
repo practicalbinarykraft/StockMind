@@ -57,12 +57,12 @@ export function VideoEditorMain() {
         <VideoEditorHeader script={script} status={status} />
       </div>
       
-      <div className="flex-1 grid grid-cols-[600px_1fr] gap-6 min-h-0">
-        <div className="min-h-0 flex w-full">
+      <div className="flex-1 grid grid-cols-[2fr_1fr] gap-6 min-h-0">
+        <div className="min-h-0 w-full">
           <VideoEditorPreview media={media} status={status} />
         </div>
         
-        <div className="min-h-0 flex w-full">
+        <div className="min-h-0 w-full">
           <VideoEditorSidebar script={script} status={status} />
         </div>
       </div>
