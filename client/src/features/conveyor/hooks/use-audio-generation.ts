@@ -30,6 +30,13 @@ export function useAudioGeneration(
     try {
       const media = await scriptMediaService.getMedia(scriptId)
       if (media?.audioUrl) {
+        // Проверяем что URL не blob (старые данные)
+        if (media.audioUrl.startsWith('blob:')) {
+          console.warn('Found old blob URL in database, ignoring:', media.audioUrl)
+          setAudioUrl(null)
+          return
+        }
+        
         setAudioUrl(media.audioUrl)
         if (media.selectedVoice) {
           setSelectedVoice(media.selectedVoice)
@@ -59,8 +66,15 @@ export function useAudioGeneration(
 
         const data = await response.json()
 
+        console.log('Generation response:', data) // Логирование для отладки
+
         if (!data.audioUrl) {
           throw new Error('Не удалось получить URL аудио')
+        }
+
+        // Проверяем что URL корректный (не blob)
+        if (data.audioUrl.startsWith('blob:')) {
+          throw new Error('Получен некорректный blob URL вместо серверного пути')
         }
 
         // Сохранение в scripts_media (дата генерации устанавливается на сервере)

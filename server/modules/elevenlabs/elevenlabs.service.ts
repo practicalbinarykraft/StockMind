@@ -159,6 +159,8 @@ export class ElevenlabsService {
       const uploadDir = join(process.cwd(), "uploads", "audio");
       const filepath = join(uploadDir, filename);
 
+      logger.debug("Saving audio file", { filepath, size: audioBuffer.length });
+
       // Создаем директорию если не существует
       await mkdir(uploadDir, { recursive: true });
 
@@ -168,6 +170,12 @@ export class ElevenlabsService {
       // Возвращаем URL для доступа к файлу
       const audioUrl = `/uploads/audio/${filename}`;
 
+      logger.info("Audio generated successfully", { 
+        audioUrl, 
+        filename, 
+        size: audioBuffer.length 
+      });
+
       return {
         audioUrl,
         filename,
@@ -175,7 +183,10 @@ export class ElevenlabsService {
         size: audioBuffer.length,
       };
     } catch (error: any) {
-      logger.error("Error generating speech", { error: error.message });
+      logger.error("Error generating speech", { 
+        error: error.message,
+        stack: error.stack 
+      });
       throw new ElevenlabsGenerateSpeechError(error.message);
     }
   }
