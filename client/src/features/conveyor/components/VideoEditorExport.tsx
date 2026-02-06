@@ -1,50 +1,103 @@
 /**
- * Страница экспорта (заглушка для Этапа 5)
+ * Страница экспорта (Этап 5)
+ * ≤200 строк
  */
 
-import { useParams, useLocation } from 'wouter'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { useParams } from 'wouter'
+import { Loader2 } from 'lucide-react'
+import { ExportPageHeader } from './video-editor/export/ExportPageHeader'
+import { ExportAudioSection } from './video-editor/export/ExportAudioSection'
+import { ExportVideoSection } from './video-editor/export/ExportVideoSection'
+import { ExportPageFooter } from './video-editor/export/ExportPageFooter'
+import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-data'
+import { useMediaExport } from '@/features/conveyor/hooks/use-media-export'
+import { useMediaDownload } from '@/features/conveyor/hooks/use-media-download'
+import { Alert, AlertDescription } from '@/shared/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 export function VideoEditorExport() {
   const params = useParams<{ id: string }>()
   const scriptId = params.id!
-  const [, navigate] = useLocation()
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(`/conveyor/video-editor/${scriptId}`)}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Экспорт</h1>
-          <p className="text-sm text-muted-foreground">
-            Этап 5 - в разработке
-          </p>
+  const { script, isLoading: isScriptLoading } = useVideoEditorData(scriptId)
+  const { media, isLoading: isMediaLoading, error, hasAudio, hasVideo } = useMediaExport(scriptId)
+  const { isDownloading, downloadError, downloadFile } = useMediaDownload()
+
+  // Обработчик скачивания аудио
+  const handleDownloadAudio = async () => {
+    if (!media?.audioUrl) return
+    const filename = media.audioFilename || `audio_${scriptId}.mp3`
+    await downloadFile(media.audioUrl, filename)
+  }
+
+  // Обработчик скачивания видео
+  const handleDownloadVideo = async () => {
+    if (!media?.videoUrl) return
+    const filename = `video_${scriptId}.mp4`
+    await downloadFile(media.videoUrl, filename)
+  }
+
+  // Состояние загрузки
+  if (isScriptLoading || isMediaLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Загрузка данных...</span>
         </div>
       </div>
+    )
+  }
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Экспорт будет реализован на Этапе 5</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Этот компонент будет содержать:
-          </p>
-          <ul className="list-disc list-inside mt-2 space-y-1 text-sm text-muted-foreground">
-            <li>Скачивание аудио</li>
-            <li>Скачивание видео</li>
-            <li>Информация о медиа-файлах</li>
-          </ul>
-        </CardContent>
-      </Card>
+  // Ошибка загрузки
+  if (error) {
+    return (
+      <div className="container max-w-4xl mx-auto py-6 space-y-6">
+        <ExportPageHeader scriptId={scriptId} scriptTitle={script?.title} />
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Ошибка загрузки данных: {error}
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container max-w-4xl mx-auto py-6 space-y-6">
+      <ExportPageHeader scriptId={scriptId} scriptTitle={script?.title} />
+
+      {/* Ошибка скачивания */}
+      {downloadError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Ошибка скачивания: {downloadError}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Секция аудио */}
+      <ExportAudioSection
+        media={media}
+        isDownloading={isDownloading}
+        onDownload={handleDownloadAudio}
+      />
+
+      {/* Секция видео */}
+      <ExportVideoSection
+        media={media}
+        isDownloading={isDownloading}
+        onDownload={handleDownloadVideo}
+      />
+
+      {/* Футер */}
+      <ExportPageFooter
+        scriptId={scriptId}
+        hasAudio={hasAudio}
+        hasVideo={hasVideo}
+      />
     </div>
   )
 }
