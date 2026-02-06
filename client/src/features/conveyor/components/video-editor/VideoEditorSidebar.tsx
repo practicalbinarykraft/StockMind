@@ -14,11 +14,11 @@ interface VideoEditorSidebarProps {
 
 export function VideoEditorSidebar({ script, status }: VideoEditorSidebarProps) {
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <Card className="h-full flex flex-col w-full">
+      <CardHeader className="flex-shrink-0">
         <CardTitle>Сцены</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-hidden">
         <ScenesList scenes={script.scenes || []} />
       </CardContent>
     </Card>

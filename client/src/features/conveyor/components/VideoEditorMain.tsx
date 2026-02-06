@@ -52,17 +52,17 @@ export function VideoEditorMain() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="mb-6">
+    <div className="flex flex-col h-[calc(100vh-8.5rem)]">
+      <div className="flex-shrink-0 mb-6">
         <VideoEditorHeader script={script} status={status} />
       </div>
       
-      <div className="flex flex-row gap-6 min-h-0">
-        <div className="min-h-0 w-full">
+      <div className="flex-1 grid grid-cols-[600px_1fr] gap-6 min-h-0">
+        <div className="min-h-0 flex">
           <VideoEditorPreview media={media} status={status} />
         </div>
         
-        <div className="min-h-0 overflow-hidden w-full">
+        <div className="min-h-0 flex">
           <VideoEditorSidebar script={script} status={status} />
         </div>
       </div>

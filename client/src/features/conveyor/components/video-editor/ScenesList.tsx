@@ -19,7 +19,7 @@ export function ScenesList({ scenes }: ScenesListProps) {
   }
 
   return (
-    <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-16rem)] pr-2">
+    <div className="space-y-3 overflow-y-auto h-full pr-2">
       {scenes.map((scene, index) => (
         <SceneCard key={scene.id || index} scene={scene} index={index} />
       ))}
