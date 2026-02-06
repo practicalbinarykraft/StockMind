@@ -7,6 +7,8 @@ import {
   ElevenlabsGenerateSpeechError,
 } from "./elevenlabs.errors";
 import type { GenerateSpeechDto } from "./elevenlabs.dto";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
 
 /**
  * Types and interfaces
@@ -152,11 +154,23 @@ export class ElevenlabsService {
         voice_settings: voiceSettings,
       });
 
-      // Return audio as base64 for easy frontend handling
-      const audioBase64 = audioBuffer.toString("base64");
+      // Сохраняем файл на диск
+      const filename = `audio-${Date.now()}-${userId}.mp3`;
+      const uploadDir = join(process.cwd(), "uploads", "audio");
+      const filepath = join(uploadDir, filename);
+
+      // Создаем директорию если не существует
+      await mkdir(uploadDir, { recursive: true });
+
+      // Сохраняем файл
+      await writeFile(filepath, audioBuffer);
+
+      // Возвращаем URL для доступа к файлу
+      const audioUrl = `/uploads/audio/${filename}`;
 
       return {
-        audio: audioBase64,
+        audioUrl,
+        filename,
         format: "mp3",
         size: audioBuffer.length,
       };

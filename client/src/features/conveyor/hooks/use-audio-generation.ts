@@ -16,27 +16,6 @@ interface UseAudioGenerationReturn {
   error: string | null
 }
 
-/**
- * Конвертирует base64 в Blob
- */
-function base64ToBlob(base64: string, mimeType: string): Blob {
-  const byteCharacters = atob(base64)
-  const byteArrays: Uint8Array[] = []
-
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512)
-    const byteNumbers = new Array(slice.length)
-    
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i)
-    }
-    
-    byteArrays.push(new Uint8Array(byteNumbers))
-  }
-
-  return new Blob(byteArrays as BlobPart[], { type: mimeType })
-}
-
 export function useAudioGeneration(
   scriptId: string,
   onAudioGenerated?: () => void
@@ -80,24 +59,20 @@ export function useAudioGeneration(
 
         const data = await response.json()
 
-        if (!data.audio) {
-          throw new Error('Не удалось получить аудио данные')
+        if (!data.audioUrl) {
+          throw new Error('Не удалось получить URL аудио')
         }
-
-        // Конвертируем base64 в blob URL
-        const audioBlob = base64ToBlob(data.audio, 'audio/mpeg')
-        const audioUrl = URL.createObjectURL(audioBlob)
 
         // Сохранение в scripts_media (дата генерации устанавливается на сервере)
         await scriptMediaService.updateAudio(scriptId, {
-          audioUrl: audioUrl,
+          audioUrl: data.audioUrl,
           audioMode: 'generate',
           selectedVoice: voiceId,
-          audioFilename: `audio-${Date.now()}.mp3`,
+          audioFilename: data.filename,
           audioFilesize: data.size,
         })
 
-        setAudioUrl(audioUrl)
+        setAudioUrl(data.audioUrl)
         setSelectedVoice(voiceId)
         
         // Вызываем callback после успешной генерации
