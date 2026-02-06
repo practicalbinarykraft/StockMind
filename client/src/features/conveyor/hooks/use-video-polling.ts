@@ -52,8 +52,12 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
         'GET',
         `/api/heygen/status/${videoIdRef.current}`
       )
-      const data = await response.json()
+      const rawData = await response.json()
+      
+      // HeyGen может возвращать { success, data: {...} } или просто {...}
+      const data = rawData.data || rawData
 
+      console.log(`📊 [useVideoPolling] Полный ответ:`, rawData)
       console.log(`📊 [useVideoPolling] Статус:`, data.status)
 
       // Обновление прогресса
@@ -83,8 +87,9 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
 
       // Ошибка
       if (data.status === 'failed' || data.status === 'error') {
-        const errorMsg = data.error || data.error_message || 'Ошибка генерации'
+        const errorMsg = data.error_message || data.error || rawData.message || 'Ошибка генерации'
         console.error(`❌ [useVideoPolling] Ошибка:`, errorMsg)
+        console.error(`❌ [useVideoPolling] Детали:`, data)
         setError(errorMsg)
 
         await scriptMediaService.updateVideo(scriptId, {

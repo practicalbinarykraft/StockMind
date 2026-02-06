@@ -219,6 +219,13 @@ export class HeygenService {
           : path.join(process.cwd(), request.audio_url);
 
         console.log(`📁 Resolved audio path: ${audioPath}`);
+        console.log(`📁 File exists: ${fs.existsSync(audioPath)}`);
+        
+        if (fs.existsSync(audioPath)) {
+          const stats = fs.statSync(audioPath);
+          console.log(`📁 File size: ${stats.size} bytes`);
+          console.log(`📁 Is file: ${stats.isFile()}`);
+        }
 
         const audioAssetId = await this.uploadAudioToHeyGen(apiKey, audioPath);
 
@@ -264,6 +271,9 @@ export class HeygenService {
         },
         timeout: 30000, // 30 second timeout
       });
+
+      console.log("📨 HeyGen response status:", response.status);
+      console.log("📨 HeyGen response data:", JSON.stringify(response.data, null, 2));
 
       const videoId = response.data?.data?.video_id;
       if (!videoId) {

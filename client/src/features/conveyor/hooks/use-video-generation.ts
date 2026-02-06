@@ -147,8 +147,12 @@ export function useVideoGeneration(
             'GET',
             `/api/heygen/status/${generateData.videoId}`
           )
-          const statusData = await statusResponse.json()
+          const rawResponse = await statusResponse.json()
+          
+          // HeyGen может возвращать { success, data: {...} } или просто {...}
+          const statusData = rawResponse.data || rawResponse
 
+          console.log(`📊 Полный ответ от HeyGen:`, rawResponse)
           console.log(`📊 Статус от HeyGen:`, statusData.status)
 
           // Обновление прогресса
@@ -179,9 +183,10 @@ export function useVideoGeneration(
           }
 
           if (statusData.status === 'failed' || statusData.status === 'error') {
-            const error = statusData.error || statusData.error_message || 'Ошибка генерации на стороне HeyGen'
+            const error = statusData.error_message || statusData.error || rawResponse.message || 'Ошибка генерации на стороне HeyGen'
             
             console.error(`❌ Генерация не удалась:`, error)
+            console.error(`❌ Детали ошибки:`, statusData)
 
             await scriptMediaService.updateVideo(scriptId, {
               videoStatus: 'failed',
