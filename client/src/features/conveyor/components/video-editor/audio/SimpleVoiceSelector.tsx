@@ -38,8 +38,13 @@ export function SimpleVoiceSelector({ selectedVoice, onVoiceSelect }: SimpleVoic
         const response = await apiRequest('GET', '/api/elevenlabs/voices')
         const data = await response.json()
 
-        if (data.voices && Array.isArray(data.voices)) {
-          setVoices(data.voices)
+        // Поддержка обоих форматов: массив напрямую или объект с полем voices
+        const voicesArray = Array.isArray(data) ? data : (data.voices || [])
+        
+        if (Array.isArray(voicesArray) && voicesArray.length > 0) {
+          setVoices(voicesArray)
+        } else {
+          setError('Список голосов пуст')
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка загрузки голосов')
