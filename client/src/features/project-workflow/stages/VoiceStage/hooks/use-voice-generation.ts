@@ -33,46 +33,23 @@ export function useVoiceGeneration({
       return await res.json()
     },
     onSuccess: async (data) => {
-      setAudioData(data.audio)
+      // Новый API возвращает audioUrl напрямую, файл уже сохранен на сервере
+      if (!data.audioUrl) {
+        throw new Error('Не удалось получить URL аудио')
+      }
+
+      setAudioData(data.audioUrl)
       setIsPlaying(false)
+      onAudioGenerated(data.audioUrl)
 
+
+      // Auto-save to database
       try {
-        const base64Data = data.audio
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: 'audio/mpeg' })
-
-        const fileName = `voice-${selectedVoice}-${Date.now()}.mp3`
-        const file = new File([blob], fileName, { type: 'audio/mpeg' })
-
-        const formData = new FormData()
-        formData.append('audio', file)
-        formData.append('projectId', projectId)
-
-        const uploadRes = await fetch('/api/audio/upload', {
-          method: 'POST',
-          credentials: 'include', // Sends httpOnly cookie automatically
-          body: formData,
-        })
-
-        if (!uploadRes.ok) {
-          const errorText = await uploadRes.text()
-          throw new Error(`Failed to upload audio file: ${uploadRes.status} ${errorText}`)
-        }
-
-        const uploadData = await uploadRes.json()
-        onAudioGenerated(uploadData.audioUrl)
-
-        // Auto-save to database
         const stepDataToSave = {
           mode: "generate",
           finalScript,
           selectedVoice,
-          audioUrl: uploadData.audioUrl,
+          audioUrl: data.audioUrl,
         }
 
         await apiRequest("POST", `/api/projects/${projectId}/steps`, {
@@ -83,15 +60,15 @@ export function useVoiceGeneration({
         await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "steps", 4] })
 
         toast({
-          title: "Audio saved",
-          description: "Audio has been generated and saved automatically",
+          title: "Аудио сохранено",
+          description: "Аудио успешно сгенерировано и сохранено",
         })
       } catch (error) {
-        console.error('Error uploading audio:', error)
+        console.error('Error saving audio to database:', error)
         toast({
           variant: "destructive",
-          title: "Warning",
-          description: "Audio generated but failed to save file. You can still download it.",
+          title: "Предупреждение",
+          description: "Аудио сгенерировано, но не удалось сохранить в базе данных",
         })
       }
     },
@@ -138,31 +115,18 @@ export function useVoiceGeneration({
   }
 
   const handleDownload = (serverAudioUrl: string | null) => {
-    if (serverAudioUrl) {
-      const a = document.createElement('a')
-      a.href = serverAudioUrl
-      a.download = `voiceover-${Date.now()}.mp3`
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      return
-    }
+    // Используем serverAudioUrl или audioData (который теперь тоже URL)
+    const audioUrl = serverAudioUrl || audioData
+    
+    if (!audioUrl) return
 
-    if (!audioData) return
-
-    const blob = new Blob(
-      [Uint8Array.from(atob(audioData), c => c.charCodeAt(0))],
-      { type: 'audio/mpeg' }
-    )
-    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
+    a.href = audioUrl
     a.download = `voiceover-${Date.now()}.mp3`
+    a.target = '_blank'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
 
   return {

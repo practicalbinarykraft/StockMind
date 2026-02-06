@@ -65,12 +65,39 @@ export function useVideoGeneration(
       setErrorMessage(null)
 
       try {
-        // Шаг 1: Запуск генерации на HeyGen
+        // Шаг 1: Получаем текст скрипта из БД (нужен для HeyGen API)
+        const media = await scriptMediaService.getMedia(scriptId)
+        
+        // Получаем скрипт через API
+        let scriptText = ''
+        try {
+          const scriptResponse = await apiRequest('GET', `/api/scripts/${scriptId}`)
+          const scriptData = await scriptResponse.json()
+          const script = scriptData.data || scriptData
+          
+          // Извлекаем текст из сцен или fullText
+          if (script.fullText) {
+            scriptText = script.fullText
+          } else if (script.scenes && Array.isArray(script.scenes)) {
+            scriptText = script.scenes.map((s: any) => s.text).join('\n\n')
+          } else {
+            throw new Error('Текст скрипта не найден')
+          }
+        } catch (err) {
+          console.error('Ошибка получения скрипта:', err)
+          throw new Error('Не удалось загрузить текст скрипта')
+        }
+
+        if (!scriptText) {
+          throw new Error('Текст скрипта пустой')
+        }
+
+        // Шаг 2: Запуск генерации на HeyGen
         setVideoStatus('processing')
         const generateResponse = await apiRequest('POST', '/api/heygen/generate', {
           avatarId,
+          script: scriptText,
           audioUrl,
-          scriptId,
         })
 
         const generateData = await generateResponse.json()

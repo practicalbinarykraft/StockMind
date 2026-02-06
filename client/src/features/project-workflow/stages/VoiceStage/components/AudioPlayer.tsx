@@ -4,8 +4,8 @@ import { Button } from "@/shared/ui/button"
 import { Play, Pause, Download } from "lucide-react"
 
 interface AudioPlayerProps {
-  audioUrl: string | null
-  audioData: string | null
+  audioUrl: string | null // Server audio URL (приоритетный)
+  audioData: string | null // Может быть URL или base64 (для обратной совместимости)
   isPlaying: boolean
   voiceName?: string
   onPlayPause: () => void
@@ -14,6 +14,7 @@ interface AudioPlayerProps {
 }
 
 function getAudioSrc(audioUrl: string | null, audioData: string | null): string | undefined {
+  // Приоритет: audioUrl > audioData
   if (audioUrl) {
     if (audioUrl.startsWith('http') || audioUrl.startsWith('/')) {
       return audioUrl
@@ -21,6 +22,11 @@ function getAudioSrc(audioUrl: string | null, audioData: string | null): string 
     return `/${audioUrl}`
   }
   if (audioData) {
+    // Проверяем, является ли audioData URL или base64
+    if (audioData.startsWith('http') || audioData.startsWith('/') || audioData.startsWith('blob:')) {
+      return audioData
+    }
+    // Иначе считаем это base64
     return `data:audio/mpeg;base64,${audioData}`
   }
   return undefined

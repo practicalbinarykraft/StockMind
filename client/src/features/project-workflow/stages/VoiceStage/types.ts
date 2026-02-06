@@ -46,7 +46,7 @@ export interface UseVoiceGenerationProps {
 }
 
 export interface UseVoiceGenerationReturn {
-  audioData: string | null
+  audioData: string | null // Audio URL (либо с сервера, либо blob URL для preview)
   isPlaying: boolean
   previewingVoice: string | null
   generateMutation: any

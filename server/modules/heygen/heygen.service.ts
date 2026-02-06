@@ -254,6 +254,7 @@ export class HeygenService {
       };
 
       console.log("🎬 Generating video with HeyGen...");
+      console.log("📦 Payload:", JSON.stringify(payload, null, 2));
 
       const response = await axios.post(`${HEYGEN_API_BASE}/v2/video/generate`, payload, {
         headers: {
@@ -261,18 +262,41 @@ export class HeygenService {
           "Content-Type": "application/json",
           "X-Api-Key": apiKey,
         },
+        timeout: 30000, // 30 second timeout
       });
 
       const videoId = response.data?.data?.video_id;
       if (!videoId) {
+        console.error("❌ No video_id in response:", response.data);
         throw new Error("No video_id returned from HeyGen");
       }
 
       console.log(`✅ Video generation started: ${videoId}`);
       return videoId;
     } catch (error: any) {
-      console.error("HeyGen video generation error:", error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || "Failed to generate video with HeyGen");
+      // Детальное логирование ошибки
+      if (axios.isAxiosError(error)) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData?.error || error.message;
+
+        console.error("❌ HeyGen API error:", {
+          status: statusCode,
+          data: errorData,
+          message: errorMessage,
+        });
+
+        // Пробрасываем ошибку с сохранением контекста
+        const detailedError: any = new Error(
+          errorMessage || "Failed to generate video with HeyGen"
+        );
+        detailedError.statusCode = statusCode;
+        detailedError.apiMessage = errorMessage;
+        throw detailedError;
+      }
+
+      console.error("❌ Unexpected error during video generation:", error);
+      throw error;
     }
   }
 

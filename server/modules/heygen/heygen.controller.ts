@@ -44,7 +44,19 @@ export const heygenController = {
       logger.error("Error fetching HeyGen avatars", {
         userId,
         errorType: error.constructor?.name,
+        query: req.query,
       });
+
+      // Обработка ошибок валидации Zod
+      if (error.name === "ZodError") {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors.map((e: any) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        });
+      }
 
       if (error instanceof HeygenApiKeyNotFoundError) {
         return res.status(400).json({ message: error.message });
@@ -76,7 +88,19 @@ export const heygenController = {
       logger.error("Error generating HeyGen video", {
         userId,
         errorType: error.constructor?.name,
+        requestBody: req.body,
       });
+
+      // Обработка ошибок валидации Zod
+      if (error.name === "ZodError") {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors.map((e: any) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        });
+      }
 
       if (error instanceof HeygenApiKeyNotFoundError) {
         return res.status(400).json({ message: error.message });
@@ -92,7 +116,7 @@ export const heygenController = {
 
       res.status(500).json({ message: "Failed to generate HeyGen video" });
     }
-  },// to do zodError
+  },
 
   /**
    * GET /api/heygen/status/:videoId
