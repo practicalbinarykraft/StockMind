@@ -11,7 +11,7 @@ export const UpdateScriptMediaDto = z.object({
   selectedVoice: z.string().optional(),
   audioFilename: z.string().optional(),
   audioFilesize: z.number().optional(),
-  audioGeneratedAt: z.string().optional(),
+  // audioGeneratedAt создается на сервере автоматически
   
   // Видео
   videoUrl: z.string().optional(),
@@ -20,8 +20,8 @@ export const UpdateScriptMediaDto = z.object({
   videoDuration: z.number().optional(),
   videoStatus: z.enum(['generating', 'completed', 'failed']).optional(),
   videoThumbnailUrl: z.string().optional(),
-  videoGeneratedAt: z.string().optional(),
   videoErrorMessage: z.string().optional(),
+  // videoGeneratedAt создается на сервере автоматически
 });
 
 export type UpdateScriptMediaDto = z.infer<typeof UpdateScriptMediaDto>;

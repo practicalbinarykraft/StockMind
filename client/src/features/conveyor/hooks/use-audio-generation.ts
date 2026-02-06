@@ -85,14 +85,13 @@ export function useAudioGeneration(scriptId: string): UseAudioGenerationReturn {
         const audioBlob = base64ToBlob(data.audio, 'audio/mpeg')
         const audioUrl = URL.createObjectURL(audioBlob)
 
-        // Сохранение в scripts_media
+        // Сохранение в scripts_media (дата генерации устанавливается на сервере)
         await scriptMediaService.updateAudio(scriptId, {
           audioUrl: audioUrl,
           audioMode: 'generate',
           selectedVoice: voiceId,
           audioFilename: `audio-${Date.now()}.mp3`,
           audioFilesize: data.size,
-          audioGeneratedAt: new Date().toISOString(),
         })
 
         setAudioUrl(audioUrl)

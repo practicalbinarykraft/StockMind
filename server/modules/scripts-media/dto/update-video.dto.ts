@@ -11,8 +11,8 @@ export const UpdateVideoDto = z.object({
   videoDuration: z.number().optional(),
   videoStatus: z.enum(['generating', 'completed', 'failed']).optional(),
   videoThumbnailUrl: z.string().optional(),
-  videoGeneratedAt: z.string().transform((val) => new Date(val)).optional(),
   videoErrorMessage: z.string().optional(),
+  // videoGeneratedAt создается на сервере автоматически
 });
 
 export type UpdateVideoDto = z.infer<typeof UpdateVideoDto>;

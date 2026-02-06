@@ -48,7 +48,13 @@ export const scriptsMediaService = {
       throw new ScriptMediaValidationError("scriptId is required");
     }
 
-    const media = await repo.upsert(scriptId, data);
+    // Автоматически устанавливаем дату генерации, если передан audioUrl
+    const updateData = {
+      ...data,
+      ...(data.audioUrl && { audioGeneratedAt: new Date() }),
+    };
+
+    const media = await repo.upsert(scriptId, updateData);
 
     logger.info("Audio updated", {
       scriptId,
@@ -67,7 +73,13 @@ export const scriptsMediaService = {
       throw new ScriptMediaValidationError("scriptId is required");
     }
 
-    const media = await repo.upsert(scriptId, data);
+    // Автоматически устанавливаем дату генерации, если передан videoUrl
+    const updateData = {
+      ...data,
+      ...(data.videoUrl && { videoGeneratedAt: new Date() }),
+    };
+
+    const media = await repo.upsert(scriptId, updateData);
 
     logger.info("Video updated", {
       scriptId,
