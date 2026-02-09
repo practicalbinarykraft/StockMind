@@ -48,7 +48,7 @@ export function useAvatarSelection(
 
     try {
       // Запрашиваем все аватары с большим лимитом
-      const response = await apiRequest('GET', '/api/heygen/avatars?page=0&limit=1000')
+      const response = await apiRequest('GET', '/api/heygen/avatars?page=0&limit=1400')
       const data = await response.json()
 
       if (!data.avatars || !Array.isArray(data.avatars)) {
