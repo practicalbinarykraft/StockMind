@@ -30,7 +30,7 @@ interface AvatarCache {
   timestamp: number;
 }
 const avatarCache = new Map<string, AvatarCache>();
-const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 hours
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes (reduced for debugging)
 
 export interface HeyGenAvatar {
   avatar_id: string;
@@ -87,6 +87,15 @@ export class HeygenService {
   }
 
   /**
+   * Очистить кэш аватаров (для отладки)
+   */
+  clearAvatarCache(): void {
+    const cacheSize = avatarCache.size;
+    avatarCache.clear();
+    console.log(`🗑️ Cleared avatar cache (${cacheSize} entries)`);
+  }
+
+  /**
    * Fetch avatars from HeyGen API
    */
   private async fetchHeyGenAvatarsFromAPI(apiKey: string): Promise<HeyGenAvatar[]> {
@@ -116,6 +125,18 @@ export class HeygenService {
 
       if (avatars.length > 0) {
         console.log("🔍 Sample avatar structure from HeyGen:", JSON.stringify(avatars[0], null, 2));
+        
+        // Логируем несколько аватаров для анализа
+        console.log("🔍 Analyzing avatar fields for is_public detection:");
+        avatars.slice(0, 5).forEach((av: any, idx: number) => {
+          console.log(`  Avatar ${idx + 1}:`, {
+            name: av.avatar_name,
+            is_public: av.is_public,
+            public: av.public,
+            avatar_style: av.avatar_style,
+            avatar_type: av.avatar_type,
+          });
+        });
       }
 
       // Remove duplicates by avatar_id and add is_public flag
@@ -123,11 +144,30 @@ export class HeygenService {
         new Map(avatars.map((avatar: HeyGenAvatar) => [avatar.avatar_id, avatar])).values()
       ).map((avatar) => {
         const avatarAny = avatar as any;
-        const isPublic = avatarAny.is_public ?? avatarAny.public ?? avatarAny.avatar_style === "public";
+        
+        // Определяем is_public:
+        // - Проверяем различные варианты полей от HeyGen API
+        // - Если поле отсутствует или undefined, считаем аватар публичным (безопасное значение по умолчанию)
+        let isPublic: boolean;
+        
+        if (avatarAny.is_public !== undefined) {
+          isPublic = !!avatarAny.is_public;
+        } else if (avatarAny.public !== undefined) {
+          isPublic = !!avatarAny.public;
+        } else if (avatarAny.avatar_style !== undefined) {
+          // Если avatar_style === "public", то это публичный аватар
+          isPublic = avatarAny.avatar_style === "public";
+        } else if (avatarAny.avatar_type !== undefined) {
+          // Некоторые версии API используют avatar_type
+          isPublic = avatarAny.avatar_type === "public" || avatarAny.avatar_type === "stock";
+        } else {
+          // По умолчанию считаем публичным (из библиотеки HeyGen)
+          isPublic = true;
+        }
 
         return {
           ...(avatar as HeyGenAvatar),
-          is_public: !!isPublic,
+          is_public: isPublic,
         };
       });
 
@@ -139,6 +179,14 @@ export class HeygenService {
       const allAvatars = [...myAvatars, ...publicAvatars];
 
       console.log(`📊 Returning ${allAvatars.length} avatars (${myAvatars.length} my, ${publicAvatars.length} public)`);
+      
+      // Логируем примеры для отладки
+      if (myAvatars.length > 0) {
+        console.log("📝 Sample 'my' avatars:", myAvatars.slice(0, 3).map(a => ({ name: a.avatar_name, is_public: a.is_public })));
+      }
+      if (publicAvatars.length > 0) {
+        console.log("📝 Sample 'public' avatars:", publicAvatars.slice(0, 3).map(a => ({ name: a.avatar_name, is_public: a.is_public })));
+      };
 
       // Cache ALL avatars
       avatarCache.set(cacheKey, {

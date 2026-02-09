@@ -6,6 +6,7 @@ import type { Express } from "express";
 const router = Router();
 
 router.get("/heygen/avatars", requireAuth, heygenController.getAvatars);
+router.post("/heygen/clear-cache", requireAuth, heygenController.clearCache);
 router.post("/heygen/generate", requireAuth, heygenController.generateVideo);
 router.get("/heygen/status/:videoId", requireAuth, heygenController.getVideoStatus);
 router.get("/heygen/image-proxy", requireAuth, heygenController.proxyImage);

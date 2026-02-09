@@ -71,6 +71,25 @@ export const heygenController = {
   },
 
   /**
+   * POST /api/heygen/clear-cache
+   * Очистить кэш аватаров (для отладки)
+   */
+  async clearCache(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      heygenService.clearAvatarCache();
+      res.json({ message: "Avatar cache cleared successfully" });
+    } catch (error: any) {
+      logger.error("Error clearing HeyGen cache", {
+        errorType: error.constructor?.name,
+      });
+      res.status(500).json({ message: "Failed to clear cache" });
+    }
+  },
+
+  /**
    * POST /api/heygen/generate
    * Сгенерировать видео
    */
