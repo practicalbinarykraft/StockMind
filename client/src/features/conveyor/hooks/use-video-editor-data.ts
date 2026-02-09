@@ -18,6 +18,13 @@ export function useVideoEditorData(scriptId: string) {
     queryKey: ['script-media', scriptId],
     queryFn: () => scriptMediaService.getMedia(scriptId),
     enabled: !!scriptId,
+    // Автообновление каждые 5 секунд при генерации видео
+    refetchInterval: (query) => {
+      if (query.state.data?.videoStatus === 'generating') {
+        return 5000 // 5 секунд при генерации
+      }
+      return false // Отключить polling когда не генерируется
+    },
   })
   
   // Загрузка статуса медиа

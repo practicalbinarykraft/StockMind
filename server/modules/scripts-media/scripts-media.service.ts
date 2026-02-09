@@ -106,7 +106,7 @@ export const scriptsMediaService = {
 
     return {
       hasAudio: !!media.audioUrl,
-      hasVideo: !!media.videoUrl,
+      hasVideo: !!media.videoUrl && media.videoStatus === 'completed',
       videoStatus: media.videoStatus || null,
       audioMode: media.audioMode || null,
       videoGeneratedAt: media.videoGeneratedAt || null,

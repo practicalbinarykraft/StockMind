@@ -12,8 +12,9 @@ interface VideoEditorPreviewProps {
 }
 
 export function VideoEditorPreview({ media, status }: VideoEditorPreviewProps) {
-  const hasVideo = status?.hasVideo && media?.videoUrl
-  const isGenerating = status?.videoStatus === 'generating'
+  // Проверяем videoUrl напрямую из media, так как status может быть не синхронизирован
+  const hasVideo = media?.videoUrl && media?.videoStatus === 'completed'
+  const isGenerating = media?.videoStatus === 'generating'
 
   return (
     <Card className="h-full">
