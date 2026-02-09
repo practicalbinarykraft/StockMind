@@ -60,12 +60,6 @@ export function AvatarCard({
               <Check className="h-4 w-4 text-primary-foreground" />
             </div>
           )}
-          {/* Метка "Мой" для приватных аватаров */}
-          {!avatar.is_public && (
-            <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded">
-              Мой
-            </div>
-          )}
         </div>
 
         {/* Название */}
