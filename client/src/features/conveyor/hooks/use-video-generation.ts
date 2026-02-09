@@ -16,7 +16,11 @@ interface UseVideoGenerationReturn {
   videoUrl: string | null
   videoId: string | null
   errorMessage: string | null
-  generate: (avatarId: string, audioUrl: string) => Promise<void>
+  generate: (
+    avatarId: string,
+    audioUrl: string,
+    dimension?: { width: number; height: number }
+  ) => Promise<void>
 }
 
 export function useVideoGeneration(
@@ -122,7 +126,11 @@ export function useVideoGeneration(
 
   // Генерация видео
   const generate = useCallback(
-    async (avatarId: string, audioUrl: string) => {
+    async (
+      avatarId: string,
+      audioUrl: string,
+      dimension?: { width: number; height: number }
+    ) => {
       setIsGenerating(true)
       setVideoStatus('pending')
       setVideoProgress(0)
@@ -162,6 +170,7 @@ export function useVideoGeneration(
           avatarId,
           script: scriptText,
           audioUrl,
+          dimension,
         })
 
         const generateData = await generateResponse.json()

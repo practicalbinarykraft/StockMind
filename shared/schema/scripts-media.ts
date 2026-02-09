@@ -7,6 +7,7 @@ import {
   text,
   integer,
   real,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -37,6 +38,8 @@ export const scriptsMedia = pgTable("scripts_media", {
   videoThumbnailUrl: varchar("video_thumbnail_url"),
   videoGeneratedAt: timestamp("video_generated_at"),
   videoErrorMessage: text("video_error_message"),
+  videoDimension: jsonb("video_dimension").$type<{ width: number; height: number }>(),
+  videoAspectRatio: varchar("video_aspect_ratio"), // '16:9', '9:16', '1:1'
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

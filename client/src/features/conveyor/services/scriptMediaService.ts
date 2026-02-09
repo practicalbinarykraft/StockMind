@@ -26,6 +26,11 @@ export interface ScriptMedia {
   videoThumbnailUrl?: string
   videoGeneratedAt?: string
   videoErrorMessage?: string
+  videoDimension?: {
+    width: number
+    height: number
+  }
+  videoAspectRatio?: '16:9' | '9:16' | '1:1'
   
   createdAt: string
   updatedAt: string
@@ -98,6 +103,11 @@ export async function updateVideo(
     videoThumbnailUrl?: string
     videoGeneratedAt?: string
     videoErrorMessage?: string
+    videoDimension?: {
+      width: number
+      height: number
+    }
+    videoAspectRatio?: '16:9' | '9:16' | '1:1'
   }
 ): Promise<ScriptMedia> {
   const response = await apiRequest('PATCH', `/api/scripts/${scriptId}/media/video`, data)

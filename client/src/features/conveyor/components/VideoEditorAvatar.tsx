@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import { AvatarPageHeader } from './video-editor/avatar/AvatarPageHeader'
 import { AvatarSearch } from './video-editor/avatar/AvatarSearch'
 import { AvatarGrid } from './video-editor/avatar/AvatarGrid'
+import { VideoFormatSelector } from './video-editor/avatar/VideoFormatSelector'
 import { VideoGenerationSection } from './video-editor/avatar/VideoGenerationSection'
 import { AvatarPageFooter } from './video-editor/avatar/AvatarPageFooter'
 import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-data'
@@ -44,6 +45,8 @@ export function VideoEditorAvatar() {
 
   const [hasAudio, setHasAudio] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('9:16')
+  const [videoDimension, setVideoDimension] = useState({ width: 1080, height: 1920 })
 
   // Проверка наличия аудио (выполняется только один раз при монтировании)
   useEffect(() => {
@@ -55,6 +58,14 @@ export function VideoEditorAvatar() {
         if (isMounted) {
           setHasAudio(!!media?.audioUrl)
           setAudioUrl(media?.audioUrl || null)
+          
+          // Загрузка сохранённого формата видео
+          if (media?.videoAspectRatio) {
+            setSelectedFormat(media.videoAspectRatio)
+          }
+          if (media?.videoDimension) {
+            setVideoDimension(media.videoDimension)
+          }
         }
       } catch (err) {
         console.error('Failed to check audio:', err)
@@ -82,11 +93,30 @@ export function VideoEditorAvatar() {
     }
   }
 
+  // Обработчик изменения формата видео
+  const handleFormatChange = async (
+    format: '16:9' | '9:16' | '1:1',
+    dimension: { width: number; height: number }
+  ) => {
+    setSelectedFormat(format)
+    setVideoDimension(dimension)
+
+    // Сохранение в БД
+    try {
+      await scriptMediaService.updateVideo(scriptId, {
+        videoAspectRatio: format,
+        videoDimension: dimension,
+      })
+    } catch (err) {
+      console.error('Failed to save format:', err)
+    }
+  }
+
   // Обработчик генерации
   const handleGenerate = async () => {
     if (!selectedAvatarId || !audioUrl) return
 
-    await generate(selectedAvatarId, audioUrl)
+    await generate(selectedAvatarId, audioUrl, videoDimension)
   }
 
   if (isScriptLoading) {
@@ -123,6 +153,13 @@ export function VideoEditorAvatar() {
         selectedAvatarId={selectedAvatarId}
         onAvatarSelect={handleAvatarSelect}
         isLoading={isAvatarsLoading}
+      />
+
+      {/* Выбор формата видео */}
+      <VideoFormatSelector
+        selectedFormat={selectedFormat}
+        onFormatChange={handleFormatChange}
+        disabled={isGenerating}
       />
 
       {/* Генерация видео */}
