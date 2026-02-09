@@ -55,7 +55,33 @@ export function useAvatarSelection(
         throw new Error('Некорректный формат данных')
       }
 
-      setAllAvatars(data.avatars)
+      // ВРЕМЕННО: Добавляем моковые "мои аватары" для тестирования UI
+      const mockMyAvatars: Avatar[] = [
+        {
+          avatar_id: 'mock_custom_avatar_1',
+          avatar_name: 'Мой Тестовый Аватар 1',
+          preview_image_url: 'https://via.placeholder.com/400x400/4F46E5/FFFFFF?text=My+Avatar+1',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_2',
+          avatar_name: 'Мой Тестовый Аватар 2',
+          preview_image_url: 'https://via.placeholder.com/400x400/7C3AED/FFFFFF?text=My+Avatar+2',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_3',
+          avatar_name: 'Мой Тестовый Аватар 3',
+          preview_image_url: 'https://via.placeholder.com/400x400/2563EB/FFFFFF?text=My+Avatar+3',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+      ]
+
+      // Добавляем моковые аватары в начало списка
+      setAllAvatars([...mockMyAvatars, ...data.avatars])
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Ошибка загрузки аватаров'
