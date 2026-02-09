@@ -11,6 +11,7 @@ import { apiRequest } from '@/shared/api/http'
 interface Voice {
   voice_id: string
   name: string
+  category?: string
   labels?: {
     accent?: string
     age?: string
@@ -42,7 +43,20 @@ export function SimpleVoiceSelector({ selectedVoice, onVoiceSelect }: SimpleVoic
         const voicesArray = Array.isArray(data) ? data : (data.voices || [])
         
         if (Array.isArray(voicesArray) && voicesArray.length > 0) {
-          setVoices(voicesArray)
+          // Сортировка: сначала свои голоса (cloned/generated), потом предустановленные (premade)
+          const sortedVoices = [...voicesArray].sort((a, b) => {
+            const isACustom = a.category === 'cloned' || a.category === 'generated'
+            const isBCustom = b.category === 'cloned' || b.category === 'generated'
+            
+            // Свои голоса идут первыми
+            if (isACustom && !isBCustom) return -1
+            if (!isACustom && isBCustom) return 1
+            
+            // Внутри группы сортируем по имени
+            return a.name.localeCompare(b.name)
+          })
+          
+          setVoices(sortedVoices)
         } else {
           setError('Список голосов пуст')
         }
@@ -89,19 +103,39 @@ export function SimpleVoiceSelector({ selectedVoice, onVoiceSelect }: SimpleVoic
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {voices.map((voice) => (
-          <SelectItem key={voice.voice_id} value={voice.voice_id}>
-            <div className="flex items-center gap-2">
-              <Volume2 className="h-4 w-4" />
-              <div>
-                <div className="font-medium">{voice.name}</div>
-                {voice.labels?.accent && (
-                  <div className="text-xs text-muted-foreground">{voice.labels.accent}</div>
-                )}
-              </div>
+        {voices.map((voice, index) => {
+          // Определяем, является ли голос кастомным
+          const isCustom = voice.category === 'cloned' || voice.category === 'generated'
+          const prevVoice = index > 0 ? voices[index - 1] : null
+          const prevIsCustom = prevVoice ? (prevVoice.category === 'cloned' || prevVoice.category === 'generated') : false
+          
+          // Показываем разделитель между своими и предустановленными голосами
+          const showDivider = index > 0 && prevIsCustom && !isCustom
+          
+          return (
+            <div key={voice.voice_id}>
+              {showDivider && (
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground border-t mt-1 pt-2">
+                  Предустановленные голоса
+                </div>
+              )}
+              <SelectItem value={voice.voice_id}>
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">
+                      {voice.name}
+                      {isCustom && <span className="ml-1.5 text-xs text-primary">●</span>}
+                    </div>
+                    {voice.labels?.accent && (
+                      <div className="text-xs text-muted-foreground">{voice.labels.accent}</div>
+                    )}
+                  </div>
+                </div>
+              </SelectItem>
             </div>
-          </SelectItem>
-        ))}
+          )
+        })}
       </SelectContent>
     </Select>
   )

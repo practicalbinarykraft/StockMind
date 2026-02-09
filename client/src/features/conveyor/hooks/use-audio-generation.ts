@@ -10,6 +10,7 @@ import { apiRequest } from '@/shared/api/http'
 interface Voice {
   voice_id: string
   name: string
+  category?: string
 }
 
 interface UseAudioGenerationReturn {
