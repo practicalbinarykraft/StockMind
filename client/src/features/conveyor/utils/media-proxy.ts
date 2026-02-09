@@ -7,7 +7,7 @@
  * @param url - Исходный URL изображения
  * @returns Прокси URL или исходный URL, если он не с HeyGen CDN
  */
-export function getProxiedImageUrl(url: string | undefined): string | undefined {
+export function getProxiedImageUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined
 
   // Проксируем только URL с HeyGen CDN
@@ -24,7 +24,7 @@ export function getProxiedImageUrl(url: string | undefined): string | undefined 
  * @param download - Флаг для скачивания
  * @returns Прокси URL или исходный URL, если он не с HeyGen CDN
  */
-export function getProxiedVideoUrl(url: string | undefined, download = false): string | undefined {
+export function getProxiedVideoUrl(url: string | undefined | null, download = false): string | undefined {
   if (!url) return undefined
 
   // Проксируем только URL с HeyGen CDN

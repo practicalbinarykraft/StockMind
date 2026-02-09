@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { VideoProgressBar } from './VideoProgressBar'
 import { Loader2, Video } from 'lucide-react'
+import { getProxiedVideoUrl } from '../../../utils/media-proxy'
 
 interface VideoGenerationSectionProps {
   selectedAvatarId: string | null
@@ -30,6 +31,9 @@ export function VideoGenerationSection({
   onGenerate,
 }: VideoGenerationSectionProps) {
   const canGenerate = selectedAvatarId && hasAudio && !isGenerating
+  
+  // Проксируем URL видео для обхода CORS и CSP
+  const proxiedVideoUrl = getProxiedVideoUrl(videoUrl)
 
   return (
     <Card>
@@ -98,16 +102,15 @@ export function VideoGenerationSection({
         )}
 
         {/* Превью видео */}
-        {videoUrl && videoStatus === 'completed' && (
+        {proxiedVideoUrl && videoStatus === 'completed' && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-green-600">
               Видео готово!
             </p>
             <video
-              src={videoUrl}
+              src={proxiedVideoUrl}
               controls
               className="w-full rounded-md"
-              poster={videoUrl}
             >
               Ваш браузер не поддерживает видео
             </video>
