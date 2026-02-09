@@ -60,70 +60,94 @@ export function AvatarGrid({
     )
   }
 
-  // Разделяем аватары на группы для отображения
-  const myAvatars = avatars.filter((a) => !a.is_public)
-  const publicAvatars = avatars.filter((a) => a.is_public)
+  // Разделяем ВСЕ аватары на группы для подсчета
+  const allMyAvatars = avatars.filter((a) => !a.is_public)
+  const allPublicAvatars = avatars.filter((a) => a.is_public)
+
+  // Применяем пагинацию ко ВСЕМ аватарам
+  const AVATARS_PER_PAGE = 12
+  const startIndex = (currentPage - 1) * AVATARS_PER_PAGE
+  const endIndex = startIndex + AVATARS_PER_PAGE
+  const paginatedAvatars = avatars.slice(startIndex, endIndex)
+
+  // Разделяем ОТОБРАЖАЕМЫЕ аватары на группы
+  const myAvatarsOnPage = paginatedAvatars.filter((a) => !a.is_public)
+  const publicAvatarsOnPage = paginatedAvatars.filter((a) => a.is_public)
 
   return (
     <div className="space-y-6">
       {/* Мои аватары */}
-      {myAvatars.length > 0 && (
+      {allMyAvatars.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <div className="w-1 h-4 bg-blue-600 rounded" />
             Мои аватары
             <span className="text-xs font-normal text-muted-foreground">
-              ({myAvatars.length})
+              ({allMyAvatars.length})
             </span>
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {myAvatars.map((avatar) => (
-              <AvatarCard
-                key={avatar.avatar_id}
-                avatar={avatar}
-                isSelected={avatar.avatar_id === selectedAvatarId}
-                onSelect={() => onAvatarSelect(avatar.avatar_id)}
-                onPreview={
-                  onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
-                }
-              />
-            ))}
-          </div>
+          {myAvatarsOnPage.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {myAvatarsOnPage.map((avatar) => (
+                <AvatarCard
+                  key={avatar.avatar_id}
+                  avatar={avatar}
+                  isSelected={avatar.avatar_id === selectedAvatarId}
+                  onSelect={() => onAvatarSelect(avatar.avatar_id)}
+                  onPreview={
+                    onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">
+              Мои аватары на других страницах
+            </p>
+          )}
         </div>
       )}
 
       {/* Публичные аватары */}
-      {publicAvatars.length > 0 && (
+      {allPublicAvatars.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <div className="w-1 h-4 bg-muted rounded" />
             Публичные аватары
             <span className="text-xs font-normal text-muted-foreground">
-              ({publicAvatars.length})
+              ({allPublicAvatars.length})
             </span>
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {publicAvatars.map((avatar) => (
-              <AvatarCard
-                key={avatar.avatar_id}
-                avatar={avatar}
-                isSelected={avatar.avatar_id === selectedAvatarId}
-                onSelect={() => onAvatarSelect(avatar.avatar_id)}
-                onPreview={
-                  onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
-                }
-              />
-            ))}
-          </div>
+          {publicAvatarsOnPage.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {publicAvatarsOnPage.map((avatar) => (
+                <AvatarCard
+                  key={avatar.avatar_id}
+                  avatar={avatar}
+                  isSelected={avatar.avatar_id === selectedAvatarId}
+                  onSelect={() => onAvatarSelect(avatar.avatar_id)}
+                  onPreview={
+                    onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">
+              Публичные аватары на других страницах
+            </p>
+          )}
         </div>
       )}
 
       {/* Пагинация */}
-      <AvatarPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-      />
+      {totalPages > 1 && (
+        <AvatarPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
+      )}
     </div>
   )
 }

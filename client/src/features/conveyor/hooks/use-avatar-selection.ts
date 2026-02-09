@@ -15,7 +15,7 @@ interface Avatar {
 }
 
 interface UseAvatarSelectionReturn {
-  avatars: Avatar[]
+  avatars: Avatar[] // Все отфильтрованные аватары (без пагинации)
   selectedAvatarId: string | null
   isLoading: boolean
   error: string | null
@@ -89,7 +89,7 @@ export function useAvatarSelection(
     loadSavedSelection()
   }, [loadAvatars, loadSavedSelection])
 
-  // Фильтрация, сортировка и пагинация
+  // Фильтрация и сортировка (без пагинации)
   useEffect(() => {
     let filtered = allAvatars
 
@@ -114,22 +114,13 @@ export function useAvatarSelection(
       return a.avatar_name.localeCompare(b.avatar_name)
     })
 
-    // Пагинация
-    const startIndex = (currentPage - 1) * AVATARS_PER_PAGE
-    const endIndex = startIndex + AVATARS_PER_PAGE
-    const paginated = sorted.slice(startIndex, endIndex)
+    // Отдаем ВСЕ отфильтрованные и отсортированные аватары
+    // Пагинация будет в AvatarGrid
+    setAvatars(sorted)
+  }, [allAvatars, searchQuery])
 
-    setAvatars(paginated)
-  }, [allAvatars, searchQuery, currentPage])
-
-  // Вычисление общего количества страниц
-  const totalPages = Math.ceil(
-    (searchQuery.trim()
-      ? allAvatars.filter((a) =>
-          a.avatar_name.toLowerCase().includes(searchQuery.toLowerCase())
-        ).length
-      : allAvatars.length) / AVATARS_PER_PAGE
-  )
+  // Вычисление общего количества страниц на основе отфильтрованных аватаров
+  const totalPages = Math.ceil(avatars.length / AVATARS_PER_PAGE)
 
   // Сброс страницы при изменении поиска
   useEffect(() => {
