@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Check, Play } from 'lucide-react'
 import { cn } from '@/shared/utils'
+import { getProxiedImageUrl } from '@/features/conveyor/utils/media-proxy'
 
 interface Avatar {
   avatar_id: string
@@ -28,6 +29,9 @@ export function AvatarCard({
   onSelect,
   onPreview,
 }: AvatarCardProps) {
+  // Проксируем URL изображения для обхода CORS
+  const proxiedImageUrl = getProxiedImageUrl(avatar.preview_image_url)
+  
   return (
     <Card
       className={cn(
@@ -39,9 +43,9 @@ export function AvatarCard({
       <CardContent className="p-4 space-y-3">
         {/* Изображение аватара */}
         <div className="relative aspect-square bg-muted rounded-md overflow-hidden">
-          {avatar.preview_image_url ? (
+          {proxiedImageUrl ? (
             <img
-              src={avatar.preview_image_url}
+              src={proxiedImageUrl}
               alt={avatar.avatar_name}
               className="w-full h-full object-cover"
             />

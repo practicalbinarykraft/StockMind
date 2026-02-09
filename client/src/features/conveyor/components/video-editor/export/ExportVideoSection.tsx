@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { MediaInfoCard } from './MediaInfoCard'
 import { DownloadButton } from './DownloadButton'
 import type { ScriptMedia } from '@/features/conveyor/services/scriptMediaService'
+import { getProxiedImageUrl, getProxiedVideoUrl } from '@/features/conveyor/utils/media-proxy'
 
 interface ExportVideoSectionProps {
   media: ScriptMedia | null
@@ -24,6 +25,10 @@ export function ExportVideoSection({
   const hasVideo = !!media?.videoUrl && media.videoStatus === 'completed'
   const isGenerating = media?.videoStatus === 'generating'
   const hasFailed = media?.videoStatus === 'failed'
+  
+  // Проксируем URL медиа для обхода CORS
+  const proxiedVideoUrl = getProxiedVideoUrl(media?.videoUrl)
+  const proxiedThumbnailUrl = getProxiedImageUrl(media?.videoThumbnailUrl)
 
   // Видео генерируется
   if (isGenerating) {
@@ -107,13 +112,13 @@ export function ExportVideoSection({
         />
 
         {/* Видео плеер */}
-        {media.videoUrl && (
+        {proxiedVideoUrl && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Просмотр:</label>
             <video
               controls
-              src={media.videoUrl}
-              poster={media.videoThumbnailUrl}
+              src={proxiedVideoUrl}
+              poster={proxiedThumbnailUrl}
               className="w-full rounded-lg"
             />
           </div>

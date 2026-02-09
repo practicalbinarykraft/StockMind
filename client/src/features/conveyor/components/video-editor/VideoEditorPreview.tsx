@@ -5,6 +5,7 @@
 import { Card, CardContent } from '@/shared/ui/card'
 import { Video } from 'lucide-react'
 import type { ScriptMedia, ScriptMediaStatus } from '../../services/scriptMediaService'
+import { getProxiedImageUrl, getProxiedVideoUrl } from '@/features/conveyor/utils/media-proxy'
 
 interface VideoEditorPreviewProps {
   media: ScriptMedia | null | undefined
@@ -15,6 +16,10 @@ export function VideoEditorPreview({ media, status }: VideoEditorPreviewProps) {
   // Проверяем videoUrl напрямую из media, так как status может быть не синхронизирован
   const hasVideo = media?.videoUrl && media?.videoStatus === 'completed'
   const isGenerating = media?.videoStatus === 'generating'
+  
+  // Проксируем URL медиа для обхода CORS
+  const proxiedVideoUrl = getProxiedVideoUrl(media?.videoUrl)
+  const proxiedThumbnailUrl = getProxiedImageUrl(media?.videoThumbnailUrl)
 
   return (
     <Card className="h-full">
@@ -22,10 +27,10 @@ export function VideoEditorPreview({ media, status }: VideoEditorPreviewProps) {
         <div className="h-full bg-muted rounded-lg flex items-center justify-center overflow-hidden">
           {hasVideo ? (
             <video
-              src={media.videoUrl}
+              src={proxiedVideoUrl}
               controls
               className="w-full h-full object-cover"
-              poster={media.videoThumbnailUrl}
+              poster={proxiedThumbnailUrl}
             />
           ) : isGenerating ? (
             <div className="text-center">
