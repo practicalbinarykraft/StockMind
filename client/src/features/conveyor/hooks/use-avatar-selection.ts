@@ -11,6 +11,7 @@ interface Avatar {
   avatar_name: string
   preview_image_url?: string
   preview_video_url?: string
+  is_public?: boolean
 }
 
 interface UseAvatarSelectionReturn {
@@ -46,7 +47,8 @@ export function useAvatarSelection(
     setError(null)
 
     try {
-      const response = await apiRequest('GET', '/api/heygen/avatars')
+      // Запрашиваем все аватары с большим лимитом
+      const response = await apiRequest('GET', '/api/heygen/avatars?page=0&limit=1000')
       const data = await response.json()
 
       if (!data.avatars || !Array.isArray(data.avatars)) {
@@ -87,7 +89,7 @@ export function useAvatarSelection(
     loadSavedSelection()
   }, [loadAvatars, loadSavedSelection])
 
-  // Фильтрация и пагинация
+  // Фильтрация, сортировка и пагинация
   useEffect(() => {
     let filtered = allAvatars
 
@@ -99,10 +101,23 @@ export function useAvatarSelection(
       )
     }
 
+    // Сортировка: сначала "мои аватары" (!is_public), затем публичные (is_public)
+    const sorted = [...filtered].sort((a, b) => {
+      const aIsPublic = a.is_public ?? true // По умолчанию считаем публичными
+      const bIsPublic = b.is_public ?? true
+      
+      // Мои аватары (is_public === false) идут первыми
+      if (!aIsPublic && bIsPublic) return -1
+      if (aIsPublic && !bIsPublic) return 1
+      
+      // Внутри каждой группы сортируем по имени
+      return a.avatar_name.localeCompare(b.avatar_name)
+    })
+
     // Пагинация
     const startIndex = (currentPage - 1) * AVATARS_PER_PAGE
     const endIndex = startIndex + AVATARS_PER_PAGE
-    const paginated = filtered.slice(startIndex, endIndex)
+    const paginated = sorted.slice(startIndex, endIndex)
 
     setAvatars(paginated)
   }, [allAvatars, searchQuery, currentPage])

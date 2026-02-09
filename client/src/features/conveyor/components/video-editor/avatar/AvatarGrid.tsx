@@ -12,6 +12,7 @@ interface Avatar {
   avatar_name: string
   preview_image_url?: string
   preview_video_url?: string
+  is_public?: boolean
 }
 
 interface AvatarGridProps {
@@ -59,22 +60,63 @@ export function AvatarGrid({
     )
   }
 
+  // Разделяем аватары на группы для отображения
+  const myAvatars = avatars.filter((a) => !a.is_public)
+  const publicAvatars = avatars.filter((a) => a.is_public)
+
   return (
     <div className="space-y-6">
-      {/* Сетка карточек */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {avatars.map((avatar) => (
-          <AvatarCard
-            key={avatar.avatar_id}
-            avatar={avatar}
-            isSelected={avatar.avatar_id === selectedAvatarId}
-            onSelect={() => onAvatarSelect(avatar.avatar_id)}
-            onPreview={
-              onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
-            }
-          />
-        ))}
-      </div>
+      {/* Мои аватары */}
+      {myAvatars.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <div className="w-1 h-4 bg-blue-600 rounded" />
+            Мои аватары
+            <span className="text-xs font-normal text-muted-foreground">
+              ({myAvatars.length})
+            </span>
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {myAvatars.map((avatar) => (
+              <AvatarCard
+                key={avatar.avatar_id}
+                avatar={avatar}
+                isSelected={avatar.avatar_id === selectedAvatarId}
+                onSelect={() => onAvatarSelect(avatar.avatar_id)}
+                onPreview={
+                  onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Публичные аватары */}
+      {publicAvatars.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <div className="w-1 h-4 bg-muted rounded" />
+            Публичные аватары
+            <span className="text-xs font-normal text-muted-foreground">
+              ({publicAvatars.length})
+            </span>
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {publicAvatars.map((avatar) => (
+              <AvatarCard
+                key={avatar.avatar_id}
+                avatar={avatar}
+                isSelected={avatar.avatar_id === selectedAvatarId}
+                onSelect={() => onAvatarSelect(avatar.avatar_id)}
+                onPreview={
+                  onAvatarPreview ? () => onAvatarPreview(avatar) : undefined
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Пагинация */}
       <AvatarPagination
