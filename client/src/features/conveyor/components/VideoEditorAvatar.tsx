@@ -22,16 +22,14 @@ export function VideoEditorAvatar() {
   const { script, isLoading: isScriptLoading } = useVideoEditorData(scriptId)
 
   const {
-    avatars,
+    myAvatars,
+    publicAvatars,
     selectedAvatarId,
     isLoading: isAvatarsLoading,
     error: avatarsError,
     searchQuery,
-    currentPage,
-    totalPages,
     setSearchQuery,
     setSelectedAvatarId,
-    setCurrentPage,
     refreshAvatars,
   } = useAvatarSelection(scriptId)
 
@@ -120,13 +118,11 @@ export function VideoEditorAvatar() {
 
       {/* Сетка аватаров */}
       <AvatarGrid
-        avatars={avatars}
+        myAvatars={myAvatars}
+        publicAvatars={publicAvatars}
         selectedAvatarId={selectedAvatarId}
         onAvatarSelect={handleAvatarSelect}
         isLoading={isAvatarsLoading}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
       />
 
       {/* Генерация видео */}

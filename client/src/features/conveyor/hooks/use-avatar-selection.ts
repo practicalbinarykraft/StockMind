@@ -15,16 +15,14 @@ interface Avatar {
 }
 
 interface UseAvatarSelectionReturn {
-  avatars: Avatar[] // Все отфильтрованные аватары (без пагинации)
+  myAvatars: Avatar[] // Мои аватары
+  publicAvatars: Avatar[] // Публичные аватары
   selectedAvatarId: string | null
   isLoading: boolean
   error: string | null
   searchQuery: string
-  currentPage: number
-  totalPages: number
   setSearchQuery: (query: string) => void
   setSelectedAvatarId: (id: string) => void
-  setCurrentPage: (page: number) => void
   refreshAvatars: () => Promise<void>
 }
 
@@ -33,13 +31,14 @@ const AVATARS_PER_PAGE = 12
 export function useAvatarSelection(
   scriptId: string
 ): UseAvatarSelectionReturn {
-  const [avatars, setAvatars] = useState<Avatar[]>([])
-  const [allAvatars, setAllAvatars] = useState<Avatar[]>([])
+  const [myAvatars, setMyAvatars] = useState<Avatar[]>([])
+  const [publicAvatars, setPublicAvatars] = useState<Avatar[]>([])
+  const [allMyAvatars, setAllMyAvatars] = useState<Avatar[]>([]) // Все "мои" без фильтра
+  const [allPublicAvatars, setAllPublicAvatars] = useState<Avatar[]>([]) // Все "публичные" без фильтра
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
 
   // Загрузка аватаров с сервера
   const loadAvatars = useCallback(async () => {
@@ -55,7 +54,7 @@ export function useAvatarSelection(
         throw new Error('Некорректный формат данных')
       }
 
-      // ВРЕМЕННО: Добавляем моковые "мои аватары" для тестирования UI
+      // ВРЕМЕННО: Добавляем моковые "мои аватары" для тестирования UI (14 штук)
       const mockMyAvatars: Avatar[] = [
         {
           avatar_id: 'mock_custom_avatar_1',
@@ -78,10 +77,100 @@ export function useAvatarSelection(
           preview_video_url: undefined,
           is_public: false,
         },
+        {
+          avatar_id: 'mock_custom_avatar_4',
+          avatar_name: 'Мой Тестовый Аватар 4',
+          preview_image_url: 'https://via.placeholder.com/400x400/059669/FFFFFF?text=My+Avatar+4',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_5',
+          avatar_name: 'Мой Тестовый Аватар 5',
+          preview_image_url: 'https://via.placeholder.com/400x400/DC2626/FFFFFF?text=My+Avatar+5',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_6',
+          avatar_name: 'Мой Тестовый Аватар 6',
+          preview_image_url: 'https://via.placeholder.com/400x400/EA580C/FFFFFF?text=My+Avatar+6',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_7',
+          avatar_name: 'Мой Тестовый Аватар 7',
+          preview_image_url: 'https://via.placeholder.com/400x400/CA8A04/FFFFFF?text=My+Avatar+7',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_8',
+          avatar_name: 'Мой Тестовый Аватар 8',
+          preview_image_url: 'https://via.placeholder.com/400x400/16A34A/FFFFFF?text=My+Avatar+8',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_9',
+          avatar_name: 'Мой Тестовый Аватар 9',
+          preview_image_url: 'https://via.placeholder.com/400x400/0891B2/FFFFFF?text=My+Avatar+9',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_10',
+          avatar_name: 'Мой Тестовый Аватар 10',
+          preview_image_url: 'https://via.placeholder.com/400x400/4338CA/FFFFFF?text=My+Avatar+10',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_11',
+          avatar_name: 'Мой Тестовый Аватар 11',
+          preview_image_url: 'https://via.placeholder.com/400x400/9333EA/FFFFFF?text=My+Avatar+11',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_12',
+          avatar_name: 'Мой Тестовый Аватар 12',
+          preview_image_url: 'https://via.placeholder.com/400x400/DB2777/FFFFFF?text=My+Avatar+12',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_13',
+          avatar_name: 'Мой Тестовый Аватар 13',
+          preview_image_url: 'https://via.placeholder.com/400x400/E11D48/FFFFFF?text=My+Avatar+13',
+          preview_video_url: undefined,
+          is_public: false,
+        },
+        {
+          avatar_id: 'mock_custom_avatar_14',
+          avatar_name: 'Мой Тестовый Аватар 14',
+          preview_image_url: 'https://via.placeholder.com/400x400/0D9488/FFFFFF?text=My+Avatar+14',
+          preview_video_url: undefined,
+          is_public: false,
+        },
       ]
 
-      // Добавляем моковые аватары в начало списка
-      setAllAvatars([...mockMyAvatars, ...data.avatars])
+      // Разделяем на "мои" и "публичные"
+      const allMy = [...mockMyAvatars, ...data.avatars.filter((a: Avatar) => !a.is_public)]
+      const allPublic = data.avatars.filter((a: Avatar) => a.is_public)
+
+      // Сортируем по имени
+      const sortByName = (avatars: Avatar[]) => 
+        [...avatars].sort((a, b) => a.avatar_name.localeCompare(b.avatar_name))
+
+      // Сохраняем ВСЕ аватары без фильтрации
+      setAllMyAvatars(sortByName(allMy))
+      setAllPublicAvatars(sortByName(allPublic))
+
+      // Устанавливаем начальные отфильтрованные данные
+      setMyAvatars(sortByName(allMy))
+      setPublicAvatars(sortByName(allPublic))
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Ошибка загрузки аватаров'
@@ -90,7 +179,7 @@ export function useAvatarSelection(
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, []) // Убрали searchQuery из зависимостей
 
   // Загрузка сохранённого выбора
   const loadSavedSelection = useCallback(async () => {
@@ -115,43 +204,22 @@ export function useAvatarSelection(
     loadSavedSelection()
   }, [loadAvatars, loadSavedSelection])
 
-  // Фильтрация и сортировка (без пагинации)
+  // Фильтрация по поисковому запросу (локально, без запроса к серверу)
   useEffect(() => {
-    let filtered = allAvatars
+    const filterAvatars = (avatars: Avatar[]) => {
+      if (!searchQuery.trim()) {
+        return avatars
+      }
 
-    // Поиск
-    if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter((avatar) =>
+      return avatars.filter((avatar) =>
         avatar.avatar_name.toLowerCase().includes(query)
       )
     }
 
-    // Сортировка: сначала "мои аватары" (!is_public), затем публичные (is_public)
-    const sorted = [...filtered].sort((a, b) => {
-      const aIsPublic = a.is_public ?? true // По умолчанию считаем публичными
-      const bIsPublic = b.is_public ?? true
-      
-      // Мои аватары (is_public === false) идут первыми
-      if (!aIsPublic && bIsPublic) return -1
-      if (aIsPublic && !bIsPublic) return 1
-      
-      // Внутри каждой группы сортируем по имени
-      return a.avatar_name.localeCompare(b.avatar_name)
-    })
-
-    // Отдаем ВСЕ отфильтрованные и отсортированные аватары
-    // Пагинация будет в AvatarGrid
-    setAvatars(sorted)
-  }, [allAvatars, searchQuery])
-
-  // Вычисление общего количества страниц на основе отфильтрованных аватаров
-  const totalPages = Math.ceil(avatars.length / AVATARS_PER_PAGE)
-
-  // Сброс страницы при изменении поиска
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery])
+    setMyAvatars(filterAvatars(allMyAvatars))
+    setPublicAvatars(filterAvatars(allPublicAvatars))
+  }, [searchQuery, allMyAvatars, allPublicAvatars])
 
   // Обновление списка
   const refreshAvatars = useCallback(async () => {
@@ -159,16 +227,14 @@ export function useAvatarSelection(
   }, [loadAvatars])
 
   return {
-    avatars,
+    myAvatars,
+    publicAvatars,
     selectedAvatarId,
     isLoading,
     error,
     searchQuery,
-    currentPage,
-    totalPages: totalPages || 1,
     setSearchQuery,
     setSelectedAvatarId,
-    setCurrentPage,
     refreshAvatars,
   }
 }
