@@ -58,21 +58,25 @@ export async function startVideoPolling(
 
     // Проверка статуса
     if (statusData.status === 'completed') {
-      if (!statusData.videoUrl) {
+      // HeyGen API возвращает video_url (snake_case)
+      const videoUrl = statusData.video_url || statusData.videoUrl
+      
+      if (!videoUrl) {
+        console.error('❌ [startVideoPolling] Данные от HeyGen:', statusData)
         throw new Error('Видео готово, но URL отсутствует')
       }
 
-      console.log(`✅ [startVideoPolling] Видео готово! URL:`, statusData.videoUrl)
+      console.log(`✅ [startVideoPolling] Видео готово! URL:`, videoUrl)
 
       // Сохранение результата
       await scriptMediaService.updateVideo(scriptId, {
-        videoUrl: statusData.videoUrl,
+        videoUrl: videoUrl,
         videoStatus: 'completed',
         videoDuration: statusData.duration,
-        videoThumbnailUrl: statusData.thumbnailUrl,
+        videoThumbnailUrl: statusData.thumbnail_url || statusData.thumbnailUrl,
       })
 
-      callbacks.onVideoReady?.(statusData.videoUrl)
+      callbacks.onVideoReady?.(videoUrl)
       callbacks.onStatusChange?.('completed')
       callbacks.onProgress?.(100)
       callbacks.invalidateQueries?.()
