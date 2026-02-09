@@ -5,7 +5,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Monitor, Smartphone, Square } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/shared/utils'
 
 interface VideoFormat {
   id: '16:9' | '9:16' | '1:1'
