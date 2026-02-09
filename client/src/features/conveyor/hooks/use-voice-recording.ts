@@ -71,7 +71,22 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
     setError(null)
 
     try {
+      // Проверка поддержки API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          'Ваш браузер не поддерживает запись аудио. ' +
+          'Попробуйте использовать современный браузер (Chrome, Firefox, Edge) ' +
+          'и убедитесь, что сайт открыт по HTTPS.'
+        )
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // Проверка поддержки MediaRecorder
+      if (!window.MediaRecorder) {
+        throw new Error('Ваш браузер не поддерживает запись аудио (MediaRecorder API недоступен)')
+      }
+
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm',
       })
@@ -91,10 +106,20 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
       setIsPaused(false)
       setDuration(0)
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Не удалось получить доступ к микрофону'
+      let message = 'Не удалось получить доступ к микрофону'
+      
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          message = 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.'
+        } else if (err.name === 'NotFoundError') {
+          message = 'Микрофон не найден. Подключите микрофон и попробуйте снова.'
+        } else if (err.name === 'NotReadableError') {
+          message = 'Микрофон занят другим приложением. Закройте другие программы, использующие микрофон.'
+        } else {
+          message = err.message
+        }
+      }
+      
       setError(message)
       console.error('Recording start error:', err)
     }
