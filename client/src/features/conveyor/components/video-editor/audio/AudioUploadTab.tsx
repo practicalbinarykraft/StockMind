@@ -13,7 +13,7 @@ interface AudioUploadTabProps {
 }
 
 export function AudioUploadTab({ scriptId }: AudioUploadTabProps) {
-  const { audioUrl, isUploading, error, upload } = useAudioUpload(scriptId)
+  const { audioUrl, isUploading, error, upload, audioFilename } = useAudioUpload(scriptId)
 
   return (
     <div className="space-y-6">
@@ -31,7 +31,13 @@ export function AudioUploadTab({ scriptId }: AudioUploadTabProps) {
         </CardContent>
       </Card>
 
-      {audioUrl && <SimpleAudioPlayer audioUrl={audioUrl} filename="uploaded-audio.mp3" />}
+      {audioUrl && (
+        <SimpleAudioPlayer 
+          audioUrl={audioUrl} 
+          filename={audioFilename || `uploaded-audio-${new Date().getTime()}.mp3`}
+          uploadedFileName={audioFilename || undefined}
+        />
+      )}
     </div>
   )
 }

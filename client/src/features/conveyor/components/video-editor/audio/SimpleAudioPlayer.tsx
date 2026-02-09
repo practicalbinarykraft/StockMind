@@ -11,9 +11,16 @@ import { Play, Pause, Download } from 'lucide-react'
 interface SimpleAudioPlayerProps {
   audioUrl: string
   filename?: string
+  voiceName?: string
+  uploadedFileName?: string
 }
 
-export function SimpleAudioPlayer({ audioUrl, filename = 'audio.mp3' }: SimpleAudioPlayerProps) {
+export function SimpleAudioPlayer({ 
+  audioUrl, 
+  filename = 'audio.mp3',
+  voiceName,
+  uploadedFileName,
+}: SimpleAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -64,8 +71,15 @@ export function SimpleAudioPlayer({ audioUrl, filename = 'audio.mp3' }: SimpleAu
               )}
             </Button>
 
-            <div className="flex-1 text-sm text-muted-foreground">
-              {isPlaying ? 'Воспроизведение...' : 'Готово к воспроизведению'}
+            <div className="flex-1">
+              <div className="text-sm text-muted-foreground">
+                {isPlaying ? 'Воспроизведение...' : 'Готово к воспроизведению'}
+              </div>
+              {(voiceName || uploadedFileName) && (
+                <div className="text-xs text-muted-foreground/70 mt-1">
+                  {voiceName ? `${voiceName}` : `${uploadedFileName}`}
+                </div>
+              )}
             </div>
 
             <Button variant="outline" size="icon" onClick={handleDownload}>

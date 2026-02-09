@@ -7,6 +7,11 @@ import { useState, useCallback } from 'react'
 import { scriptMediaService } from '@/features/conveyor/services/scriptMediaService'
 import { apiRequest } from '@/shared/api/http'
 
+interface Voice {
+  voice_id: string
+  name: string
+}
+
 interface UseAudioGenerationReturn {
   selectedVoice: string | null
   setSelectedVoice: (voice: string) => void
@@ -14,6 +19,7 @@ interface UseAudioGenerationReturn {
   audioUrl: string | null
   generate: (text: string, voiceId: string) => Promise<void>
   error: string | null
+  voiceName: string | null
 }
 
 export function useAudioGeneration(
@@ -21,14 +27,39 @@ export function useAudioGeneration(
   onAudioGenerated?: () => void
 ): UseAudioGenerationReturn {
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
+  const [voiceName, setVoiceName] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [voices, setVoices] = useState<Voice[]>([])
+
+  // Загрузка списка голосов
+  const loadVoices = useCallback(async () => {
+    try {
+      const response = await apiRequest('GET', '/api/elevenlabs/voices')
+      const data = await response.json()
+      const voicesArray = Array.isArray(data) ? data : (data.voices || [])
+      setVoices(voicesArray)
+      return voicesArray
+    } catch (err) {
+      console.error('Failed to load voices:', err)
+      return []
+    }
+  }, [])
+
+  // Получить имя голоса по ID
+  const getVoiceName = useCallback((voiceId: string, voicesList?: Voice[]) => {
+    const voicesToSearch = voicesList || voices
+    const voice = voicesToSearch.find((v) => v.voice_id === voiceId)
+    return voice?.name || null
+  }, [voices])
 
   // Загрузка существующего аудио при монтировании
   const loadExistingAudio = useCallback(async () => {
     try {
       const media = await scriptMediaService.getMedia(scriptId)
+      const voicesList = await loadVoices()
+      
       if (media?.audioUrl) {
         // Проверяем что URL не blob (старые данные)
         if (media.audioUrl.startsWith('blob:')) {
@@ -40,12 +71,14 @@ export function useAudioGeneration(
         setAudioUrl(media.audioUrl)
         if (media.selectedVoice) {
           setSelectedVoice(media.selectedVoice)
+          const name = getVoiceName(media.selectedVoice, voicesList)
+          setVoiceName(name)
         }
       }
     } catch (err) {
       console.error('Failed to load existing audio:', err)
     }
-  }, [scriptId])
+  }, [scriptId, loadVoices, getVoiceName])
 
   // Вызываем при монтировании
   useState(() => {
@@ -88,6 +121,8 @@ export function useAudioGeneration(
 
         setAudioUrl(data.audioUrl)
         setSelectedVoice(voiceId)
+        const name = getVoiceName(voiceId)
+        setVoiceName(name)
         
         // Вызываем callback после успешной генерации
         onAudioGenerated?.()
@@ -110,5 +145,6 @@ export function useAudioGeneration(
     audioUrl,
     generate,
     error,
+    voiceName,
   }
 }

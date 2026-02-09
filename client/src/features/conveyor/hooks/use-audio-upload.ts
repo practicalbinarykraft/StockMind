@@ -11,10 +11,12 @@ interface UseAudioUploadReturn {
   isUploading: boolean
   error: string | null
   upload: (file: File) => Promise<void>
+  audioFilename: string | null
 }
 
 export function useAudioUpload(scriptId: string): UseAudioUploadReturn {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [audioFilename, setAudioFilename] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,6 +27,9 @@ export function useAudioUpload(scriptId: string): UseAudioUploadReturn {
       .then((media) => {
         if (media?.audioUrl) {
           setAudioUrl(media.audioUrl)
+          if (media.audioFilename) {
+            setAudioFilename(media.audioFilename)
+          }
         }
       })
       .catch(console.error)
@@ -99,6 +104,7 @@ export function useAudioUpload(scriptId: string): UseAudioUploadReturn {
         })
 
         setAudioUrl(data.audioUrl)
+        setAudioFilename(file.name)
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Ошибка загрузки файла'
@@ -116,5 +122,6 @@ export function useAudioUpload(scriptId: string): UseAudioUploadReturn {
     isUploading,
     error,
     upload,
+    audioFilename,
   }
 }

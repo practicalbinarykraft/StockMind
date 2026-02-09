@@ -24,6 +24,7 @@ export function AudioGenerateTab({ scriptId, scriptText, onAudioGenerated }: Aud
     audioUrl,
     generate,
     error,
+    voiceName,
   } = useAudioGeneration(scriptId, onAudioGenerated)
 
   const handleGenerate = async () => {
@@ -70,7 +71,13 @@ export function AudioGenerateTab({ scriptId, scriptText, onAudioGenerated }: Aud
         </CardContent>
       </Card>
 
-      {audioUrl && <SimpleAudioPlayer audioUrl={audioUrl} filename="generated-audio.mp3" />}
+      {audioUrl && (
+        <SimpleAudioPlayer 
+          audioUrl={audioUrl} 
+          filename={`generated-audio-${voiceName || 'voice'}-${new Date().getTime()}.mp3`}
+          voiceName={voiceName || undefined}
+        />
+      )}
     </div>
   )
 }
