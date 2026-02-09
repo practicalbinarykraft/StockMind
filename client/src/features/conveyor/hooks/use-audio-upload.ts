@@ -25,7 +25,8 @@ export function useAudioUpload(scriptId: string): UseAudioUploadReturn {
     scriptMediaService
       .getMedia(scriptId)
       .then((media) => {
-        if (media?.audioUrl) {
+        // Показываем аудио только если это загруженный файл
+        if (media?.audioUrl && media.audioMode === 'upload') {
           setAudioUrl(media.audioUrl)
           if (media.audioFilename) {
             setAudioFilename(media.audioFilename)

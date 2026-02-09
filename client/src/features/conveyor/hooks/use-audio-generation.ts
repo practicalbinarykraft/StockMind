@@ -60,7 +60,8 @@ export function useAudioGeneration(
       const media = await scriptMediaService.getMedia(scriptId)
       const voicesList = await loadVoices()
       
-      if (media?.audioUrl) {
+      // Показываем аудио только если это сгенерированный файл
+      if (media?.audioUrl && media.audioMode === 'generate') {
         // Проверяем что URL не blob (старые данные)
         if (media.audioUrl.startsWith('blob:')) {
           console.warn('Found old blob URL in database, ignoring:', media.audioUrl)

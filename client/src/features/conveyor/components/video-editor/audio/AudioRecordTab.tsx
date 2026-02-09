@@ -18,6 +18,7 @@ export function AudioRecordTab({ scriptId, scriptText }: AudioRecordTabProps) {
     isRecording,
     isPaused,
     recordedUrl,
+    recordedFilename,
     duration,
     error,
     startRecording,
@@ -49,7 +50,13 @@ export function AudioRecordTab({ scriptId, scriptText }: AudioRecordTabProps) {
         </CardContent>
       </Card>
 
-      {recordedUrl && <SimpleAudioPlayer audioUrl={recordedUrl} filename="recorded-audio.webm" />}
+      {recordedUrl && (
+        <SimpleAudioPlayer 
+          audioUrl={recordedUrl} 
+          filename={recordedFilename || `recorded-audio-${new Date().getTime()}.webm`}
+          uploadedFileName={recordedFilename || undefined}
+        />
+      )}
 
       {scriptText && (
         <Card>

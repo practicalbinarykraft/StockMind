@@ -10,6 +10,7 @@ interface UseVoiceRecordingReturn {
   isRecording: boolean
   isPaused: boolean
   recordedUrl: string | null
+  recordedFilename: string | null
   duration: number
   error: string | null
   startRecording: () => Promise<void>
@@ -23,6 +24,7 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
   const [isRecording, setIsRecording] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null)
+  const [recordedFilename, setRecordedFilename] = useState<string | null>(null)
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +39,9 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
       .then((media) => {
         if (media?.audioUrl && media.audioMode === 'record') {
           setRecordedUrl(media.audioUrl)
+          if (media.audioFilename) {
+            setRecordedFilename(media.audioFilename)
+          }
         }
       })
       .catch(console.error)
@@ -128,29 +133,49 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
           formData.append('scriptId', scriptId)
 
           // Используем fetch напрямую для FormData
-          const response = await fetch('/api/upload/audio', {
+          const response = await fetch('/api/audio/upload', {
             method: 'POST',
             body: formData,
             credentials: 'include',
           })
 
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Ошибка загрузки' }))
-            throw new Error(errorData.message || `HTTP ${response.status}`)
+            let errorMessage = `HTTP ${response.status}`
+            const contentType = response.headers.get('content-type')
+            
+            if (contentType?.includes('application/json')) {
+              const errorData = await response.json().catch(() => ({}))
+              errorMessage = errorData.message || errorMessage
+            } else {
+              errorMessage = `Ошибка сервера (${response.status}). Проверьте, что роут /api/audio/upload доступен`
+            }
+            
+            throw new Error(errorMessage)
+          }
+
+          const contentType = response.headers.get('content-type')
+          
+          if (!contentType?.includes('application/json')) {
+            throw new Error('Сервер вернул некорректный ответ. Ожидался JSON.')
           }
 
           const data = await response.json()
 
+          if (!data.audioUrl) {
+            throw new Error('Не удалось получить URL загруженного файла')
+          }
+
           // Сохранение в scripts_media
           await scriptMediaService.updateAudio(scriptId, {
-            audioUrl: data.url,
+            audioUrl: data.audioUrl,
             audioMode: 'record',
             audioFilename: file.name,
             audioFilesize: file.size,
             audioGeneratedAt: new Date().toISOString(),
           })
 
-          setRecordedUrl(data.url)
+          setRecordedUrl(data.audioUrl)
+          setRecordedFilename(file.name)
         } catch (err) {
           const message =
             err instanceof Error ? err.message : 'Ошибка сохранения записи'
@@ -171,6 +196,7 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
 
   const discardRecording = useCallback(() => {
     setRecordedUrl(null)
+    setRecordedFilename(null)
     setDuration(0)
     chunksRef.current = []
   }, [])
@@ -179,6 +205,7 @@ export function useVoiceRecording(scriptId: string): UseVoiceRecordingReturn {
     isRecording,
     isPaused,
     recordedUrl,
+    recordedFilename,
     duration,
     error,
     startRecording,
