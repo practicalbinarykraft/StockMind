@@ -26,25 +26,53 @@ export function VideoEditorMain() {
     hasError,
   } = useVideoEditorData(scriptId)
 
-  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('16:9')
+  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('9:16')
   const [userPlan, setUserPlan] = useState<'free' | 'paid'>('free')
 
   // Загрузка формата и плана
   useEffect(() => {
     const loadFormatAndPlan = async () => {
       try {
-        // Загрузка сохранённого формата
-        const mediaData = await scriptMediaService.getMedia(scriptId)
-        if (mediaData?.videoAspectRatio) {
-          setSelectedFormat(mediaData.videoAspectRatio)
-        }
+        // Параллельная загрузка медиа и плана
+        const [mediaData, quotaResponse] = await Promise.all([
+          scriptMediaService.getMedia(scriptId),
+          apiRequest('GET', '/api/heygen/quota').catch(() => null),
+        ])
 
-        // Загрузка плана пользователя
-        const quotaResponse = await apiRequest('GET', '/api/heygen/quota').catch(() => null)
+        // Определяем план пользователя
+        let detectedPlan: 'free' | 'paid' = 'free'
         if (quotaResponse) {
           const quotaData = await quotaResponse.json()
           const isFreePlan = quotaData.data?.isFreePlan ?? true
-          setUserPlan(isFreePlan ? 'free' : 'paid')
+          detectedPlan = isFreePlan ? 'free' : 'paid'
+          setUserPlan(detectedPlan)
+        }
+
+        // Устанавливаем формат
+        if (mediaData?.videoAspectRatio) {
+          // Есть сохранённый формат - используем его
+          setSelectedFormat(mediaData.videoAspectRatio)
+        } else if (mediaData?.videoUrl && !mediaData?.videoAspectRatio) {
+          // Старое видео без сохранённого формата - используем старый дефолт
+          setSelectedFormat('16:9')
+        } else {
+          // Новое видео - дефолт 9:16 (вертикальный формат)
+          setSelectedFormat('9:16')
+          
+          // Сохраняем дефолтный формат в БД
+          const defaultDimension = detectedPlan === 'paid'
+            ? { width: 1080, height: 1920 }
+            : { width: 720, height: 1280 }
+          
+          try {
+            await scriptMediaService.updateVideo(scriptId, {
+              videoAspectRatio: '9:16',
+              videoDimension: defaultDimension,
+            })
+            console.log('💾 Сохранён дефолтный формат 9:16 в БД')
+          } catch (err) {
+            console.error('Failed to save default format:', err)
+          }
         }
       } catch (err) {
         console.error('Failed to load format and plan:', err)

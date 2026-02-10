@@ -94,15 +94,29 @@ export function VideoEditorAvatar() {
             setVideoDimension({ width: 1280, height: 720 })
             console.log('📼 Старое видео - используем дефолт 16:9 (1280×720)')
           } else {
-            // Новое видео - устанавливаем дефолт в зависимости от плана
+            // Новое видео - устанавливаем дефолт 9:16 (вертикальный формат)
+            let defaultDimension: { width: number; height: number }
             if (detectedPlan === 'paid') {
-              setSelectedFormat('16:9')
-              setVideoDimension({ width: 1920, height: 1080 })
-              console.log('🆕 Новое видео (PAID план) - дефолт 16:9 (1920×1080)')
+              setSelectedFormat('9:16')
+              defaultDimension = { width: 1080, height: 1920 }
+              setVideoDimension(defaultDimension)
+              console.log('🆕 Новое видео (PAID план) - дефолт 9:16 (1080×1920)')
             } else {
-              setSelectedFormat('16:9')
-              setVideoDimension({ width: 1280, height: 720 })
-              console.log('🆕 Новое видео (FREE план) - дефолт 16:9 (1280×720)')
+              setSelectedFormat('9:16')
+              defaultDimension = { width: 720, height: 1280 }
+              setVideoDimension(defaultDimension)
+              console.log('🆕 Новое видео (FREE план) - дефолт 9:16 (720×1280)')
+            }
+            
+            // Сохраняем дефолтный формат в БД
+            try {
+              await scriptMediaService.updateVideo(scriptId, {
+                videoAspectRatio: '9:16',
+                videoDimension: defaultDimension,
+              })
+              console.log('💾 Сохранён дефолтный формат 9:16 в БД')
+            } catch (err) {
+              console.error('Failed to save default format:', err)
             }
           }
           // Для нового видео дефолты уже установлены выше
