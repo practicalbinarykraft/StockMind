@@ -130,22 +130,25 @@ export function VideoEditorMain() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8.5rem)]">
-      <div className="flex-shrink-0 mb-6">
+      <div className="flex-shrink-0 mb-4 sm:mb-6">
         <VideoEditorHeader 
           script={script} 
           status={status}
-          selectedFormat={selectedFormat}
-          onFormatChange={handleFormatChange}
-          userPlan={userPlan}
         />
       </div>
       
-      <div className="flex-1 grid grid-cols-[800px_1fr] gap-6 min-h-0">
-        <div className="min-h-0 w-full">
-          <VideoEditorPreview media={media} status={status} />
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[minmax(500px,800px)_1fr] gap-4 sm:gap-6 min-h-0">
+        <div className="min-h-0 w-full h-[400px] sm:h-[500px] lg:h-full">
+          <VideoEditorPreview 
+            media={media} 
+            status={status}
+            selectedFormat={selectedFormat}
+            onFormatChange={handleFormatChange}
+            userPlan={userPlan}
+          />
         </div>
         
-        <div className="min-h-0 w-full">
+        <div className="min-h-0 w-full overflow-auto lg:overflow-visible">
           <VideoEditorSidebar script={script} status={status} />
         </div>
       </div>
