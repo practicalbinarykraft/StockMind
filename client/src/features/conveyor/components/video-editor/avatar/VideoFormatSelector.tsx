@@ -1,144 +1,172 @@
 /**
- * Компонент выбора формата видео (горизонтальный/вертикальный/квадратный)
- * ≤150 строк
+ * Компонент выбора формата и качества видео
+ * ≤200 строк
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
-import { Monitor, Smartphone, Square } from 'lucide-react'
+import { Monitor, Smartphone, Square, AlertTriangle } from 'lucide-react'
 import { cn } from '@/shared/utils'
 
 interface VideoFormat {
   id: '16:9' | '9:16' | '1:1'
   label: string
   description: string
-  dimension: { width: number; height: number }
   icon: React.ReactNode
 }
 
-const VIDEO_FORMATS_720P: VideoFormat[] = [
+const VIDEO_FORMATS: VideoFormat[] = [
   {
     id: '16:9',
     label: 'Горизонтальное',
-    description: 'YouTube, Desktop (1280×720)',
-    dimension: { width: 1280, height: 720 },
+    description: 'YouTube, Desktop',
     icon: <Monitor className="h-5 w-5" />,
   },
   {
     id: '9:16',
     label: 'Вертикальное',
-    description: 'TikTok, Reels, Shorts (720×1280)',
-    dimension: { width: 720, height: 1280 },
+    description: 'TikTok, Reels, Shorts',
     icon: <Smartphone className="h-5 w-5" />,
   },
   {
     id: '1:1',
     label: 'Квадратное',
-    description: 'Instagram Feed (720×720)',
-    dimension: { width: 720, height: 720 },
-    icon: <Square className="h-5 w-5" />,
-  },
-]
-
-const VIDEO_FORMATS_1080P: VideoFormat[] = [
-  {
-    id: '16:9',
-    label: 'Горизонтальное',
-    description: 'YouTube, Desktop (1920×1080)',
-    dimension: { width: 1920, height: 1080 },
-    icon: <Monitor className="h-5 w-5" />,
-  },
-  {
-    id: '9:16',
-    label: 'Вертикальное',
-    description: 'TikTok, Reels, Shorts (1080×1920)',
-    dimension: { width: 1080, height: 1920 },
-    icon: <Smartphone className="h-5 w-5" />,
-  },
-  {
-    id: '1:1',
-    label: 'Квадратное',
-    description: 'Instagram Feed (1080×1080)',
-    dimension: { width: 1080, height: 1080 },
+    description: 'Instagram Feed',
     icon: <Square className="h-5 w-5" />,
   },
 ]
 
 interface VideoFormatSelectorProps {
   selectedFormat: '16:9' | '9:16' | '1:1'
-  onFormatChange: (
-    format: '16:9' | '9:16' | '1:1',
-    dimension: { width: number; height: number }
-  ) => void
+  selectedQuality: '720p' | '1080p'
+  onFormatChange: (format: '16:9' | '9:16' | '1:1') => void
+  onQualityChange: (quality: '720p' | '1080p') => void
   disabled?: boolean
-  userPlan?: 'free' | 'paid'
 }
 
 export function VideoFormatSelector({
   selectedFormat,
+  selectedQuality,
   onFormatChange,
+  onQualityChange,
   disabled = false,
-  userPlan = 'free',
 }: VideoFormatSelectorProps) {
-  // Выбираем массив форматов в зависимости от плана
-  const formats = userPlan === 'paid' ? VIDEO_FORMATS_1080P : VIDEO_FORMATS_720P
-
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Формат видео</CardTitle>
-          {userPlan === 'free' ? (
-            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
-              Макс. 720p
-            </span>
-          ) : (
-            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
-              HD 1080p
-            </span>
-          )}
-        </div>
+        <CardTitle className="text-base">Формат и качество видео</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {formats.map((format) => (
+      <CardContent className="space-y-6">
+        {/* Выбор формата */}
+        <div>
+          <h3 className="text-sm font-medium mb-3">Формат видео</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {VIDEO_FORMATS.map((format) => (
+              <button
+                key={format.id}
+                onClick={() => onFormatChange(format.id)}
+                disabled={disabled}
+                className={cn(
+                  'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
+                  'hover:border-primary/50 hover:bg-accent/50',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  selectedFormat === format.id
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-background'
+                )}
+              >
+                <div
+                  className={cn(
+                    'transition-colors',
+                    selectedFormat === format.id
+                      ? 'text-primary'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {format.icon}
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-medium">{format.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {format.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Выбор качества */}
+        <div>
+          <h3 className="text-sm font-medium mb-3">Качество видео</h3>
+          <div className="grid grid-cols-2 gap-3">
             <button
-              key={format.id}
-              onClick={() => onFormatChange(format.id, format.dimension)}
+              onClick={() => onQualityChange('720p')}
               disabled={disabled}
               className={cn(
                 'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
                 'hover:border-primary/50 hover:bg-accent/50',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
-                selectedFormat === format.id
+                selectedQuality === '720p'
                   ? 'border-primary bg-primary/10'
                   : 'border-border bg-background'
               )}
             >
-              <div
-                className={cn(
-                  'transition-colors',
-                  selectedFormat === format.id
-                    ? 'text-primary'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {format.icon}
-              </div>
-              <div className="text-center">
-                <div className="text-sm font-medium">{format.label}</div>
+              <div className="text-center w-full">
+                <div className="text-lg font-bold">720p</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {format.description}
+                  Стандартное качество
                 </div>
               </div>
             </button>
-          ))}
+
+            <button
+              onClick={() => onQualityChange('1080p')}
+              disabled={disabled}
+              className={cn(
+                'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
+                'hover:border-primary/50 hover:bg-accent/50',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                selectedQuality === '1080p'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-background'
+              )}
+            >
+              <div className="text-center w-full">
+                <div className="text-lg font-bold">1080p</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  HD качество
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
-        {userPlan === 'free' && (
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            💡 Бесплатный план HeyGen ограничен разрешением 720p
-          </p>
+        {/* Предупреждение о 1080p */}
+        {selectedQuality === '1080p' && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-900">Требуется платная подписка HeyGen</p>
+              <p className="mt-1 text-amber-800">
+                Для генерации видео в качестве 1080p необходима активная платная подписка HeyGen. 
+                При использовании бесплатного плана генерация может завершиться ошибкой.
+              </p>
+            </div>
+          </div>
         )}
+
+        {/* Информация о разрешении */}
+        <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
+          <p className="font-medium mb-1">Текущее разрешение:</p>
+          <p>
+            {selectedQuality === '720p' && selectedFormat === '16:9' && '1280×720'}
+            {selectedQuality === '720p' && selectedFormat === '9:16' && '720×1280'}
+            {selectedQuality === '720p' && selectedFormat === '1:1' && '720×720'}
+            {selectedQuality === '1080p' && selectedFormat === '16:9' && '1920×1080'}
+            {selectedQuality === '1080p' && selectedFormat === '9:16' && '1080×1920'}
+            {selectedQuality === '1080p' && selectedFormat === '1:1' && '1080×1080'}
+          </p>
+        </div>
       </CardContent>
     </Card>
   )

@@ -45,7 +45,7 @@ export function VideoEditorAvatar() {
   } = useVideoGeneration(scriptId)
 
   // Используем Zustand store для формата видео
-  const { selectedFormat, videoDimension, userPlan, initialize, setFormat } = useVideoFormatStore()
+  const { selectedFormat, videoDimension, selectedQuality, initialize, setFormat, setQuality } = useVideoFormatStore()
 
   const [hasAudio, setHasAudio] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -94,11 +94,13 @@ export function VideoEditorAvatar() {
   }
 
   // Обработчик изменения формата видео (синхронизируется через Zustand)
-  const handleFormatChange = async (
-    format: '16:9' | '9:16' | '1:1',
-    dimension: { width: number; height: number }
-  ) => {
-    await setFormat(format, dimension)
+  const handleFormatChange = async (format: '16:9' | '9:16' | '1:1') => {
+    await setFormat(format)
+  }
+  
+  // Обработчик изменения качества
+  const handleQualityChange = async (quality: '720p' | '1080p') => {
+    await setQuality(quality)
   }
 
   // Обработчик генерации
@@ -147,9 +149,10 @@ export function VideoEditorAvatar() {
       {/* Выбор формата видео */}
       <VideoFormatSelector
         selectedFormat={selectedFormat}
+        selectedQuality={selectedQuality}
         onFormatChange={handleFormatChange}
+        onQualityChange={handleQualityChange}
         disabled={isGenerating}
-        userPlan={userPlan}
       />
 
       {/* Генерация видео */}

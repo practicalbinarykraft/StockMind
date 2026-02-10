@@ -26,7 +26,7 @@ export function VideoEditorMain() {
   } = useVideoEditorData(scriptId)
 
   // Используем Zustand store для формата видео
-  const { selectedFormat, userPlan, initialize, setFormat } = useVideoFormatStore()
+  const { selectedFormat, initialize, setFormat } = useVideoFormatStore()
 
   // Инициализация store при монтировании
   useEffect(() => {
@@ -35,38 +35,7 @@ export function VideoEditorMain() {
 
   // Обработчик изменения формата
   const handleFormatChange = async (format: '16:9' | '9:16' | '1:1') => {
-    // Определяем dimension в зависимости от плана
-    let dimension: { width: number; height: number }
-    if (userPlan === 'paid') {
-      // HD разрешения для paid плана
-      switch (format) {
-        case '16:9':
-          dimension = { width: 1920, height: 1080 }
-          break
-        case '9:16':
-          dimension = { width: 1080, height: 1920 }
-          break
-        case '1:1':
-          dimension = { width: 1080, height: 1080 }
-          break
-      }
-    } else {
-      // 720p разрешения для free плана
-      switch (format) {
-        case '16:9':
-          dimension = { width: 1280, height: 720 }
-          break
-        case '9:16':
-          dimension = { width: 720, height: 1280 }
-          break
-        case '1:1':
-          dimension = { width: 720, height: 720 }
-          break
-      }
-    }
-
-    // Сохранение через Zustand store
-    await setFormat(format, dimension)
+    await setFormat(format)
   }
 
   if (isLoading) {
@@ -115,7 +84,6 @@ export function VideoEditorMain() {
             status={status}
             selectedFormat={selectedFormat}
             onFormatChange={handleFormatChange}
-            userPlan={userPlan}
           />
         </div>
         
