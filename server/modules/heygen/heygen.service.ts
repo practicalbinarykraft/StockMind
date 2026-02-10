@@ -449,30 +449,53 @@ export class HeygenService {
 
   /**
    * Определить бесплатный план по данным квоты
+   * 
+   * Логика определения:
+   * 1. Если есть поле plan - используем его
+   * 2. Если total_quota > 1000 кредитов - считаем платным планом
+   * 3. По умолчанию - бесплатный план
    */
   private detectFreePlan(quotaData: any): boolean {
     try {
+      console.log('🔍 Detecting plan from quota data:', JSON.stringify(quotaData, null, 2));
+      
       // Вариант 1: Если есть поле plan
       if (quotaData?.data?.plan) {
         const plan = quotaData.data.plan.toLowerCase();
-        return plan === 'free' || plan === 'trial';
+        const isFree = plan === 'free' || plan === 'trial' || plan === 'starter';
+        console.log(`📋 Plan detected from field: ${plan} -> ${isFree ? 'FREE' : 'PAID'}`);
+        return isFree;
       }
       
-      // Вариант 2: Если есть total_credits и он маленький
+      // Вариант 2: Если есть total_quota - платные планы обычно имеют > 1000 кредитов
+      if (quotaData?.data?.total_quota !== undefined) {
+        const totalQuota = quotaData.data.total_quota;
+        const isFree = totalQuota <= 1000;
+        console.log(`💳 Plan detected from total_quota: ${totalQuota} -> ${isFree ? 'FREE' : 'PAID'}`);
+        return isFree;
+      }
+      
+      // Вариант 3: Если есть total_credits (старый формат)
       if (quotaData?.data?.total_credits !== undefined) {
-        return quotaData.data.total_credits < 200;
+        const totalCredits = quotaData.data.total_credits;
+        const isFree = totalCredits < 200;
+        console.log(`💰 Plan detected from total_credits: ${totalCredits} -> ${isFree ? 'FREE' : 'PAID'}`);
+        return isFree;
       }
       
-      // Вариант 3: Если есть remaining и он маленький
-      if (quotaData?.data?.remaining_credits !== undefined) {
-        return quotaData.data.remaining_credits < 100;
+      // Вариант 4: Если есть только remaining - проверяем порог
+      if (quotaData?.data?.remaining_quota !== undefined) {
+        const remaining = quotaData.data.remaining_quota;
+        const isFree = remaining < 100;
+        console.log(`🔢 Plan detected from remaining_quota: ${remaining} -> ${isFree ? 'FREE' : 'PAID'}`);
+        return isFree;
       }
       
-      // По умолчанию считаем бесплатным для безопасности
-      console.log('⚠️ Could not determine plan, defaulting to free');
+      // По умолчанию считаем бесплатным для безопасности (720p)
+      console.log('⚠️ Could not determine plan from quota data, defaulting to FREE');
       return true;
     } catch (error) {
-      console.error('Error detecting plan:', error);
+      console.error('❌ Error detecting plan:', error);
       return true;
     }
   }

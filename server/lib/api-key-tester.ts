@@ -4,6 +4,7 @@
  */
 
 import { testApifyApiKey } from '../services/apify-service';
+import axios from 'axios';
 
 export interface ApiKeyTestResult {
   success: boolean;
@@ -99,22 +100,31 @@ export async function testApiKeyByProvider(
       }
       
       case 'heygen': {
-        const response = await fetch('https://api.heygen.com/v1/user.info', {
+        // Используем v2 API для проверки квоты (актуальный эндпоинт)
+        const response = await axios.get('https://api.heygen.com/v2/user/remaining_quota', {
           headers: {
             'X-Api-Key': apiKey,
           },
+          timeout: 10000,
         });
         
-        if (!response.ok) {
-          throw new Error(`HeyGen API error: ${response.status} ${response.statusText}`);
+        const data = response.data;
+        
+        // Формируем информативное сообщение о квоте
+        let message = 'HeyGen API key is valid';
+        if (data.data) {
+          const quota = data.data;
+          if (quota.remaining_quota !== undefined) {
+            message += `. Remaining: ${quota.remaining_quota}`;
+          }
+          if (quota.total_quota !== undefined) {
+            message += ` / ${quota.total_quota}`;
+          }
         }
         
-        const data = await response.json();
         return {
           success: true,
-          message: data.data?.user?.email 
-            ? `HeyGen API key is valid. Account: ${data.data.user.email}` 
-            : 'HeyGen API key is valid',
+          message,
           provider
         };
       }
@@ -151,7 +161,28 @@ export async function testApiKeyByProvider(
   } catch (error: any) {
     console.error(`Error testing ${provider} API key:`, error);
     
-    // Handle specific error cases
+    // Handle axios errors
+    if (error.response) {
+      const status = error.response.status;
+      const statusText = error.response.statusText;
+      
+      // Specific handling for authentication errors
+      if (status === 401 || status === 403) {
+        return { 
+          success: false, 
+          message: "API key is invalid or expired",
+          provider
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: `${provider} API error: ${status} ${statusText}`,
+        provider
+      };
+    }
+    
+    // Handle other error cases
     if (error.message?.includes('invalid') || error.message?.includes('authentication')) {
       return { 
         success: false, 
