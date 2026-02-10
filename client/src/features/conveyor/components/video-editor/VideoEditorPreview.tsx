@@ -46,9 +46,9 @@ export function VideoEditorPreview({
     <Card className="h-full flex flex-col">
       {/* Селектор формата и качества */}
       {selectedFormat && onFormatChange && (
-        <div className="px-6 pt-4 pb-2 space-y-3">
+        <div className="px-6 pt-4 pb-2">
           {/* Формат */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">Формат:</span>
               <div className="flex gap-1">
@@ -74,22 +74,19 @@ export function VideoEditorPreview({
                 })}
               </div>
             </div>
-          </div>
 
-          {/* Качество */}
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-muted-foreground flex-shrink-0">Качество:</span>
+            {/* Качество - компактный селектор */}
             <select
               value={selectedQuality}
               onChange={(e) => setQuality(e.target.value as '720p' | '1080p')}
               className={cn(
-                'flex-1 px-3 py-1.5 rounded text-sm font-medium border-2 bg-background',
+                'px-3 py-1.5 rounded text-sm font-medium border-2 bg-background',
                 'focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
                 'cursor-pointer transition-all'
               )}
             >
-              <option value="720p">720p - Стандартное</option>
-              <option value="1080p">1080p - HD</option>
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
             </select>
           </div>
         </div>
