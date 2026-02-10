@@ -137,8 +137,10 @@ export function VideoEditorMain() {
         />
       </div>
       
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[minmax(500px,800px)_1fr] gap-4 sm:gap-6 min-h-0">
-        <div className="min-h-0 w-full h-[400px] sm:h-[500px] lg:h-full">
+      {/* Адаптивная сетка с равномерным распределением места */}
+      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[minmax(500px,800px)_1fr] gap-4 sm:gap-6 min-h-0 overflow-hidden">
+        {/* Превью видео */}
+        <div className="min-h-0 w-full flex-shrink-0 h-[45vh] lg:h-full">
           <VideoEditorPreview 
             media={media} 
             status={status}
@@ -148,7 +150,8 @@ export function VideoEditorMain() {
           />
         </div>
         
-        <div className="min-h-0 w-full overflow-auto lg:overflow-visible">
+        {/* Сцены - занимают оставшееся место */}
+        <div className="min-h-0 w-full flex-1 lg:flex-initial overflow-hidden">
           <VideoEditorSidebar script={script} status={status} />
         </div>
       </div>

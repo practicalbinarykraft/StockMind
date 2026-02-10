@@ -16,9 +16,9 @@ export function VideoEditorSidebar({ script, status }: VideoEditorSidebarProps) 
   return (
     <Card className="h-full flex flex-col w-full">
       <CardHeader className="flex-shrink-0">
-        <CardTitle>Сцены</CardTitle>
+        <CardTitle>Сцены ({script.scenes?.length || 0})</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
+      <CardContent className="flex-1 overflow-hidden p-4">
         <ScenesList scenes={script.scenes || []} />
       </CardContent>
     </Card>
