@@ -129,7 +129,7 @@ export function VideoEditorMain() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8.5rem)]">
+    <div className="flex flex-col lg:h-[calc(100vh-8.5rem)]">
       <div className="flex-shrink-0 mb-4 sm:mb-6">
         <VideoEditorHeader 
           script={script} 
@@ -137,10 +137,10 @@ export function VideoEditorMain() {
         />
       </div>
       
-      {/* Адаптивная сетка с равномерным распределением места */}
-      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[minmax(500px,800px)_1fr] gap-4 sm:gap-6 min-h-0 overflow-hidden">
+      {/* Адаптивная сетка с вертикальной прокруткой на мобильных */}
+      <div className="flex flex-col lg:flex-1 lg:grid lg:grid-cols-[minmax(500px,800px)_1fr] gap-4 sm:gap-6 lg:min-h-0 lg:overflow-hidden">
         {/* Превью видео */}
-        <div className="min-h-0 w-full flex-shrink-0 h-[45vh] lg:h-full">
+        <div className="w-full h-[50vh] lg:h-full flex-shrink-0">
           <VideoEditorPreview 
             media={media} 
             status={status}
@@ -150,8 +150,8 @@ export function VideoEditorMain() {
           />
         </div>
         
-        {/* Сцены - занимают оставшееся место */}
-        <div className="min-h-0 w-full flex-1 lg:flex-initial overflow-hidden">
+        {/* Сцены - увеличенная минимальная высота на мобильных */}
+        <div className="w-full min-h-[70vh] lg:min-h-0 lg:h-full pb-6 lg:pb-0">
           <VideoEditorSidebar script={script} status={status} />
         </div>
       </div>
