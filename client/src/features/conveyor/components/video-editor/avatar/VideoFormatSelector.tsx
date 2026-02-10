@@ -4,7 +4,7 @@
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
-import { Monitor, Smartphone, Square, AlertTriangle } from 'lucide-react'
+import { Monitor, Smartphone, Square } from 'lucide-react'
 import { cn } from '@/shared/utils'
 
 interface VideoFormat {
@@ -98,62 +98,22 @@ export function VideoFormatSelector({
         {/* Выбор качества */}
         <div>
           <h3 className="text-sm font-medium mb-3">Качество видео</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => onQualityChange('720p')}
-              disabled={disabled}
-              className={cn(
-                'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
-                'hover:border-primary/50 hover:bg-accent/50',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                selectedQuality === '720p'
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-background'
-              )}
-            >
-              <div className="text-center w-full">
-                <div className="text-lg font-bold">720p</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Стандартное качество
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => onQualityChange('1080p')}
-              disabled={disabled}
-              className={cn(
-                'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
-                'hover:border-primary/50 hover:bg-accent/50',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                selectedQuality === '1080p'
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-background'
-              )}
-            >
-              <div className="text-center w-full">
-                <div className="text-lg font-bold">1080p</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  HD качество
-                </div>
-              </div>
-            </button>
-          </div>
+          <select
+            value={selectedQuality}
+            onChange={(e) => onQualityChange(e.target.value as '720p' | '1080p')}
+            disabled={disabled}
+            className={cn(
+              'w-full px-4 py-3 rounded-lg border-2 bg-background',
+              'text-sm font-medium transition-all',
+              'focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'cursor-pointer'
+            )}
+          >
+            <option value="720p">720p - Стандартное качество (1280×720 / 720×1280 / 720×720)</option>
+            <option value="1080p">1080p - HD качество (1920×1080 / 1080×1920 / 1080×1080)</option>
+          </select>
         </div>
-
-        {/* Предупреждение о 1080p */}
-        {selectedQuality === '1080p' && (
-          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium text-amber-900">Требуется платная подписка HeyGen</p>
-              <p className="mt-1 text-amber-800">
-                Для генерации видео в качестве 1080p необходима активная платная подписка HeyGen. 
-                При использовании бесплатного плана генерация может завершиться ошибкой.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Информация о разрешении */}
         <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">

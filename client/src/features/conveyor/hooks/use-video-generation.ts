@@ -8,6 +8,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { scriptMediaService } from '@/features/conveyor/services/scriptMediaService'
 import { apiRequest } from '@/shared/api/http'
 import { startVideoPolling } from '../utils/video-polling'
+import { useToast } from '@/shared/hooks/use-toast'
+import { useVideoFormatStore } from '../stores/useVideoFormatStore'
 
 interface UseVideoGenerationReturn {
   isGenerating: boolean
@@ -27,6 +29,9 @@ export function useVideoGeneration(
   scriptId: string
 ): UseVideoGenerationReturn {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { selectedQuality } = useVideoFormatStore()
+  
   const [isGenerating, setIsGenerating] = useState(false)
   const [videoStatus, setVideoStatus] = useState<
     'pending' | 'processing' | 'completed' | 'failed' | null
@@ -58,6 +63,21 @@ export function useVideoGeneration(
           setErrorMessage(error)
           setVideoStatus('failed')
           setIsGenerating(false)
+          
+          // Проверяем, если была попытка сгенерировать 1080p на бесплатном плане
+          if (selectedQuality === '1080p' && error.toLowerCase().includes('resolution')) {
+            toast({
+              variant: 'destructive',
+              title: 'Ошибка генерации видео',
+              description: 'Для генерации видео в качестве 1080p требуется платная подписка HeyGen. Попробуйте выбрать качество 720p.',
+            })
+          } else if (selectedQuality === '1080p' && (error.toLowerCase().includes('plan') || error.toLowerCase().includes('subscription') || error.toLowerCase().includes('quota'))) {
+            toast({
+              variant: 'destructive',
+              title: 'Ошибка генерации видео',
+              description: 'Для генерации видео в качестве 1080p требуется платная подписка HeyGen. Попробуйте выбрать качество 720p.',
+            })
+          }
         },
         onComplete: () => {
           setIsGenerating(false)
@@ -199,6 +219,20 @@ export function useVideoGeneration(
         setVideoStatus('failed')
         setIsGenerating(false)
         console.error('Video generation error:', err)
+        
+        // Проверяем, если была попытка сгенерировать 1080p на бесплатном плане
+        if (selectedQuality === '1080p') {
+          const errorText = message.toLowerCase()
+          if (errorText.includes('resolution') || errorText.includes('plan') || 
+              errorText.includes('subscription') || errorText.includes('quota') ||
+              errorText.includes('dimension') || errorText.includes('1080')) {
+            toast({
+              variant: 'destructive',
+              title: 'Ошибка генерации видео',
+              description: 'Для генерации видео в качестве 1080p требуется платная подписка HeyGen. Попробуйте выбрать качество 720p.',
+            })
+          }
+        }
       }
     },
     [scriptId, startPolling]
