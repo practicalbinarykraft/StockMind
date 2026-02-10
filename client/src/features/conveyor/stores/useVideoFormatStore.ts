@@ -50,7 +50,7 @@ function calculateDimension(format: '16:9' | '9:16' | '1:1', quality: VideoQuali
 export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
   // Начальное состояние
   selectedFormat: '9:16',
-  selectedQuality: '720p',
+  selectedQuality: '1080p',
   videoDimension: { width: 720, height: 1280 },
   isLoading: false,
   isInitialized: false,
