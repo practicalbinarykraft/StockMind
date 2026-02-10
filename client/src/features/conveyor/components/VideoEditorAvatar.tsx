@@ -14,8 +14,8 @@ import { AvatarPageFooter } from './video-editor/avatar/AvatarPageFooter'
 import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-data'
 import { useAvatarSelection } from '@/features/conveyor/hooks/use-avatar-selection'
 import { useVideoGeneration } from '@/features/conveyor/hooks/use-video-generation'
+import { useVideoFormatStore } from '@/features/conveyor/stores/useVideoFormatStore'
 import { scriptMediaService } from '@/features/conveyor/services/scriptMediaService'
-import { apiRequest } from '@/shared/api/http'
 
 export function VideoEditorAvatar() {
   const params = useParams<{ id: string }>()
@@ -44,93 +44,35 @@ export function VideoEditorAvatar() {
     generate,
   } = useVideoGeneration(scriptId)
 
+  // Используем Zustand store для формата видео
+  const { selectedFormat, videoDimension, userPlan, initialize, setFormat } = useVideoFormatStore()
+
   const [hasAudio, setHasAudio] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('16:9')
-  const [videoDimension, setVideoDimension] = useState({ width: 1280, height: 720 })
-  const [userPlan, setUserPlan] = useState<'free' | 'paid'>('free')
-  const [planLoaded, setPlanLoaded] = useState(false)
 
-  // Проверка наличия аудио и загрузка плана пользователя
+  // Инициализация store при монтировании
+  useEffect(() => {
+    initialize(scriptId)
+  }, [scriptId, initialize])
+
+  // Проверка наличия аудио
   useEffect(() => {
     let isMounted = true
 
-    const checkAudioAndPlan = async () => {
+    const checkAudio = async () => {
       try {
-        // Параллельная загрузка медиа и квоты
-        const [media, quotaResponse] = await Promise.all([
-          scriptMediaService.getMedia(scriptId),
-          apiRequest('GET', '/api/heygen/quota').catch(() => null),
-        ])
+        const media = await scriptMediaService.getMedia(scriptId)
 
         if (isMounted) {
           setHasAudio(!!media?.audioUrl)
           setAudioUrl(media?.audioUrl || null)
-          let detectedPlan: 'free' | 'paid' = 'free'
-          if (quotaResponse) {
-            try {
-              const quotaData = await quotaResponse.json()
-              const isFreePlan = quotaData.data?.isFreePlan ?? true
-              detectedPlan = isFreePlan ? 'free' : 'paid'
-              setUserPlan(detectedPlan)
-              console.log('📊 HeyGen план:', isFreePlan ? 'FREE' : 'PAID')
-            } catch (err) {
-              console.error('Failed to parse quota:', err)
-              setUserPlan('free')
-            }
-          } else {
-            setUserPlan('free')
-          }
-          setPlanLoaded(true)
-
-          if (media?.videoAspectRatio && media?.videoDimension) {
-            // Уже есть сохранённый формат - используем его
-            setSelectedFormat(media.videoAspectRatio)
-            setVideoDimension(media.videoDimension)
-            console.log('✅ Загружен сохранённый формат:', media.videoAspectRatio, media.videoDimension)
-          } else if (media?.videoUrl && !media?.videoAspectRatio) {
-            // Старое видео без сохранённого формата - используем старый дефолт
-            setSelectedFormat('16:9')
-            setVideoDimension({ width: 1280, height: 720 })
-            console.log('📼 Старое видео - используем дефолт 16:9 (1280×720)')
-          } else {
-            // Новое видео - устанавливаем дефолт 9:16 (вертикальный формат)
-            let defaultDimension: { width: number; height: number }
-            if (detectedPlan === 'paid') {
-              setSelectedFormat('9:16')
-              defaultDimension = { width: 1080, height: 1920 }
-              setVideoDimension(defaultDimension)
-              console.log('🆕 Новое видео (PAID план) - дефолт 9:16 (1080×1920)')
-            } else {
-              setSelectedFormat('9:16')
-              defaultDimension = { width: 720, height: 1280 }
-              setVideoDimension(defaultDimension)
-              console.log('🆕 Новое видео (FREE план) - дефолт 9:16 (720×1280)')
-            }
-            
-            // Сохраняем дефолтный формат в БД
-            try {
-              await scriptMediaService.updateVideo(scriptId, {
-                videoAspectRatio: '9:16',
-                videoDimension: defaultDimension,
-              })
-              console.log('💾 Сохранён дефолтный формат 9:16 в БД')
-            } catch (err) {
-              console.error('Failed to save default format:', err)
-            }
-          }
-          // Для нового видео дефолты уже установлены выше
         }
       } catch (err) {
-        console.error('Failed to check audio and plan:', err)
-        if (isMounted) {
-          setUserPlan('free')
-          setPlanLoaded(true)
-        }
+        console.error('Failed to check audio:', err)
       }
     }
 
-    checkAudioAndPlan()
+    checkAudio()
 
     return () => {
       isMounted = false
@@ -151,23 +93,12 @@ export function VideoEditorAvatar() {
     }
   }
 
-  // Обработчик изменения формата видео
+  // Обработчик изменения формата видео (синхронизируется через Zustand)
   const handleFormatChange = async (
     format: '16:9' | '9:16' | '1:1',
     dimension: { width: number; height: number }
   ) => {
-    setSelectedFormat(format)
-    setVideoDimension(dimension)
-
-    // Сохранение в БД
-    try {
-      await scriptMediaService.updateVideo(scriptId, {
-        videoAspectRatio: format,
-        videoDimension: dimension,
-      })
-    } catch (err) {
-      console.error('Failed to save format:', err)
-    }
+    await setFormat(format, dimension)
   }
 
   // Обработчик генерации

@@ -3,13 +3,12 @@
  */
 
 import { useParams } from 'wouter'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useVideoEditorData } from '../hooks/use-video-editor-data'
+import { useVideoFormatStore } from '../stores/useVideoFormatStore'
 import { VideoEditorHeader } from './video-editor/VideoEditorHeader'
 import { VideoEditorPreview } from './video-editor/VideoEditorPreview'
 import { VideoEditorSidebar } from './video-editor/VideoEditorSidebar'
-import { scriptMediaService } from '../services/scriptMediaService'
-import { apiRequest } from '@/shared/api/http'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { AlertCircle } from 'lucide-react'
@@ -26,66 +25,16 @@ export function VideoEditorMain() {
     hasError,
   } = useVideoEditorData(scriptId)
 
-  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('9:16')
-  const [userPlan, setUserPlan] = useState<'free' | 'paid'>('free')
+  // Используем Zustand store для формата видео
+  const { selectedFormat, userPlan, initialize, setFormat } = useVideoFormatStore()
 
-  // Загрузка формата и плана
+  // Инициализация store при монтировании
   useEffect(() => {
-    const loadFormatAndPlan = async () => {
-      try {
-        // Параллельная загрузка медиа и плана
-        const [mediaData, quotaResponse] = await Promise.all([
-          scriptMediaService.getMedia(scriptId),
-          apiRequest('GET', '/api/heygen/quota').catch(() => null),
-        ])
-
-        // Определяем план пользователя
-        let detectedPlan: 'free' | 'paid' = 'free'
-        if (quotaResponse) {
-          const quotaData = await quotaResponse.json()
-          const isFreePlan = quotaData.data?.isFreePlan ?? true
-          detectedPlan = isFreePlan ? 'free' : 'paid'
-          setUserPlan(detectedPlan)
-        }
-
-        // Устанавливаем формат
-        if (mediaData?.videoAspectRatio) {
-          // Есть сохранённый формат - используем его
-          setSelectedFormat(mediaData.videoAspectRatio)
-        } else if (mediaData?.videoUrl && !mediaData?.videoAspectRatio) {
-          // Старое видео без сохранённого формата - используем старый дефолт
-          setSelectedFormat('16:9')
-        } else {
-          // Новое видео - дефолт 9:16 (вертикальный формат)
-          setSelectedFormat('9:16')
-          
-          // Сохраняем дефолтный формат в БД
-          const defaultDimension = detectedPlan === 'paid'
-            ? { width: 1080, height: 1920 }
-            : { width: 720, height: 1280 }
-          
-          try {
-            await scriptMediaService.updateVideo(scriptId, {
-              videoAspectRatio: '9:16',
-              videoDimension: defaultDimension,
-            })
-            console.log('💾 Сохранён дефолтный формат 9:16 в БД')
-          } catch (err) {
-            console.error('Failed to save default format:', err)
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load format and plan:', err)
-      }
-    }
-
-    loadFormatAndPlan()
-  }, [scriptId])
+    initialize(scriptId)
+  }, [scriptId, initialize])
 
   // Обработчик изменения формата
   const handleFormatChange = async (format: '16:9' | '9:16' | '1:1') => {
-    setSelectedFormat(format)
-
     // Определяем dimension в зависимости от плана
     let dimension: { width: number; height: number }
     if (userPlan === 'paid') {
@@ -116,16 +65,8 @@ export function VideoEditorMain() {
       }
     }
 
-    // Сохранение в БД
-    try {
-      await scriptMediaService.updateVideo(scriptId, {
-        videoAspectRatio: format,
-        videoDimension: dimension,
-      })
-      console.log(`✅ Сохранён формат: ${format} (${dimension.width}×${dimension.height})`)
-    } catch (err) {
-      console.error('Failed to save format:', err)
-    }
+    // Сохранение через Zustand store
+    await setFormat(format, dimension)
   }
 
   if (isLoading) {
