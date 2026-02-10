@@ -45,7 +45,15 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
       // Параллельная загрузка медиа и плана
       const [media, quotaResponse] = await Promise.all([
         scriptMediaService.getMedia(scriptId),
-        apiRequest('GET', '/api/heygen/quota').catch(() => null),
+        apiRequest('GET', '/api/heygen/quota').catch((err) => {
+          // Если нет API ключа HeyGen - это нормально, работаем с FREE планом
+          if (err?.status === 400) {
+            console.info('ℹ️ HeyGen API key not configured, using FREE plan')
+          } else {
+            console.error('❌ Quota request failed:', err?.message || err)
+          }
+          return null
+        }),
       ])
 
       // Определяем план пользователя
@@ -53,12 +61,17 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
       if (quotaResponse) {
         try {
           const quotaData = await quotaResponse.json()
-          const isFreePlan = quotaData.data?.isFreePlan ?? true
+          console.log('📦 Quota response:', quotaData)
+          
+          // Структура ответа: { success: true, data: { quota, isFreePlan } }
+          const isFreePlan = quotaData?.data?.isFreePlan ?? true
           detectedPlan = isFreePlan ? 'free' : 'paid'
           console.log('📊 HeyGen план:', isFreePlan ? 'FREE' : 'PAID')
         } catch (err) {
-          console.error('Failed to parse quota:', err)
+          console.error('❌ Failed to parse quota:', err)
         }
+      } else {
+        console.warn('⚠️ No quota response, using FREE plan by default')
       }
 
       // Устанавливаем формат
