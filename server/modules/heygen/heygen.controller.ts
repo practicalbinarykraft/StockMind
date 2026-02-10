@@ -250,4 +250,37 @@ export const heygenController = {
       res.status(500).json({ message: "Failed to fetch video" });
     }
   },
+
+  /**
+   * GET /api/heygen/quota
+   * Получить информацию о квоте пользователя
+   */
+  async getQuota(req: Request, res: Response) {
+    let userId: string | null = null;
+    try {
+      userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const result = await heygenService.getUserQuota(userId);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      logger.error("Error getting HeyGen quota", {
+        userId,
+        errorType: error.constructor?.name,
+      });
+
+      if (error instanceof HeygenApiKeyNotFoundError) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to get quota",
+      });
+    }
+  },
 };

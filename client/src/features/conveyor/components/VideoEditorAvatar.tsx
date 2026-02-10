@@ -15,6 +15,7 @@ import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-d
 import { useAvatarSelection } from '@/features/conveyor/hooks/use-avatar-selection'
 import { useVideoGeneration } from '@/features/conveyor/hooks/use-video-generation'
 import { scriptMediaService } from '@/features/conveyor/services/scriptMediaService'
+import { apiRequest } from '@/shared/api/http'
 
 export function VideoEditorAvatar() {
   const params = useParams<{ id: string }>()
@@ -45,34 +46,77 @@ export function VideoEditorAvatar() {
 
   const [hasAudio, setHasAudio] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('9:16')
-  const [videoDimension, setVideoDimension] = useState({ width: 1080, height: 1920 })
+  const [selectedFormat, setSelectedFormat] = useState<'16:9' | '9:16' | '1:1'>('16:9')
+  const [videoDimension, setVideoDimension] = useState({ width: 1280, height: 720 })
+  const [userPlan, setUserPlan] = useState<'free' | 'paid'>('free')
+  const [planLoaded, setPlanLoaded] = useState(false)
 
-  // Проверка наличия аудио (выполняется только один раз при монтировании)
+  // Проверка наличия аудио и загрузка плана пользователя
   useEffect(() => {
     let isMounted = true
 
-    const checkAudio = async () => {
+    const checkAudioAndPlan = async () => {
       try {
-        const media = await scriptMediaService.getMedia(scriptId)
+        // Параллельная загрузка медиа и квоты
+        const [media, quotaResponse] = await Promise.all([
+          scriptMediaService.getMedia(scriptId),
+          apiRequest('GET', '/api/heygen/quota').catch(() => null),
+        ])
+
         if (isMounted) {
           setHasAudio(!!media?.audioUrl)
           setAudioUrl(media?.audioUrl || null)
-          
-          // Загрузка сохранённого формата видео
-          if (media?.videoAspectRatio) {
+          let detectedPlan: 'free' | 'paid' = 'free'
+          if (quotaResponse) {
+            try {
+              const quotaData = await quotaResponse.json()
+              const isFreePlan = quotaData.data?.isFreePlan ?? true
+              detectedPlan = isFreePlan ? 'free' : 'paid'
+              setUserPlan(detectedPlan)
+              console.log('📊 HeyGen план:', isFreePlan ? 'FREE' : 'PAID')
+            } catch (err) {
+              console.error('Failed to parse quota:', err)
+              setUserPlan('free')
+            }
+          } else {
+            setUserPlan('free')
+          }
+          setPlanLoaded(true)
+
+          if (media?.videoAspectRatio && media?.videoDimension) {
+            // Уже есть сохранённый формат - используем его
             setSelectedFormat(media.videoAspectRatio)
-          }
-          if (media?.videoDimension) {
             setVideoDimension(media.videoDimension)
+            console.log('✅ Загружен сохранённый формат:', media.videoAspectRatio, media.videoDimension)
+          } else if (media?.videoUrl && !media?.videoAspectRatio) {
+            // Старое видео без сохранённого формата - используем старый дефолт
+            setSelectedFormat('16:9')
+            setVideoDimension({ width: 1280, height: 720 })
+            console.log('📼 Старое видео - используем дефолт 16:9 (1280×720)')
+          } else {
+            // Новое видео - устанавливаем дефолт в зависимости от плана
+            if (detectedPlan === 'paid') {
+              setSelectedFormat('16:9')
+              setVideoDimension({ width: 1920, height: 1080 })
+              console.log('🆕 Новое видео (PAID план) - дефолт 16:9 (1920×1080)')
+            } else {
+              setSelectedFormat('16:9')
+              setVideoDimension({ width: 1280, height: 720 })
+              console.log('🆕 Новое видео (FREE план) - дефолт 16:9 (1280×720)')
+            }
           }
+          // Для нового видео дефолты уже установлены выше
         }
       } catch (err) {
-        console.error('Failed to check audio:', err)
+        console.error('Failed to check audio and plan:', err)
+        if (isMounted) {
+          setUserPlan('free')
+          setPlanLoaded(true)
+        }
       }
     }
 
-    checkAudio()
+    checkAudioAndPlan()
 
     return () => {
       isMounted = false
@@ -160,6 +204,7 @@ export function VideoEditorAvatar() {
         selectedFormat={selectedFormat}
         onFormatChange={handleFormatChange}
         disabled={isGenerating}
+        userPlan={userPlan}
       />
 
       {/* Генерация видео */}

@@ -412,6 +412,72 @@ export class HeygenService {
   }
 
   /**
+   * Получить информацию о квоте пользователя
+   */
+  async getUserQuota(userId: string) {
+    const apiKey = await this.getDecryptedApiKey(userId);
+    
+    try {
+      console.log('📊 Fetching HeyGen user quota...');
+      
+      const response = await axios.get(`${HEYGEN_API_BASE}/v2/user/remaining_quota`, {
+        headers: {
+          'X-Api-Key': apiKey,
+        },
+        timeout: 10000,
+      });
+      
+      console.log('✅ HeyGen quota response:', JSON.stringify(response.data, null, 2));
+      
+      const isFreePlan = this.detectFreePlan(response.data);
+      
+      return {
+        quota: response.data,
+        isFreePlan,
+      };
+    } catch (error: any) {
+      console.error('❌ Error fetching HeyGen quota:', error.response?.data || error.message);
+      logger.error('Error fetching HeyGen quota', { error: error.message });
+      
+      // При ошибке считаем бесплатным планом для безопасности
+      return {
+        quota: null,
+        isFreePlan: true,
+      };
+    }
+  }
+
+  /**
+   * Определить бесплатный план по данным квоты
+   */
+  private detectFreePlan(quotaData: any): boolean {
+    try {
+      // Вариант 1: Если есть поле plan
+      if (quotaData?.data?.plan) {
+        const plan = quotaData.data.plan.toLowerCase();
+        return plan === 'free' || plan === 'trial';
+      }
+      
+      // Вариант 2: Если есть total_credits и он маленький
+      if (quotaData?.data?.total_credits !== undefined) {
+        return quotaData.data.total_credits < 200;
+      }
+      
+      // Вариант 3: Если есть remaining и он маленький
+      if (quotaData?.data?.remaining_credits !== undefined) {
+        return quotaData.data.remaining_credits < 100;
+      }
+      
+      // По умолчанию считаем бесплатным для безопасности
+      console.log('⚠️ Could not determine plan, defaulting to free');
+      return true;
+    } catch (error) {
+      console.error('Error detecting plan:', error);
+      return true;
+    }
+  }
+
+  /**
    * Получить список аватаров с пагинацией
    */
   async fetchAvatars(userId: string, query: GetAvatarsQueryDto) {

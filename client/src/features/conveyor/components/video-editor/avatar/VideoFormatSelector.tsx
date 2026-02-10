@@ -15,7 +15,31 @@ interface VideoFormat {
   icon: React.ReactNode
 }
 
-const VIDEO_FORMATS: VideoFormat[] = [
+const VIDEO_FORMATS_720P: VideoFormat[] = [
+  {
+    id: '16:9',
+    label: 'Горизонтальное',
+    description: 'YouTube, Desktop (1280×720)',
+    dimension: { width: 1280, height: 720 },
+    icon: <Monitor className="h-5 w-5" />,
+  },
+  {
+    id: '9:16',
+    label: 'Вертикальное',
+    description: 'TikTok, Reels, Shorts (720×1280)',
+    dimension: { width: 720, height: 1280 },
+    icon: <Smartphone className="h-5 w-5" />,
+  },
+  {
+    id: '1:1',
+    label: 'Квадратное',
+    description: 'Instagram Feed (720×720)',
+    dimension: { width: 720, height: 720 },
+    icon: <Square className="h-5 w-5" />,
+  },
+]
+
+const VIDEO_FORMATS_1080P: VideoFormat[] = [
   {
     id: '16:9',
     label: 'Горизонтальное',
@@ -46,21 +70,37 @@ interface VideoFormatSelectorProps {
     dimension: { width: number; height: number }
   ) => void
   disabled?: boolean
+  userPlan?: 'free' | 'paid'
 }
 
 export function VideoFormatSelector({
   selectedFormat,
   onFormatChange,
   disabled = false,
+  userPlan = 'free',
 }: VideoFormatSelectorProps) {
+  // Выбираем массив форматов в зависимости от плана
+  const formats = userPlan === 'paid' ? VIDEO_FORMATS_1080P : VIDEO_FORMATS_720P
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Формат видео</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Формат видео</CardTitle>
+          {userPlan === 'free' ? (
+            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+              Макс. 720p
+            </span>
+          ) : (
+            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+              HD 1080p
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {VIDEO_FORMATS.map((format) => (
+          {formats.map((format) => (
             <button
               key={format.id}
               onClick={() => onFormatChange(format.id, format.dimension)}
@@ -93,6 +133,12 @@ export function VideoFormatSelector({
             </button>
           ))}
         </div>
+
+        {userPlan === 'free' && (
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            💡 Бесплатный план HeyGen ограничен разрешением 720p
+          </p>
+        )}
       </CardContent>
     </Card>
   )
