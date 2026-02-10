@@ -110,22 +110,9 @@ export function VideoFormatSelector({
               'cursor-pointer'
             )}
           >
-            <option value="720p">720p - Стандартное качество (1280×720 / 720×1280 / 720×720)</option>
-            <option value="1080p">1080p - HD качество (1920×1080 / 1080×1920 / 1080×1080)</option>
+            <option value="720p">720p - Стандартное качество</option>
+            <option value="1080p">1080p - HD качество</option>
           </select>
-        </div>
-
-        {/* Информация о разрешении */}
-        <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
-          <p className="font-medium mb-1">Текущее разрешение:</p>
-          <p>
-            {selectedQuality === '720p' && selectedFormat === '16:9' && '1280×720'}
-            {selectedQuality === '720p' && selectedFormat === '9:16' && '720×1280'}
-            {selectedQuality === '720p' && selectedFormat === '1:1' && '720×720'}
-            {selectedQuality === '1080p' && selectedFormat === '16:9' && '1920×1080'}
-            {selectedQuality === '1080p' && selectedFormat === '9:16' && '1080×1920'}
-            {selectedQuality === '1080p' && selectedFormat === '1:1' && '1080×1080'}
-          </p>
         </div>
       </CardContent>
     </Card>
