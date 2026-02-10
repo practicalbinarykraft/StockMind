@@ -3,7 +3,7 @@
  * ≤200 строк
  */
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Card, CardContent } from '@/shared/ui/card'
 import { Monitor, Smartphone, Square } from 'lucide-react'
 import { cn } from '@/shared/utils'
 
@@ -52,10 +52,7 @@ export function VideoFormatSelector({
 }: VideoFormatSelectorProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Формат и качество видео</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="pt-6 space-y-6">
         {/* Выбор формата */}
         <div>
           <h3 className="text-sm font-medium mb-3">Формат видео</h3>
