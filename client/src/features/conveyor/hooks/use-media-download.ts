@@ -25,19 +25,31 @@ export function useMediaDownload(): UseMediaDownloadReturn {
       setIsDownloading(true)
       setDownloadError(null)
 
+      // Скачиваем файл через fetch для обхода CORS
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      // Получаем blob
+      const blob = await response.blob()
+
+      // Создаем URL для blob
+      const blobUrl = window.URL.createObjectURL(blob)
+
       // Создаем временную ссылку для скачивания
       const link = document.createElement('a')
-      link.href = url
+      link.href = blobUrl
       link.download = filename
-      link.target = '_blank'
       
       // Добавляем в DOM, кликаем и удаляем
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      // Небольшая задержка для UI-фидбека
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Освобождаем blob URL
+      window.URL.revokeObjectURL(blobUrl)
     } catch (err) {
       console.error('Download failed:', err)
       setDownloadError(err instanceof Error ? err.message : 'Download failed')

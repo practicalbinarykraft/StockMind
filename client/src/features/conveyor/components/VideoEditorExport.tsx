@@ -12,6 +12,7 @@ import { ExportPageFooter } from './video-editor/export/ExportPageFooter'
 import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-data'
 import { useMediaExport } from '@/features/conveyor/hooks/use-media-export'
 import { useMediaDownload } from '@/features/conveyor/hooks/use-media-download'
+import { getProxiedVideoUrl } from '@/features/conveyor/utils/media-proxy'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { AlertCircle } from 'lucide-react'
 
@@ -34,7 +35,11 @@ export function VideoEditorExport() {
   const handleDownloadVideo = async () => {
     if (!media?.videoUrl) return
     const filename = `video_${scriptId}.mp4`
-    await downloadFile(media.videoUrl, filename)
+    // Используем прокси с флагом download для корректного скачивания
+    const downloadUrl = getProxiedVideoUrl(media.videoUrl, true)
+    if (downloadUrl) {
+      await downloadFile(downloadUrl, filename)
+    }
   }
 
   // Состояние загрузки
