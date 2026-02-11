@@ -98,8 +98,12 @@ export function VideoEditorPreview({
             <video
               src={proxiedVideoUrl}
               controls
-              className="w-full h-full object-cover"
+              className="max-w-full max-h-full object-contain"
               poster={proxiedThumbnailUrl}
+              style={{
+                width: 'auto',
+                height: 'auto',
+              }}
             />
           ) : isGenerating ? (
             <div className="text-center">

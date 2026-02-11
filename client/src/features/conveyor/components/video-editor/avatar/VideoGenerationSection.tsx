@@ -107,13 +107,20 @@ export function VideoGenerationSection({
             <p className="text-sm font-medium text-green-600">
               Видео готово!
             </p>
-            <video
-              src={proxiedVideoUrl}
-              controls
-              className="w-full rounded-md"
-            >
-              Ваш браузер не поддерживает видео
-            </video>
+            <div className="w-full bg-muted rounded-md flex items-center justify-center overflow-hidden">
+              <video
+                src={proxiedVideoUrl}
+                controls
+                className="max-w-full max-h-full object-contain rounded-md"
+                style={{
+                  width: 'auto',
+                  height: 'auto',
+                  maxHeight: '500px',
+                }}
+              >
+                Ваш браузер не поддерживает видео
+              </video>
+            </div>
           </div>
         )}
 
