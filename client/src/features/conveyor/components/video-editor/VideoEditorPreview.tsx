@@ -93,17 +93,13 @@ export function VideoEditorPreview({
       )}
 
       <CardContent className="p-6 flex-1 min-h-0">
-        <div className="h-full bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+        <div className="h-full bg-muted rounded-lg flex items-center justify-center overflow-hidden relative">
           {hasVideo ? (
             <video
               src={proxiedVideoUrl}
               controls
-              className="max-w-full max-h-full object-contain"
+              className="absolute inset-0 w-full h-full object-contain"
               poster={proxiedThumbnailUrl}
-              style={{
-                width: 'auto',
-                height: 'auto',
-              }}
             />
           ) : isGenerating ? (
             <div className="text-center">
