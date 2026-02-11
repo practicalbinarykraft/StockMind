@@ -6,6 +6,7 @@ const ALLOWED_HEYGEN_DOMAINS = [
   "files.heygen.ai",
   "files2.heygen.ai",
   "resource.heygen.ai",
+  "resource2.heygen.ai",
   "api.heygen.com",
 ];
 
