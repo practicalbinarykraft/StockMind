@@ -115,12 +115,18 @@ export function ExportVideoSection({
         {proxiedVideoUrl && (
           <div className="space-y-2">
             <label className="text-sm font-medium">Просмотр:</label>
-            <video
-              controls
-              src={proxiedVideoUrl}
-              poster={proxiedThumbnailUrl}
-              className="w-full rounded-lg"
-            />
+            <div className="bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+              <video
+                controls
+                src={proxiedVideoUrl}
+                poster={proxiedThumbnailUrl}
+                className="max-w-full max-h-[500px] object-contain rounded-lg"
+                style={{
+                  width: 'auto',
+                  height: 'auto',
+                }}
+              />
+            </div>
           </div>
         )}
 
