@@ -70,12 +70,22 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
     try {
       const media = await scriptMediaService.getMedia(scriptId)
 
-      // Определяем качество из сохраненного dimension
+      // Функция для определения формата по размерам видео
+      const detectFormatFromDimension = (width: number, height: number): '16:9' | '9:16' | '1:1' => {
+        if (width === height) return '1:1'
+        if (width > height) return '16:9'
+        return '9:16'
+      }
+
+      // Определяем качество и формат из сохраненного dimension
       let quality: VideoQuality = '720p'
+      let detectedFormat: '16:9' | '9:16' | '1:1' = '9:16'
+      
       if (media?.videoDimension) {
         const { width, height } = media.videoDimension
         const maxDimension = Math.max(width, height)
         quality = maxDimension > 1280 ? '1080p' : '720p'
+        detectedFormat = detectFormatFromDimension(width, height)
       }
 
       // Устанавливаем формат
@@ -89,16 +99,27 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
           isInitialized: true,
         })
         console.log('✅ Загружен сохранённый формат:', media.videoAspectRatio, media.videoDimension, quality)
-      } else if (media?.videoUrl && !media?.videoAspectRatio) {
-        // Старое видео без сохранённого формата - используем старый дефолт
+      } else if (media?.videoUrl && media?.videoDimension && !media?.videoAspectRatio) {
+        // Старое видео без сохранённого формата - определяем формат по размерам
         set({
-          selectedFormat: '16:9',
-          selectedQuality: '720p',
-          videoDimension: { width: 1280, height: 720 },
+          selectedFormat: detectedFormat,
+          selectedQuality: quality,
+          videoDimension: media.videoDimension,
           isLoading: false,
           isInitialized: true,
         })
-        console.log('📼 Старое видео - используем дефолт 16:9 (1280×720)')
+        console.log(`📼 Старое видео - определён формат ${detectedFormat} из размеров (${media.videoDimension.width}×${media.videoDimension.height})`)
+        
+        // Сохраняем определённый формат в БД
+        try {
+          await scriptMediaService.updateVideo(scriptId, {
+            videoAspectRatio: detectedFormat,
+            videoDimension: media.videoDimension,
+          })
+          console.log('💾 Сохранён определённый формат в БД')
+        } catch (err) {
+          console.error('Failed to save detected format:', err)
+        }
       } else {
         // Новое видео - дефолт 9:16 720p
         const defaultDimension = { width: 720, height: 1280 }
