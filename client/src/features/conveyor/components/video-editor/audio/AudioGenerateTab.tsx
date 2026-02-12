@@ -73,7 +73,8 @@ export function AudioGenerateTab({ scriptId, scriptText, onAudioGenerated }: Aud
 
       {audioUrl && (
         <SimpleAudioPlayer 
-          audioUrl={audioUrl} 
+          audioUrl={audioUrl}
+          scriptId={scriptId}
           filename={`generated-audio-${voiceName || 'voice'}-${new Date().getTime()}.mp3`}
           voiceName={voiceName || undefined}
         />

@@ -82,13 +82,6 @@ export class StorageRepo {
         Key: key,
         Body: buffer,
         ContentType: contentType,
-        // Добавляем метаданные для правильной обработки файла браузером
-        ContentDisposition: "inline",
-        // CORS заголовки для R2
-        Metadata: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, HEAD",
-        },
       });
 
       await this.client.send(command);
@@ -111,7 +104,7 @@ export class StorageRepo {
   }
 
   /**
-   * Получить временный URL для доступа к файлу
+   * Получить временный URL для доступа к файлу (для воспроизведения)
    * @param key - Путь к файлу в bucket
    * @param options - Опции для генерации URL
    * @returns Promise с presigned URL
@@ -126,8 +119,6 @@ export class StorageRepo {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key,
-        // Указываем что файл должен отображаться inline (не скачиваться сразу)
-        ResponseContentDisposition: "inline",
       });
 
       const url = await getSignedUrl(this.client, command, { expiresIn });
@@ -144,6 +135,86 @@ export class StorageRepo {
         key,
       });
       throw new StoragePresignedUrlError(error.message);
+    }
+  }
+
+  /**
+   * Получить временный URL для скачивания файла
+   * @param key - Путь к файлу в bucket
+   * @param filename - Имя файла для скачивания
+   * @param options - Опции для генерации URL
+   * @returns Promise с presigned URL для скачивания
+   */
+  async getDownloadUrl(
+    key: string,
+    filename: string,
+    options: PresignedUrlOptions = {}
+  ): Promise<string> {
+    try {
+      const { expiresIn = 3600 } = options; // 1 час по умолчанию для скачивания
+
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        // Указываем что файл должен скачиваться с конкретным именем
+        ResponseContentDisposition: `attachment; filename="${filename}"`,
+      });
+
+      const url = await getSignedUrl(this.client, command, { expiresIn });
+
+      logger.debug("Generated download URL", {
+        key,
+        filename,
+        expiresIn,
+      });
+
+      return url;
+    } catch (error: any) {
+      logger.error("Error generating download URL", {
+        error: error.message,
+        key,
+      });
+      throw new StoragePresignedUrlError(error.message);
+    }
+  }
+
+  /**
+   * Получить файл из R2 как Buffer (для прокси)
+   * @param key - Путь к файлу в bucket
+   * @returns Promise с Buffer файла
+   */
+  async getFileBuffer(key: string): Promise<Buffer> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const response = await this.client.send(command);
+
+      if (!response.Body) {
+        throw new Error("Empty response body");
+      }
+
+      // Преобразуем stream в Buffer
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      logger.debug("File loaded from R2", {
+        key,
+        size: buffer.length,
+      });
+
+      return buffer;
+    } catch (error: any) {
+      logger.error("Error loading file from R2", {
+        error: error.message,
+        key,
+      });
+      throw new StorageUploadError(error.message);
     }
   }
 

@@ -27,4 +27,14 @@ router.get("/scripts/:scriptId/media/status", requireAuth, scriptsMediaControlle
 // DELETE /api/scripts/:scriptId/media - Удалить медиа
 router.delete("/scripts/:scriptId/media", requireAuth, scriptsMediaController.deleteMedia);
 
+// === Прокси endpoints для медиа файлов ===
+// GET /api/scripts/:scriptId/media/audio/stream - Воспроизвести аудио
+router.get("/scripts/:scriptId/media/audio/stream", requireAuth, scriptsMediaController.streamAudio);
+
+// GET /api/scripts/:scriptId/media/audio/download - Скачать аудио
+router.get("/scripts/:scriptId/media/audio/download", requireAuth, scriptsMediaController.downloadAudio);
+
+// GET /api/scripts/:scriptId/media/image/stream - Отобразить изображение
+router.get("/scripts/:scriptId/media/image/stream", requireAuth, scriptsMediaController.streamImage);
+
 export default router;

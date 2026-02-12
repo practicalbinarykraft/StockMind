@@ -52,7 +52,8 @@ export function AudioRecordTab({ scriptId, scriptText }: AudioRecordTabProps) {
 
       {recordedUrl && (
         <SimpleAudioPlayer 
-          audioUrl={recordedUrl} 
+          audioUrl={recordedUrl}
+          scriptId={scriptId}
           filename={recordedFilename || `recorded-audio-${new Date().getTime()}.webm`}
           uploadedFileName={recordedFilename || undefined}
         />

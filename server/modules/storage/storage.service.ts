@@ -141,7 +141,7 @@ export class StorageService {
   }
 
   /**
-   * Получить временный URL для доступа к файлу
+   * Получить временный URL для воспроизведения (для воспроизведения)
    * @param key - Путь к файлу в bucket
    * @param options - Опции для генерации URL
    * @returns Presigned URL
@@ -151,6 +151,53 @@ export class StorageService {
     options?: PresignedUrlOptions
   ): Promise<string> {
     return await this.repo.getPresignedUrl(key, options);
+  }
+
+  /**
+   * Получить временный URL для скачивания файла
+   * @param key - Путь к файлу в bucket
+   * @param filename - Имя файла для скачивания
+   * @param options - Опции для генерации URL
+   * @returns Presigned URL для скачивания
+   */
+  async getDownloadUrl(
+    key: string,
+    filename: string,
+    options?: PresignedUrlOptions
+  ): Promise<string> {
+    return await this.repo.getDownloadUrl(key, filename, options);
+  }
+
+  /**
+   * Получить файл как Buffer (для прокси)
+   * @param key - Путь к файлу в bucket
+   * @returns Buffer файла
+   */
+  async getFileBuffer(key: string): Promise<Buffer> {
+    logger.info("Getting file buffer from R2", { key });
+    return await this.repo.getFileBuffer(key);
+  }
+
+  /**
+   * Извлечь ключ (key) из presigned URL или обычного URL
+   * @param url - URL файла
+   * @returns Ключ файла в bucket
+   */
+  extractKeyFromUrl(url: string): string | null {
+    try {
+      // Если это presigned URL от R2
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      
+      // Убираем начальный слеш
+      const key = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+      
+      logger.debug("Extracted key from URL", { url, key });
+      return key;
+    } catch (error) {
+      logger.error("Error extracting key from URL", { url, error });
+      return null;
+    }
   }
 }
 

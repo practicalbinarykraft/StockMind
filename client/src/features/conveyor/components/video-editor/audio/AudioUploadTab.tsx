@@ -33,7 +33,8 @@ export function AudioUploadTab({ scriptId }: AudioUploadTabProps) {
 
       {audioUrl && (
         <SimpleAudioPlayer 
-          audioUrl={audioUrl} 
+          audioUrl={audioUrl}
+          scriptId={scriptId}
           filename={audioFilename || `uploaded-audio-${new Date().getTime()}.mp3`}
           uploadedFileName={audioFilename || undefined}
         />
