@@ -1,6 +1,6 @@
 /**
  * Упрощённый аудио плеер для conveyor
- * ≤80 строк
+ * ≤100 строк
  */
 
 import { useRef, useState } from 'react'
@@ -23,6 +23,7 @@ export function SimpleAudioPlayer({
 }: SimpleAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const handlePlayPause = () => {
     if (!audioRef.current) return
@@ -39,11 +40,44 @@ export function SimpleAudioPlayer({
     setIsPlaying(false)
   }
 
-  const handleDownload = () => {
-    const link = document.createElement('a')
-    link.href = audioUrl
-    link.download = filename
-    link.click()
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true)
+
+      // Загружаем файл через fetch
+      const response = await fetch(audioUrl)
+      
+      if (!response.ok) {
+        throw new Error('Failed to download audio')
+      }
+
+      // Получаем blob
+      const blob = await response.blob()
+
+      // Создаем URL для blob
+      const blobUrl = window.URL.createObjectURL(blob)
+
+      // Создаем временную ссылку и кликаем по ней
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+
+      // Очищаем
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (error) {
+      console.error('Error downloading audio:', error)
+      // Fallback: пробуем обычное скачивание
+      const link = document.createElement('a')
+      link.href = audioUrl
+      link.download = filename
+      link.target = '_blank'
+      link.click()
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   return (
@@ -55,6 +89,7 @@ export function SimpleAudioPlayer({
             src={audioUrl}
             onEnded={handleEnded}
             className="hidden"
+            crossOrigin="anonymous"
           />
 
           <div className="flex items-center gap-2">
@@ -82,7 +117,12 @@ export function SimpleAudioPlayer({
               )}
             </div>
 
-            <Button variant="outline" size="icon" onClick={handleDownload}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleDownload}
+              disabled={isDownloading}
+            >
               <Download className="h-4 w-4" />
             </Button>
           </div>

@@ -82,6 +82,13 @@ export class StorageRepo {
         Key: key,
         Body: buffer,
         ContentType: contentType,
+        // Добавляем метаданные для правильной обработки файла браузером
+        ContentDisposition: "inline",
+        // CORS заголовки для R2
+        Metadata: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD",
+        },
       });
 
       await this.client.send(command);
@@ -119,6 +126,8 @@ export class StorageRepo {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key,
+        // Указываем что файл должен отображаться inline (не скачиваться сразу)
+        ResponseContentDisposition: "inline",
       });
 
       const url = await getSignedUrl(this.client, command, { expiresIn });
