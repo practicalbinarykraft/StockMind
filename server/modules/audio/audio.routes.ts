@@ -2,22 +2,13 @@ import { requireAuth } from "../../middleware/jwt-auth";
 import { uploadLimiter } from "../../middleware/rate-limiter";
 import { Router } from "express";
 import { audioController } from "./audio.controller";
-import { audioService } from "./audio.service";
 import type { Express } from "express";
 import multer from "multer";
-import path from "path";
 
 // Configure multer for audio file uploads
+// Используем memoryStorage для загрузки в R2 вместо сохранения на диск
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, audioService.getUploadDir());
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, `audio-${uniqueSuffix}${path.extname(file.originalname)}`);
-    },
-  }),
+  storage: multer.memoryStorage(), // Храним файл в памяти, не на диске
   limits: {
     fileSize: 25 * 1024 * 1024, // 25MB max
   },
@@ -29,7 +20,7 @@ const upload = multer({
       cb(new Error("Invalid file type. Only MP3, WAV, and M4A are allowed."));
     }
   },
-}); // utils
+});
 
 const router = Router();
 

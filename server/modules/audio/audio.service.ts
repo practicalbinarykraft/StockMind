@@ -1,22 +1,19 @@
 import { logger } from "../../lib/logger";
-import { AudioRepo } from "./audio.repo";
 import { NoAudioFileError, AudioUploadError } from "./audio.errors";
+import { storageService } from "../storage/storage.service";
 
 /**
  * Audio Service
  * Бизнес-логика для загрузки аудио файлов
  */
 export class AudioService {
-  private repo: AudioRepo;
-
-  constructor() {
-    this.repo = new AudioRepo();
-  }
-
   /**
-   * Обработать загруженный аудио файл
+   * Обработать загруженный аудио файл и загрузить в R2
    */
-  async processUploadedAudio(file: Express.Multer.File | undefined): Promise<{
+  async processUploadedAudio(
+    file: Express.Multer.File | undefined,
+    userId: string
+  ): Promise<{
     success: boolean;
     filename: string;
     audioUrl: string;
@@ -28,32 +25,31 @@ export class AudioService {
     }
 
     try {
-      const metadata = this.repo.saveAudioMetadata({
-        filename: file.filename,
-        size: file.size,
-        mimetype: file.mimetype,
-      });
+      // Загружаем файл в R2 из буфера памяти
+      const { url, key, size } = await storageService.uploadAudio(
+        file.buffer,
+        file.originalname,
+        userId
+      );
 
-      logger.info("Audio file uploaded successfully", {
-        filename: file.filename,
-        size: file.size,
+      logger.info("Audio file uploaded to R2 successfully", {
+        filename: file.originalname,
+        key,
+        size,
+        userId,
       });
 
       return {
         success: true,
-        ...metadata,
+        filename: file.originalname,
+        audioUrl: url,
+        size,
+        mimetype: file.mimetype,
       };
     } catch (error: any) {
       logger.error("Error processing audio upload", { error: error.message });
       throw new AudioUploadError(error.message);
     }
-  }
-
-  /**
-   * Получить путь к директории загрузки
-   */
-  getUploadDir(): string {
-    return this.repo.getUploadDir();
   }
 }
 

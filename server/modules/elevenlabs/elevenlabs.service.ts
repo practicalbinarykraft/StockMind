@@ -7,8 +7,7 @@ import {
   ElevenlabsGenerateSpeechError,
 } from "./elevenlabs.errors";
 import type { GenerateSpeechDto } from "./elevenlabs.dto";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { storageService } from "../storage/storage.service";
 
 /**
  * Types and interfaces
@@ -154,33 +153,25 @@ export class ElevenlabsService {
         voice_settings: voiceSettings,
       });
 
-      // Сохраняем файл на диск
-      const filename = `audio-${Date.now()}-${userId}.mp3`;
-      const uploadDir = join(process.cwd(), "uploads", "audio");
-      const filepath = join(uploadDir, filename);
+      // Загружаем файл в R2 вместо локального хранения
+      const filename = `audio-${Date.now()}.mp3`;
+      const { url: audioUrl, key, size } = await storageService.uploadAudio(
+        audioBuffer,
+        filename,
+        userId
+      );
 
-      logger.debug("Saving audio file", { filepath, size: audioBuffer.length });
-
-      // Создаем директорию если не существует
-      await mkdir(uploadDir, { recursive: true });
-
-      // Сохраняем файл
-      await writeFile(filepath, audioBuffer);
-
-      // Возвращаем URL для доступа к файлу
-      const audioUrl = `/uploads/audio/${filename}`;
-
-      logger.info("Audio generated successfully", { 
+      logger.info("Audio generated and uploaded to R2 successfully", { 
         audioUrl, 
-        filename, 
-        size: audioBuffer.length 
+        key,
+        size
       });
 
       return {
         audioUrl,
         filename,
         format: "mp3",
-        size: audioBuffer.length,
+        size,
       };
     } catch (error: any) {
       logger.error("Error generating speech", { 

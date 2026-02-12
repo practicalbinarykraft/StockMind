@@ -14,7 +14,9 @@ export const audioController = {
    */
   async uploadAudio(req: Request, res: Response) {
     try {
-      const result = await audioService.processUploadedAudio(req.file);
+      // Передаем userId в сервис для организации структуры хранилища
+      const userId = (req as any).userId || "anonymous";
+      const result = await audioService.processUploadedAudio(req.file, userId);
       res.json(result);
     } catch (error: any) {
       logger.error("Error uploading audio", {
