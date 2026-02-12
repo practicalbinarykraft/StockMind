@@ -40,7 +40,6 @@ export class StorageRepo {
 
     logger.info("Storage repository initialized", {
       bucket: this.bucketName,
-      endpoint: this.endpoint,
     });
   }
 
