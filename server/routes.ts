@@ -38,6 +38,9 @@ import { registerSceneEditingRoutes } from "./modules/scene-editing/scene-editin
 import { registerReanalysisRoutes } from "./modules/reanalysis/reanalysis.routes";
 import { registerVersionComparisonRoutes } from "./modules/version-comparison/version-comparison.routes";
 import { registerSceneCommentsRoutes } from "./modules/scene-comments/scene-comments.routes";
+import { registerSceneLayersRoutes } from "./modules/scene-layers/scene-layers.routes";
+import { registerKieAiRoutes } from "./modules/kie-ai/kie-ai.routes";
+import { registerAudioSplittingRoutes } from "./modules/audio-splitting/audio-splitting.routes";
 import scriptsMediaRouter from "./modules/scripts-media/scripts-media.routes";
 
 // Conveyor (Content Factory) routes - Modularized
@@ -87,6 +90,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Script Versioning & Editing
   registerScriptVersionsRoutes(app);
+  // Scene layers, Kie.ai, Audio splitting — регистрируем до scripts, чтобы /api/scripts/:scriptId/layers и /api/scripts/:scriptId/scenes/:sceneId/* обрабатывались scene-layers
+  registerSceneLayersRoutes(app);
+  registerKieAiRoutes(app);
+  registerAudioSplittingRoutes(app);
   registerScriptsLibraryRoutes(app);
   registerSceneEditingRoutes(app);
   registerReanalysisRoutes(app);

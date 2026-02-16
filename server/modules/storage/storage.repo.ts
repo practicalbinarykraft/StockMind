@@ -65,6 +65,22 @@ export class StorageRepo {
   }
 
   /**
+   * Загрузить файл в R2 по заданному пути (ключу).
+   * Путь: users/{userId}/projects/{projectId}/scenes/{sceneId}/{layerType}/{timestamp}-{uuid}.ext
+   * @param buffer - Данные файла
+   * @param path - Полный путь (ключ) в bucket
+   * @param contentType - MIME-тип файла
+   * @returns Promise с URL файла
+   */
+  async uploadWithPath(
+    buffer: Buffer,
+    path: string,
+    contentType: string
+  ): Promise<string> {
+    return this.uploadFile(buffer, path, contentType);
+  }
+
+  /**
    * Загрузить файл в R2
    * @param buffer - Данные файла
    * @param key - Путь к файлу в bucket
