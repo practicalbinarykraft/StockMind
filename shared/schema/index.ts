@@ -12,6 +12,13 @@ export * from './script-checkpoints';
 export * from './editor-operation-log';
 export * from './post-analytics';
 
+// Scene Layers (Video Editor)
+export * from './scene-layers';
+export * from './scene-background-layers';
+export * from './scene-overlay-layers';
+export * from './scene-text-layers';
+export * from './scene-compositions';
+
 // Conveyor (Content Factory)
 export * from './conveyor';
 export * from './conveyor-items';

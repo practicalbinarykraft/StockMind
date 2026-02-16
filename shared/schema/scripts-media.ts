@@ -41,6 +41,13 @@ export const scriptsMedia = pgTable("scripts_media", {
   videoDimension: jsonb("video_dimension").$type<{ width: number; height: number }>(),
   videoAspectRatio: varchar("video_aspect_ratio"), // '16:9', '9:16', '1:1'
   
+  // Настройки композиции проекта
+  compositionSettings: jsonb("composition_settings"), // Глобальные настройки композиции
+  
+  // Фоновая музыка
+  backgroundMusicUrl: varchar("background_music_url"), // URL фоновой музыки
+  backgroundMusicVolume: real("background_music_volume").default(0.3), // Громкость фоновой музыки (0-1)
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

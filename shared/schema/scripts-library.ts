@@ -26,7 +26,7 @@ export const scriptsLibrary = pgTable("scripts_library", {
   status: varchar("status", { length: 20 }).default('draft').notNull(), // 'draft', 'analyzed', 'ready', 'in_production', 'completed'
   
   // Контент
-  scenes: jsonb("scenes").notNull(), // Array of scene objects: [{sceneNumber, text, start, end, duration, notes}]
+  scenes: jsonb("scenes").notNull(), // Array of scene objects: [{id, sceneNumber, text, start, end, duration, notes}]
   fullText: text("full_text"), // Полный текст для озвучки
   
   // Метаданные
@@ -54,6 +54,7 @@ export const scriptsLibrary = pgTable("scripts_library", {
   
   // Состояние редактора
   editorState: jsonb("editor_state"), // {lastEditedAt, lastEditedSceneId}
+  editorVersion: varchar("editor_version", { length: 20 }).default('v1'), // Версия редактора для миграций
   lastCheckpointAt: timestamp("last_checkpoint_at"), // Время последнего checkpoint
   
   // Timestamps
