@@ -11,6 +11,12 @@ router.post(
   audioSplittingController.split
 );
 
+router.delete(
+  "/scripts/:scriptId/scenes/:sceneId/audio",
+  requireAuth,
+  audioSplittingController.deleteSceneAudio
+);
+
 export function registerAudioSplittingRoutes(app: Express) {
   app.use("/api", router);
 }

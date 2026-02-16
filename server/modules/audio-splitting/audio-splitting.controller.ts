@@ -7,6 +7,10 @@ import { z } from "zod";
 
 const SplitAudioParamsDto = z.object({ scriptId: z.string().min(1) });
 const SplitAudioBodyDto = z.object({ audioUrl: z.string().url() });
+const DeleteSceneAudioParamsDto = z.object({ 
+  scriptId: z.string().min(1),
+  sceneId: z.string().min(1)
+});
 
 export const audioSplittingController = {
   /** POST /api/scripts/:scriptId/audio/split */
@@ -21,6 +25,21 @@ export const audioSplittingController = {
       return apiResponse.ok(res, result);
     } catch (e: any) {
       logger.error("audio-splitting split", { error: e.message });
+      return apiResponse.serverError(res, e.message);
+    }
+  },
+
+  /** DELETE /api/scripts/:scriptId/scenes/:sceneId/audio */
+  async deleteSceneAudio(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { scriptId, sceneId } = DeleteSceneAudioParamsDto.parse(req.params);
+      const result = await audioSplittingService.deleteSceneAudio(scriptId, sceneId, userId);
+      return apiResponse.ok(res, result);
+    } catch (e: any) {
+      logger.error("audio-splitting deleteSceneAudio", { error: e.message });
       return apiResponse.serverError(res, e.message);
     }
   },

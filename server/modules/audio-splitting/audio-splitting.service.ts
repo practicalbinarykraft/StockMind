@@ -99,4 +99,31 @@ export const audioSplittingService = {
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
     }
   },
+
+  /**
+   * Удалить аудио сцены из R2
+   */
+  async deleteSceneAudio(
+    scriptId: string,
+    sceneId: string,
+    userId: string
+  ): Promise<{ success: boolean }> {
+    const script = await scriptsLibraryService.getScriptById(scriptId, userId);
+    const projectId = (script as { projectId?: string }).projectId ?? "default";
+    
+    // Находим индекс сцены
+    const scenes = (script.scenes as SceneWithTime[]) ?? [];
+    const sceneIndex = scenes.findIndex((s: any) => s.id === sceneId);
+    
+    if (sceneIndex === -1) {
+      throw new Error(`Scene ${sceneId} not found`);
+    }
+
+    // Удаляем файл из R2
+    const r2Key = `users/${userId}/projects/${projectId}/audio/scene-${sceneIndex + 1}.mp3`;
+    await storageRepo.deleteFile(r2Key);
+
+    logger.info("Scene audio deleted", { scriptId, sceneId, userId });
+    return { success: true };
+  },
 };

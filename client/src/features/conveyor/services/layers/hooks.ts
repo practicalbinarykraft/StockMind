@@ -220,3 +220,37 @@ export function useUploadLayerFile() {
     },
   })
 }
+
+/**
+ * Разделить аудио на сцены
+ */
+export function useSplitAudioByScenes() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ scriptId, audioUrl }: { scriptId: string; audioUrl: string }) =>
+      api.splitAudioByScenes(scriptId, audioUrl),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: layersKeys.script(variables.scriptId),
+      })
+    },
+  })
+}
+
+/**
+ * Удалить аудио сцены
+ */
+export function useDeleteSceneAudio() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ scriptId, sceneId }: { scriptId: string; sceneId: string }) =>
+      api.deleteSceneAudio(scriptId, sceneId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: layersKeys.script(variables.scriptId),
+      })
+    },
+  })
+}

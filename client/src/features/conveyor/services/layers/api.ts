@@ -178,3 +178,32 @@ export async function uploadLayerFile(
   const result = await response.json()
   return result.data || result
 }
+
+/**
+ * Разделить аудио на части по сценам
+ * POST /api/scripts/:scriptId/audio/split
+ */
+export async function splitAudioByScenes(
+  scriptId: string,
+  audioUrl: string
+): Promise<{ sceneAudioUrls: string[] }> {
+  const response = await apiRequest(
+    'POST',
+    `/api/scripts/${scriptId}/audio/split`,
+    { audioUrl }
+  )
+  const result = await response.json()
+  return result.data || result
+}
+
+/**
+ * Удалить аудио сцены
+ * DELETE /api/scripts/:scriptId/scenes/:sceneId/audio
+ */
+export async function deleteSceneAudio(
+  scriptId: string,
+  sceneId: string
+): Promise<{ success: boolean }> {
+  await apiRequest('DELETE', `/api/scripts/${scriptId}/scenes/${sceneId}/audio`)
+  return { success: true }
+}

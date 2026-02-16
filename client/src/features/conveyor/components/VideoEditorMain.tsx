@@ -1,14 +1,14 @@
 /**
- * Главный компонент видео-редактора
+ * Главный компонент видео-редактора с новой системой слоев
  */
 
 import { useParams } from 'wouter'
 import { useEffect } from 'react'
-import { useVideoEditorData } from '../hooks/use-video-editor-data'
-import { useVideoFormatStore } from '../stores/useVideoFormatStore'
+import { useCompositionStore } from '../stores/composition'
+import { RemotionPreview } from './video-editor/preview/RemotionPreview'
+import { EditorToolbar } from './video-editor/toolbar/EditorToolbar'
 import { VideoEditorHeader } from './video-editor/VideoEditorHeader'
-import { VideoEditorPreview } from './video-editor/VideoEditorPreview'
-import { VideoEditorSidebar } from './video-editor/VideoEditorSidebar'
+import { ScenesList } from './video-editor/ScenesList'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { AlertCircle } from 'lucide-react'
@@ -17,79 +17,69 @@ export function VideoEditorMain() {
   const params = useParams<{ id: string }>()
   const scriptId = params.id!
   
-  const {
-    script,
-    media,
-    status,
-    isLoading,
-    hasError,
-  } = useVideoEditorData(scriptId)
+  const loadScript = useCompositionStore((state) => state.loadScript)
+  const scenes = useCompositionStore((state) => state.scenes)
+  const isLoading = useCompositionStore((state) => state.isLoading)
+  const error = useCompositionStore((state) => state.error)
 
-  // Используем Zustand store для формата видео
-  const { selectedFormat, initialize, setFormat } = useVideoFormatStore()
-
-  // Инициализация store при монтировании
+  // Загрузка данных скрипта со слоями
   useEffect(() => {
-    initialize(scriptId)
-  }, [scriptId, initialize])
-
-  // Обработчик изменения формата
-  const handleFormatChange = async (format: '16:9' | '9:16' | '1:1') => {
-    await setFormat(format)
-  }
+    loadScript(scriptId)
+  }, [scriptId, loadScript])
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-16 w-full" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+          <div className="space-y-6">
             <Skeleton className="h-96 w-full" />
             <Skeleton className="h-32 w-full" />
           </div>
           <div className="space-y-4">
-            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-full w-full" />
           </div>
         </div>
       </div>
     )
   }
 
-  if (hasError || !script) {
+  if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Ошибка загрузки данных сценария
+          Ошибка загрузки данных: {error}
         </AlertDescription>
       </Alert>
     )
   }
 
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-8.5rem)]">
-      <div className="flex-shrink-0 mb-4 sm:mb-6">
-        <VideoEditorHeader 
-          script={script} 
-          status={status}
-        />
+    <div className="flex flex-col h-[calc(100vh-8.5rem)]">
+      {/* Хедер */}
+      <div className="flex-shrink-0 mb-4">
+        <VideoEditorHeader scriptId={scriptId} />
       </div>
       
-      {/* Адаптивная сетка с вертикальной прокруткой на мобильных */}
-      <div className="flex flex-col lg:flex-1 lg:grid lg:grid-cols-[minmax(500px,800px)_1fr] gap-4 sm:gap-6 lg:min-h-0 lg:overflow-hidden">
-        {/* Превью видео */}
-        <div className="w-full h-[50vh] lg:h-full flex-shrink-0">
-          <VideoEditorPreview 
-            media={media} 
-            status={status}
-            selectedFormat={selectedFormat}
-            onFormatChange={handleFormatChange}
-          />
+      {/* Основной контент: Preview (слева) + Toolbar (справа) */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 min-h-0 overflow-hidden">
+        {/* Левая часть: Preview + Список сцен */}
+        <div className="flex flex-col gap-4 overflow-hidden">
+          {/* Remotion Preview */}
+          <div className="flex-shrink-0">
+            <RemotionPreview aspectRatio="16:9" />
+          </div>
+          
+          {/* Список сцен */}
+          <div className="flex-1 overflow-auto">
+            <ScenesList />
+          </div>
         </div>
         
-        {/* Сцены - увеличенная минимальная высота на мобильных */}
-        <div className="w-full min-h-[70vh] lg:min-h-0 lg:h-full pb-6 lg:pb-0">
-          <VideoEditorSidebar script={script} status={status} />
+        {/* Правая панель: Toolbar с вкладками */}
+        <div className="overflow-auto">
+          <EditorToolbar />
         </div>
       </div>
     </div>
