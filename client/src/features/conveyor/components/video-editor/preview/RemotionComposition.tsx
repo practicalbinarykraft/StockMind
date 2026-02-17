@@ -12,6 +12,16 @@ interface RemotionCompositionProps {
 
 export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene }) => {
   const frame = useCurrentFrame()
+  
+  // Проверка наличия необходимых данных
+  if (!scene || !scene.composition || !scene.layers) {
+    return (
+      <AbsoluteFill style={{ backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'white', fontSize: 24 }}>Сцена не инициализирована</div>
+      </AbsoluteFill>
+    )
+  }
+  
   const { composition, layers } = scene
   const { background, overlay, textLayer } = layers
 

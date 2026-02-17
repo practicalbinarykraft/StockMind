@@ -26,6 +26,15 @@ export function CompositionTab() {
 
   const { composition } = currentScene
 
+  // Проверка наличия composition
+  if (!composition) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        Композиция не инициализирована для этой сцены
+      </div>
+    )
+  }
+
   const handleModeChange = (mode: CompositionMode) => {
     setCompositionMode(currentScene.id, mode)
   }

@@ -26,7 +26,16 @@ export function TextTab() {
     )
   }
 
-  const textLayer = currentScene.layers.textLayer
+  const textLayer = currentScene.layers?.textLayer
+
+  // Проверка наличия текстового слоя
+  if (!textLayer) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        Текстовый слой не инициализирован для этой сцены
+      </div>
+    )
+  }
 
   const handleToggleVisible = (checked: boolean) => {
     updateTextLayer(currentScene.id, { isVisible: checked })

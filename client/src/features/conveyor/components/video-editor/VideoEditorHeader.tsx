@@ -102,20 +102,22 @@ export function VideoEditorHeader({ scriptId }: VideoEditorHeaderProps) {
         }
 
         // Сохраняем композицию
-        savePromises.push(
-          updateCompositionMutation.mutateAsync({
-            scriptId,
-            sceneId: scene.id,
-            data: {
-              mode: scene.composition.mode,
-              splitRatio: scene.composition.splitRatio,
-              splitDirection: scene.composition.splitDirection,
-              splitOrder: scene.composition.splitOrder,
-              gridSnapping: scene.composition.gridSnapping,
-              gridSize: scene.composition.gridSize,
-            },
-          })
-        )
+        if (scene.composition) {
+          savePromises.push(
+            updateCompositionMutation.mutateAsync({
+              scriptId,
+              sceneId: scene.id,
+              data: {
+                mode: scene.composition.mode,
+                splitRatio: scene.composition.splitRatio,
+                splitDirection: scene.composition.splitDirection,
+                splitOrder: scene.composition.splitOrder,
+                gridSnapping: scene.composition.gridSnapping,
+                gridSize: scene.composition.gridSize,
+              },
+            })
+          )
+        }
       }
 
       // Ждём завершения всех запросов

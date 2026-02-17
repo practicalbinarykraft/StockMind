@@ -23,19 +23,29 @@ export const createSyncActions: StateCreator<
       const scenesMap = new Map(
         data.scenes.map((sceneData: any) => {
           const layers = {
-            background: sceneData.layers.find((l: any) => l.layerType === 'background'),
-            overlay: sceneData.layers.find((l: any) => l.layerType === 'overlay'),
-            textLayer: sceneData.layers.find((l: any) => l.layerType === 'textLayer'),
+            background: sceneData.layers.find((l: any) => l.layerType === 'background') || null,
+            overlay: sceneData.layers.find((l: any) => l.layerType === 'overlay') || null,
+            textLayer: sceneData.layers.find((l: any) => l.layerType === 'textLayer') || null,
+          }
+
+          // Дефолтная композиция если не задана
+          const defaultComposition = {
+            mode: 'overlay' as const,
+            splitRatio: 0.5,
+            splitDirection: 'horizontal' as const,
+            splitOrder: 'background-first' as const,
+            gridSnapping: false,
+            gridSize: 10,
           }
 
           return [
             sceneData.sceneId,
             {
               id: sceneData.sceneId,
-              order: 0,
-              text: '',
-              durationInFrames: 0,
-              composition: sceneData.composition,
+              order: sceneData.order || 0,
+              text: sceneData.text || '',
+              durationInFrames: sceneData.durationInFrames || 300,
+              composition: sceneData.composition || defaultComposition,
               layers: layers as any,
             },
           ]
