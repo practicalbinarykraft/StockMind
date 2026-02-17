@@ -10,14 +10,17 @@ import { TextTab } from './TextTab'
 import { AudioTab } from './AudioTab'
 import { CompositionTab } from './CompositionTab'
 import { Image, Type, Music, Layout } from 'lucide-react'
+import type { ScriptMedia } from '../../../services/scriptMediaService'
 
 interface EditorToolbarProps {
   className?: string
+  scriptId?: string
+  media?: ScriptMedia | null
 }
 
-export function EditorToolbar({ className }: EditorToolbarProps) {
+export function EditorToolbar({ className, scriptId, media }: EditorToolbarProps) {
   return (
-    <Card className={`${className}`}>
+    <Card className={className}>
       <Tabs defaultValue="visuals" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="visuals" className="flex items-center gap-2">
@@ -40,7 +43,7 @@ export function EditorToolbar({ className }: EditorToolbarProps) {
 
         <div className="mt-4 p-4">
           <TabsContent value="visuals" className="mt-0">
-            <VisualsTab />
+            <VisualsTab scriptId={scriptId} media={media} />
           </TabsContent>
 
           <TabsContent value="text" className="mt-0">
@@ -48,7 +51,7 @@ export function EditorToolbar({ className }: EditorToolbarProps) {
           </TabsContent>
 
           <TabsContent value="audio" className="mt-0">
-            <AudioTab />
+            <AudioTab scriptId={scriptId} media={media} />
           </TabsContent>
 
           <TabsContent value="composition" className="mt-0">

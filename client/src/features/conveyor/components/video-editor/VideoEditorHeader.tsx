@@ -4,8 +4,9 @@
 
 import { useLocation } from 'wouter'
 import { useState } from 'react'
-import { ArrowLeft, Edit, Save, Undo, Redo, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Undo, Redo, Loader2, Mic, User, Download, CheckCircle, XCircle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { Badge } from '@/shared/ui/badge'
 import { useCompositionStore, selectHasChanges, selectSortedScenes, selectCanUndo, selectCanRedo } from '../../stores/composition'
 import { useToast } from '@/shared/hooks/use-toast'
 import { 
@@ -14,12 +15,14 @@ import {
   useUpdateTextLayer,
   useUpdateComposition 
 } from '../../services/layers/hooks'
+import type { ScriptMediaStatus } from '../../services/scriptMediaService'
 
 interface VideoEditorHeaderProps {
   scriptId: string
+  status?: ScriptMediaStatus
 }
 
-export function VideoEditorHeader({ scriptId }: VideoEditorHeaderProps) {
+export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) {
   const [, navigate] = useLocation()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
@@ -138,78 +141,122 @@ export function VideoEditorHeader({ scriptId }: VideoEditorHeaderProps) {
     }
   }
 
+  const hasAudio = status?.hasAudio
+  const hasVideo = status?.hasVideo
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/conveyor/scripts')}
-          className="flex-shrink-0"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold truncate">Видео-редактор</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground truncate">
-            Редактирование композиции сцен
-          </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/conveyor/scripts')}
+            className="flex-shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">Видео-редактор</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+              Редактирование композиции сцен
+            </p>
+          </div>
+
+          {/* Бейджи статуса медиа */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Badge variant={hasAudio ? 'default' : 'secondary'} className="gap-1 text-xs">
+              {hasAudio ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+              Аудио
+            </Badge>
+            <Badge variant={hasVideo ? 'default' : 'secondary'} className="gap-1 text-xs">
+              {hasVideo ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+              Аватар
+            </Badge>
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={undo}
-          disabled={!canUndo}
-          className="text-xs sm:text-sm"
-        >
-          <Undo className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Отменить</span>
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            disabled={!canUndo}
+            className="text-xs sm:text-sm"
+          >
+            <Undo className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Отменить</span>
+          </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={redo}
-          disabled={!canRedo}
-          className="text-xs sm:text-sm"
-        >
-          <Redo className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Вернуть</span>
-        </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={redo}
+            disabled={!canRedo}
+            className="text-xs sm:text-sm"
+          >
+            <Redo className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Вернуть</span>
+          </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/conveyor/editor/${scriptId}`)}
-          className="text-xs sm:text-sm"
-        >
-          <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Редактор текста</span>
-          <span className="sm:hidden">Текст</span>
-        </Button>
+          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
 
-        <Button
-          size="sm"
-          onClick={handleSave}
-          disabled={!hasChanges || isSaving}
-          className="text-xs sm:text-sm"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-              <span className="hidden sm:inline">Сохранение...</span>
-            </>
-          ) : (
-            <>
-              <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Сохранить</span>
-            </>
-          )}
-        </Button>
+          <Button
+            variant={hasAudio ? 'outline' : 'default'}
+            size="sm"
+            onClick={() => navigate(`/conveyor/video-editor/${scriptId}/audio`)}
+            className="text-xs sm:text-sm"
+          >
+            <Mic className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">{hasAudio ? 'Аудио' : 'Сгенерировать аудио'}</span>
+            <span className="sm:hidden">Аудио</span>
+          </Button>
+
+          <Button
+            variant={hasVideo ? 'outline' : 'default'}
+            size="sm"
+            onClick={() => navigate(`/conveyor/video-editor/${scriptId}/avatar`)}
+            disabled={!hasAudio}
+            className="text-xs sm:text-sm"
+          >
+            <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">{hasVideo ? 'Аватар' : 'Выбрать аватар'}</span>
+            <span className="sm:hidden">Аватар</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/conveyor/video-editor/${scriptId}/export`)}
+            disabled={!hasAudio && !hasVideo}
+            className="text-xs sm:text-sm"
+          >
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Экспорт</span>
+          </Button>
+
+          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            className="text-xs sm:text-sm"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                <span className="hidden sm:inline">Сохранение...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Сохранить</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   )

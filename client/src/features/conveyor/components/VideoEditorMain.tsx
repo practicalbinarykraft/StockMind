@@ -5,6 +5,7 @@
 import { useParams } from 'wouter'
 import { useEffect } from 'react'
 import { useCompositionStore } from '../stores/composition'
+import { useVideoEditorData } from '../hooks/use-video-editor-data'
 import { RemotionPreview } from './video-editor/preview/RemotionPreview'
 import { EditorToolbar } from './video-editor/toolbar/EditorToolbar'
 import { VideoEditorHeader } from './video-editor/VideoEditorHeader'
@@ -20,6 +21,9 @@ export function VideoEditorMain() {
   const loadScript = useCompositionStore((state) => state.loadScript)
   const isLoading = useCompositionStore((state) => state.isLoading)
   const error = useCompositionStore((state) => state.error)
+
+  // Загрузка медиа-данных (аудио, видео-аватар, статус)
+  const { media, status } = useVideoEditorData(scriptId)
 
   // Загрузка данных скрипта со слоями
   useEffect(() => {
@@ -58,7 +62,7 @@ export function VideoEditorMain() {
     <div className="flex flex-col h-[calc(100vh-8.5rem)]">
       {/* Хедер */}
       <div className="flex-shrink-0 mb-4">
-        <VideoEditorHeader scriptId={scriptId} />
+        <VideoEditorHeader scriptId={scriptId} status={status} />
       </div>
       
       {/* Основной контент: Preview (слева) + Toolbar (справа) */}
@@ -78,7 +82,7 @@ export function VideoEditorMain() {
         
         {/* Правая панель: Toolbar с вкладками */}
         <div className="overflow-auto">
-          <EditorToolbar />
+          <EditorToolbar scriptId={scriptId} media={media} />
         </div>
       </div>
     </div>

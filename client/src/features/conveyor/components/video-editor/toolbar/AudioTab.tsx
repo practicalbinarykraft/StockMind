@@ -1,31 +1,43 @@
 /**
  * Вкладка для настройки аудио
- * Поддерживает загрузку аудио и разделение на сцены
+ * Поддерживает генерацию аудио (ElevenLabs TTS), загрузку и разделение на сцены
  */
 
 import { useState, useRef } from 'react'
+import { useLocation } from 'wouter'
 import { useCompositionStore, selectCurrentScene } from '../../../stores/composition'
 import { useSplitAudioByScenes, useDeleteSceneAudio } from '../../../services/layers/hooks'
 import { useToast } from '@/shared/hooks/use-toast'
 import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { Separator } from '@/shared/ui/separator'
-import { Upload, Scissors, Play, Trash2 } from 'lucide-react'
+import { Badge } from '@/shared/ui/badge'
+import { Upload, Scissors, Play, Trash2, Mic, ExternalLink, CheckCircle, Volume2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Progress } from '@/shared/ui/progress'
+import type { ScriptMedia } from '../../../services/scriptMediaService'
 
-export function AudioTab() {
+interface AudioTabProps {
+  scriptId?: string
+  media?: ScriptMedia | null
+}
+
+export function AudioTab({ scriptId: propScriptId, media }: AudioTabProps) {
+  const [, navigate] = useLocation()
   const currentScene = useCompositionStore(selectCurrentScene)
-  const scriptId = useCompositionStore((state) => state.scriptId)
+  const storeScriptId = useCompositionStore((state) => state.scriptId)
   const uploadFile = useCompositionStore((state) => state.uploadFile)
   const { toast } = useToast()
   
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const generatedAudioRef = useRef<HTMLAudioElement>(null)
   
   const splitAudioMutation = useSplitAudioByScenes()
   const deleteAudioMutation = useDeleteSceneAudio()
+
+  const effectiveScriptId = propScriptId || storeScriptId
 
   if (!currentScene) {
     return (
@@ -35,6 +47,12 @@ export function AudioTab() {
     )
   }
 
+  const handleNavigateToAudioPage = () => {
+    if (effectiveScriptId) {
+      navigate(`/conveyor/video-editor/${effectiveScriptId}/audio`)
+    }
+  }
+
   const handleUploadAudio = async () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -42,19 +60,15 @@ export function AudioTab() {
     
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file || !currentScene || !scriptId) return
+      if (!file || !currentScene || !effectiveScriptId) return
 
       setIsUploading(true)
       try {
-        // Симуляция прогресса
         for (let i = 0; i <= 90; i += 10) {
           setUploadProgress(i)
           await new Promise((resolve) => setTimeout(resolve, 100))
         }
         
-        // Загружаем файл через store (который использует backend API)
-        // Здесь нужно загрузить аудио для всего проекта, а не для слоя
-        // Это требует отдельного API endpoint
         await uploadFile(currentScene.id, 'background', file)
         
         setUploadProgress(100)
@@ -80,7 +94,7 @@ export function AudioTab() {
   }
 
   const handleSplitAudio = async () => {
-    if (!currentScene?.audioUrl || !scriptId) {
+    if (!currentScene?.audioUrl || !effectiveScriptId) {
       toast({
         title: 'Нет аудио',
         description: 'Сначала загрузите аудиофайл',
@@ -91,7 +105,7 @@ export function AudioTab() {
 
     try {
       await splitAudioMutation.mutateAsync({
-        scriptId,
+        scriptId: effectiveScriptId,
         audioUrl: currentScene.audioUrl,
       })
       
@@ -116,11 +130,11 @@ export function AudioTab() {
   }
 
   const handleDeleteAudio = async () => {
-    if (!currentScene || !scriptId) return
+    if (!currentScene || !effectiveScriptId) return
 
     try {
       await deleteAudioMutation.mutateAsync({
-        scriptId,
+        scriptId: effectiveScriptId,
         sceneId: currentScene.id,
       })
       
@@ -140,12 +154,74 @@ export function AudioTab() {
 
   return (
     <div className="space-y-6">
-      {/* Загрузка аудио для проекта */}
+      {/* Генерация аудио через ElevenLabs TTS */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold mb-2">Аудио проекта</h3>
+          <h3 className="text-lg font-semibold mb-2">Генерация аудио</h3>
           <p className="text-sm text-muted-foreground">
-            Загрузите аудиофайл для всего проекта
+            Сгенерируйте озвучку через ElevenLabs TTS
+          </p>
+        </div>
+
+        {/* Если аудио уже сгенерировано — показываем его */}
+        {media?.audioUrl ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Сгенерированное аудио</span>
+              </div>
+              <Badge variant="default" className="gap-1 text-xs">
+                <CheckCircle className="h-3 w-3" />
+                Готово
+              </Badge>
+            </div>
+
+            {media.selectedVoice && (
+              <p className="text-xs text-muted-foreground">
+                Голос: {media.selectedVoice}
+              </p>
+            )}
+
+            <audio
+              ref={generatedAudioRef}
+              src={media.audioUrl}
+              controls
+              className="w-full"
+            />
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={handleNavigateToAudioPage}
+            >
+              <Mic className="h-4 w-4 mr-2" />
+              Изменить аудио
+              <ExternalLink className="h-3 w-3 ml-2" />
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="default"
+            className="w-full"
+            onClick={handleNavigateToAudioPage}
+          >
+            <Mic className="h-4 w-4 mr-2" />
+            Сгенерировать аудио (ElevenLabs)
+            <ExternalLink className="h-3 w-3 ml-2" />
+          </Button>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Загрузка аудио вручную */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Загрузка аудио</h3>
+          <p className="text-sm text-muted-foreground">
+            Загрузите аудиофайл вручную
           </p>
         </div>
 
@@ -165,28 +241,6 @@ export function AudioTab() {
             <p className="text-xs text-center text-muted-foreground">
               Загрузка: {uploadProgress}%
             </p>
-          </div>
-        )}
-
-        {/* Отображение загруженного аудио */}
-        {currentScene?.audioUrl && (
-          <div className="p-4 bg-muted rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Загружено аудио</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handlePlayAudio}
-              >
-                <Play className="h-4 w-4" />
-              </Button>
-            </div>
-            <audio
-              ref={audioRef}
-              src={currentScene.audioUrl}
-              className="w-full h-8"
-              controls
-            />
           </div>
         )}
       </div>
@@ -213,7 +267,7 @@ export function AudioTab() {
           variant="default"
           className="w-full"
           onClick={handleSplitAudio}
-          disabled={splitAudioMutation.isPending || !currentScene?.audioUrl}
+          disabled={splitAudioMutation.isPending || (!currentScene?.audioUrl && !media?.audioUrl)}
         >
           <Scissors className="h-4 w-4 mr-2" />
           {splitAudioMutation.isPending ? 'Разделение...' : 'Разделить по сценам'}
@@ -253,7 +307,6 @@ export function AudioTab() {
               </div>
             </div>
 
-            {/* HTML5 audio player */}
             <audio 
               ref={audioRef}
               src={currentScene.audioUrl} 

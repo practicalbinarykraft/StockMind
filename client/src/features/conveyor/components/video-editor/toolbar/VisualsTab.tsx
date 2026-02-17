@@ -1,22 +1,32 @@
 /**
  * Вкладка для настройки визуалов (background и overlay)
- * Поддерживает генерацию контента через Kie.ai и загрузку файлов
+ * Поддерживает генерацию контента через Kie.ai, HeyGen (аватар) и загрузку файлов
  */
 
 import { useState } from 'react'
+import { useLocation } from 'wouter'
 import { useCompositionStore, selectCurrentScene } from '../../../stores/composition'
 import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User } from 'lucide-react'
+import { Badge } from '@/shared/ui/badge'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle } from 'lucide-react'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
 import type { ContentType } from '../../../types/layers'
+import type { ScriptMedia } from '../../../services/scriptMediaService'
 
-export function VisualsTab() {
+interface VisualsTabProps {
+  scriptId?: string
+  media?: ScriptMedia | null
+}
+
+export function VisualsTab({ scriptId, media }: VisualsTabProps) {
+  const [, navigate] = useLocation()
   const currentScene = useCompositionStore(selectCurrentScene)
+  const storeScriptId = useCompositionStore((state) => state.scriptId)
   const updateBackgroundLayer = useCompositionStore((state) => state.updateBackgroundLayer)
   const updateOverlayLayer = useCompositionStore((state) => state.updateOverlayLayer)
   const uploadFile = useCompositionStore((state) => state.uploadFile)
@@ -27,6 +37,8 @@ export function VisualsTab() {
 
   const backgroundLayer = currentScene?.layers.background
   const overlayLayer = currentScene?.layers.overlay
+
+  const effectiveScriptId = scriptId || storeScriptId
 
   if (!currentScene) {
     return (
@@ -77,8 +89,48 @@ export function VisualsTab() {
     input.click()
   }
 
+  const handleNavigateToAvatar = () => {
+    if (effectiveScriptId) {
+      navigate(`/conveyor/video-editor/${effectiveScriptId}/avatar`)
+    }
+  }
+
+  const bgContentType = backgroundLayer?.contentType || 'image'
+  const olContentType = overlayLayer?.contentType || 'image'
+
   return (
     <div className="space-y-6">
+      {/* Превью аватар-видео (HeyGen), если уже сгенерировано */}
+      {media?.videoUrl && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Аватар-видео</h3>
+            <Badge variant="default" className="gap-1 text-xs">
+              <CheckCircle className="h-3 w-3" />
+              Готово
+            </Badge>
+          </div>
+          <div className="aspect-video rounded-md overflow-hidden border">
+            <video
+              src={media.videoUrl}
+              className="w-full h-full object-cover"
+              controls
+              poster={media.videoThumbnailUrl}
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={handleNavigateToAvatar}
+          >
+            <User className="h-4 w-4 mr-2" />
+            Изменить аватар
+          </Button>
+          <Separator />
+        </div>
+      )}
+
       {/* Background Layer */}
       <div className="space-y-4">
         <div>
@@ -91,7 +143,7 @@ export function VisualsTab() {
         <div className="space-y-3">
           <Label>Тип контента</Label>
           <RadioGroup
-            value={backgroundLayer?.contentType || 'image'}
+            value={bgContentType}
             onValueChange={(value) => handleContentTypeChange('background', value as ContentType)}
           >
             <div className="flex items-center space-x-2">
@@ -118,24 +170,37 @@ export function VisualsTab() {
           </RadioGroup>
         </div>
 
-        <div className="flex gap-2">
+        {/* Кнопки действий — переключаются в зависимости от типа контента */}
+        {bgContentType === 'avatar' ? (
           <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => handleGenerateClick('background')}
+            variant="default"
+            className="w-full"
+            onClick={handleNavigateToAvatar}
           >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Генерировать
+            <User className="h-4 w-4 mr-2" />
+            Выбрать аватар (HeyGen)
+            <ExternalLink className="h-3 w-3 ml-2" />
           </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => handleUploadClick('background')}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Загрузить
-          </Button>
-        </div>
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleGenerateClick('background')}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Генерировать
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleUploadClick('background')}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Загрузить
+            </Button>
+          </div>
+        )}
 
         {/* Статус генерации для background */}
         {backgroundLayer?.generationStatus && (
@@ -174,7 +239,7 @@ export function VisualsTab() {
         <div className="space-y-3">
           <Label>Тип контента</Label>
           <RadioGroup
-            value={overlayLayer?.contentType || 'image'}
+            value={olContentType}
             onValueChange={(value) => handleContentTypeChange('overlay', value as ContentType)}
           >
             <div className="flex items-center space-x-2">
@@ -201,24 +266,37 @@ export function VisualsTab() {
           </RadioGroup>
         </div>
 
-        <div className="flex gap-2">
+        {/* Кнопки действий — переключаются в зависимости от типа контента */}
+        {olContentType === 'avatar' ? (
           <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => handleGenerateClick('overlay')}
+            variant="default"
+            className="w-full"
+            onClick={handleNavigateToAvatar}
           >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Генерировать
+            <User className="h-4 w-4 mr-2" />
+            Выбрать аватар (HeyGen)
+            <ExternalLink className="h-3 w-3 ml-2" />
           </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => handleUploadClick('overlay')}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Загрузить
-          </Button>
-        </div>
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleGenerateClick('overlay')}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Генерировать
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleUploadClick('overlay')}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Загрузить
+            </Button>
+          </div>
+        )}
 
         {/* Статус генерации для overlay */}
         {overlayLayer?.generationStatus && (
@@ -243,7 +321,7 @@ export function VisualsTab() {
         )}
       </div>
 
-      {/* Диалог генерации */}
+      {/* Диалог генерации Kie.ai */}
       <KieAiDialog
         open={showGenerationDialog}
         onOpenChange={setShowGenerationDialog}
