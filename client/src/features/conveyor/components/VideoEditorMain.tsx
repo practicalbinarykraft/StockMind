@@ -18,7 +18,6 @@ export function VideoEditorMain() {
   const scriptId = params.id!
   
   const loadScript = useCompositionStore((state) => state.loadScript)
-  const scenes = useCompositionStore((state) => state.scenes)
   const isLoading = useCompositionStore((state) => state.isLoading)
   const error = useCompositionStore((state) => state.error)
 

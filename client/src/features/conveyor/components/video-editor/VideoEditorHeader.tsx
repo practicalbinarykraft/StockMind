@@ -6,7 +6,7 @@ import { useLocation } from 'wouter'
 import { useState } from 'react'
 import { ArrowLeft, Edit, Save, Undo, Redo, Loader2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
-import { useCompositionStore, selectHasChanges, selectSortedScenes } from '../../stores/composition'
+import { useCompositionStore, selectHasChanges, selectSortedScenes, selectCanUndo, selectCanRedo } from '../../stores/composition'
 import { useToast } from '@/shared/hooks/use-toast'
 import { 
   useUpdateBackgroundLayer, 
@@ -25,8 +25,8 @@ export function VideoEditorHeader({ scriptId }: VideoEditorHeaderProps) {
   const [isSaving, setIsSaving] = useState(false)
   
   const scenes = useCompositionStore(selectSortedScenes)
-  const canUndo = useCompositionStore((state) => state.canUndo())
-  const canRedo = useCompositionStore((state) => state.canRedo())
+  const canUndo = useCompositionStore(selectCanUndo)
+  const canRedo = useCompositionStore(selectCanRedo)
   const hasChanges = useCompositionStore(selectHasChanges)
   const undo = useCompositionStore((state) => state.undo)
   const redo = useCompositionStore((state) => state.redo)

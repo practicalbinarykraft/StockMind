@@ -4,12 +4,11 @@
  */
 
 import { Player, PlayerRef } from '@remotion/player'
-import { useCompositionStore, selectSortedScenes } from '../../../stores/composition'
+import { useCompositionStore, selectSortedScenes, selectCurrentScene } from '../../../stores/composition'
 import { RemotionComposition } from './RemotionComposition'
 import { Button } from '@/shared/ui/button'
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
-import { useState, useRef, useCallback } from 'react'
-import type { RefObject } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { Card } from '@/shared/ui/card'
 import { Slider } from '@/shared/ui/slider'
 
@@ -22,17 +21,15 @@ export function RemotionPreview({
   aspectRatio = '16:9',
   className 
 }: RemotionPreviewProps) {
-  const currentScene = useCompositionStore((state) => 
-    state.currentSceneId ? state.scenes.get(state.currentSceneId) : undefined
-  )
+  const currentScene = useCompositionStore(selectCurrentScene)
   const sortedScenes = useCompositionStore(selectSortedScenes)
   const setCurrentScene = useCompositionStore((state) => state.setCurrentScene)
   const playerRef = useRef<PlayerRef>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrame, setCurrentFrame] = useState(0)
 
-  // Расчет размеров canvas
-  const getDimensions = useCallback(() => {
+  // Расчет размеров canvas — стабильный объект через useMemo
+  const dimensions = useMemo(() => {
     switch (aspectRatio) {
       case '16:9':
         return { width: 1920, height: 1080 }
@@ -45,9 +42,14 @@ export function RemotionPreview({
     }
   }, [aspectRatio])
 
-  const dimensions = getDimensions()
-  const durationInFrames = currentScene?.durationInFrames || 300
+  // Гарантируем durationInFrames >= 1 для Remotion Player
+  const durationInFrames = Math.max(currentScene?.durationInFrames || 300, 1)
   const fps = 30
+
+  // Мемоизируем inputProps чтобы Player не перерендеривался при каждом рендере родителя
+  const inputProps = useMemo(() => ({
+    scene: currentScene!,
+  }), [currentScene])
 
   // Контролы плеера
   const togglePlayPause = useCallback(() => {
@@ -100,10 +102,8 @@ export function RemotionPreview({
       <Card className="overflow-hidden">
         <Player
           ref={playerRef}
-          component={RemotionComposition}
-          inputProps={{
-            scene: currentScene,
-          }}
+          component={RemotionComposition as React.ComponentType<any>}
+          inputProps={inputProps}
           durationInFrames={durationInFrames}
           compositionWidth={dimensions.width}
           compositionHeight={dimensions.height}
