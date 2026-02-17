@@ -41,6 +41,7 @@ import { registerSceneCommentsRoutes } from "./modules/scene-comments/scene-comm
 import { registerSceneLayersRoutes } from "./modules/scene-layers/scene-layers.routes";
 import { registerKieAiRoutes } from "./modules/kie-ai/kie-ai.routes";
 import { registerAudioSplittingRoutes } from "./modules/audio-splitting/audio-splitting.routes";
+import { registerVideoRenderingRoutes } from "./modules/video-rendering/video-rendering.routes";
 import scriptsMediaRouter from "./modules/scripts-media/scripts-media.routes";
 
 // Conveyor (Content Factory) routes - Modularized
@@ -94,6 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerSceneLayersRoutes(app);
   registerKieAiRoutes(app);
   registerAudioSplittingRoutes(app);
+  registerVideoRenderingRoutes(app);
   registerScriptsLibraryRoutes(app);
   registerSceneEditingRoutes(app);
   registerReanalysisRoutes(app);

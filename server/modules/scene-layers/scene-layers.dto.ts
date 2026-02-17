@@ -88,3 +88,89 @@ export const UpdateOverlayPositionBodyDto = z.object({
   }),
 });
 export type UpdateOverlayPositionBodyDto = z.infer<typeof UpdateOverlayPositionBodyDto>;
+
+// ============================================================================
+// ENHANCED SCENE TYPE FOR RENDERING
+// ============================================================================
+// Упрощённый тип для передачи данных сцены в video-rendering
+
+export interface EnhancedScene {
+  id: string;
+  order: number;
+  text: string;
+  audioUrl?: string;
+  durationInFrames: number;
+  composition: {
+    id: string;
+    sceneId: string;
+    scriptId: string;
+    mode: "overlay" | "split";
+    splitRatio: number;
+    splitDirection: "horizontal" | "vertical";
+    splitOrder: "background-first" | "overlay-first";
+    gridSnapping: boolean;
+    gridSize: number;
+  };
+  layers: {
+    background?: {
+      id: string;
+      sceneId: string;
+      scriptId: string;
+      layerType: "background";
+      order: number;
+      isVisible: boolean;
+      contentType: "avatar" | "image" | "video";
+      sourceUrl?: string;
+      generationPrompt?: string;
+      generationModel?: string;
+      generationStatus?: "pending" | "processing" | "ready" | "failed";
+      generationJobId?: string;
+      dimensions?: { width: number; height: number };
+    };
+    overlay?: {
+      id: string;
+      sceneId: string;
+      scriptId: string;
+      layerType: "overlay";
+      order: number;
+      isVisible: boolean;
+      contentType: "avatar" | "image" | "video";
+      sourceUrl?: string;
+      position: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+      aspectLock: boolean;
+      minSize?: { width: number; height: number };
+      maxSize?: { width: number; height: number };
+      generationPrompt?: string;
+      generationModel?: string;
+      generationStatus?: "pending" | "processing" | "ready" | "failed";
+      generationJobId?: string;
+    };
+    textLayer?: {
+      id: string;
+      sceneId: string;
+      scriptId: string;
+      layerType: "textLayer";
+      order: number;
+      isVisible: boolean;
+      text: string;
+      mode: "static" | "marquee";
+      position: {
+        type: "top" | "center" | "bottom" | "custom";
+        x?: number;
+        y?: number;
+      };
+      fontSize: number;
+      fontFamily: string;
+      textColor: string;
+      textAlign: "left" | "center" | "right";
+      backgroundColor?: string;
+      backgroundOpacity: number;
+      marqueeSpeed: number;
+    };
+  };
+}

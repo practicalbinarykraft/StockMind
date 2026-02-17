@@ -92,6 +92,7 @@ export function VideoEditorExport() {
 
       {/* Секция видео */}
       <ExportVideoSection
+        scriptId={scriptId}
         media={media}
         isDownloading={isDownloading}
         onDownload={handleDownloadVideo}
