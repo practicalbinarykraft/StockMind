@@ -14,6 +14,30 @@ import type {
 } from '../../types/layers'
 import type { CompositionStore } from './types'
 
+/** Создаёт дефолтный BackgroundLayer, если слой ещё не существует */
+const createDefaultBackgroundLayer = (sceneId: string, scriptId: string): BackgroundLayer => ({
+  id: `bg-${sceneId}`,
+  sceneId,
+  scriptId,
+  layerType: 'background',
+  order: 0,
+  isVisible: true,
+  contentType: 'image',
+})
+
+/** Создаёт дефолтный OverlayLayer, если слой ещё не существует */
+const createDefaultOverlayLayer = (sceneId: string, scriptId: string): OverlayLayer => ({
+  id: `ol-${sceneId}`,
+  sceneId,
+  scriptId,
+  layerType: 'overlay',
+  order: 1,
+  isVisible: true,
+  contentType: 'image',
+  position: { x: 25, y: 25, width: 50, height: 50 },
+  aspectLock: true,
+})
+
 export const createSceneActions: StateCreator<
   CompositionStore,
   [],
@@ -167,25 +191,29 @@ export const createLayerActions: StateCreator<
   >
 > = (set, get) => ({
   updateBackgroundLayer: (sceneId: string, updates: Partial<BackgroundLayer>) => {
+    const { scriptId } = get()
     updateSceneHelper(get, set, sceneId, (scene) => ({
       ...scene,
       layers: {
         ...scene.layers,
-        background: scene.layers.background
-          ? { ...scene.layers.background, ...updates }
-          : undefined,
+        background: {
+          ...(scene.layers.background || createDefaultBackgroundLayer(sceneId, scriptId || '')),
+          ...updates,
+        },
       },
     }))
   },
 
   updateOverlayLayer: (sceneId: string, updates: Partial<OverlayLayer>) => {
+    const { scriptId } = get()
     updateSceneHelper(get, set, sceneId, (scene) => ({
       ...scene,
       layers: {
         ...scene.layers,
-        overlay: scene.layers.overlay
-          ? { ...scene.layers.overlay, ...updates }
-          : undefined,
+        overlay: {
+          ...(scene.layers.overlay || createDefaultOverlayLayer(sceneId, scriptId || '')),
+          ...updates,
+        },
       },
     }))
   },

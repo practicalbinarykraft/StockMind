@@ -23,9 +23,9 @@ export const createSyncActions: StateCreator<
       const scenesMap = new Map(
         data.scenes.map((sceneData: any) => {
           const layers = {
-            background: sceneData.layers.find((l: any) => l.layerType === 'background') || null,
-            overlay: sceneData.layers.find((l: any) => l.layerType === 'overlay') || null,
-            textLayer: sceneData.layers.find((l: any) => l.layerType === 'textLayer') || null,
+            background: sceneData.layers.find((l: any) => l.layerType === 'background') || undefined,
+            overlay: sceneData.layers.find((l: any) => l.layerType === 'overlay') || undefined,
+            textLayer: sceneData.layers.find((l: any) => l.layerType === 'textLayer') || undefined,
           }
 
           // Дефолтная композиция если не задана

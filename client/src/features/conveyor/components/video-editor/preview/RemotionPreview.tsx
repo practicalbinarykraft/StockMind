@@ -97,9 +97,9 @@ export function RemotionPreview({
   }
 
   return (
-    <div className={`flex flex-col gap-4 ${className}`}>
+    <div className={`flex flex-col gap-2 min-h-0 ${className}`}>
       {/* Плеер */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden flex-shrink min-h-0">
         <Player
           ref={playerRef}
           component={RemotionComposition as React.ComponentType<any>}
@@ -110,8 +110,10 @@ export function RemotionPreview({
           fps={fps}
           style={{
             width: '100%',
-            height: 'auto',
+            height: '100%',
+            maxHeight: '50vh',
             aspectRatio: aspectRatio.replace(':', '/'),
+            objectFit: 'contain',
           }}
           controls={false}
           loop
@@ -119,9 +121,9 @@ export function RemotionPreview({
       </Card>
 
       {/* Кастомные контролы */}
-      <Card className="p-4 space-y-4">
+      <Card className="p-3 space-y-2 flex-shrink-0">
         {/* Прогресс бар */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Slider
             value={[currentFrame]}
             min={0}

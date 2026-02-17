@@ -64,14 +64,14 @@ export function VideoEditorMain() {
       {/* Основной контент: Preview (слева) + Toolbar (справа) */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 min-h-0 overflow-hidden">
         {/* Левая часть: Preview + Список сцен */}
-        <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Remotion Preview */}
-          <div className="flex-shrink-0">
+        <div className="flex flex-col gap-4 min-h-0 overflow-hidden">
+          {/* Remotion Preview — адаптивная высота */}
+          <div className="flex-shrink min-h-0">
             <RemotionPreview aspectRatio="16:9" />
           </div>
           
           {/* Список сцен */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto min-h-[120px]">
             <ScenesList />
           </div>
         </div>
