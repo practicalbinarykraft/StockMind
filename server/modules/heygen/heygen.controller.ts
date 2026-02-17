@@ -182,6 +182,9 @@ export const heygenController = {
         "Content-Type": result.contentType,
         "Cache-Control": "public, max-age=86400", // Cache for 24 hours
         "X-Content-Type-Options": "nosniff",
+        // CORS заголовки для медиа
+        "Access-Control-Allow-Origin": req.headers.origin || "*",
+        "Access-Control-Allow-Credentials": "true",
       });
 
       res.send(result.buffer);
@@ -221,7 +224,15 @@ export const heygenController = {
 
       const result = await heygenService.proxyVideo(url, rangeHeader, download);
 
-      res.set(result.headers);
+      // Добавляем CORS заголовки для медиа
+      const headers = {
+        ...result.headers,
+        "Access-Control-Allow-Origin": req.headers.origin || "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+      };
+
+      res.set(headers);
       res.status(result.status);
 
       // Stream the video to the client

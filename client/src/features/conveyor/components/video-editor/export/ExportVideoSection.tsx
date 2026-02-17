@@ -256,7 +256,7 @@ export function ExportVideoSection({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {media.videoErrorMessage ||
+              {media?.videoErrorMessage ||
                 "Ошибка генерации видео. Попробуйте снова."}
             </AlertDescription>
           </Alert>

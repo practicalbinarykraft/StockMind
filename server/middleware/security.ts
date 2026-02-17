@@ -77,7 +77,8 @@ export function setupSecurity(app: Express) {
         connectSrc: ["'self'", 'https://api.anthropic.com', 'https://api.openai.com'],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         objectSrc: ["'none'"],
-        mediaSrc: ["'self'", 'blob:'],
+        // Разрешаем загрузку видео из всех источников (для HeyGen, AWS S3, blob URLs и т.д.)
+        mediaSrc: ["'self'", 'https:', 'http:', 'blob:', 'data:'],
         frameSrc: ["'none'"],
         upgradeInsecureRequests: null, // Disable until HTTPS is configured
       },

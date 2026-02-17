@@ -5,7 +5,7 @@
 
 import { Player, PlayerRef } from '@remotion/player'
 import { useCompositionStore, selectSortedScenes } from '../../../stores/composition'
-import { RemotionComposition } from './RemotionComposition.js'
+import { RemotionComposition } from './RemotionComposition'
 import { Button } from '@/shared/ui/button'
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
 import { useState, useRef, useCallback } from 'react'

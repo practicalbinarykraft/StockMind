@@ -5,10 +5,10 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { Card } from '@/shared/ui/card'
-import { VisualsTab } from './VisualsTab.js'
-import { TextTab } from './TextTab.js'
-import { AudioTab } from './AudioTab.js'
-import { CompositionTab } from './CompositionTab.js'
+import { VisualsTab } from './VisualsTab'
+import { TextTab } from './TextTab'
+import { AudioTab } from './AudioTab'
+import { CompositionTab } from './CompositionTab'
 import { Image, Type, Music, Layout } from 'lucide-react'
 
 interface EditorToolbarProps {
