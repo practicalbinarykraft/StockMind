@@ -2,8 +2,14 @@
  * Компонент интерактивного предпросмотра с Remotion Player
  * Единый Player для всех сцен — видео загружается один раз,
  * переключение сцен через seekTo без пересоздания Player.
+ *
+ * Синхронизация frame↔scene:
+ *  - frame→scene: обновляем currentSceneId в timeupdate/handleSeek (через lastSyncedSceneRef)
+ *  - scene→frame: useEffect ловит внешние изменения currentSceneId (клик по ScenesList)
+ *    и seekTo к началу сцены. lastSyncedSceneRef предотвращает петлю.
  */
 
+import React from 'react'
 import { Player, PlayerRef } from '@remotion/player'
 import { useCompositionStore, selectSortedScenes } from '../../../stores/composition'
 import { SceneComposition } from '../../../remotion/SceneComposition'
@@ -34,6 +40,11 @@ export function RemotionPreview({
   const playerRef = useRef<PlayerRef>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrame, setCurrentFrame] = useState(0)
+
+  // Ref для предотвращения циклической синхронизации frame↔scene
+  const lastSyncedSceneRef = useRef<string | null>(null)
+  // Ref для актуальных сцен внутри event-handler'ов (избегаем stale closure)
+  const adjustedScenesRef = useRef<EnhancedScene[]>([])
 
   const fps = 30
 
@@ -95,6 +106,9 @@ export function RemotionPreview({
     }))
   }, [sortedScenes, sceneDurations, avatarVideoUrl])
 
+  // Держим ref в актуальном состоянии для event-handler'ов
+  adjustedScenesRef.current = adjustedScenes
+
   const totalDurationInFrames = useMemo(
     () => Math.max(adjustedScenes.reduce((sum, s) => sum + s.durationInFrames, 0), 1),
     [adjustedScenes]
@@ -111,38 +125,43 @@ export function RemotionPreview({
     return map
   }, [adjustedScenes])
 
-  // ── Текущая сцена по позиции кадра ──
+  // ── Текущая сцена по позиции кадра (для отображения в UI) ──
   const currentSceneFromFrame = useMemo(
     () => getCurrentScene(adjustedScenes, currentFrame),
     [adjustedScenes, currentFrame]
   )
 
-  // ── Синхронизация: кадр → currentSceneId в сторе ──
-  useEffect(() => {
-    if (!currentSceneFromFrame) return
-    if (currentSceneFromFrame.scene.id === currentSceneId) return
-    setCurrentScene(currentSceneFromFrame.scene.id)
-  }, [currentSceneFromFrame?.scene.id, currentSceneId, setCurrentScene])
-
-  // ── Синхронизация: клик по сцене в ScenesList → seekTo ──
+  // ── Синхронизация: scene→frame ──
+  // Ловит внешние изменения currentSceneId (клик по ScenesList, prev/next кнопки)
+  // и делает seekTo к началу сцены. Пропускает, если изменение пришло
+  // из нашего собственного frame→scene обновления (lastSyncedSceneRef совпадает).
   useEffect(() => {
     if (!currentSceneId) return
-    if (currentSceneFromFrame?.scene.id === currentSceneId) return
+    if (currentSceneId === lastSyncedSceneRef.current) return
 
+    lastSyncedSceneRef.current = currentSceneId
     const startFrame = sceneStartFrames.get(currentSceneId)
     if (startFrame === undefined) return
 
     playerRef.current?.seekTo(startFrame)
     setCurrentFrame(startFrame)
-  }, [currentSceneId, sceneStartFrames, currentSceneFromFrame?.scene.id])
+  }, [currentSceneId, sceneStartFrames])
 
-  // ── Подписка на события Player (один раз при маунте) ──
+  // ── Подписка на события Player ──
   useEffect(() => {
     const player = playerRef.current
     if (!player) return
 
     const onTimeUpdate = (e: { detail: { frame: number } }) => {
-      setCurrentFrame(e.detail.frame)
+      const frame = e.detail.frame
+      setCurrentFrame(frame)
+
+      // frame→scene синхронизация: определяем сцену по кадру
+      const sceneAtFrame = getCurrentScene(adjustedScenesRef.current, frame)
+      if (sceneAtFrame && sceneAtFrame.scene.id !== lastSyncedSceneRef.current) {
+        lastSyncedSceneRef.current = sceneAtFrame.scene.id
+        setCurrentScene(sceneAtFrame.scene.id)
+      }
     }
     const onPlay = () => setIsPlaying(true)
     const onPause = () => setIsPlaying(false)
@@ -159,7 +178,7 @@ export function RemotionPreview({
       player.removeEventListener('pause', onPause as any)
       player.removeEventListener('ended', onEnded as any)
     }
-  }, [totalDurationInFrames])
+  }, [totalDurationInFrames, setCurrentScene])
 
   // ── Управление воспроизведением ──
   const togglePlayPause = useCallback(() => {
@@ -176,7 +195,14 @@ export function RemotionPreview({
     const frame = value[0]
     playerRef.current.seekTo(frame)
     setCurrentFrame(frame)
-  }, [])
+
+    // frame→scene синхронизация при ручной перемотке
+    const sceneAtFrame = getCurrentScene(adjustedScenesRef.current, frame)
+    if (sceneAtFrame) {
+      lastSyncedSceneRef.current = sceneAtFrame.scene.id
+      setCurrentScene(sceneAtFrame.scene.id)
+    }
+  }, [setCurrentScene])
 
   const handlePrevScene = useCallback(() => {
     if (!currentSceneId || adjustedScenes.length === 0) return
@@ -203,7 +229,12 @@ export function RemotionPreview({
     )
   }
 
-  const inputProps = { scenes: adjustedScenes }
+  const inputProps = useMemo(
+    () => ({ scenes: adjustedScenes }),
+    [adjustedScenes]
+  )
+
+  const sliderMax = Math.max(totalDurationInFrames - 1, 0)
 
   const sceneRelativeTime = currentSceneFromFrame
     ? ((currentFrame - currentSceneFromFrame.sceneStartFrame) / fps).toFixed(1)
@@ -238,7 +269,7 @@ export function RemotionPreview({
           <Slider
             value={[currentFrame]}
             min={0}
-            max={totalDurationInFrames}
+            max={sliderMax}
             step={1}
             onValueChange={handleSeek}
           />

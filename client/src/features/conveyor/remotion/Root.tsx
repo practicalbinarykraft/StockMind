@@ -82,26 +82,33 @@ export const calculateTotalDuration = (scenes: EnhancedScene[]): number => {
 };
 
 /**
- * Определяет в какой сцене находится текущий кадр
+ * Определяет в какой сцене находится текущий кадр.
+ * Для последней сцены используется включительная граница (<=),
+ * чтобы frame === totalDurationInFrames - 1 не возвращал null.
+ * Если frame выходит за пределы — возвращает последнюю сцену.
  */
 export const getCurrentScene = (
   scenes: EnhancedScene[],
   frame: number
 ): { scene: EnhancedScene; sceneStartFrame: number } | null => {
+  if (scenes.length === 0) return null;
+
   let currentFrame = 0;
   
-  for (const scene of scenes) {
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i];
     const sceneEndFrame = currentFrame + scene.durationInFrames;
+    const isLast = i === scenes.length - 1;
     
-    if (frame >= currentFrame && frame < sceneEndFrame) {
-      return {
-        scene,
-        sceneStartFrame: currentFrame,
-      };
+    if (frame >= currentFrame && (isLast ? frame <= sceneEndFrame : frame < sceneEndFrame)) {
+      return { scene, sceneStartFrame: currentFrame };
     }
     
     currentFrame = sceneEndFrame;
   }
   
-  return null;
+  // Fallback: если frame за пределами — вернуть последнюю сцену
+  const lastScene = scenes[scenes.length - 1];
+  const lastStart = scenes.slice(0, -1).reduce((sum, s) => sum + s.durationInFrames, 0);
+  return { scene: lastScene, sceneStartFrame: lastStart };
 };
