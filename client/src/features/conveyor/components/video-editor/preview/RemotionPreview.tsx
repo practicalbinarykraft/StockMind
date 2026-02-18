@@ -58,6 +58,14 @@ export function RemotionPreview({
     avatarVideoUrl,
   }), [currentScene, avatarVideoUrl])
 
+  // При смене сцены — сбрасываем плеер на начало
+  useEffect(() => {
+    if (!playerRef.current) return
+    playerRef.current.seekTo(0)
+    setCurrentFrame(0)
+    setIsPlaying(false)
+  }, [currentScene?.id])
+
   // Синхронизация состояния плеера с UI
   useEffect(() => {
     const player = playerRef.current
@@ -134,7 +142,7 @@ export function RemotionPreview({
   return (
     <div className={`flex flex-col gap-2 min-h-0 ${className}`}>
       {/* Плеер */}
-      <Card className="overflow-hidden flex-shrink min-h-0">
+      <Card className="overflow-hidden flex-shrink min-h-0 flex items-center justify-center bg-black">
         <Player
           ref={playerRef}
           component={RemotionComposition as React.ComponentType<any>}
@@ -145,10 +153,8 @@ export function RemotionPreview({
           fps={fps}
           style={{
             width: '100%',
-            height: '100%',
             maxHeight: '50vh',
             aspectRatio: aspectRatio.replace(':', '/'),
-            objectFit: 'contain',
           }}
           controls={false}
           loop

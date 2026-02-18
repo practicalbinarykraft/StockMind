@@ -19,16 +19,42 @@ export const createSyncActions: StateCreator<
     try {
       const data = await layersService.getScriptWithLayers(scriptId)
 
-      // Преобразуем scenes в Map и создаём EnhancedScene
       const scenesMap = new Map(
         data.scenes.map((sceneData: any) => {
+          // Backend возвращает вложенную структуру { base, background?, overlay?, text? }
+          // Сливаем в плоские объекты, совместимые с фронтенд-типами
+          const flatLayers = (sceneData.layers || []).map((l: any) => {
+            const base = l.base || {}
+            if (base.layerType === 'background' && l.background) {
+              return { ...l.background, ...base }
+            }
+            if (base.layerType === 'overlay' && l.overlay) {
+              return { ...l.overlay, ...base }
+            }
+            if (base.layerType === 'textLayer' && l.text) {
+              return {
+                ...l.text,
+                ...base,
+                // Гарантируем дефолты для полей, которые ожидает TextTab
+                fontSize: l.text.fontSize ?? 32,
+                fontFamily: l.text.fontFamily ?? 'Inter',
+                textColor: l.text.textColor ?? '#FFFFFF',
+                textAlign: l.text.textAlign ?? 'center',
+                backgroundOpacity: l.text.backgroundOpacity ?? 0.8,
+                marqueeSpeed: l.text.marqueeSpeed ?? 100,
+                mode: l.text.mode ?? 'static',
+                position: l.text.position ?? { type: 'bottom' },
+              }
+            }
+            return base
+          })
+
           const layers = {
-            background: sceneData.layers.find((l: any) => l.layerType === 'background') || undefined,
-            overlay: sceneData.layers.find((l: any) => l.layerType === 'overlay') || undefined,
-            textLayer: sceneData.layers.find((l: any) => l.layerType === 'textLayer') || undefined,
+            background: flatLayers.find((l: any) => l.layerType === 'background') || undefined,
+            overlay: flatLayers.find((l: any) => l.layerType === 'overlay') || undefined,
+            textLayer: flatLayers.find((l: any) => l.layerType === 'textLayer') || undefined,
           }
 
-          // Дефолтная композиция если не задана
           const defaultComposition = {
             mode: 'overlay' as const,
             splitRatio: 0.5,
@@ -38,13 +64,27 @@ export const createSyncActions: StateCreator<
             gridSize: 10,
           }
 
+          // Текст и порядок лежат в sceneData.scene (вложенный объект от backend)
+          const sceneInfo = sceneData.scene || {}
+          const sceneText = sceneInfo.text || sceneData.text || ''
+          const sceneOrder = sceneInfo.order ?? sceneData.order ?? 0
+
+          // Длительность на основе текста: ~15 символов/сек (темп чтения), мин. 3 сек
+          const FPS = 30
+          const CHARS_PER_SECOND = 15
+          const MIN_DURATION_SECONDS = 3
+          const textDurationSec = sceneText
+            ? Math.max(sceneText.length / CHARS_PER_SECOND, MIN_DURATION_SECONDS)
+            : MIN_DURATION_SECONDS
+          const durationInFrames = sceneData.durationInFrames || Math.ceil(textDurationSec * FPS)
+
           return [
             sceneData.sceneId,
             {
               id: sceneData.sceneId,
-              order: sceneData.order || 0,
-              text: sceneData.text || '',
-              durationInFrames: sceneData.durationInFrames || 300,
+              order: sceneOrder,
+              text: sceneText,
+              durationInFrames,
               composition: sceneData.composition || defaultComposition,
               layers: layers as any,
             },
