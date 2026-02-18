@@ -2,6 +2,9 @@ import Parser from "rss-parser";
 import { storage } from "../storage";
 import { scoreNewsItem } from "../ai-services";
 import { logger } from "../lib/logger";
+import { db } from "../db";
+import { rssItems } from "@shared/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
 
 // Extend global namespace for tracking scoring promises
 declare global {
@@ -349,31 +352,82 @@ export async function waitForAllScoring(timeoutMs: number = 120000): Promise<voi
 
 /**
  * Score RSS items using AI in background
+ * Skips items if another record with the same title is already scored for this user
  */
 export async function scoreRssItems(items: any[], userId: string) {
   try {
-    // Get user's Anthropic API key
+    if (items.length === 0) return;
+
     const apiKey = await storage.getUserApiKey(userId, "anthropic");
     if (!apiKey) {
       console.log("[AI] No Anthropic API key found for user, skipping scoring");
       return;
     }
 
-    console.log(`[AI] Scoring ${items.length} RSS items...`);
+    const titles = items.map((i) => i.title);
+    const alreadyScoredRows = await db
+      .select({
+        title: rssItems.title,
+        aiScore: rssItems.aiScore,
+        aiComment: rssItems.aiComment,
+      })
+      .from(rssItems)
+      .where(
+        and(
+          eq(rssItems.userId, userId),
+          sql`${rssItems.title} IN (${sql.join(
+            titles.map((t) => sql`${t}`),
+            sql`, `,
+          )})`,
+          sql`${rssItems.aiScore} IS NOT NULL`,
+        ),
+      );
+
+    const scoredByTitle = new Map(
+      alreadyScoredRows.map((r) => [
+        r.title,
+        { score: r.aiScore, comment: r.aiComment },
+      ]),
+    );
+
+    let scoredCount = 0;
+    let reusedCount = 0;
+
+    console.log(
+      `[AI] Scoring ${items.length} RSS items (${scoredByTitle.size} already have scores by title)...`,
+    );
 
     for (const item of items) {
       try {
+        const existing = scoredByTitle.get(item.title);
+        if (existing) {
+          await storage.updateRssItem(item.id, {
+            aiScore: existing.score,
+            aiComment: existing.comment,
+          });
+          reusedCount++;
+          console.log(
+            `[AI] Reused score for "${item.title}": ${existing.score}/100 (duplicate)`,
+          );
+          continue;
+        }
+
         const result = await scoreNewsItem(
-          apiKey.decryptedKey, // Decrypted value from getUserApiKey
+          apiKey.decryptedKey,
           item.title,
-          item.content
+          item.content,
         );
 
-        // Update the item with AI score
         await storage.updateRssItem(item.id, {
           aiScore: result.score,
           aiComment: result.comment,
         });
+
+        scoredByTitle.set(item.title, {
+          score: result.score,
+          comment: result.comment,
+        });
+        scoredCount++;
 
         console.log(`[AI] Scored item "${item.title}": ${result.score}/100`);
       } catch (err) {
@@ -381,7 +435,9 @@ export async function scoreRssItems(items: any[], userId: string) {
       }
     }
 
-    console.log(`[AI] Finished scoring ${items.length} RSS items`);
+    console.log(
+      `[AI] Finished: scored ${scoredCount}, reused ${reusedCount} of ${items.length} RSS items`,
+    );
   } catch (error: any) {
     console.error("[AI] RSS scoring error:", error);
   }
