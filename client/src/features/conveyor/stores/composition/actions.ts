@@ -22,7 +22,7 @@ const createDefaultBackgroundLayer = (sceneId: string, scriptId: string): Backgr
   layerType: 'background',
   order: 0,
   isVisible: true,
-  contentType: 'image',
+  contentType: 'avatar',
 })
 
 /** Создаёт дефолтный OverlayLayer, если слой ещё не существует */

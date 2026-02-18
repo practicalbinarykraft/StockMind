@@ -125,7 +125,7 @@ export const sceneLayersService = {
       if (layerType === "background") {
         await backgroundLayersRepo.create({
           layerId: base.id,
-          contentType: "image",
+          contentType: "avatar",
         });
       }
       if (layerType === "overlay") {

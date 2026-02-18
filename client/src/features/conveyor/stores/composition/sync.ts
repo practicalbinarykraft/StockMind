@@ -8,7 +8,7 @@ import type { CompositionStore } from './types'
 import { layersService } from '../../services/layers'
 
 const FPS = 30
-const CHARS_PER_SECOND = 15
+const WORDS_PER_SECOND = 2.2
 const MIN_DURATION_SECONDS = 3
 
 const DEFAULT_COMPOSITION = {
@@ -90,9 +90,13 @@ function ensureDefaultLayers(
   return layers
 }
 
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length || 1
+}
+
 function calculateDuration(text: string): number {
   if (!text) return MIN_DURATION_SECONDS * FPS
-  const sec = Math.max(text.length / CHARS_PER_SECOND, MIN_DURATION_SECONDS)
+  const sec = Math.max(countWords(text) / WORDS_PER_SECOND, MIN_DURATION_SECONDS)
   return Math.ceil(sec * FPS)
 }
 
@@ -132,6 +136,12 @@ export const createSyncActions: StateCreator<
               mode: layers.textLayer.mode ?? 'static',
               position: layers.textLayer.position ?? { type: 'bottom' },
             }
+          }
+
+          // Background без sourceUrl и с contentType 'image' — старый дефолт,
+          // заменяем на 'avatar' чтобы видео аватара подтягивалось автоматически
+          if (layers.background && !layers.background.sourceUrl && layers.background.contentType === 'image') {
+            layers.background = { ...layers.background, contentType: 'avatar' }
           }
 
           // Если слои отсутствуют — создаём дефолтные in-memory

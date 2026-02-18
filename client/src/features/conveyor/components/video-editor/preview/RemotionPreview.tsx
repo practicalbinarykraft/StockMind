@@ -63,14 +63,19 @@ export function RemotionPreview({
   )
 
   // ── Пропорциональное распределение длительности видео по сценам ──
+  // Используем количество слов (не символов) — речь идёт пословно,
+  // поэтому слова дают более точную пропорцию.
   const sceneDurations = useMemo(() => {
     if (sortedScenes.length === 0) return null
     const totalVideoDuration = media?.videoDuration
     if (!totalVideoDuration) return null
 
+    const countWords = (text: string) =>
+      text.trim().split(/\s+/).filter(Boolean).length || 1
+
     const totalVideoFrames = Math.ceil(totalVideoDuration * fps)
-    const totalTextLength = sortedScenes.reduce(
-      (sum, s) => sum + (s.text?.length || 1), 0
+    const totalWords = sortedScenes.reduce(
+      (sum, s) => sum + countWords(s.text || ''), 0
     )
 
     let usedFrames = 0
@@ -78,7 +83,7 @@ export function RemotionPreview({
       if (idx === sortedScenes.length - 1) {
         return Math.max(totalVideoFrames - usedFrames, 1)
       }
-      const proportion = (scene.text?.length || 1) / totalTextLength
+      const proportion = countWords(scene.text || '') / totalWords
       const frames = Math.max(Math.round(totalVideoFrames * proportion), 1)
       usedFrames += frames
       return frames
@@ -245,7 +250,7 @@ export function RemotionPreview({
 
   return (
     <div className={`flex flex-col gap-2 min-h-0 ${className}`}>
-      <Card className="overflow-hidden flex-shrink min-h-0 flex items-center justify-center bg-black">
+      <Card className="overflow-hidden shrink min-h-0 flex items-center justify-center bg-black">
         <Player
           ref={playerRef}
           component={SceneComposition as React.ComponentType<any>}
@@ -255,7 +260,7 @@ export function RemotionPreview({
           compositionHeight={dimensions.height}
           fps={fps}
           style={{
-            width: '100%',
+            maxWidth: '100%',
             maxHeight: '50vh',
             aspectRatio: aspectRatio.replace(':', '/'),
           }}
@@ -264,7 +269,7 @@ export function RemotionPreview({
         />
       </Card>
 
-      <Card className="p-3 space-y-2 flex-shrink-0">
+      <Card className="p-3 space-y-2 shrink-0">
         <div className="space-y-1">
           <Slider
             value={[currentFrame]}

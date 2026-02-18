@@ -61,7 +61,7 @@ export function VideoEditorMain() {
   return (
     <div className="flex flex-col h-[calc(100vh-8.5rem)]">
       {/* Хедер */}
-      <div className="flex-shrink-0 mb-4">
+      <div className="shrink-0 mb-4">
         <VideoEditorHeader scriptId={scriptId} status={status} />
       </div>
       
@@ -70,7 +70,7 @@ export function VideoEditorMain() {
         {/* Левая часть: Preview + Список сцен */}
         <div className="flex flex-col gap-4 min-h-0 overflow-hidden">
           {/* Remotion Preview — адаптивная высота */}
-          <div className="flex-shrink min-h-0">
+          <div className="shrink min-h-0">
             <RemotionPreview aspectRatio="16:9" media={media} />
           </div>
           
