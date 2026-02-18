@@ -6,7 +6,7 @@ import { learningService } from "../../conveyor/learning-service";
 import { conveyorOrchestrator } from "../../conveyor/conveyor-orchestrator";
 import { createFeedbackProcessor } from "../../conveyor/feedback-processor";
 import { revisionProcessor } from "../../conveyor/revision-processor";
-import { generationPipeline } from "../generation/generation-pipeline";
+import { generationPipeline } from "../generation/pipeline/generation-pipeline";
 import { RejectionCategory, type AutoScript } from "@shared/schema";
 import {
   AutoScriptNotFoundError,
@@ -31,15 +31,47 @@ export const autoScriptsService = {
   getRejectionCategories() {
     return [
       { id: RejectionCategory.TOO_LONG, label: "Слишком длинный", emoji: "⏱️" },
-      { id: RejectionCategory.TOO_SHORT, label: "Слишком короткий", emoji: "📏" },
-      { id: RejectionCategory.BORING_INTRO, label: "Скучное начало", emoji: "😴" },
-      { id: RejectionCategory.WEAK_CTA, label: "Слабый призыв к действию", emoji: "👆" },
-      { id: RejectionCategory.TOO_FORMAL, label: "Слишком формальный", emoji: "🎩" },
-      { id: RejectionCategory.TOO_CASUAL, label: "Слишком разговорный", emoji: "💬" },
-      { id: RejectionCategory.BORING_TOPIC, label: "Скучная тема", emoji: "🥱" },
-      { id: RejectionCategory.WRONG_TONE, label: "Неправильный тон", emoji: "🎭" },
+      {
+        id: RejectionCategory.TOO_SHORT,
+        label: "Слишком короткий",
+        emoji: "📏",
+      },
+      {
+        id: RejectionCategory.BORING_INTRO,
+        label: "Скучное начало",
+        emoji: "😴",
+      },
+      {
+        id: RejectionCategory.WEAK_CTA,
+        label: "Слабый призыв к действию",
+        emoji: "👆",
+      },
+      {
+        id: RejectionCategory.TOO_FORMAL,
+        label: "Слишком формальный",
+        emoji: "🎩",
+      },
+      {
+        id: RejectionCategory.TOO_CASUAL,
+        label: "Слишком разговорный",
+        emoji: "💬",
+      },
+      {
+        id: RejectionCategory.BORING_TOPIC,
+        label: "Скучная тема",
+        emoji: "🥱",
+      },
+      {
+        id: RejectionCategory.WRONG_TONE,
+        label: "Неправильный тон",
+        emoji: "🎭",
+      },
       { id: RejectionCategory.NO_HOOK, label: "Нет хука", emoji: "🎣" },
-      { id: RejectionCategory.TOO_COMPLEX, label: "Слишком сложный", emoji: "🧩" },
+      {
+        id: RejectionCategory.TOO_COMPLEX,
+        label: "Слишком сложный",
+        emoji: "🧩",
+      },
       { id: RejectionCategory.OFF_TOPIC, label: "Не по теме", emoji: "🎯" },
       { id: RejectionCategory.OTHER, label: "Другое", emoji: "📝" },
     ];
@@ -81,7 +113,10 @@ export const autoScriptsService = {
    */
   async regenerateWritingProfileSummary(userId: string) {
     // Get API key
-    const apiKeyRecord = await apiKeysService.getUserApiKey(userId, "anthropic");
+    const apiKeyRecord = await apiKeysService.getUserApiKey(
+      userId,
+      "anthropic",
+    );
     if (!apiKeyRecord?.decryptedKey) {
       throw new NoApiKeyConfiguredError();
     }
@@ -240,7 +275,7 @@ export const autoScriptsService = {
     scriptId: string,
     userId: string,
     reason: string,
-    category: string
+    category: string,
   ) {
     const script = await repo.getById(scriptId);
 
@@ -321,7 +356,7 @@ export const autoScriptsService = {
   async regenerateScript(
     scriptId: string,
     userId: string,
-    customPrompt?: string
+    customPrompt?: string,
   ) {
     const script = await repo.getById(scriptId);
 
@@ -344,7 +379,7 @@ export const autoScriptsService = {
       await repo.reject(
         scriptId,
         "Maximum revision limit reached",
-        RejectionCategory.OTHER
+        RejectionCategory.OTHER,
       );
 
       throw new MaxRevisionsReachedError(MAX_REVISIONS);
@@ -380,7 +415,8 @@ export const autoScriptsService = {
 
     return {
       success: true,
-      message: "Регенерация сценария запущена. AI создаст новый сценарий на основе того же источника.",
+      message:
+        "Регенерация сценария запущена. AI создаст новый сценарий на основе того же источника.",
       revisionCount: script.revisionCount + 1,
     };
   },
@@ -392,7 +428,7 @@ export const autoScriptsService = {
     scriptId: string,
     userId: string,
     feedbackText: string,
-    selectedSceneIds?: number[]
+    selectedSceneIds?: number[],
   ) {
     const script = await repo.getById(scriptId);
 
@@ -415,7 +451,7 @@ export const autoScriptsService = {
       await repo.reject(
         scriptId,
         "Maximum revision limit reached",
-        RejectionCategory.OTHER
+        RejectionCategory.OTHER,
       );
 
       throw new MaxRevisionsReachedError(MAX_REVISIONS);
@@ -440,7 +476,10 @@ export const autoScriptsService = {
     // Get user's API key for conveyor processing
     let apiKey: string | null = null;
     try {
-      const apiKeyRecord = await apiKeysService.getUserApiKey(userId, "anthropic");
+      const apiKeyRecord = await apiKeysService.getUserApiKey(
+        userId,
+        "anthropic",
+      );
       if (apiKeyRecord?.decryptedKey) {
         apiKey = apiKeyRecord.decryptedKey;
       }
@@ -458,7 +497,7 @@ export const autoScriptsService = {
         const revisionResult = await revisionProcessor.createRevisionItem(
           script,
           feedbackText,
-          selectedSceneIds
+          selectedSceneIds,
         );
 
         if (revisionResult.success && revisionResult.conveyorItemId) {
@@ -561,7 +600,7 @@ export const autoScriptsService = {
   async updateScript(
     scriptId: string,
     userId: string,
-    updates: Partial<AutoScript>
+    updates: Partial<AutoScript>,
   ) {
     const script = await repo.getById(scriptId);
 
@@ -603,51 +642,55 @@ export const autoScriptsService = {
     // Создаем или обновляем версию с текущим состоянием сценария
     // Если последняя версия - draft, она будет обновлена
     // Если последняя версия - conveyor, будет создана новая draft-версия
-    const { version: newVersion, isUpdate } = await repo.createOrUpdateVersion(scriptId, userId, {
-      title: script.title,
-      scenes: script.scenes,
-      fullScript: script.fullScript,
-      finalScore: script.finalScore,
-      hookScore: script.hookScore,
-      structureScore: script.structureScore,
-      emotionalScore: script.emotionalScore,
-      ctaScore: script.ctaScore,
-      source: 'draft',
-    });
+    const { version: newVersion, isUpdate } = await repo.createOrUpdateVersion(
+      scriptId,
+      userId,
+      {
+        title: script.title,
+        scenes: script.scenes,
+        fullScript: script.fullScript,
+        finalScore: script.finalScore,
+        hookScore: script.hookScore,
+        structureScore: script.structureScore,
+        emotionalScore: script.emotionalScore,
+        ctaScore: script.ctaScore,
+        source: "draft",
+      },
+    );
 
     // Создаем или обновляем сценарий в библиотеке (scripts_library)
     const scriptData = script as any;
-    
+
     // Используем sourceItemId как основной идентификатор источника
     // или сам scriptId если sourceItemId отсутствует
     const sourceId = script.sourceItemId || scriptId;
-    
+
     logger.debug("Looking for existing library script", {
       userId,
       sourceId,
       sourceType: script.sourceType,
       autoScriptId: scriptId,
     });
-    
+
     // Проверяем, существует ли уже скрипт в библиотеке с таким sourceId
     let existingLibraryScript = await scriptsLibraryService.findBySource(
       userId,
       sourceId,
-      script.sourceType
+      script.sourceType,
     );
-    
+
     // Если не нашли по sourceId, пробуем найти по autoScriptId
     // (некоторые скрипты могут использовать autoScriptId как sourceId)
     if (!existingLibraryScript && sourceId !== scriptId) {
       existingLibraryScript = await scriptsLibraryService.findBySource(
         userId,
         scriptId,
-        script.sourceType
+        script.sourceType,
       );
     }
 
     let libraryScript;
-    
+
     if (existingLibraryScript) {
       // Обновляем существующий скрипт
       libraryScript = await scriptsLibraryService.updateScript(
@@ -667,9 +710,9 @@ export const autoScriptsService = {
           aiAnalysis: scriptData.scoring || undefined,
           sourceTitle: scriptData.sourceTitle || undefined,
           sourceUrl: scriptData.sourceUrl || undefined,
-        }
+        },
       );
-      
+
       logger.info("Existing draft updated", {
         userId,
         scriptId,
@@ -697,7 +740,7 @@ export const autoScriptsService = {
         sourceTitle: scriptData.sourceTitle || undefined,
         sourceUrl: scriptData.sourceUrl || undefined,
       });
-      
+
       logger.info("New version saved as draft", {
         userId,
         scriptId,
@@ -715,8 +758,8 @@ export const autoScriptsService = {
       version: newVersion,
       libraryScriptId: libraryScript.id,
       isUpdate: isUpdate, // Была ли обновлена версия (а не создана новая)
-      message: isUpdate 
-        ? "Черновик обновлён" 
+      message: isUpdate
+        ? "Черновик обновлён"
         : "Новая версия сохранена в черновики",
     };
   },
