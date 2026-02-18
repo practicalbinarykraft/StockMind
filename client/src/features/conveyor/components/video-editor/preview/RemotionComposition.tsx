@@ -9,9 +9,10 @@ import type { EnhancedScene, TextLayer } from '../../../types/layers'
 interface RemotionCompositionProps {
   scene: EnhancedScene
   avatarVideoUrl?: string
+  videoStartFrame?: number
 }
 
-export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene, avatarVideoUrl }) => {
+export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene, avatarVideoUrl, videoStartFrame = 0 }) => {
   const frame = useCurrentFrame()
   
   if (!scene || !scene.composition || !scene.layers) {
@@ -47,7 +48,13 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene,
     if (!resolvedUrl) return null
 
     if (contentType === 'video' || contentType === 'avatar') {
-      return <Video src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      return (
+        <Video
+          src={resolvedUrl}
+          startFrom={contentType === 'avatar' ? videoStartFrame : 0}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      )
     }
 
     return <Img src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />

@@ -69,6 +69,7 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         sceneFrame={sceneFrame}
         width={width}
         height={height}
+        videoStartFrame={sceneStartFrame}
       />
 
       {/* Аудио для сцены */}
@@ -88,6 +89,7 @@ interface SceneRendererProps {
   sceneFrame: number;
   width: number;
   height: number;
+  videoStartFrame?: number;
 }
 
 const SceneRenderer: React.FC<SceneRendererProps> = ({
@@ -95,6 +97,7 @@ const SceneRenderer: React.FC<SceneRendererProps> = ({
   sceneFrame,
   width,
   height,
+  videoStartFrame = 0,
 }) => {
   const { composition, layers } = scene;
 
@@ -109,6 +112,7 @@ const SceneRenderer: React.FC<SceneRendererProps> = ({
             sceneFrame={sceneFrame}
             width={width}
             height={height}
+            videoStartFrame={videoStartFrame}
           />
         )}
 
@@ -119,6 +123,7 @@ const SceneRenderer: React.FC<SceneRendererProps> = ({
             sceneFrame={sceneFrame}
             width={width}
             height={height}
+            videoStartFrame={videoStartFrame}
           />
         )}
 
@@ -144,6 +149,7 @@ const SceneRenderer: React.FC<SceneRendererProps> = ({
         sceneFrame={sceneFrame}
         width={width}
         height={height}
+        videoStartFrame={videoStartFrame}
       />
     );
   }

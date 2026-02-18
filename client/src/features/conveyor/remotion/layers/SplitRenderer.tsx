@@ -17,6 +17,7 @@ export interface SplitRendererProps {
   sceneFrame: number;
   width: number;
   height: number;
+  videoStartFrame?: number;
 }
 
 interface SplitPartRendererProps {
@@ -24,6 +25,7 @@ interface SplitPartRendererProps {
   sceneFrame: number;
   width: number;
   height: number;
+  videoStartFrame?: number;
 }
 
 // ============================================================================
@@ -35,6 +37,7 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
   sceneFrame,
   width,
   height,
+  videoStartFrame = 0,
 }) => {
   if (!layer.sourceUrl) return null;
 
@@ -54,6 +57,7 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
       {(layer.contentType === "video" || layer.contentType === "avatar") && (
         <OffthreadVideo
           src={layer.sourceUrl}
+          startFrom={layer.contentType === "avatar" ? videoStartFrame : 0}
           style={{
             width: "100%",
             height: "100%",
@@ -74,6 +78,7 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
   sceneFrame,
   width,
   height,
+  videoStartFrame = 0,
 }) => {
   const { composition, layers } = scene;
   const { splitRatio, splitDirection, splitOrder } = composition;
@@ -109,6 +114,7 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
             sceneFrame={sceneFrame}
             width={isHorizontal ? firstSize : width}
             height={isHorizontal ? height : firstSize}
+            videoStartFrame={videoStartFrame}
           />
         </div>
       )}
@@ -129,6 +135,7 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
             sceneFrame={sceneFrame}
             width={isHorizontal ? secondSize : width}
             height={isHorizontal ? height : secondSize}
+            videoStartFrame={videoStartFrame}
           />
         </div>
       )}

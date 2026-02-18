@@ -53,10 +53,21 @@ export function RemotionPreview({
     [media?.videoUrl]
   )
 
+  const videoStartFrame = useMemo(() => {
+    if (!currentScene) return 0
+    const currentIndex = sortedScenes.findIndex(s => s.id === currentScene.id)
+    let offset = 0
+    for (let i = 0; i < currentIndex; i++) {
+      offset += sortedScenes[i].durationInFrames
+    }
+    return offset
+  }, [currentScene, sortedScenes])
+
   const inputProps = useMemo(() => ({
     scene: currentScene!,
     avatarVideoUrl,
-  }), [currentScene, avatarVideoUrl])
+    videoStartFrame,
+  }), [currentScene, avatarVideoUrl, videoStartFrame])
 
   // Player пересоздаётся через key={currentScene.id}, сбрасываем UI-состояние
   useEffect(() => {

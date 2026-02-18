@@ -42,7 +42,7 @@ export function ScenesList() {
               {/* Номер и текст сцены */}
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm">
-                  {scene.order + 1}
+                  {scene.order}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm line-clamp-2">{scene.text}</p>

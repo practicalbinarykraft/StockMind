@@ -12,6 +12,7 @@ export interface OverlayLayerRendererProps {
   sceneFrame: number;
   width: number;
   height: number;
+  videoStartFrame?: number;
 }
 
 export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
@@ -19,6 +20,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
   sceneFrame,
   width,
   height,
+  videoStartFrame = 0,
 }) => {
   if (!layer.sourceUrl) return null;
 
@@ -55,6 +57,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
       {(layer.contentType === "video" || layer.contentType === "avatar") && (
         <OffthreadVideo
           src={layer.sourceUrl}
+          startFrom={layer.contentType === "avatar" ? videoStartFrame : 0}
           style={{
             width: "100%",
             height: "100%",
