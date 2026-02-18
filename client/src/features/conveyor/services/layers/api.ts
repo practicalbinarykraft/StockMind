@@ -180,6 +180,20 @@ export async function uploadLayerFile(
 }
 
 /**
+ * Создать дефолтные слои для сцены (background, overlay, textLayer)
+ * POST /api/scripts/:scriptId/scenes/:sceneId/layers/default
+ */
+export async function createDefaultSceneLayers(
+  scriptId: string,
+  sceneId: string
+): Promise<void> {
+  await apiRequest(
+    'POST',
+    `/api/scripts/${scriptId}/scenes/${sceneId}/layers/default`
+  )
+}
+
+/**
  * Разделить аудио на части по сценам
  * POST /api/scripts/:scriptId/audio/split
  */

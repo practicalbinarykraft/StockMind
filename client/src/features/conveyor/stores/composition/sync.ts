@@ -7,6 +7,95 @@ import type { LayerType } from '../../types/layers'
 import type { CompositionStore } from './types'
 import { layersService } from '../../services/layers'
 
+const FPS = 30
+const CHARS_PER_SECOND = 15
+const MIN_DURATION_SECONDS = 3
+
+const DEFAULT_COMPOSITION = {
+  mode: 'overlay' as const,
+  splitRatio: 0.5,
+  splitDirection: 'horizontal' as const,
+  splitOrder: 'background-first' as const,
+  gridSnapping: false,
+  gridSize: 10,
+}
+
+/**
+ * Сливает вложенную структуру слоя { base, background?, overlay?, text? }
+ * от backend в плоский объект, совместимый с фронтенд-типами.
+ * Если формат уже плоский (есть layerType на верхнем уровне) — возвращает as-is.
+ */
+function flattenLayer(rawLayer: any): any {
+  // Уже плоский формат
+  if (rawLayer.layerType) return rawLayer
+
+  const base = rawLayer.base
+  if (!base) return rawLayer
+
+  const ext = rawLayer.background || rawLayer.overlay || rawLayer.text || {}
+  return { ...ext, ...base }
+}
+
+/**
+ * Генерирует дефолтные слои для сцены, если backend не вернул их
+ */
+function ensureDefaultLayers(
+  layers: { background?: any; overlay?: any; textLayer?: any },
+  sceneId: string,
+  scriptId: string,
+) {
+  if (!layers.background) {
+    layers.background = {
+      id: `default-bg-${sceneId}`,
+      sceneId,
+      scriptId,
+      layerType: 'background',
+      order: 0,
+      isVisible: true,
+      contentType: 'avatar',
+    }
+  }
+  if (!layers.overlay) {
+    layers.overlay = {
+      id: `default-ol-${sceneId}`,
+      sceneId,
+      scriptId,
+      layerType: 'overlay',
+      order: 1,
+      isVisible: true,
+      contentType: 'image',
+      position: { x: 25, y: 25, width: 50, height: 50 },
+      aspectLock: true,
+    }
+  }
+  if (!layers.textLayer) {
+    layers.textLayer = {
+      id: `default-text-${sceneId}`,
+      sceneId,
+      scriptId,
+      layerType: 'textLayer',
+      order: 2,
+      isVisible: true,
+      text: '',
+      mode: 'static',
+      position: { type: 'bottom' },
+      fontSize: 32,
+      fontFamily: 'Inter',
+      textColor: '#FFFFFF',
+      textAlign: 'center',
+      backgroundOpacity: 0.8,
+      marqueeSpeed: 100,
+    }
+  }
+  return layers
+}
+
+function calculateDuration(text: string): number {
+  if (!text) return MIN_DURATION_SECONDS * FPS
+  const sec = Math.max(text.length / CHARS_PER_SECOND, MIN_DURATION_SECONDS)
+  return Math.ceil(sec * FPS)
+}
+
 export const createSyncActions: StateCreator<
   CompositionStore,
   [],
@@ -20,63 +109,44 @@ export const createSyncActions: StateCreator<
       const data = await layersService.getScriptWithLayers(scriptId)
 
       const scenesMap = new Map(
-        data.scenes.map((sceneData: any) => {
-          // Backend возвращает вложенную структуру { base, background?, overlay?, text? }
-          // Сливаем в плоские объекты, совместимые с фронтенд-типами
-          const flatLayers = (sceneData.layers || []).map((l: any) => {
-            const base = l.base || {}
-            if (base.layerType === 'background' && l.background) {
-              return { ...l.background, ...base }
-            }
-            if (base.layerType === 'overlay' && l.overlay) {
-              return { ...l.overlay, ...base }
-            }
-            if (base.layerType === 'textLayer' && l.text) {
-              return {
-                ...l.text,
-                ...base,
-                // Гарантируем дефолты для полей, которые ожидает TextTab
-                fontSize: l.text.fontSize ?? 32,
-                fontFamily: l.text.fontFamily ?? 'Inter',
-                textColor: l.text.textColor ?? '#FFFFFF',
-                textAlign: l.text.textAlign ?? 'center',
-                backgroundOpacity: l.text.backgroundOpacity ?? 0.8,
-                marqueeSpeed: l.text.marqueeSpeed ?? 100,
-                mode: l.text.mode ?? 'static',
-                position: l.text.position ?? { type: 'bottom' },
-              }
-            }
-            return base
-          })
+        data.scenes.map((sceneData: any, index: number) => {
+          const rawLayers = sceneData.layers || []
+          const flat = rawLayers.map(flattenLayer)
 
-          const layers = {
-            background: flatLayers.find((l: any) => l.layerType === 'background') || undefined,
-            overlay: flatLayers.find((l: any) => l.layerType === 'overlay') || undefined,
-            textLayer: flatLayers.find((l: any) => l.layerType === 'textLayer') || undefined,
+          const layers: any = {
+            background: flat.find((l: any) => l.layerType === 'background') || undefined,
+            overlay: flat.find((l: any) => l.layerType === 'overlay') || undefined,
+            textLayer: flat.find((l: any) => l.layerType === 'textLayer') || undefined,
           }
 
-          const defaultComposition = {
-            mode: 'overlay' as const,
-            splitRatio: 0.5,
-            splitDirection: 'horizontal' as const,
-            splitOrder: 'background-first' as const,
-            gridSnapping: false,
-            gridSize: 10,
+          // Гарантируем дефолтные значения для полей текстового слоя
+          if (layers.textLayer) {
+            layers.textLayer = {
+              ...layers.textLayer,
+              fontSize: layers.textLayer.fontSize ?? 32,
+              fontFamily: layers.textLayer.fontFamily ?? 'Inter',
+              textColor: layers.textLayer.textColor ?? '#FFFFFF',
+              textAlign: layers.textLayer.textAlign ?? 'center',
+              backgroundOpacity: layers.textLayer.backgroundOpacity ?? 0.8,
+              marqueeSpeed: layers.textLayer.marqueeSpeed ?? 100,
+              mode: layers.textLayer.mode ?? 'static',
+              position: layers.textLayer.position ?? { type: 'bottom' },
+            }
           }
 
-          // Текст и порядок лежат в sceneData.scene (вложенный объект от backend)
+          // Если слои отсутствуют — создаём дефолтные in-memory
+          ensureDefaultLayers(layers, sceneData.sceneId, scriptId)
+
+          // Backend возвращает текст/порядок во вложенном .scene
           const sceneInfo = sceneData.scene || {}
           const sceneText = sceneInfo.text || sceneData.text || ''
-          const sceneOrder = sceneInfo.order ?? sceneData.order ?? 0
+          const sceneOrder = sceneInfo.order ?? sceneData.order ?? index
 
-          // Длительность на основе текста: ~15 символов/сек (темп чтения), мин. 3 сек
-          const FPS = 30
-          const CHARS_PER_SECOND = 15
-          const MIN_DURATION_SECONDS = 3
-          const textDurationSec = sceneText
-            ? Math.max(sceneText.length / CHARS_PER_SECOND, MIN_DURATION_SECONDS)
-            : MIN_DURATION_SECONDS
-          const durationInFrames = sceneData.durationInFrames || Math.ceil(textDurationSec * FPS)
+          const durationInFrames = sceneData.durationInFrames
+            || sceneInfo.durationInFrames
+            || calculateDuration(sceneText)
+
+          const composition = sceneData.composition || DEFAULT_COMPOSITION
 
           return [
             sceneData.sceneId,
@@ -85,12 +155,20 @@ export const createSyncActions: StateCreator<
               order: sceneOrder,
               text: sceneText,
               durationInFrames,
-              composition: sceneData.composition || defaultComposition,
-              layers: layers as any,
+              composition,
+              layers,
             },
           ]
         })
       )
+
+      // Фоново создаём дефолтные слои на backend для сцен без слоёв
+      const scenesWithoutLayers = data.scenes.filter(
+        (s: any) => !s.layers || s.layers.length === 0
+      )
+      for (const s of scenesWithoutLayers) {
+        layersService.createDefaultSceneLayers(scriptId, s.sceneId).catch(() => {})
+      }
 
       set({
         scenes: scenesMap as Map<string, any>,

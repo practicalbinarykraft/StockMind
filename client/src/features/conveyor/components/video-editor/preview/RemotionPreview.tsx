@@ -58,10 +58,8 @@ export function RemotionPreview({
     avatarVideoUrl,
   }), [currentScene, avatarVideoUrl])
 
-  // При смене сцены — сбрасываем плеер на начало
+  // Player пересоздаётся через key={currentScene.id}, сбрасываем UI-состояние
   useEffect(() => {
-    if (!playerRef.current) return
-    playerRef.current.seekTo(0)
     setCurrentFrame(0)
     setIsPlaying(false)
   }, [currentScene?.id])
@@ -141,9 +139,10 @@ export function RemotionPreview({
 
   return (
     <div className={`flex flex-col gap-2 min-h-0 ${className}`}>
-      {/* Плеер */}
+      {/* Плеер — key по sceneId принудительно пересоздаёт Player при смене сцены */}
       <Card className="overflow-hidden flex-shrink min-h-0 flex items-center justify-center bg-black">
         <Player
+          key={currentScene.id}
           ref={playerRef}
           component={RemotionComposition as React.ComponentType<any>}
           inputProps={inputProps}

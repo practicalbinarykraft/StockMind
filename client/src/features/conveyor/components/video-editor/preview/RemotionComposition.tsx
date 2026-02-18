@@ -47,10 +47,10 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene,
     if (!resolvedUrl) return null
 
     if (contentType === 'video' || contentType === 'avatar') {
-      return <Video src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      return <Video src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
     }
 
-    return <Img src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    return <Img src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
   }
 
   const getAnimationStyles = (tl: TextLayer): React.CSSProperties => {
