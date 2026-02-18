@@ -10,6 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 export interface ScorerInput {
   source: SourceData;
   learnedThreshold?: number;
+  minScoreThreshold?: number;
 }
 
 export interface ScorerOutput {
@@ -33,8 +34,8 @@ export class ScorerAgent extends BaseAIAgent<ScorerInput, ScorerOutput> {
   }
 
   protected async execute(input: ScorerInput, context: AgentContext): Promise<ScorerOutput> {
-    const { source, learnedThreshold } = input;
-    const threshold = learnedThreshold || 70;
+    const { source, learnedThreshold, minScoreThreshold } = input;
+    const threshold = learnedThreshold || minScoreThreshold || 70;
 
     // Emit thinking events for real-time display
     this.emitThinking(context, `Анализирую: "${source.title.substring(0, 50)}..."`);

@@ -89,7 +89,11 @@ export class ConveyorOrchestrator {
 
       // Stage 2: Scorer
       const scorerResult = await scorerAgent.process(
-        { source: sourceData, learnedThreshold: settings?.learnedThreshold ?? undefined },
+        {
+          source: sourceData,
+          learnedThreshold: settings?.learnedThreshold ?? undefined,
+          minScoreThreshold: settings?.minScoreThreshold ?? undefined,
+        },
         context
       );
       if (!scorerResult.success || !scorerResult.data) {

@@ -247,17 +247,17 @@ async function processUserConveyor(
 
     checked++;
 
-    // Check if already successfully processed (completed)
-    const exists = await conveyorItemsStorage.exists(
+    // Skip items that are completed or already failed at scoring (won't change on retry)
+    const shouldSkip = await conveyorItemsStorage.existsOrFailedScoring(
       sourceData.type,
       sourceData.itemId,
       userId
     );
 
-    if (exists) {
+    if (shouldSkip) {
       skipped++;
       logger.info(
-        `[Conveyor Runner] Skipping already completed item: ${sourceData.title.substring(0, 50)}...`
+        `[Conveyor Runner] Skipping item (completed or scored below threshold): ${sourceData.title.substring(0, 50)}...`
       );
       continue;
     }

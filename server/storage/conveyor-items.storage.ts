@@ -27,6 +27,10 @@ export interface IConveyorItemsStorage {
    * Failed or processing items are not considered as existing
    */
   exists(sourceType: string, sourceItemId: string, userId: string): Promise<boolean>;
+  /**
+   * Check if item was completed OR failed at scoring stage (stage 2)
+   */
+  existsOrFailedScoring(sourceType: string, sourceItemId: string, userId: string): Promise<boolean>;
 }
 
 export class ConveyorItemsStorage implements IConveyorItemsStorage {
@@ -196,6 +200,27 @@ export class ConveyorItemsStorage implements IConveyorItemsStorage {
           eq(conveyorItems.sourceItemId, sourceItemId),
           eq(conveyorItems.userId, userId),
           eq(conveyorItems.status, 'completed')
+        )
+      )
+      .limit(1);
+    return !!item;
+  }
+
+  /**
+   * Check if item was completed OR failed at the scoring stage (stage 2).
+   * Items that failed scoring won't produce different results on retry
+   * (content hasn't changed), so we skip them to avoid infinite retries.
+   */
+  async existsOrFailedScoring(sourceType: string, sourceItemId: string, userId: string): Promise<boolean> {
+    const [item] = await db
+      .select({ id: conveyorItems.id })
+      .from(conveyorItems)
+      .where(
+        and(
+          eq(conveyorItems.sourceType, sourceType),
+          eq(conveyorItems.sourceItemId, sourceItemId),
+          eq(conveyorItems.userId, userId),
+          sql`(${conveyorItems.status} = 'completed' OR (${conveyorItems.status} = 'failed' AND ${conveyorItems.errorStage} = 2))`
         )
       )
       .limit(1);
