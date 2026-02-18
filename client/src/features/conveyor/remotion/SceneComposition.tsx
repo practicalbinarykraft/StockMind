@@ -69,7 +69,6 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         sceneFrame={sceneFrame}
         width={width}
         height={height}
-        videoStartFrame={sceneStartFrame}
       />
 
       {/* Аудио для сцены */}

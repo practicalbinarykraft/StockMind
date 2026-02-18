@@ -144,6 +144,7 @@ export const createSyncActions: StateCreator<
 
           const durationInFrames = sceneData.durationInFrames
             || sceneInfo.durationInFrames
+            || (sceneInfo.duration ? Math.ceil(sceneInfo.duration * FPS) : 0)
             || calculateDuration(sceneText)
 
           const composition = sceneData.composition || DEFAULT_COMPOSITION
