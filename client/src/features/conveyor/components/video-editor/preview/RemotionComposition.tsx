@@ -1,19 +1,19 @@
 /**
  * Remotion композиция для рендеринга сцены
- * Поддерживает overlay и split режимы
+ * Поддерживает overlay и split режимы, текстовые эффекты и анимации
  */
 
 import { AbsoluteFill, Img, Video, interpolate, useCurrentFrame } from 'remotion'
-import type { EnhancedScene } from '../../../types/layers'
+import type { EnhancedScene, TextLayer } from '../../../types/layers'
 
 interface RemotionCompositionProps {
   scene: EnhancedScene
+  avatarVideoUrl?: string
 }
 
-export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene }) => {
+export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene, avatarVideoUrl }) => {
   const frame = useCurrentFrame()
   
-  // Проверка наличия необходимых данных
   if (!scene || !scene.composition || !scene.layers) {
     return (
       <AbsoluteFill style={{ backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -25,27 +25,104 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
   const { composition, layers } = scene
   const { background, overlay, textLayer } = layers
 
-  // Рендеринг контента слоя (background или overlay)
+  const resolveSourceUrl = (
+    sourceUrl: string | undefined,
+    contentType: 'avatar' | 'image' | 'video'
+  ): string | undefined => {
+    if (sourceUrl) return sourceUrl
+    if (contentType === 'avatar' && avatarVideoUrl) return avatarVideoUrl
+    return undefined
+  }
+
+  const hasLayerContent = (
+    sourceUrl: string | undefined,
+    contentType: 'avatar' | 'image' | 'video'
+  ): boolean => !!resolveSourceUrl(sourceUrl, contentType)
+
   const renderLayerContent = (
     sourceUrl: string | undefined,
     contentType: 'avatar' | 'image' | 'video'
   ) => {
-    if (!sourceUrl) return null
+    const resolvedUrl = resolveSourceUrl(sourceUrl, contentType)
+    if (!resolvedUrl) return null
 
     if (contentType === 'video' || contentType === 'avatar') {
-      return <Video src={sourceUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      return <Video src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
     }
 
-    return <Img src={sourceUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    return <Img src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
   }
 
-  // Рендеринг текстового слоя
+  const getAnimationStyles = (tl: TextLayer): React.CSSProperties => {
+    const animation = tl.animation || 'none'
+    if (animation === 'none') return {}
+
+    const duration = scene.durationInFrames
+    const animDuration = Math.min(duration, 30) // ~1 секунда при 30 fps
+
+    switch (animation) {
+      case 'fadeIn': {
+        const opacity = interpolate(frame, [0, animDuration], [0, 1], { extrapolateRight: 'clamp' })
+        return { opacity }
+      }
+      case 'slideUp': {
+        const translateY = interpolate(frame, [0, animDuration], [50, 0], { extrapolateRight: 'clamp' })
+        const opacity = interpolate(frame, [0, animDuration / 2], [0, 1], { extrapolateRight: 'clamp' })
+        return { transform: `translateY(${translateY}px)`, opacity }
+      }
+      case 'slideDown': {
+        const translateY = interpolate(frame, [0, animDuration], [-50, 0], { extrapolateRight: 'clamp' })
+        const opacity = interpolate(frame, [0, animDuration / 2], [0, 1], { extrapolateRight: 'clamp' })
+        return { transform: `translateY(${translateY}px)`, opacity }
+      }
+      case 'scaleIn': {
+        const scale = interpolate(frame, [0, animDuration], [0.5, 1], { extrapolateRight: 'clamp' })
+        const opacity = interpolate(frame, [0, animDuration / 2], [0, 1], { extrapolateRight: 'clamp' })
+        return { transform: `scale(${scale})`, opacity }
+      }
+      case 'typewriter': {
+        const fullText = tl.text || ''
+        const charsToShow = Math.floor(interpolate(frame, [0, animDuration * 2], [0, fullText.length], { extrapolateRight: 'clamp' }))
+        return { '--typewriter-chars': charsToShow } as React.CSSProperties
+      }
+      default:
+        return {}
+    }
+  }
+
+  const getTextEffectStyles = (tl: TextLayer): React.CSSProperties => {
+    const styles: React.CSSProperties = {}
+
+    if (tl.textShadow && tl.textShadow !== 'none') {
+      styles.textShadow = tl.textShadow
+    }
+
+    if (tl.textStroke && tl.textStroke !== 'none' && tl.textStroke !== '') {
+      styles.WebkitTextStroke = `${tl.textStroke} ${tl.textStrokeColor || '#000000'}`
+    }
+
+    if (tl.letterSpacing != null) {
+      styles.letterSpacing = `${tl.letterSpacing}px`
+    }
+
+    if (tl.lineHeight != null) {
+      styles.lineHeight = tl.lineHeight
+    }
+
+    return styles
+  }
+
   const renderTextLayer = () => {
     if (!textLayer || !textLayer.isVisible) return null
 
-    const { text, mode, position, fontSize, fontFamily, textColor, textAlign, backgroundColor, backgroundOpacity, marqueeSpeed } = textLayer
+    const { text, mode, position, fontSize, fontFamily, textColor, textAlign, backgroundColor, backgroundOpacity } = textLayer
+    const animStyles = getAnimationStyles(textLayer)
+    const effectStyles = getTextEffectStyles(textLayer)
 
-    // Для бегущей строки
+    const displayText = textLayer.animation === 'typewriter'
+      ? (text || '').slice(0, (animStyles as any)['--typewriter-chars'] ?? text?.length)
+      : text
+
     if (mode === 'marquee') {
       const translateX = interpolate(
         frame,
@@ -75,16 +152,16 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
                 textAlign,
                 margin: 0,
                 whiteSpace: 'nowrap',
+                ...effectStyles,
               }}
             >
-              {text}
+              {displayText}
             </p>
           </div>
         </AbsoluteFill>
       )
     }
 
-    // Статичный текст
     const getPositionStyles = () => {
       if (position.type === 'custom') {
         return {
@@ -101,13 +178,21 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
       }
     }
 
+    const posStyles = getPositionStyles()
+    const combinedTransform = [
+      posStyles.transform,
+      animStyles.transform,
+    ].filter(Boolean).join(' ')
+
     return (
       <AbsoluteFill style={{ zIndex: 30, pointerEvents: 'none' }}>
         <div
           style={{
             position: 'absolute',
             width: '80%',
-            ...getPositionStyles(),
+            ...posStyles,
+            transform: combinedTransform,
+            opacity: animStyles.opacity,
             backgroundColor: backgroundColor ? `${backgroundColor}${Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0')}` : 'transparent',
             padding: '8px 16px',
           }}
@@ -119,9 +204,10 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
               color: textColor,
               textAlign,
               margin: 0,
+              ...effectStyles,
             }}
           >
-            {text}
+            {displayText}
           </p>
         </div>
       </AbsoluteFill>
@@ -132,15 +218,13 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
   if (composition.mode === 'overlay') {
     return (
       <AbsoluteFill>
-        {/* Background слой */}
-        {background && background.isVisible && background.sourceUrl && (
+        {background && background.isVisible && hasLayerContent(background.sourceUrl, background.contentType) && (
           <AbsoluteFill style={{ zIndex: 10 }}>
             {renderLayerContent(background.sourceUrl, background.contentType)}
           </AbsoluteFill>
         )}
 
-        {/* Overlay слой */}
-        {overlay && overlay.isVisible && overlay.sourceUrl && (
+        {overlay && overlay.isVisible && hasLayerContent(overlay.sourceUrl, overlay.contentType) && (
           <AbsoluteFill style={{ zIndex: 20, pointerEvents: 'none' }}>
             <div
               style={{
@@ -156,7 +240,6 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
           </AbsoluteFill>
         )}
 
-        {/* Text слой */}
         {renderTextLayer()}
       </AbsoluteFill>
     )
@@ -202,21 +285,18 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene 
 
     return (
       <AbsoluteFill>
-        {/* Background слой */}
-        {background && background.isVisible && background.sourceUrl && (
+        {background && background.isVisible && hasLayerContent(background.sourceUrl, background.contentType) && (
           <div style={{ ...backgroundStyle, zIndex: 10 }}>
             {renderLayerContent(background.sourceUrl, background.contentType)}
           </div>
         )}
 
-        {/* Overlay слой */}
-        {overlay && overlay.isVisible && overlay.sourceUrl && (
+        {overlay && overlay.isVisible && hasLayerContent(overlay.sourceUrl, overlay.contentType) && (
           <div style={{ ...overlayStyle, zIndex: 20 }}>
             {renderLayerContent(overlay.sourceUrl, overlay.contentType)}
           </div>
         )}
 
-        {/* Text слой */}
         {renderTextLayer()}
       </AbsoluteFill>
     )

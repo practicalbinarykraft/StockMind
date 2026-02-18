@@ -71,6 +71,9 @@ export interface OverlayLayer extends SceneLayer {
   metadata?: Record<string, any>;
 }
 
+// Тип анимации текста
+export type TextAnimation = 'none' | 'fadeIn' | 'typewriter' | 'slideUp' | 'slideDown' | 'scaleIn';
+
 // Text слой
 export interface TextLayer extends SceneLayer {
   layerType: 'textLayer';
@@ -85,6 +88,13 @@ export interface TextLayer extends SceneLayer {
   backgroundOpacity: number;
   marqueeSpeed: number;
   isVisible: boolean;
+  // Эффекты текста
+  textShadow?: string;
+  textStroke?: string;
+  textStrokeColor?: string;
+  animation?: TextAnimation;
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 // Композиция сцены
@@ -168,6 +178,12 @@ export interface UpdateTextLayerRequest {
   backgroundOpacity?: number;
   marqueeSpeed?: number;
   isVisible?: boolean;
+  textShadow?: string;
+  textStroke?: string;
+  textStrokeColor?: string;
+  animation?: TextAnimation;
+  letterSpacing?: number;
+  lineHeight?: number;
 }
 
 // Запрос на обновление композиции

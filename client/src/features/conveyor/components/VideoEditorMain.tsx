@@ -71,7 +71,7 @@ export function VideoEditorMain() {
         <div className="flex flex-col gap-4 min-h-0 overflow-hidden">
           {/* Remotion Preview — адаптивная высота */}
           <div className="flex-shrink min-h-0">
-            <RemotionPreview aspectRatio="16:9" />
+            <RemotionPreview aspectRatio="16:9" media={media} />
           </div>
           
           {/* Список сцен */}

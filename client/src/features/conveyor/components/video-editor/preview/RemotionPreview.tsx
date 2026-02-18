@@ -8,18 +8,22 @@ import { useCompositionStore, selectSortedScenes, selectCurrentScene } from '../
 import { RemotionComposition } from './RemotionComposition'
 import { Button } from '@/shared/ui/button'
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Card } from '@/shared/ui/card'
 import { Slider } from '@/shared/ui/slider'
+import { getProxiedVideoUrl } from '../../../utils/media-proxy'
+import type { ScriptMedia } from '../../../services/scriptMediaService'
 
 interface RemotionPreviewProps {
   aspectRatio?: '16:9' | '9:16' | '1:1'
   className?: string
+  media?: ScriptMedia | null
 }
 
 export function RemotionPreview({ 
   aspectRatio = '16:9',
-  className 
+  className,
+  media,
 }: RemotionPreviewProps) {
   const currentScene = useCompositionStore(selectCurrentScene)
   const sortedScenes = useCompositionStore(selectSortedScenes)
@@ -28,7 +32,6 @@ export function RemotionPreview({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFrame, setCurrentFrame] = useState(0)
 
-  // Расчет размеров canvas — стабильный объект через useMemo
   const dimensions = useMemo(() => {
     switch (aspectRatio) {
       case '16:9':
@@ -42,16 +45,47 @@ export function RemotionPreview({
     }
   }, [aspectRatio])
 
-  // Гарантируем durationInFrames >= 1 для Remotion Player
   const durationInFrames = Math.max(currentScene?.durationInFrames || 300, 1)
   const fps = 30
 
-  // Мемоизируем inputProps чтобы Player не перерендеривался при каждом рендере родителя
+  const avatarVideoUrl = useMemo(
+    () => getProxiedVideoUrl(media?.videoUrl) || undefined,
+    [media?.videoUrl]
+  )
+
   const inputProps = useMemo(() => ({
     scene: currentScene!,
-  }), [currentScene])
+    avatarVideoUrl,
+  }), [currentScene, avatarVideoUrl])
 
-  // Контролы плеера
+  // Синхронизация состояния плеера с UI
+  useEffect(() => {
+    const player = playerRef.current
+    if (!player) return
+
+    const handleTimeUpdate = (e: { detail: { frame: number } }) => {
+      setCurrentFrame(e.detail.frame)
+    }
+    const handlePlay = () => setIsPlaying(true)
+    const handlePause = () => setIsPlaying(false)
+    const handleEnded = () => {
+      setIsPlaying(false)
+      setCurrentFrame(0)
+    }
+
+    player.addEventListener('timeupdate', handleTimeUpdate as any)
+    player.addEventListener('play', handlePlay as any)
+    player.addEventListener('pause', handlePause as any)
+    player.addEventListener('ended', handleEnded as any)
+
+    return () => {
+      player.removeEventListener('timeupdate', handleTimeUpdate as any)
+      player.removeEventListener('play', handlePlay as any)
+      player.removeEventListener('pause', handlePause as any)
+      player.removeEventListener('ended', handleEnded as any)
+    }
+  }, [currentScene?.id])
+
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return
     
@@ -60,7 +94,6 @@ export function RemotionPreview({
     } else {
       playerRef.current.play()
     }
-    setIsPlaying(!isPlaying)
   }, [isPlaying])
 
   const handleSeek = useCallback((value: number[]) => {
@@ -76,6 +109,7 @@ export function RemotionPreview({
     if (currentIndex > 0) {
       setCurrentScene(sortedScenes[currentIndex - 1].id)
       setCurrentFrame(0)
+      playerRef.current?.seekTo(0)
     }
   }, [currentScene, sortedScenes, setCurrentScene])
 
@@ -85,6 +119,7 @@ export function RemotionPreview({
     if (currentIndex < sortedScenes.length - 1) {
       setCurrentScene(sortedScenes[currentIndex + 1].id)
       setCurrentFrame(0)
+      playerRef.current?.seekTo(0)
     }
   }, [currentScene, sortedScenes, setCurrentScene])
 
@@ -132,8 +167,8 @@ export function RemotionPreview({
             onValueChange={handleSeek}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{Math.floor(currentFrame / fps)}s</span>
-            <span>{Math.floor(durationInFrames / fps)}s</span>
+            <span>{(currentFrame / fps).toFixed(1)}s</span>
+            <span>{(durationInFrames / fps).toFixed(1)}s</span>
           </div>
         </div>
 

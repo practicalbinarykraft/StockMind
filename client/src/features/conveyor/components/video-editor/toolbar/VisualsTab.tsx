@@ -100,23 +100,23 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Превью аватар-видео (HeyGen), если уже сгенерировано */}
+      {/* Информация об аватаре (HeyGen) */}
       {media?.videoUrl && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Аватар-видео</h3>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="text-sm font-semibold leading-tight">
+                  {media.selectedAvatar || 'Аватар'}
+                </h3>
+                <p className="text-xs text-muted-foreground">HeyGen аватар</p>
+              </div>
+            </div>
             <Badge variant="default" className="gap-1 text-xs">
               <CheckCircle className="h-3 w-3" />
               Готово
             </Badge>
-          </div>
-          <div className="aspect-video rounded-md overflow-hidden border">
-            <video
-              src={media.videoUrl}
-              className="w-full h-full object-cover"
-              controls
-              poster={media.videoThumbnailUrl}
-            />
           </div>
           <Button
             variant="outline"
