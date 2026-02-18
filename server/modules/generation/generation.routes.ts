@@ -91,7 +91,7 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
     }
 
     const userId = req.userId;
-    const { newsIds, limit = 5 } = req.body;
+    const { newsIds } = req.body;
 
     // Проверить, не запущена ли уже генерация
     if (generationPipeline.isRunning(userId)) {
@@ -136,22 +136,19 @@ router.post("/start", requireAuth, async (req: Request, res: Response) => {
     // Если newsIds не указаны - получить автоматически
     let targetNewsIds = newsIds;
     if (!targetNewsIds || targetNewsIds.length === 0) {
-      // Учитываем maxAgeDays и оставшийся лимит на день
-      const remainingLimit = Math.min(
-        limit,
-        conveyorSettings.dailyLimit - conveyorSettings.itemsProcessedToday,
-      );
+      const remainingDaily =
+        conveyorSettings.dailyLimit - conveyorSettings.itemsProcessedToday;
 
       console.log(
-        `[Generation] Получение новостей для генерации, лимит: ${remainingLimit}, maxAgeDays: ${conveyorSettings.maxAgeDays}, minScoreThreshold: ${conveyorSettings.minScoreThreshold || 70}`,
+        `[Generation] Получение новостей для генерации, remainingDaily: ${remainingDaily}, maxAgeDays: ${conveyorSettings.maxAgeDays}, minScoreThreshold: ${conveyorSettings.minScoreThreshold || 70}`,
       );
 
       const news = await generationPipeline.getNewsForGeneration(
         userId,
-        remainingLimit,
+        remainingDaily,
         conveyorSettings.maxAgeDays,
-        true, // autoParseIfNeeded - автоматически парсить источники, если нет свежих новостей
-        conveyorSettings.minScoreThreshold || 70, // минимальный score для новостей
+        true,
+        conveyorSettings.minScoreThreshold || 70,
       );
 
       console.log(`[Generation] Найдено новостей: ${news.length}`);
