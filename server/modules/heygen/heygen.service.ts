@@ -209,15 +209,14 @@ export class HeygenService {
   }
 
   /**
-   * Upload audio to HeyGen
+   * Upload audio to HeyGen from a local file path
    */
   private async uploadAudioToHeyGen(apiKey: string, audioPath: string): Promise<string> {
     try {
-      // Security: Validate that the file path is within allowed directory
       const normalizedPath = path.normalize(path.resolve(audioPath));
       const allowedDirWithSep = ALLOWED_AUDIO_DIR + path.sep;
 
-      console.log(`📤 Uploading audio to HeyGen:`);
+      console.log(`📤 Uploading local audio to HeyGen:`);
       console.log(`   Original: ${audioPath}`);
       console.log(`   Normalized: ${normalizedPath}`);
       console.log(`   Allowed dir: ${ALLOWED_AUDIO_DIR}`);
@@ -231,25 +230,54 @@ export class HeygenService {
       }
 
       const audioBuffer = fs.readFileSync(normalizedPath);
-
-      const uploadResponse = await axios.post(`${HEYGEN_UPLOAD_BASE}/v1/asset`, audioBuffer, {
-        headers: {
-          "X-Api-Key": apiKey,
-          "Content-Type": "audio/mpeg",
-        },
-      });
-
-      const assetId = uploadResponse.data?.data?.id;
-      if (!assetId) {
-        throw new Error("No asset_id returned from HeyGen upload");
-      }
-
-      console.log(`✅ Audio uploaded to HeyGen: ${assetId}`);
-      return assetId;
+      return await this.uploadBufferToHeyGen(apiKey, audioBuffer);
     } catch (error: any) {
       console.error("Audio upload error:", error.response?.data || error.message);
       throw new Error("Failed to upload audio to HeyGen");
     }
+  }
+
+  /**
+   * Download audio from a remote URL and upload it to HeyGen
+   */
+  private async uploadAudioFromUrlToHeyGen(apiKey: string, audioUrl: string): Promise<string> {
+    try {
+      console.log(`📤 Downloading audio from URL and uploading to HeyGen:`);
+      console.log(`   URL: ${audioUrl.substring(0, 120)}...`);
+
+      const response = await axios.get(audioUrl, {
+        responseType: "arraybuffer",
+        timeout: 60000,
+      });
+
+      const audioBuffer = Buffer.from(response.data);
+      console.log(`📥 Downloaded audio: ${audioBuffer.length} bytes`);
+
+      return await this.uploadBufferToHeyGen(apiKey, audioBuffer);
+    } catch (error: any) {
+      console.error("Audio download/upload error:", error.response?.data || error.message);
+      throw new Error("Failed to download and upload audio to HeyGen");
+    }
+  }
+
+  /**
+   * Upload an audio buffer to HeyGen and return the asset ID
+   */
+  private async uploadBufferToHeyGen(apiKey: string, audioBuffer: Buffer): Promise<string> {
+    const uploadResponse = await axios.post(`${HEYGEN_UPLOAD_BASE}/v1/asset`, audioBuffer, {
+      headers: {
+        "X-Api-Key": apiKey,
+        "Content-Type": "audio/mpeg",
+      },
+    });
+
+    const assetId = uploadResponse.data?.data?.id;
+    if (!assetId) {
+      throw new Error("No asset_id returned from HeyGen upload");
+    }
+
+    console.log(`✅ Audio uploaded to HeyGen: ${assetId}`);
+    return assetId;
   }
 
   /**
@@ -262,20 +290,21 @@ export class HeygenService {
       if (request.audio_url) {
         console.log(`🎵 Using audio mode with file: ${request.audio_url}`);
 
-        const audioPath = request.audio_url.startsWith("/")
-          ? path.join(process.cwd(), request.audio_url)
-          : path.join(process.cwd(), request.audio_url);
+        const isRemoteUrl = /^https?:\/\//i.test(request.audio_url);
+        let audioAssetId: string;
 
-        console.log(`📁 Resolved audio path: ${audioPath}`);
-        console.log(`📁 File exists: ${fs.existsSync(audioPath)}`);
-        
-        if (fs.existsSync(audioPath)) {
-          const stats = fs.statSync(audioPath);
-          console.log(`📁 File size: ${stats.size} bytes`);
-          console.log(`📁 Is file: ${stats.isFile()}`);
+        if (isRemoteUrl) {
+          console.log(`🌐 Audio source is a remote URL`);
+          audioAssetId = await this.uploadAudioFromUrlToHeyGen(apiKey, request.audio_url);
+        } else {
+          const audioPath = request.audio_url.startsWith("/")
+            ? request.audio_url
+            : path.join(process.cwd(), request.audio_url);
+
+          console.log(`📁 Resolved audio path: ${audioPath}`);
+          console.log(`📁 File exists: ${fs.existsSync(audioPath)}`);
+          audioAssetId = await this.uploadAudioToHeyGen(apiKey, audioPath);
         }
-
-        const audioAssetId = await this.uploadAudioToHeyGen(apiKey, audioPath);
 
         voiceConfig = {
           type: "audio",
