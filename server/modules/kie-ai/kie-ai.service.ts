@@ -81,10 +81,10 @@ function resolveModel(model: KieModel): string {
 
 function getOrientationHint(aspectRatio: string): string | null {
   if (["9:16", "3:4", "2:3", "4:5"].includes(aspectRatio)) {
-    return "Vertical portrait orientation, taller than wide";
+    return `IMPORTANT: Generate a VERTICAL portrait image with ${aspectRatio} aspect ratio. The image MUST be taller than wide, like a phone screen in portrait mode. Do NOT generate a horizontal/landscape image`;
   }
   if (["16:9", "4:3", "3:2", "5:4", "21:9"].includes(aspectRatio)) {
-    return "Horizontal landscape orientation, wider than tall";
+    return `Generate a horizontal landscape image with ${aspectRatio} aspect ratio, wider than tall`;
   }
   return null;
 }

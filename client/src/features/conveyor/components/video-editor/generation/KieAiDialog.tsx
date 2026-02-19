@@ -3,7 +3,7 @@
  * Поддерживает генерацию изображений, видео и image-to-video
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { Textarea } from '@/shared/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Loader2, Sparkles } from 'lucide-react'
-import { useCompositionStore } from '../../../stores/composition'
+import { useCompositionStore, selectProjectAspectRatio } from '../../../stores/composition'
 import type { KieModel } from '../../../types/layers'
 
 interface KieAiDialogProps {
@@ -30,12 +30,20 @@ interface KieAiDialogProps {
 
 export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDialogProps) {
   const generateContent = useCompositionStore((state) => state.generateContent)
+  const projectAspectRatio = useCompositionStore(selectProjectAspectRatio)
   
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState<KieModel>('flux-pro')
   const [generationType, setGenerationType] = useState<'image' | 'video'>('image')
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('9:16')
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '2:3' | '3:4' | '4:5' | '3:2' | '4:3' | '5:4'>(projectAspectRatio)
+  const [resolution, setResolution] = useState<'1K' | '2K' | '4K'>('2K')
   const [isGenerating, setIsGenerating] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setAspectRatio(projectAspectRatio)
+    }
+  }, [open, projectAspectRatio])
 
   const imageModels: KieModel[] = ['flux-pro', 'nano-banana-pro', 'recraft-v3', 'flux-schnell']
   const videoModels: KieModel[] = ['kling-ai-video']
@@ -45,7 +53,7 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
 
     setIsGenerating(true)
     try {
-      await generateContent(sceneId, layerType, prompt, model, generationType, aspectRatio)
+      await generateContent(sceneId, layerType, prompt, model, generationType, aspectRatio, resolution)
       onOpenChange(false)
       setPrompt('')
     } catch (error) {
@@ -146,9 +154,35 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="16:9">16:9 (Горизонтально)</SelectItem>
-                  <SelectItem value="9:16">9:16 (Вертикально)</SelectItem>
+                  <SelectItem value="9:16">9:16 (Вертикально — Reels/Shorts)</SelectItem>
+                  <SelectItem value="3:4">3:4 (Вертикально)</SelectItem>
+                  <SelectItem value="2:3">2:3 (Вертикально)</SelectItem>
+                  <SelectItem value="4:5">4:5 (Вертикально — Instagram)</SelectItem>
                   <SelectItem value="1:1">1:1 (Квадрат)</SelectItem>
+                  <SelectItem value="16:9">16:9 (Горизонтально — YouTube)</SelectItem>
+                  <SelectItem value="4:3">4:3 (Горизонтально)</SelectItem>
+                  <SelectItem value="3:2">3:2 (Горизонтально)</SelectItem>
+                  <SelectItem value="5:4">5:4 (Горизонтально)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Совпадает с форматом проекта: {projectAspectRatio}
+              </p>
+            </div>
+          )}
+
+          {/* Разрешение (только для изображений) */}
+          {generationType === 'image' && (
+            <div className="space-y-3">
+              <Label htmlFor="resolution">Разрешение</Label>
+              <Select value={resolution} onValueChange={(value) => setResolution(value as '1K' | '2K' | '4K')}>
+                <SelectTrigger id="resolution">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1K">1K (Быстро, экономно)</SelectItem>
+                  <SelectItem value="2K">2K (Рекомендуемое)</SelectItem>
+                  <SelectItem value="4K">4K (Максимальное качество)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

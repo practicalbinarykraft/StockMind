@@ -41,5 +41,7 @@ export const selectCanUndo = (state: CompositionStore) => state.past.length > 0
 
 export const selectCanRedo = (state: CompositionStore) => state.future.length > 0
 
+export const selectProjectAspectRatio = (state: CompositionStore) => state.projectAspectRatio
+
 // Re-export useShallow для удобства
 export { useShallow }

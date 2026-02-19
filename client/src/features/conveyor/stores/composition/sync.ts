@@ -200,7 +200,8 @@ export const createSyncActions: StateCreator<
     prompt: string,
     model: string,
     type: 'image' | 'video',
-    aspectRatio?: string
+    aspectRatio?: string,
+    resolution?: string,
   ) => {
     const scene = get().scenes.get(sceneId)
     if (!scene) return
@@ -229,6 +230,7 @@ export const createSyncActions: StateCreator<
           prompt,
           model: model as any,
           aspectRatio: (aspectRatio as any) ?? '9:16',
+          resolution: (resolution as any) ?? '2K',
         })
         jobId = result.jobId
         contentType = 'image'

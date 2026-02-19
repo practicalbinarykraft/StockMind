@@ -4,10 +4,12 @@
 
 import { useLocation } from 'wouter'
 import { useState } from 'react'
-import { ArrowLeft, Save, Undo, Redo, Loader2, Mic, User, Download, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, Save, Undo, Redo, Loader2, Mic, User, Download, CheckCircle, XCircle, Monitor, Smartphone, Square } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
-import { useCompositionStore, selectHasChanges, selectSortedScenes, selectCanUndo, selectCanRedo } from '../../stores/composition'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip'
+import { useCompositionStore, selectHasChanges, selectSortedScenes, selectCanUndo, selectCanRedo, selectProjectAspectRatio } from '../../stores/composition'
+import type { ProjectAspectRatio } from '../../stores/composition/types'
 import { useToast } from '@/shared/hooks/use-toast'
 import { 
   useUpdateBackgroundLayer, 
@@ -39,6 +41,8 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
   const hasChanges = useCompositionStore(selectHasChanges)
   const undo = useCompositionStore((state) => state.undo)
   const redo = useCompositionStore((state) => state.redo)
+  const projectAspectRatio = useCompositionStore(selectProjectAspectRatio)
+  const setProjectAspectRatio = useCompositionStore((state) => state.setProjectAspectRatio)
 
   const updateBackgroundMutation = useUpdateBackgroundLayer()
   const updateOverlayMutation = useUpdateOverlayLayer()
@@ -174,6 +178,29 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
               {hasVideo ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
               Аватар
             </Badge>
+          </div>
+
+          {/* Переключатель aspect ratio */}
+          <div className="hidden sm:flex items-center gap-1 ml-2 border rounded-md p-0.5">
+            {([
+              { ratio: '9:16' as ProjectAspectRatio, icon: Smartphone, label: '9:16 Вертикальное' },
+              { ratio: '16:9' as ProjectAspectRatio, icon: Monitor, label: '16:9 Горизонтальное' },
+              { ratio: '1:1' as ProjectAspectRatio, icon: Square, label: '1:1 Квадрат' },
+            ]).map(({ ratio, icon: Icon, label }) => (
+              <Tooltip key={ratio}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={projectAspectRatio === ratio ? 'default' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setProjectAspectRatio(ratio)}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{label}</TooltipContent>
+              </Tooltip>
+            ))}
           </div>
         </div>
 

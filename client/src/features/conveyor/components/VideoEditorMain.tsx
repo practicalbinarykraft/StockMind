@@ -4,7 +4,7 @@
 
 import { useParams } from 'wouter'
 import { useEffect } from 'react'
-import { useCompositionStore } from '../stores/composition'
+import { useCompositionStore, selectProjectAspectRatio } from '../stores/composition'
 import { useVideoEditorData } from '../hooks/use-video-editor-data'
 import { RemotionPreview } from './video-editor/preview/RemotionPreview'
 import { EditorToolbar } from './video-editor/toolbar/EditorToolbar'
@@ -21,6 +21,7 @@ export function VideoEditorMain() {
   const loadScript = useCompositionStore((state) => state.loadScript)
   const isLoading = useCompositionStore((state) => state.isLoading)
   const error = useCompositionStore((state) => state.error)
+  const projectAspectRatio = useCompositionStore(selectProjectAspectRatio)
 
   // Загрузка медиа-данных (аудио, видео-аватар, статус)
   const { media, status } = useVideoEditorData(scriptId)
@@ -71,7 +72,7 @@ export function VideoEditorMain() {
         <div className="flex flex-col gap-4 min-h-0 overflow-hidden">
           {/* Remotion Preview — адаптивная высота */}
           <div className="shrink min-h-0">
-            <RemotionPreview aspectRatio="16:9" media={media} />
+            <RemotionPreview aspectRatio={projectAspectRatio} media={media} />
           </div>
           
           {/* Список сцен */}

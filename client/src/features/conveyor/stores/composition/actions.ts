@@ -12,7 +12,7 @@ import type {
   Position,
   SceneComposition,
 } from '../../types/layers'
-import type { CompositionStore } from './types'
+import type { CompositionStore, ProjectAspectRatio } from './types'
 import { initialState } from './types'
 
 /** Создаёт дефолтный BackgroundLayer, если слой ещё не существует */
@@ -45,6 +45,7 @@ export const createSceneActions: StateCreator<
   [],
   Pick<
     CompositionStore,
+    | 'setProjectAspectRatio'
     | 'setCurrentScene'
     | 'addScene'
     | 'updateScene'
@@ -57,6 +58,10 @@ export const createSceneActions: StateCreator<
     | 'reset'
   >
 > = (set, get) => ({
+  setProjectAspectRatio: (ratio: ProjectAspectRatio) => {
+    set({ projectAspectRatio: ratio })
+  },
+
   setCurrentScene: (sceneId: string) => {
     const { scenes } = get()
     if (scenes.has(sceneId)) {

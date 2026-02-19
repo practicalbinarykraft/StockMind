@@ -224,7 +224,8 @@ export type KieModel =
 export interface TextToImageRequest {
   prompt: string;
   model: KieModel;
-  aspectRatio?: '16:9' | '9:16' | '1:1';
+  aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '4:5' | '5:4' | '21:9';
+  resolution?: '1K' | '2K' | '4K';
   numImages?: number;
 }
 

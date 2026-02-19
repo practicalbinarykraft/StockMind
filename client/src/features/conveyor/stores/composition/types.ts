@@ -13,11 +13,14 @@ import type {
   LayerType,
 } from '../../types/layers'
 
+export type ProjectAspectRatio = '16:9' | '9:16' | '1:1'
+
 // Состояние store
 export interface CompositionState {
   scriptId: string | null
   scenes: Map<string, EnhancedScene>
   currentSceneId: string | null
+  projectAspectRatio: ProjectAspectRatio
   isLoading: boolean
   error: string | null
   past: EnhancedScene[][]
@@ -28,6 +31,9 @@ export interface CompositionState {
 export interface CompositionActions {
   // Загрузка данных
   loadScript: (scriptId: string) => Promise<void>
+  
+  // Управление проектом
+  setProjectAspectRatio: (ratio: ProjectAspectRatio) => void
   
   // Управление сценами
   setCurrentScene: (sceneId: string) => void
@@ -54,7 +60,8 @@ export interface CompositionActions {
     prompt: string,
     model: string,
     type: 'image' | 'video',
-    aspectRatio?: string
+    aspectRatio?: string,
+    resolution?: string
   ) => Promise<void>
   
   // Загрузка файлов
@@ -79,6 +86,7 @@ export const initialState: CompositionState = {
   scriptId: null,
   scenes: new Map(),
   currentSceneId: null,
+  projectAspectRatio: '9:16',
   isLoading: false,
   error: null,
   past: [],

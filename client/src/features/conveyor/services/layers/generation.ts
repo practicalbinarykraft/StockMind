@@ -13,7 +13,8 @@ import type { GenerationStatus, KieModel } from '../../types/layers'
 export async function generateImage(data: {
   prompt: string
   model: KieModel
-  aspectRatio?: '16:9' | '9:16' | '1:1'
+  aspectRatio?: string
+  resolution?: '1K' | '2K' | '4K'
   numImages?: number
 }): Promise<{ jobId: string; type: 'image' | 'video' }> {
   const response = await apiRequest('POST', '/api/kie-ai/generate-image', data)
