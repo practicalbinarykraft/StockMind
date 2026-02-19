@@ -236,10 +236,14 @@ export const createSyncActions: StateCreator<
         jobId = result.jobId
         contentType = 'image'
       } else {
+        const sceneDurationSec = scene.durationInFrames / FPS
+        const duration = sceneDurationSec > 5 ? 10 : 5
+
         const result = await layersService.generateVideo({
           prompt,
           model: 'kling-ai-video',
           aspectRatio: (aspectRatio as '16:9' | '9:16') ?? '9:16',
+          duration,
         })
         jobId = result.jobId
         contentType = 'video'

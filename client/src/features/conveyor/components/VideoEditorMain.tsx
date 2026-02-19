@@ -24,14 +24,14 @@ export function VideoEditorMain() {
   const projectAspectRatio = useCompositionStore(selectProjectAspectRatio)
 
   // Загрузка медиа-данных (аудио, видео-аватар, статус)
-  const { media, status } = useVideoEditorData(scriptId)
+  const { media, status, mediaLoading } = useVideoEditorData(scriptId)
 
   // Загрузка данных скрипта со слоями
   useEffect(() => {
     loadScript(scriptId)
   }, [scriptId, loadScript])
 
-  if (isLoading) {
+  if (isLoading || mediaLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-16 w-full" />

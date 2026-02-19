@@ -121,6 +121,31 @@ export function RemotionPreview({
     [adjustedScenes]
   )
 
+  // Корректировка позиции кадра при изменении общей длительности (пересчёт из video duration).
+  // Без этого frame остаётся на месте, а маппинг frame→scene смещается и «прыгает» на другую сцену.
+  const prevTotalDurationRef = useRef(0)
+
+  useEffect(() => {
+    const prevTotal = prevTotalDurationRef.current
+    prevTotalDurationRef.current = totalDurationInFrames
+
+    if (prevTotal === 0 || prevTotal === totalDurationInFrames) return
+    if (!playerRef.current) return
+
+    const ratio = currentFrame / prevTotal
+    const newFrame = Math.min(
+      Math.round(ratio * totalDurationInFrames),
+      Math.max(totalDurationInFrames - 1, 0),
+    )
+
+    suppressFrameToSceneRef.current = true
+    playerRef.current.seekTo(newFrame)
+    setCurrentFrame(newFrame)
+    requestAnimationFrame(() => {
+      suppressFrameToSceneRef.current = false
+    })
+  }, [totalDurationInFrames])
+
   // ── sceneId → стартовый кадр ──
   const sceneStartFrames = useMemo(() => {
     const map = new Map<string, number>()
