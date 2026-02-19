@@ -190,6 +190,16 @@ export const kieAiService = {
       });
 
       const taskData = result.data;
+
+      logger.info("Kie.ai job status response", {
+        taskId: jobId,
+        state: taskData.state,
+        model: taskData.model,
+        failCode: taskData.failCode,
+        failMsg: taskData.failMsg,
+        hasResultJson: !!taskData.resultJson,
+      });
+
       const status = mapKieStatus(taskData.state);
 
       let resultUrl: string | undefined;
@@ -233,6 +243,7 @@ function mapKieStatus(state: string): GenerationStatus {
     case "success":
       return "ready";
     case "fail":
+    case "failed":
       return "failed";
     case "generating":
       return "processing";
@@ -240,6 +251,7 @@ function mapKieStatus(state: string): GenerationStatus {
     case "queuing":
       return "pending";
     default:
-      return "pending";
+      logger.warn("Unknown Kie.ai task state, treating as failed", { state });
+      return "failed";
   }
 }
