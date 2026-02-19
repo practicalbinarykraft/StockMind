@@ -224,9 +224,9 @@ export const heygenController = {
 
       const result = await heygenService.proxyVideo(url, rangeHeader, download);
 
-      // Добавляем CORS заголовки для медиа
       const headers = {
         ...result.headers,
+        "Cache-Control": "public, max-age=86400",
         "Access-Control-Allow-Origin": req.headers.origin || "*",
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",

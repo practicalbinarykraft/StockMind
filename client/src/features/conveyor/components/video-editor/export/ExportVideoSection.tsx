@@ -281,6 +281,7 @@ export function ExportVideoSection({
                 <div className="bg-muted rounded-lg flex items-center justify-center overflow-hidden">
                   <video
                     controls
+                    preload="none"
                     src={proxiedVideoUrl}
                     poster={proxiedThumbnailUrl}
                     className="max-w-full max-h-[500px] object-contain rounded-lg"

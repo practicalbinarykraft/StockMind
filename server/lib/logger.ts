@@ -58,31 +58,40 @@ export const logger = winston.createLogger({
   ]
 });
 
+const SILENT_URL_PREFIXES = [
+  '/api/heygen/video-proxy',
+  '/api/heygen/image-proxy',
+];
+
 /**
  * Express middleware for request logging
  */
 export function requestLogger(req: any, res: any, next: any) {
   const start = Date.now();
 
-  // Log request
-  logger.info('Incoming request', {
-    method: req.method,
-    url: req.url,
-    ip: req.ip,
-    userAgent: req.get('user-agent')
-  });
+  const isSilent = SILENT_URL_PREFIXES.some(p => req.url.startsWith(p));
 
-  // Log response
+  if (!isSilent) {
+    logger.info('Incoming request', {
+      method: req.method,
+      url: req.url,
+      ip: req.ip,
+      userAgent: req.get('user-agent')
+    });
+  }
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const logLevel = res.statusCode >= 400 ? 'warn' : 'info';
 
-    logger.log(logLevel, 'Request completed', {
-      method: req.method,
-      url: req.url,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`
-    });
+    if (!isSilent || res.statusCode >= 400) {
+      logger.log(logLevel, 'Request completed', {
+        method: req.method,
+        url: req.url,
+        statusCode: res.statusCode,
+        duration: `${duration}ms`
+      });
+    }
   });
 
   next();

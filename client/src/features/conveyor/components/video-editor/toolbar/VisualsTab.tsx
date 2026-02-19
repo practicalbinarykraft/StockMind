@@ -291,6 +291,7 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   className={`w-full h-full ${bgContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
                   controls
                   muted
+                  preload="none"
                 />
               ) : (
                 <img src={previewUrl} alt="Background" className="w-full h-full object-cover" />
@@ -411,6 +412,7 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   className={`w-full h-full ${olContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
                   controls
                   muted
+                  preload="none"
                 />
               ) : (
                 <img src={previewUrl} alt="Overlay" className="w-full h-full object-cover" />
