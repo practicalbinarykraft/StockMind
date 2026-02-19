@@ -81,7 +81,19 @@ export function DraggableOverlay({
       )
     }
 
-    if (contentType === 'video' || contentType === 'avatar') {
+    if (contentType === 'avatar') {
+      return (
+        <video
+          src={contentUrl}
+          className="w-full h-full object-contain"
+          muted
+          loop
+          autoPlay
+        />
+      )
+    }
+
+    if (contentType === 'video') {
       return (
         <video
           src={contentUrl}

@@ -54,14 +54,25 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
         />
       )}
 
-      {(layer.contentType === "video" || layer.contentType === "avatar") && (
+      {layer.contentType === "video" && (
         <OffthreadVideo
           src={layer.sourceUrl}
-          startFrom={layer.contentType === "avatar" ? videoStartFrame : 0}
           style={{
             width: "100%",
             height: "100%",
             objectFit: "cover",
+          }}
+        />
+      )}
+
+      {layer.contentType === "avatar" && (
+        <OffthreadVideo
+          src={layer.sourceUrl}
+          startFrom={videoStartFrame}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
           }}
         />
       )}

@@ -48,7 +48,7 @@ export function AvatarCard({
             <img
               src={proxiedImageUrl}
               alt={avatar.avatar_name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
