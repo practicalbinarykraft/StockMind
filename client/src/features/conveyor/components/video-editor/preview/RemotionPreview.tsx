@@ -138,6 +138,13 @@ export function RemotionPreview({
     [adjustedScenes, currentFrame]
   )
 
+  // ── sceneId → порядковый номер для отображения (1-based, по позиции в массиве) ──
+  const sceneDisplayNumbers = useMemo(() => {
+    const map = new Map<string, number>()
+    adjustedScenes.forEach((s, i) => map.set(s.id, i + 1))
+    return map
+  }, [adjustedScenes])
+
   // ── Синхронизация: scene→frame ──
   // Ловит внешние изменения currentSceneId (клик по ScenesList, prev/next кнопки)
   // и делает seekTo к началу сцены. Пропускает, если изменение пришло
@@ -291,7 +298,7 @@ export function RemotionPreview({
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{(currentFrame / fps).toFixed(1)}s</span>
             <span>
-              Сцена {currentSceneFromFrame ? currentSceneFromFrame.scene.order + 1 : '—'}: {sceneRelativeTime}s / {sceneFullDuration}s
+              Сцена {currentSceneFromFrame ? sceneDisplayNumbers.get(currentSceneFromFrame.scene.id) ?? '—' : '—'}: {sceneRelativeTime}s / {sceneFullDuration}s
             </span>
             <span>{(totalDurationInFrames / fps).toFixed(1)}s</span>
           </div>
