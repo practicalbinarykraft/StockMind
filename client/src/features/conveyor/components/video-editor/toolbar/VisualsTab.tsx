@@ -11,7 +11,7 @@ import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move } from 'lucide-react'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown } from 'lucide-react'
 import { Slider } from '@/shared/ui/slider'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
@@ -115,6 +115,47 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
     if (effectiveScriptId) {
       navigate(`/conveyor/video-editor/${effectiveScriptId}/avatar`)
     }
+  }
+
+  const handleSwapLayers = () => {
+    const bgData = {
+      contentType: backgroundLayer?.contentType || ('image' as ContentType),
+      sourceUrl: backgroundLayer?.sourceUrl,
+      generationStatus: backgroundLayer?.generationStatus,
+      generationJobId: backgroundLayer?.generationJobId,
+      generationPrompt: backgroundLayer?.generationPrompt,
+      metadata: backgroundLayer?.metadata,
+    }
+    const olData = {
+      contentType: overlayLayer?.contentType || ('image' as ContentType),
+      sourceUrl: overlayLayer?.sourceUrl,
+      generationStatus: overlayLayer?.generationStatus,
+      generationJobId: overlayLayer?.generationJobId,
+      generationPrompt: overlayLayer?.generationPrompt,
+      metadata: overlayLayer?.metadata,
+    }
+
+    updateBackgroundLayer(currentScene.id, {
+      contentType: olData.contentType,
+      sourceUrl: olData.sourceUrl,
+      generationStatus: olData.generationStatus as any,
+      generationJobId: olData.generationJobId,
+      generationPrompt: olData.generationPrompt,
+      metadata: olData.metadata,
+    })
+    updateOverlayLayer(currentScene.id, {
+      contentType: bgData.contentType,
+      sourceUrl: bgData.sourceUrl,
+      generationStatus: bgData.generationStatus as any,
+      generationJobId: bgData.generationJobId,
+      generationPrompt: bgData.generationPrompt,
+      metadata: bgData.metadata,
+    })
+
+    toast({
+      title: 'Слои переключены',
+      description: 'Контент фонового и overlay слоёв поменялся местами',
+    })
   }
 
   const bgContentType = backgroundLayer?.contentType || 'image'
@@ -248,7 +289,20 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
         )}
       </div>
 
-      <Separator />
+      <div className="relative py-1">
+        <Separator />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 bg-background text-xs"
+            onClick={handleSwapLayers}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            Поменять местами
+          </Button>
+        </div>
+      </div>
 
       {/* Overlay Layer */}
       <div className="space-y-4">
