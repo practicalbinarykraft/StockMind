@@ -1,26 +1,37 @@
-import { useState, useEffect } from "react"
-import { useAuth } from "@/app/providers/AuthProvider"
-import { useLocation } from "wouter"
-import { useToast } from "@/shared/hooks"
-import { Button } from "@/shared/ui/button"
-import { Plus } from "lucide-react"
-import { AppLayout } from "@/layouts"
-import { queryClient } from "@/shared/api"
-import { useProjects, useProjectMutations, useProjectFilters } from "@/features/projects/hooks"
-import { ProjectsToolbar, ProjectsGrid, DeleteDialog, RenameDialog, PermanentDeleteDialog } from "@/features/projects/components"
-import type { Project } from "@shared/schema"
+import { useState, useEffect } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { useLocation } from "wouter";
+import { useToast } from "@/shared/hooks";
+import { Button } from "@/shared/ui/button";
+import { Plus } from "lucide-react";
+import { AppLayout } from "@/layouts";
+import { queryClient } from "@/shared/api";
+import {
+  useProjects,
+  useProjectMutations,
+  useProjectFilters,
+} from "@/features/projects/hooks";
+import {
+  ProjectsToolbar,
+  ProjectsGrid,
+  DeleteDialog,
+  RenameDialog,
+  PermanentDeleteDialog,
+} from "@/features/projects/components";
+import type { Project } from "@shared/schema";
 
 export default function Home() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
-  const [, setLocation] = useLocation()
-  const { toast } = useToast()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   // Dialog states
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false)
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const [newTitle, setNewTitle] = useState("")
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] =
+    useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [newTitle, setNewTitle] = useState("");
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -28,26 +39,22 @@ export default function Home() {
       title: "Unauthorized",
       description: "Redirecting to login...",
       variant: "destructive",
-    })
+    });
     setTimeout(() => {
-      window.location.href = "/login"
-    }, 500)
-    return null
+      window.location.href = "/login";
+    }, 500);
+    return null;
   }
 
   // Hooks
-  const {
-    projects,
-    projectsWithScripts,
-    isLoading,
-  } = useProjects()
+  const { projects, projectsWithScripts, isLoading } = useProjects();
 
   const {
     deleteMutation,
     renameMutation,
     restoreMutation,
     permanentDeleteMutation,
-  } = useProjectMutations()
+  } = useProjectMutations();
 
   const {
     filter,
@@ -57,84 +64,89 @@ export default function Home() {
     sortBy,
     setSortBy,
     filteredProjects,
-  } = useProjectFilters({ projects })
+  } = useProjectFilters({ projects });
 
   // Background prefetch of HeyGen avatars for faster Stage 5 loading
   useEffect(() => {
     // Only prefetch if authenticated and not already loading
-    if (!isAuthenticated || authLoading) return
+    if (!isAuthenticated || authLoading) return;
 
     // Prefetch avatars in the background (non-blocking)
     // This will populate the cache so Stage 5 loads instantly
     const prefetchAvatars = async () => {
       try {
-        console.log('🔄 Background prefetch: HeyGen avatars...')
+        console.log("🔄 Background prefetch: HeyGen avatars...");
         await queryClient.prefetchQuery({
           queryKey: ["/api/heygen/avatars", 0], // page 0
           queryFn: async () => {
-            const response = await fetch('/api/heygen/avatars?page=0&limit=30', {
-              credentials: 'include'
-            })
-            if (!response.ok) throw new Error('Failed to prefetch avatars')
-            return response.json()
+            const response = await fetch(
+              "/api/heygen/avatars?page=0&limit=30",
+              {
+                credentials: "include",
+              },
+            );
+            if (!response.ok) throw new Error("Failed to prefetch avatars");
+            return response.json();
           },
           staleTime: 1000 * 60 * 60 * 6, // 6 hours
-        })
-        console.log('✅ Background prefetch: HeyGen avatars completed')
+        });
+        console.log("✅ Background prefetch: HeyGen avatars completed");
       } catch (error) {
         // Silent fail - user might not have HeyGen API key yet
-        console.log('ℹ️ Background prefetch: HeyGen avatars skipped (no API key or network issue)')
+        console.log(
+          "ℹ️ Background prefetch: HeyGen avatars skipped (no API key or network issue)",
+        );
       }
-    }
+    };
 
     // Delay prefetch by 2 seconds to not interfere with initial page load
-    const timeoutId = setTimeout(prefetchAvatars, 2000)
-    
-    return () => clearTimeout(timeoutId)
-  }, [isAuthenticated, authLoading])
+    const timeoutId = setTimeout(prefetchAvatars, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [isAuthenticated, authLoading]);
 
   // Handlers
   const handleDelete = (project: Project) => {
-    setSelectedProject(project)
-    setDeleteDialogOpen(true)
-  }
+    setSelectedProject(project);
+    setDeleteDialogOpen(true);
+  };
 
   const handleRename = (project: Project) => {
-    setSelectedProject(project)
-    setNewTitle(project.title || "")
-    setRenameDialogOpen(true)
-  }
+    setSelectedProject(project);
+    setNewTitle(project.title || "");
+    setRenameDialogOpen(true);
+  };
 
   const handleRestore = (project: Project) => {
-    restoreMutation.mutate(project.id)
-  }
+    restoreMutation.mutate(project.id);
+  };
 
   const handlePermanentDelete = (project: Project) => {
-    setSelectedProject(project)
-    setPermanentDeleteDialogOpen(true)
-  }
+    setSelectedProject(project);
+    setPermanentDeleteDialogOpen(true);
+  };
 
   const confirmDelete = () => {
     if (selectedProject) {
       deleteMutation.mutate(selectedProject.id, {
         onSuccess: () => {
-          setDeleteDialogOpen(false)
-          setSelectedProject(null)
-        }
-      })
+          setDeleteDialogOpen(false);
+          setSelectedProject(null);
+        },
+      });
     }
-  }
+  };
 
   const confirmPermanentDelete = () => {
     if (selectedProject) {
       permanentDeleteMutation.mutate(selectedProject.id, {
         onSuccess: () => {
-          setPermanentDeleteDialogOpen(false)
-          setSelectedProject(null)
-        }
-      })
+          setPermanentDeleteDialogOpen(false);
+          setSelectedProject(null);
+        },
+      });
     }
-  }
+  };
 
   const confirmRename = () => {
     if (selectedProject && newTitle.trim()) {
@@ -142,14 +154,14 @@ export default function Home() {
         { projectId: selectedProject.id, title: newTitle.trim() },
         {
           onSuccess: () => {
-            setRenameDialogOpen(false)
-            setSelectedProject(null)
-            setNewTitle("")
-          }
-        }
-      )
+            setRenameDialogOpen(false);
+            setSelectedProject(null);
+            setNewTitle("");
+          },
+        },
+      );
     }
-  }
+  };
 
   return (
     <AppLayout>
@@ -157,7 +169,7 @@ export default function Home() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-2">
-            Welcome back{user?.firstName ? `, ${user.firstName}` : ''}!
+            Welcome back{user?.firstName ? `, ${user.firstName}` : ""}!
           </h2>
           <p className="text-muted-foreground">
             Create AI-powered videos from news sources and custom scripts.
@@ -226,5 +238,5 @@ export default function Home() {
         isPending={permanentDeleteMutation.isPending}
       />
     </AppLayout>
-  )
+  );
 }

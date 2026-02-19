@@ -43,6 +43,8 @@ export function RemotionPreview({
 
   // Ref для предотвращения циклической синхронизации frame↔scene
   const lastSyncedSceneRef = useRef<string | null>(null)
+  // Подавление frame→scene синхронизации во время программного seekTo
+  const suppressFrameToSceneRef = useRef(false)
   // Ref для актуальных сцен внутри event-handler'ов (избегаем stale closure)
   const adjustedScenesRef = useRef<EnhancedScene[]>([])
 
@@ -148,8 +150,14 @@ export function RemotionPreview({
     const startFrame = sceneStartFrames.get(currentSceneId)
     if (startFrame === undefined) return
 
+    // Подавляем frame→scene синхронизацию на время seekTo,
+    // чтобы onTimeUpdate со старым кадром не вернул нас на предыдущую сцену
+    suppressFrameToSceneRef.current = true
     playerRef.current?.seekTo(startFrame)
     setCurrentFrame(startFrame)
+    requestAnimationFrame(() => {
+      suppressFrameToSceneRef.current = false
+    })
   }, [currentSceneId, sceneStartFrames])
 
   // ── Подписка на события Player ──
@@ -161,7 +169,9 @@ export function RemotionPreview({
       const frame = e.detail.frame
       setCurrentFrame(frame)
 
-      // frame→scene синхронизация: определяем сцену по кадру
+      // Пропускаем frame→scene синхронизацию во время программного seekTo
+      if (suppressFrameToSceneRef.current) return
+
       const sceneAtFrame = getCurrentScene(adjustedScenesRef.current, frame)
       if (sceneAtFrame && sceneAtFrame.scene.id !== lastSyncedSceneRef.current) {
         lastSyncedSceneRef.current = sceneAtFrame.scene.id
@@ -281,7 +291,7 @@ export function RemotionPreview({
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{(currentFrame / fps).toFixed(1)}s</span>
             <span>
-              Сцена {currentSceneFromFrame?.scene.order ?? '—'}: {sceneRelativeTime}s / {sceneFullDuration}s
+              Сцена {currentSceneFromFrame ? currentSceneFromFrame.scene.order + 1 : '—'}: {sceneRelativeTime}s / {sceneFullDuration}s
             </span>
             <span>{(totalDurationInFrames / fps).toFixed(1)}s</span>
           </div>
