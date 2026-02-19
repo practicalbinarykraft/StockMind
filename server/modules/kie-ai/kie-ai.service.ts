@@ -21,7 +21,7 @@ const KIE_AI_BASE = process.env.KIE_AI_API_URL ?? "https://api.kie.ai";
  */
 const MODEL_MAP: Record<KieModel, string> = {
   "flux-pro": "flux-2/pro-text-to-image",
-  "nano-banana-pro": "google/nano-banana",
+  "nano-banana-pro": "nano-banana-pro",
   "recraft-v3": "qwen/text-to-image",
   "flux-schnell": "flux-2/flex-text-to-image",
   "kling-ai-video": "kling-2.6/text-to-video",

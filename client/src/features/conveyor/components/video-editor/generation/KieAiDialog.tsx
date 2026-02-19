@@ -45,7 +45,7 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
 
     setIsGenerating(true)
     try {
-      await generateContent(sceneId, layerType, prompt, model, generationType)
+      await generateContent(sceneId, layerType, prompt, model, generationType, aspectRatio)
       onOpenChange(false)
       setPrompt('')
     } catch (error) {

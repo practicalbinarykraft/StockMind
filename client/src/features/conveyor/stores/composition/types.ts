@@ -53,7 +53,8 @@ export interface CompositionActions {
     layerType: 'background' | 'overlay',
     prompt: string,
     model: string,
-    type: 'image' | 'video'
+    type: 'image' | 'video',
+    aspectRatio?: string
   ) => Promise<void>
   
   // Загрузка файлов

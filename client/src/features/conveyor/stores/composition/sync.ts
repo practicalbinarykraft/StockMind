@@ -199,7 +199,8 @@ export const createSyncActions: StateCreator<
     layerType: 'background' | 'overlay',
     prompt: string,
     model: string,
-    type: 'image' | 'video'
+    type: 'image' | 'video',
+    aspectRatio?: string
   ) => {
     const scene = get().scenes.get(sceneId)
     if (!scene) return
@@ -227,7 +228,7 @@ export const createSyncActions: StateCreator<
         const result = await layersService.generateImage({
           prompt,
           model: model as any,
-          aspectRatio: '16:9',
+          aspectRatio: (aspectRatio as any) ?? '9:16',
         })
         jobId = result.jobId
         contentType = 'image'
@@ -235,7 +236,7 @@ export const createSyncActions: StateCreator<
         const result = await layersService.generateVideo({
           prompt,
           model: 'kling-ai-video',
-          aspectRatio: '16:9',
+          aspectRatio: (aspectRatio as '16:9' | '9:16') ?? '9:16',
         })
         jobId = result.jobId
         contentType = 'video'
