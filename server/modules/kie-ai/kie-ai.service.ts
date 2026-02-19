@@ -79,6 +79,16 @@ function resolveModel(model: KieModel): string {
   return mapped;
 }
 
+function getOrientationHint(aspectRatio: string): string | null {
+  if (["9:16", "3:4", "2:3", "4:5"].includes(aspectRatio)) {
+    return "Vertical portrait orientation, taller than wide";
+  }
+  if (["16:9", "4:3", "3:2", "5:4", "21:9"].includes(aspectRatio)) {
+    return "Horizontal landscape orientation, wider than tall";
+  }
+  return null;
+}
+
 /**
  * Save buffer to R2 with a custom path.
  */
@@ -94,19 +104,30 @@ export const kieAiService = {
   async generateImage(userId: string, request: TextToImageRequest): Promise<GenerationJob> {
     const apiKey = await resolveApiKey(userId);
     const apiModel = resolveModel(request.model);
+    const ratio = request.aspectRatio ?? "1:1";
+    const orientationHint = getOrientationHint(ratio);
+    const prompt = orientationHint
+      ? `${request.prompt}. ${orientationHint}`
+      : request.prompt;
+
     const input: Record<string, unknown> = {
-      prompt: request.prompt,
-      aspect_ratio: request.aspectRatio ?? "1:1",
+      prompt,
+      aspect_ratio: ratio,
       resolution: request.resolution ?? "1K",
     };
+
+    const body = { model: apiModel, input };
+    logger.info("Kie.ai generateImage request", {
+      model: apiModel,
+      aspect_ratio: ratio,
+      resolution: input.resolution,
+      promptLength: prompt.length,
+    });
 
     const result = await kieRequest<{ taskId: string }>(
       apiKey,
       "/api/v1/jobs/createTask",
-      {
-        method: "POST",
-        body: { model: apiModel, input },
-      },
+      { method: "POST", body },
     );
 
     return {

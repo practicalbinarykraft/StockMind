@@ -34,7 +34,7 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
   const [prompt, setPrompt] = useState('')
   const [model, setModel] = useState<KieModel>('flux-pro')
   const [generationType, setGenerationType] = useState<'image' | 'video'>('image')
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9')
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('9:16')
   const [isGenerating, setIsGenerating] = useState(false)
 
   const imageModels: KieModel[] = ['flux-pro', 'nano-banana-pro', 'recraft-v3', 'flux-schnell']

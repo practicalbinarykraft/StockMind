@@ -11,7 +11,8 @@ import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle } from 'lucide-react'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move } from 'lucide-react'
+import { Slider } from '@/shared/ui/slider'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
@@ -319,6 +320,109 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             ) : (
               <img src={overlayLayer.sourceUrl} alt="Overlay" className="w-full h-full object-cover" />
             )}
+          </div>
+        )}
+
+        {/* Позиция и размер overlay */}
+        {overlayLayer && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-2">
+              <Move className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Позиция и размер</Label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">X: {Math.round(overlayLayer.position?.x ?? 25)}%</Label>
+                <Slider
+                  value={[overlayLayer.position?.x ?? 25]}
+                  min={0}
+                  max={100 - (overlayLayer.position?.width ?? 50)}
+                  step={1}
+                  onValueChange={([v]) => {
+                    const pos = overlayLayer.position ?? { x: 25, y: 25, width: 50, height: 50 }
+                    updateOverlayLayer(currentScene.id, {
+                      position: { ...pos, x: v },
+                    })
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Y: {Math.round(overlayLayer.position?.y ?? 25)}%</Label>
+                <Slider
+                  value={[overlayLayer.position?.y ?? 25]}
+                  min={0}
+                  max={100 - (overlayLayer.position?.height ?? 50)}
+                  step={1}
+                  onValueChange={([v]) => {
+                    const pos = overlayLayer.position ?? { x: 25, y: 25, width: 50, height: 50 }
+                    updateOverlayLayer(currentScene.id, {
+                      position: { ...pos, y: v },
+                    })
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Ширина: {Math.round(overlayLayer.position?.width ?? 50)}%</Label>
+                <Slider
+                  value={[overlayLayer.position?.width ?? 50]}
+                  min={10}
+                  max={100}
+                  step={1}
+                  onValueChange={([v]) => {
+                    const pos = overlayLayer.position ?? { x: 25, y: 25, width: 50, height: 50 }
+                    updateOverlayLayer(currentScene.id, {
+                      position: { ...pos, width: v },
+                    })
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Высота: {Math.round(overlayLayer.position?.height ?? 50)}%</Label>
+                <Slider
+                  value={[overlayLayer.position?.height ?? 50]}
+                  min={10}
+                  max={100}
+                  step={1}
+                  onValueChange={([v]) => {
+                    const pos = overlayLayer.position ?? { x: 25, y: 25, width: 50, height: 50 }
+                    updateOverlayLayer(currentScene.id, {
+                      position: { ...pos, height: v },
+                    })
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  updateOverlayLayer(currentScene.id, {
+                    position: { x: 0, y: 0, width: 100, height: 100 },
+                  })
+                }}
+              >
+                На весь экран
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  updateOverlayLayer(currentScene.id, {
+                    position: { x: 25, y: 25, width: 50, height: 50 },
+                  })
+                }}
+              >
+                По центру
+              </Button>
+            </div>
           </div>
         )}
       </div>

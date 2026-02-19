@@ -17,6 +17,12 @@ import {
 } from '../../services/layers/hooks'
 import type { ScriptMediaStatus } from '../../services/scriptMediaService'
 
+function stripNulls<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v != null)
+  ) as Partial<T>
+}
+
 interface VideoEditorHeaderProps {
   scriptId: string
   status?: ScriptMediaStatus
@@ -42,55 +48,51 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // Сохраняем изменения для всех сцен
       const savePromises: Promise<any>[] = []
 
       for (const scene of scenes) {
-        // Сохраняем background layer
         if (scene.layers.background) {
           savePromises.push(
             updateBackgroundMutation.mutateAsync({
               scriptId,
               layerId: scene.layers.background.id,
-              data: {
+              data: stripNulls({
                 contentType: scene.layers.background.contentType,
                 sourceUrl: scene.layers.background.sourceUrl,
                 generationPrompt: scene.layers.background.generationPrompt,
                 generationModel: scene.layers.background.generationModel,
                 dimensions: scene.layers.background.dimensions,
-              },
+              }),
             })
           )
         }
 
-        // Сохраняем overlay layer
         if (scene.layers.overlay) {
           savePromises.push(
             updateOverlayMutation.mutateAsync({
               scriptId,
               layerId: scene.layers.overlay.id,
-              data: {
+              data: stripNulls({
                 contentType: scene.layers.overlay.contentType,
                 sourceUrl: scene.layers.overlay.sourceUrl,
                 position: scene.layers.overlay.position,
                 aspectLock: scene.layers.overlay.aspectLock,
                 minSize: scene.layers.overlay.minSize,
                 maxSize: scene.layers.overlay.maxSize,
-              },
+              }),
             })
           )
         }
 
-        // Сохраняем text layer
         if (scene.layers.textLayer) {
           savePromises.push(
             updateTextMutation.mutateAsync({
               scriptId,
               layerId: scene.layers.textLayer.id,
-              data: {
+              data: stripNulls({
                 text: scene.layers.textLayer.text,
                 mode: scene.layers.textLayer.mode,
-                position: scene.layers.textLayer.position,
+                textPosition: scene.layers.textLayer.position,
                 fontSize: scene.layers.textLayer.fontSize,
                 fontFamily: scene.layers.textLayer.fontFamily,
                 textColor: scene.layers.textLayer.textColor,
@@ -99,12 +101,11 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
                 backgroundOpacity: scene.layers.textLayer.backgroundOpacity,
                 marqueeSpeed: scene.layers.textLayer.marqueeSpeed,
                 isVisible: scene.layers.textLayer.isVisible,
-              },
+              }),
             })
           )
         }
 
-        // Сохраняем композицию
         if (scene.composition) {
           savePromises.push(
             updateCompositionMutation.mutateAsync({
@@ -123,7 +124,6 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
         }
       }
 
-      // Ждём завершения всех запросов
       await Promise.all(savePromises)
       
       toast({

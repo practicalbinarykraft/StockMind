@@ -169,7 +169,7 @@ export interface UpdateOverlayLayerRequest {
 export interface UpdateTextLayerRequest {
   text?: string;
   mode?: 'static' | 'marquee';
-  position?: TextPosition;
+  textPosition?: TextPosition;
   fontSize?: number;
   fontFamily?: string;
   textColor?: string;
