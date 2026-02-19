@@ -55,11 +55,14 @@ export interface BackgroundLayer extends SceneLayer {
 }
 
 // Overlay слой
+export type OverlayObjectFit = 'contain' | 'cover' | 'fill';
+
 export interface OverlayLayer extends SceneLayer {
   layerType: 'overlay';
   contentType: ContentType;
   sourceUrl?: string;
   position: Position;
+  objectFit: OverlayObjectFit;
   aspectLock: boolean;
   minSize?: Dimensions;
   maxSize?: Dimensions;
@@ -156,6 +159,7 @@ export interface UpdateOverlayLayerRequest {
   contentType?: ContentType;
   sourceUrl?: string;
   position?: Position;
+  objectFit?: OverlayObjectFit;
   aspectLock?: boolean;
   minSize?: Dimensions;
   maxSize?: Dimensions;

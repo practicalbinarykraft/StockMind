@@ -36,6 +36,7 @@ const createDefaultOverlayLayer = (sceneId: string, scriptId: string): OverlayLa
   isVisible: true,
   contentType: 'image',
   position: { x: 25, y: 25, width: 50, height: 50 },
+  objectFit: 'contain',
   aspectLock: true,
 })
 

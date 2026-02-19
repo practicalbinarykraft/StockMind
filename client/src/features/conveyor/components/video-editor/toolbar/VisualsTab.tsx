@@ -11,13 +11,13 @@ import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown } from 'lucide-react'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize } from 'lucide-react'
 import { Slider } from '@/shared/ui/slider'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
 import { getProxiedVideoUrl } from '../../../utils/media-proxy'
-import type { ContentType } from '../../../types/layers'
+import type { ContentType, OverlayObjectFit } from '../../../types/layers'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 
 interface VisualsTabProps {
@@ -491,6 +491,37 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   }}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Maximize className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">Заполнение</Label>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { value: 'contain' as OverlayObjectFit, label: 'Вписать' },
+                  { value: 'cover' as OverlayObjectFit, label: 'Заполнить' },
+                  { value: 'fill' as OverlayObjectFit, label: 'Растянуть' },
+                ] as const).map(({ value, label }) => (
+                  <Button
+                    key={value}
+                    variant={( overlayLayer.objectFit || 'contain') === value ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => {
+                      updateOverlayLayer(currentScene.id, { objectFit: value })
+                    }}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {(overlayLayer.objectFit || 'contain') === 'contain' && 'Контент целиком, могут быть пустые области'}
+                {overlayLayer.objectFit === 'cover' && 'Заполнит область, контент может обрезаться'}
+                {overlayLayer.objectFit === 'fill' && 'Растянет контент до размеров области'}
+              </p>
             </div>
 
             <div className="space-y-2">

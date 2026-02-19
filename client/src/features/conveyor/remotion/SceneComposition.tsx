@@ -46,12 +46,12 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
     return null;
   }, [scenes]);
 
-  // Единый URL видео-аватара (overlay) + позиция
+  // Единый URL видео-аватара (overlay) + позиция + objectFit
   const avatarOverlayConfig = useMemo(() => {
     for (const scene of scenes) {
       const ol = scene.layers.overlay;
       if (ol?.contentType === 'avatar' && ol.sourceUrl) {
-        return { url: ol.sourceUrl, position: ol.position };
+        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain' };
       }
     }
     return null;
@@ -133,12 +133,13 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
             width: (globalAvatarOverlay.position.width / 100) * width,
             height: (globalAvatarOverlay.position.height / 100) * height,
             zIndex: 1,
+            overflow: 'hidden',
             visibility: sceneUsesAvatarOverlay ? 'visible' : 'hidden',
           }}
         >
           <Video
             src={globalAvatarOverlay.url}
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: globalAvatarOverlay.objectFit }}
           />
         </div>
       )}

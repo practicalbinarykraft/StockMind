@@ -24,6 +24,8 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
 }) => {
   if (!layer.sourceUrl) return null;
 
+  const fit = layer.objectFit || "contain";
+
   // Конвертируем процентные позиции в пиксели
   const pixelPosition = {
     x: (layer.position.x / 100) * width,
@@ -41,6 +43,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
         width: pixelPosition.width,
         height: pixelPosition.height,
         zIndex: 1,
+        overflow: "hidden",
       }}
     >
       {layer.contentType === "image" && (
@@ -49,7 +52,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "contain",
+            objectFit: fit,
           }}
         />
       )}
@@ -61,7 +64,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "contain",
+            objectFit: fit,
           }}
         />
       )}
