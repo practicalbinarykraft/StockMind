@@ -3,7 +3,7 @@
  * Отображает статус, прогресс и результат генерации
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Card } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Progress } from '@/shared/ui/progress'
@@ -33,15 +33,32 @@ export function GenerationStatusCard({
   const updateBackgroundLayer = useCompositionStore((state) => state.updateBackgroundLayer)
   const updateOverlayLayer = useCompositionStore((state) => state.updateOverlayLayer)
 
-  // Polling статуса генерации
-  const { data: statusData } = useGenerationStatus(
-    jobId,
-    status === 'processing' || status === 'pending'
-  )
+  const isPollingActive = status === 'processing' || status === 'pending'
+  const { data: statusData, isError: isQueryError } = useGenerationStatus(jobId, isPollingActive)
 
-  // Обновляем статус в store когда получаем данные
+  const prevStatusRef = useRef<string | undefined>(undefined)
+  const prevResultUrlRef = useRef<string | undefined>(undefined)
+
   useEffect(() => {
-    if (!statusData || !jobId) return
+    if (!jobId) return
+
+    if (isQueryError && isPollingActive) {
+      const updateLayer = layerType === 'background' ? updateBackgroundLayer : updateOverlayLayer
+      updateLayer(sceneId, {
+        generationStatus: 'failed' as GenerationStatus,
+      })
+      return
+    }
+
+    if (!statusData) return
+
+    const statusChanged = prevStatusRef.current !== statusData.status
+    const resultUrlChanged = statusData.resultUrl && prevResultUrlRef.current !== statusData.resultUrl
+
+    if (!statusChanged && !resultUrlChanged) return
+
+    prevStatusRef.current = statusData.status
+    prevResultUrlRef.current = statusData.resultUrl
 
     const updateLayer = layerType === 'background' ? updateBackgroundLayer : updateOverlayLayer
     const updates: Record<string, unknown> = {
@@ -56,7 +73,7 @@ export function GenerationStatusCard({
     }
 
     updateLayer(sceneId, updates)
-  }, [statusData, jobId, layerType, sceneId, updateBackgroundLayer, updateOverlayLayer])
+  }, [statusData, isQueryError, jobId, isPollingActive, layerType, sceneId, updateBackgroundLayer, updateOverlayLayer])
 
   const isVideo = contentType === 'video' || (resultUrl?.match(/\.(mp4|webm|mov)(\?|$)/i) != null)
 
@@ -120,7 +137,9 @@ export function GenerationStatusCard({
       {status === 'failed' && (
         <Alert variant="destructive">
           <AlertDescription>
-            Не удалось сгенерировать контент. Попробуйте еще раз или измените промпт.
+            {statusData?.errorMessage
+              ? `Ошибка: ${statusData.errorMessage}`
+              : 'Не удалось сгенерировать контент. Попробуйте еще раз или измените промпт.'}
           </AlertDescription>
         </Alert>
       )}

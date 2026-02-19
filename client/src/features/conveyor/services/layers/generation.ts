@@ -70,9 +70,13 @@ export async function getJobStatus(jobId: string): Promise<{
   return result.data || result
 }
 
+const MAX_POLL_ATTEMPTS = 200
+const POLL_INTERVAL_MS = 3000
+
 /**
  * Hook для polling статуса генерации
  * Автоматически опрашивает API каждые 3 секунды пока статус не станет 'ready' или 'failed'
+ * Останавливается после MAX_POLL_ATTEMPTS попыток (~10 минут) для предотвращения бесконечного цикла
  */
 export function useGenerationStatus(
   jobId: string | undefined,
@@ -87,8 +91,12 @@ export function useGenerationStatus(
       if (status === 'ready' || status === 'failed') {
         return false
       }
-      return 3000 // 3 секунды
+      if ((query.state.dataUpdateCount ?? 0) >= MAX_POLL_ATTEMPTS) {
+        return false
+      }
+      return POLL_INTERVAL_MS
     },
     staleTime: 0,
+    retry: 2,
   })
 }
