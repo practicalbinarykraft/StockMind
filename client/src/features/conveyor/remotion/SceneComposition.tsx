@@ -7,7 +7,7 @@
 // - Анимации для бегущей строки (marquee)
 
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { EnhancedScene } from '../types/layers';
 import { getCurrentScene } from './Root';
 import {
@@ -63,17 +63,16 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor }}>
-      {/* Рендерим композицию сцены */}
       <SceneRenderer
         scene={scene}
         sceneFrame={sceneFrame}
         width={width}
         height={height}
+        videoStartFrame={sceneStartFrame}
       />
 
-      {/* Аудио для сцены */}
       {scene.audioUrl && (
-        <audio src={scene.audioUrl} />
+        <Audio src={scene.audioUrl} />
       )}
     </AbsoluteFill>
   );

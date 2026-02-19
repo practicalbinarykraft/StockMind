@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const TextToImageBodyDto = z.object({
   prompt: z.string().min(1),
-  model: z.enum(["flux-pro", "nano-banana-pro", "recraft-v3", "flux-schnell", "kling-ai-video", "kling-ai-i2v"]),
+  model: z.enum(["flux-pro", "nano-banana-pro", "recraft-v3", "flux-schnell"]),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
   numImages: z.number().int().min(1).max(4).optional(),
 });

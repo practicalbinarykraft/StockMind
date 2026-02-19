@@ -15,10 +15,11 @@ export async function generateImage(data: {
   model: KieModel
   aspectRatio?: '16:9' | '9:16' | '1:1'
   numImages?: number
-}): Promise<{ jobId: string }> {
+}): Promise<{ jobId: string; type: 'image' | 'video' }> {
   const response = await apiRequest('POST', '/api/kie-ai/generate-image', data)
   const result = await response.json()
-  return result.data || result
+  const job = result.data || result
+  return { jobId: job.id, type: job.type ?? 'image' }
 }
 
 /**
@@ -30,10 +31,11 @@ export async function generateVideo(data: {
   model: 'kling-ai-video'
   duration?: number
   aspectRatio?: '16:9' | '9:16'
-}): Promise<{ jobId: string }> {
+}): Promise<{ jobId: string; type: 'image' | 'video' }> {
   const response = await apiRequest('POST', '/api/kie-ai/generate-video', data)
   const result = await response.json()
-  return result.data || result
+  const job = result.data || result
+  return { jobId: job.id, type: job.type ?? 'video' }
 }
 
 /**
@@ -45,10 +47,11 @@ export async function imageToVideo(data: {
   prompt?: string
   model: 'kling-ai-i2v'
   duration?: number
-}): Promise<{ jobId: string }> {
+}): Promise<{ jobId: string; type: 'image' | 'video' }> {
   const response = await apiRequest('POST', '/api/kie-ai/image-to-video', data)
   const result = await response.json()
-  return result.data || result
+  const job = result.data || result
+  return { jobId: job.id, type: job.type ?? 'video' }
 }
 
 /**
@@ -57,6 +60,7 @@ export async function imageToVideo(data: {
  */
 export async function getJobStatus(jobId: string): Promise<{
   status: GenerationStatus
+  type?: 'image' | 'video'
   resultUrl?: string
   progress?: number
   errorMessage?: string

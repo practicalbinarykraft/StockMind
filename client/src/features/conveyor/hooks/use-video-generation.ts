@@ -52,7 +52,6 @@ export function useVideoGeneration(
     }
   }, [pollingIntervalId])
 
-  // Функция для запуска polling
   const startPolling = useCallback(
     async (currentVideoId: string) => {
       const intervalId = await startVideoPolling(currentVideoId, scriptId, {
@@ -64,19 +63,16 @@ export function useVideoGeneration(
           setVideoStatus('failed')
           setIsGenerating(false)
           
-          // Проверяем, если была попытка сгенерировать 1080p на бесплатном плане
-          if (selectedQuality === '1080p' && error.toLowerCase().includes('resolution')) {
-            toast({
-              variant: 'destructive',
-              title: 'Ошибка генерации видео',
-              description: 'Для генерации видео в качестве 1080p требуется платная подписка HeyGen. Попробуйте выбрать качество 720p.',
-            })
-          } else if (selectedQuality === '1080p' && (error.toLowerCase().includes('plan') || error.toLowerCase().includes('subscription') || error.toLowerCase().includes('quota'))) {
-            toast({
-              variant: 'destructive',
-              title: 'Ошибка генерации видео',
-              description: 'Для генерации видео в качестве 1080p требуется платная подписка HeyGen. Попробуйте выбрать качество 720p.',
-            })
+          if (selectedQuality === '1080p') {
+            const lowerErr = error.toLowerCase()
+            if (lowerErr.includes('resolution') || lowerErr.includes('plan') ||
+                lowerErr.includes('subscription') || lowerErr.includes('quota')) {
+              toast({
+                variant: 'destructive',
+                title: 'Ошибка генерации видео',
+                description: 'Для генерации видео в качестве 1080p требуется платная подписка HeyGen. Попробуйте выбрать качество 720p.',
+              })
+            }
           }
         },
         onComplete: () => {
@@ -92,12 +88,11 @@ export function useVideoGeneration(
       if (intervalId) {
         setPollingIntervalId(intervalId)
       } else {
-        // Видео уже готово или ошибка при первой проверке
         setIsGenerating(false)
         setPollingIntervalId(null)
       }
     },
-    [scriptId, queryClient]
+    [scriptId, queryClient, selectedQuality, toast]
   )
 
   // Загрузка существующего видео
@@ -235,7 +230,7 @@ export function useVideoGeneration(
         }
       }
     },
-    [scriptId, startPolling]
+    [scriptId, startPolling, selectedQuality, toast]
   )
 
   return {

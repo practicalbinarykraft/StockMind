@@ -208,6 +208,7 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             status={backgroundLayer.generationStatus}
             jobId={backgroundLayer.generationJobId}
             resultUrl={backgroundLayer.sourceUrl}
+            contentType={backgroundLayer.contentType}
             layerType="background"
             sceneId={currentScene.id}
           />
@@ -304,6 +305,7 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             status={overlayLayer.generationStatus}
             jobId={overlayLayer.generationJobId}
             resultUrl={overlayLayer.sourceUrl}
+            contentType={overlayLayer.contentType}
             layerType="overlay"
             sceneId={currentScene.id}
           />

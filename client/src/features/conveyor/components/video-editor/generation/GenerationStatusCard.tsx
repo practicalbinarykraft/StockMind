@@ -8,16 +8,17 @@ import { Card } from '@/shared/ui/card'
 import { Button } from '@/shared/ui/button'
 import { Progress } from '@/shared/ui/progress'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
-import { CheckCircle2, XCircle, Loader2, Download } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, Download, X } from 'lucide-react'
 import { useCompositionStore } from '../../../stores/composition'
 import { useGenerationStatus } from '../../../services/layers/generation'
-import type { GenerationStatus, LayerType } from '../../../types/layers'
+import type { GenerationStatus, ContentType } from '../../../types/layers'
 
 interface GenerationStatusCardProps {
   status: GenerationStatus
   jobId?: string
   resultUrl?: string
-  layerType: LayerType
+  contentType?: ContentType
+  layerType: 'background' | 'overlay'
   sceneId: string
 }
 
@@ -25,6 +26,7 @@ export function GenerationStatusCard({
   status,
   jobId,
   resultUrl,
+  contentType,
   layerType,
   sceneId,
 }: GenerationStatusCardProps) {
@@ -42,12 +44,21 @@ export function GenerationStatusCard({
     if (!statusData || !jobId) return
 
     const updateLayer = layerType === 'background' ? updateBackgroundLayer : updateOverlayLayer
-
-    updateLayer(sceneId, {
+    const updates: Record<string, unknown> = {
       generationStatus: statusData.status,
-      sourceUrl: statusData.resultUrl,
-    })
+    }
+
+    if (statusData.resultUrl) {
+      updates.sourceUrl = statusData.resultUrl
+    }
+    if (statusData.type) {
+      updates.contentType = statusData.type
+    }
+
+    updateLayer(sceneId, updates)
   }, [statusData, jobId, layerType, sceneId, updateBackgroundLayer, updateOverlayLayer])
+
+  const isVideo = contentType === 'video' || (resultUrl?.match(/\.(mp4|webm|mov)(\?|$)/i) != null)
 
   const getStatusIcon = () => {
     switch (status) {
@@ -74,9 +85,12 @@ export function GenerationStatusCard({
     }
   }
 
-  const handleApplyToLayer = () => {
-    // Контент уже применен, просто закрываем карточку
-    console.log('Content already applied to layer')
+  const handleDismiss = () => {
+    const updateLayer = layerType === 'background' ? updateBackgroundLayer : updateOverlayLayer
+    updateLayer(sceneId, {
+      generationStatus: undefined,
+      generationJobId: undefined,
+    })
   }
 
   return (
@@ -90,6 +104,11 @@ export function GenerationStatusCard({
             <p className="text-xs text-muted-foreground">Job ID: {jobId}</p>
           )}
         </div>
+        {(status === 'ready' || status === 'failed') && (
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleDismiss}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Прогресс бар для processing */}
@@ -110,11 +129,15 @@ export function GenerationStatusCard({
       {status === 'ready' && resultUrl && (
         <div className="space-y-3">
           <div className="aspect-video rounded-md overflow-hidden border">
-            <img src={resultUrl} alt="Generated content" className="w-full h-full object-cover" />
+            {isVideo ? (
+              <video src={resultUrl} className="w-full h-full object-cover" controls />
+            ) : (
+              <img src={resultUrl} alt="Generated content" className="w-full h-full object-cover" />
+            )}
           </div>
 
           <div className="flex gap-2">
-            <Button variant="default" className="flex-1" onClick={handleApplyToLayer}>
+            <Button variant="default" className="flex-1" onClick={handleDismiss}>
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Применено к слою
             </Button>

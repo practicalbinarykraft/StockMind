@@ -31,19 +31,26 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
   const attemptsRef = useRef(0)
   const videoIdRef = useRef<string | null>(null)
 
-  // Проверка статуса видео
+  const stopPollingImpl = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    videoIdRef.current = null
+  }, [])
+
+  const stopPollingRef = useRef(stopPollingImpl)
+  stopPollingRef.current = stopPollingImpl
+
   const checkStatus = useCallback(async () => {
     if (!videoIdRef.current) return
 
     attemptsRef.current++
 
-    console.log(`📡 [useVideoPolling] Проверка статуса (попытка ${attemptsRef.current}/${MAX_ATTEMPTS})...`)
-
     if (attemptsRef.current > MAX_ATTEMPTS) {
-      console.error(`⏰ [useVideoPolling] Превышен лимит попыток`)
       setError('Превышено время ожидания генерации (20 минут)')
       setStatus('failed')
-      stopPolling()
+      stopPollingRef.current()
       return
     }
 
@@ -53,28 +60,18 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
         `/api/heygen/status/${videoIdRef.current}`
       )
       const rawData = await response.json()
-      
-      // HeyGen может возвращать { success, data: {...} } или просто {...}
       const data = rawData.data || rawData
 
-      console.log(`📊 [useVideoPolling] Полный ответ:`, rawData)
-      console.log(`📊 [useVideoPolling] Статус:`, data.status)
-
-      // Обновление прогресса
       if (data.progress) {
         setProgress(data.progress)
       }
 
-      // Обновление статуса
       setStatus(data.status)
 
-      // Завершение
       if (data.status === 'completed') {
-        console.log(`✅ [useVideoPolling] Видео готово!`)
         setVideoUrl(data.videoUrl)
         setProgress(100)
 
-        // Сохранение в БД
         await scriptMediaService.updateVideo(scriptId, {
           videoUrl: data.videoUrl,
           videoStatus: 'completed',
@@ -82,14 +79,11 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
           videoThumbnailUrl: data.thumbnailUrl,
         })
 
-        stopPolling()
+        stopPollingRef.current()
       }
 
-      // Ошибка
       if (data.status === 'failed' || data.status === 'error') {
         const errorMsg = data.error_message || data.error || rawData.message || 'Ошибка генерации'
-        console.error(`❌ [useVideoPolling] Ошибка:`, errorMsg)
-        console.error(`❌ [useVideoPolling] Детали:`, data)
         setError(errorMsg)
 
         await scriptMediaService.updateVideo(scriptId, {
@@ -97,33 +91,28 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
           videoErrorMessage: errorMsg,
         })
 
-        stopPolling()
+        stopPollingRef.current()
       }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Ошибка проверки статуса'
-      console.error('❌ [useVideoPolling] Ошибка проверки статуса:', err)
+      console.error('[useVideoPolling] Ошибка проверки статуса:', err)
       setError(message)
       setStatus('failed')
-      stopPolling()
+      stopPollingRef.current()
     }
   }, [scriptId])
 
-  // Запуск polling
   const startPolling = useCallback(
     (videoId: string) => {
-      console.log(`🎬 [useVideoPolling] Начинаем polling для видео ${videoId}, интервал: ${POLL_INTERVAL/1000}с`)
-      
       videoIdRef.current = videoId
       attemptsRef.current = 0
       setStatus('processing')
       setProgress(0)
       setError(null)
 
-      // Первая проверка сразу
       checkStatus()
 
-      // Запуск интервала
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
       }
@@ -133,15 +122,7 @@ export function useVideoPolling(scriptId: string): UseVideoPollingReturn {
     [checkStatus]
   )
 
-  // Остановка polling
-  const stopPolling = useCallback(() => {
-    if (intervalRef.current) {
-      console.log(`🛑 [useVideoPolling] Остановка polling`)
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    videoIdRef.current = null
-  }, [])
+  const stopPolling = stopPollingImpl
 
   // Очистка при размонтировании
   useEffect(() => {

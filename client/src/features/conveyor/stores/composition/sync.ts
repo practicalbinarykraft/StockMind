@@ -222,6 +222,7 @@ export const createSyncActions: StateCreator<
 
       // Запускаем генерацию через Kie.ai API
       let jobId: string
+      let contentType: 'image' | 'video'
       if (type === 'image') {
         const result = await layersService.generateImage({
           prompt,
@@ -229,6 +230,7 @@ export const createSyncActions: StateCreator<
           aspectRatio: '16:9',
         })
         jobId = result.jobId
+        contentType = 'image'
       } else {
         const result = await layersService.generateVideo({
           prompt,
@@ -236,13 +238,14 @@ export const createSyncActions: StateCreator<
           aspectRatio: '16:9',
         })
         jobId = result.jobId
+        contentType = 'video'
       }
 
-      // Обновляем jobId в слое
+      // Обновляем jobId и contentType в слое
       if (layerType === 'background') {
-        get().updateBackgroundLayer(sceneId, { generationJobId: jobId })
+        get().updateBackgroundLayer(sceneId, { generationJobId: jobId, contentType })
       } else {
-        get().updateOverlayLayer(sceneId, { generationJobId: jobId })
+        get().updateOverlayLayer(sceneId, { generationJobId: jobId, contentType })
       }
     } catch (error) {
       console.error('Generation failed:', error)

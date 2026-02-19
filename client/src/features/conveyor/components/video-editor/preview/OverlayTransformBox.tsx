@@ -47,42 +47,55 @@ export function OverlayTransformBox({
       const deltaX = ((e.clientX - rect.left) / rect.width) * 100 - startPosRef.current.x
       const deltaY = ((e.clientY - rect.top) / rect.height) * 100 - startPosRef.current.y
 
-      let newPosition = { ...startPosRef.current }
+      const start = startPosRef.current
+      let newPosition = { ...start }
+      const aspectRatio = start.width / start.height
 
       switch (activeHandle) {
         case 'nw':
-          newPosition.x = startPosRef.current.x + deltaX
-          newPosition.y = startPosRef.current.y + deltaY
-          newPosition.width = startPosRef.current.width - deltaX
-          newPosition.height = startPosRef.current.height - deltaY
+          newPosition.width = start.width - deltaX
+          newPosition.height = start.height - deltaY
           break
         case 'ne':
-          newPosition.y = startPosRef.current.y + deltaY
-          newPosition.width = startPosRef.current.width + deltaX
-          newPosition.height = startPosRef.current.height - deltaY
+          newPosition.width = start.width + deltaX
+          newPosition.height = start.height - deltaY
           break
         case 'sw':
-          newPosition.x = startPosRef.current.x + deltaX
-          newPosition.width = startPosRef.current.width - deltaX
-          newPosition.height = startPosRef.current.height + deltaY
+          newPosition.width = start.width - deltaX
+          newPosition.height = start.height + deltaY
           break
         case 'se':
-          newPosition.width = startPosRef.current.width + deltaX
-          newPosition.height = startPosRef.current.height + deltaY
+          newPosition.width = start.width + deltaX
+          newPosition.height = start.height + deltaY
           break
       }
 
-      // Применяем aspect lock если включен
       if (aspectLock) {
-        const aspectRatio = startPosRef.current.width / startPosRef.current.height
         newPosition.height = newPosition.width / aspectRatio
       }
 
-      // Ограничиваем минимальные размеры
       newPosition.width = Math.max(newPosition.width, 5)
       newPosition.height = Math.max(newPosition.height, 5)
 
-      // Ограничиваем максимальные размеры (не выходить за границы canvas)
+      // Пересчитываем позицию для углов, привязанных к верху/левому краю
+      const anchorRight = activeHandle === 'nw' || activeHandle === 'sw'
+      const anchorBottom = activeHandle === 'nw' || activeHandle === 'ne'
+
+      if (anchorRight) {
+        newPosition.x = start.x + start.width - newPosition.width
+      } else {
+        newPosition.x = start.x
+      }
+
+      if (anchorBottom) {
+        newPosition.y = start.y + start.height - newPosition.height
+      } else {
+        newPosition.y = start.y
+      }
+
+      // Clamp в пределах canvas
+      newPosition.x = Math.max(0, Math.min(newPosition.x, 100 - newPosition.width))
+      newPosition.y = Math.max(0, Math.min(newPosition.y, 100 - newPosition.height))
       newPosition.width = Math.min(newPosition.width, 100 - newPosition.x)
       newPosition.height = Math.min(newPosition.height, 100 - newPosition.y)
 

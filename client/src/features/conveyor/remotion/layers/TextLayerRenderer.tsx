@@ -7,6 +7,16 @@ import React from "react";
 import { interpolate, Easing } from "remotion";
 import type { TextLayer } from "../../types/layers";
 
+function bgColorWithOpacity(color: string | undefined, opacity: number): string {
+  if (!color) return "transparent";
+  const hex = color.replace("#", "");
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return "transparent";
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 export interface TextLayerRendererProps {
   layer: TextLayer;
   sceneFrame: number;
@@ -74,8 +84,7 @@ export const TextLayerRenderer: React.FC<TextLayerRendererProps> = ({
           color: layer.textColor,
           fontSize: layer.fontSize,
           fontFamily: layer.fontFamily,
-          backgroundColor: layer.backgroundColor || "transparent",
-          opacity: layer.backgroundOpacity,
+          backgroundColor: bgColorWithOpacity(layer.backgroundColor, layer.backgroundOpacity),
           padding: "20px 40px",
           zIndex: 2,
           ...verticalPosition,
@@ -107,8 +116,7 @@ export const TextLayerRenderer: React.FC<TextLayerRendererProps> = ({
           width: "100%",
           overflow: "hidden",
           textAlign: "left",
-          backgroundColor: layer.backgroundColor || "transparent",
-          opacity: layer.backgroundOpacity,
+          backgroundColor: bgColorWithOpacity(layer.backgroundColor, layer.backgroundOpacity),
           padding: "20px 0",
           zIndex: 2,
           ...verticalPosition,

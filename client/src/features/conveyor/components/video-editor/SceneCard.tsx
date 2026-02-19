@@ -10,9 +10,10 @@ import type { Scene } from '../../types'
 interface SceneCardProps {
   scene: Scene
   index: number
+  onDelete?: (sceneId: string) => void
 }
 
-export function SceneCard({ scene, index }: SceneCardProps) {
+export function SceneCard({ scene, index, onDelete }: SceneCardProps) {
   return (
     <Card className="bg-slate-800/50 border-slate-700">
       <div className="p-4">
@@ -26,13 +27,19 @@ export function SceneCard({ scene, index }: SceneCardProps) {
             </span>
           </div>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(scene.id)
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <p className="text-sm text-slate-300 leading-relaxed">

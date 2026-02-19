@@ -119,6 +119,16 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene,
     return styles
   }
 
+  const bgWithOpacity = (color: string | undefined, opacity: number): string => {
+    if (!color) return 'transparent'
+    const hex = color.replace('#', '')
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return 'transparent'
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`
+  }
+
   const renderTextLayer = () => {
     if (!textLayer || !textLayer.isVisible) return null
 
@@ -147,7 +157,7 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene,
               height: 'auto',
               top: position.type === 'top' ? '10%' : position.type === 'bottom' ? '85%' : '50%',
               transform: `translateY(-50%) translateX(${translateX}%)`,
-              backgroundColor: backgroundColor ? `${backgroundColor}${Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0')}` : 'transparent',
+              backgroundColor: bgWithOpacity(backgroundColor, backgroundOpacity),
               padding: '8px 16px',
             }}
           >
@@ -200,7 +210,7 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene,
             ...posStyles,
             transform: combinedTransform,
             opacity: animStyles.opacity,
-            backgroundColor: backgroundColor ? `${backgroundColor}${Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0')}` : 'transparent',
+            backgroundColor: bgWithOpacity(backgroundColor, backgroundOpacity),
             padding: '8px 16px',
           }}
         >

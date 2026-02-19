@@ -3,7 +3,7 @@
  * Поддерживает как HeyGen видео, так и рендеринг через Remotion
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { AlertCircle, Video, Loader2, Play } from "lucide-react";
@@ -21,6 +21,7 @@ import {
   getProxiedImageUrl,
   getProxiedVideoUrl,
 } from "@/features/conveyor/utils/media-proxy";
+import { apiRequest } from "@/shared/api/http";
 import { useToast } from "@/shared/hooks";
 
 interface ExportVideoSectionProps {
@@ -57,8 +58,9 @@ export function ExportVideoSection({
   const hasVideo = !!media?.videoUrl && media.videoStatus === "completed";
   const isGenerating = media?.videoStatus === "generating";
   const hasFailed = media?.videoStatus === "failed";
+  const pollAttemptsRef = useRef(0);
+  const MAX_POLL_ATTEMPTS = 600; // 30 минут (600 * 3с)
 
-  // Проксируем URL медиа для обхода CORS
   const proxiedVideoUrl = getProxiedVideoUrl(media?.videoUrl);
   const proxiedThumbnailUrl = getProxiedImageUrl(media?.videoThumbnailUrl);
 
@@ -66,20 +68,30 @@ export function ExportVideoSection({
   useEffect(() => {
     if (!renderJob || !isPolling) return;
 
+    pollAttemptsRef.current = 0;
+
     const pollStatus = async () => {
+      pollAttemptsRef.current++;
+
+      if (pollAttemptsRef.current > MAX_POLL_ATTEMPTS) {
+        setIsPolling(false);
+        toast({
+          title: "Таймаут рендеринга",
+          description: "Превышено время ожидания (30 минут).",
+          variant: "destructive",
+        });
+        return;
+      }
+
       try {
-        const response = await fetch(
+        const response = await apiRequest(
+          "GET",
           `/api/scripts/${scriptId}/render/${renderJob.jobId}/status`,
         );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch render status");
-        }
 
         const data = await response.json();
         setRenderJob(data);
 
-        // Остановить polling если завершено или ошибка
         if (data.status === "completed" || data.status === "failed") {
           setIsPolling(false);
 
@@ -99,39 +111,25 @@ export function ExportVideoSection({
         }
       } catch (error) {
         console.error("Error polling render status:", error);
-        // Не останавливаем polling при ошибке сети, продолжаем попытки
       }
     };
 
-    // Первый запрос сразу
     pollStatus();
 
-    // Затем каждые 3 секунды
     const interval = setInterval(pollStatus, 3000);
 
     return () => clearInterval(interval);
   }, [renderJob?.jobId, isPolling, scriptId, toast]);
 
-  // Запуск рендеринга
   const handleStartRender = async () => {
     try {
-      const response = await fetch(`/api/scripts/${scriptId}/render`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          width: 1920,
-          height: 1080,
-          fps: 30,
-          format: "mp4",
-          quality: selectedQuality,
-        }),
+      const response = await apiRequest("POST", `/api/scripts/${scriptId}/render`, {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        format: "mp4",
+        quality: selectedQuality,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to start render");
-      }
 
       const data = await response.json();
       setRenderJob(data);
@@ -152,18 +150,11 @@ export function ExportVideoSection({
     }
   };
 
-  // Отмена рендеринга
   const handleCancelRender = async () => {
     if (!renderJob) return;
 
     try {
-      const response = await fetch(`/api/render/jobs/${renderJob.jobId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel render");
-      }
+      await apiRequest("DELETE", `/api/render/jobs/${renderJob.jobId}`);
 
       setRenderJob(null);
       setIsPolling(false);
@@ -182,18 +173,14 @@ export function ExportVideoSection({
     }
   };
 
-  // Скачать отрендеренное видео
   const handleDownloadRendered = async () => {
     if (!renderJob?.jobId) return;
 
     try {
-      const response = await fetch(
+      const response = await apiRequest(
+        "GET",
         `/api/scripts/${scriptId}/render/${renderJob.jobId}/download`,
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to get download URL");
-      }
 
       const data = await response.json();
 

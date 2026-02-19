@@ -13,6 +13,7 @@ import type {
   SceneComposition,
 } from '../../types/layers'
 import type { CompositionStore } from './types'
+import { initialState } from './types'
 
 /** Создаёт дефолтный BackgroundLayer, если слой ещё не существует */
 const createDefaultBackgroundLayer = (sceneId: string, scriptId: string): BackgroundLayer => ({
@@ -150,7 +151,6 @@ export const createSceneActions: StateCreator<
   },
 
   reset: () => {
-    const { initialState } = require('./types')
     set(initialState)
   },
 })
@@ -245,19 +245,14 @@ export const createLayerActions: StateCreator<
   },
 
   updateOverlayPosition: (sceneId: string, position: Position) => {
-    const { scenes } = get()
-    const scene = scenes.get(sceneId)
-    if (!scene?.layers.overlay) return
-
-    const newScenes = new Map(scenes)
-    newScenes.set(sceneId, {
+    updateSceneHelper(get, set, sceneId, (scene) => ({
       ...scene,
       layers: {
         ...scene.layers,
-        overlay: { ...scene.layers.overlay, position },
+        overlay: scene.layers.overlay
+          ? { ...scene.layers.overlay, position }
+          : undefined,
       },
-    })
-
-    set({ scenes: newScenes })
+    }))
   },
 })
