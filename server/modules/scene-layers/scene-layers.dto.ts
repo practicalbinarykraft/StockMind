@@ -37,6 +37,7 @@ export const CreateLayerBodyDto = z.object({
       height: z.number(),
     })
     .optional(),
+  objectFit: z.enum(["contain", "cover", "fill"]).optional(),
   aspectLock: z.boolean().optional(),
   minSize: z.object({ width: z.number(), height: z.number() }).optional(),
   maxSize: z.object({ width: z.number(), height: z.number() }).optional(),

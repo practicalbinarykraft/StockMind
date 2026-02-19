@@ -283,10 +283,11 @@ export const sceneLayersService = {
     if (base.layerType === "overlay") {
       if (rest.position) await overlayLayersRepo.updatePosition(layerId, rest.position as any);
       const ov = await overlayLayersRepo.getByLayerId(layerId);
-      if (ov && (rest.contentType !== undefined || rest.sourceUrl !== undefined)) {
+      if (ov && (rest.contentType !== undefined || rest.sourceUrl !== undefined || rest.objectFit !== undefined)) {
         await overlayLayersRepo.update(ov.id, {
           contentType: rest.contentType as ContentType | undefined,
           sourceUrl: rest.sourceUrl as string | undefined,
+          objectFit: rest.objectFit as string | undefined,
         });
       }
     }

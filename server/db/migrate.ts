@@ -11,7 +11,7 @@ async function runSingleMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
 
-  const migrationFile = "./drizzle/migrations/0014_illegal_kylun.sql";
+  const migrationFile = "./drizzle/migrations/0015_add_overlay_object_fit.sql";
   const sql = fs.readFileSync(migrationFile, "utf-8");
 
   // Выполнить SQL напрямую

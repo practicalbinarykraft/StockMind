@@ -80,6 +80,7 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
                 contentType: scene.layers.overlay.contentType,
                 sourceUrl: scene.layers.overlay.sourceUrl,
                 position: scene.layers.overlay.position,
+                objectFit: scene.layers.overlay.objectFit,
                 aspectLock: scene.layers.overlay.aspectLock,
                 minSize: scene.layers.overlay.minSize,
                 maxSize: scene.layers.overlay.maxSize,

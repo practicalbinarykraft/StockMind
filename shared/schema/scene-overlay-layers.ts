@@ -33,6 +33,9 @@ export const sceneOverlayLayers = pgTable("scene_overlay_layers", {
     height: number; // 0-100 (%)
   }>(),
   
+  // Отображение контента
+  objectFit: varchar("object_fit", { length: 20 }).notNull().default('contain'), // 'contain', 'cover', 'fill'
+  
   // Настройки размера
   aspectLock: boolean("aspect_lock").notNull().default(true), // Фиксация пропорций
   minSize: jsonb("min_size").$type<{ width: number; height: number }>(), // Минимальные размеры

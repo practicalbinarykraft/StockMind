@@ -139,6 +139,14 @@ export const createSyncActions: StateCreator<
             }
           }
 
+          // Гарантируем дефолтные значения для overlay-слоя
+          if (layers.overlay) {
+            layers.overlay = {
+              ...layers.overlay,
+              objectFit: layers.overlay.objectFit ?? 'contain',
+            }
+          }
+
           // Background без sourceUrl и с contentType 'image' — старый дефолт,
           // заменяем на 'avatar' чтобы видео аватара подтягивалось автоматически
           if (layers.background && !layers.background.sourceUrl && layers.background.contentType === 'image') {
