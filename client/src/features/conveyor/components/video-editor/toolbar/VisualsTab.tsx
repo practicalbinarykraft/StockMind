@@ -50,24 +50,31 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
   }
 
   const handleContentTypeChange = (layerType: 'background' | 'overlay', contentType: ContentType) => {
-    const current = layerType === 'background'
-      ? backgroundLayer?.contentType
-      : overlayLayer?.contentType
+    const layer = layerType === 'background' ? backgroundLayer : overlayLayer
+    const currentContentType = layer?.contentType
 
-    if (current === contentType) return
+    if (currentContentType === contentType) return
 
-    const resetFields = {
+    const savedUrls: Record<string, string> = { ...(layer?.metadata?.savedUrls || {}) }
+    if (layer?.sourceUrl && currentContentType) {
+      savedUrls[currentContentType] = layer.sourceUrl
+    }
+
+    const restoredUrl = savedUrls[contentType] as string | undefined
+
+    const updates = {
       contentType,
-      sourceUrl: undefined as string | undefined,
+      sourceUrl: restoredUrl,
+      metadata: { ...(layer?.metadata || {}), savedUrls },
       generationStatus: undefined as any,
       generationJobId: undefined as string | undefined,
       generationPrompt: undefined as string | undefined,
     }
 
     if (layerType === 'background') {
-      updateBackgroundLayer(currentScene.id, resetFields)
+      updateBackgroundLayer(currentScene.id, updates)
     } else if (layerType === 'overlay') {
-      updateOverlayLayer(currentScene.id, resetFields)
+      updateOverlayLayer(currentScene.id, updates)
     }
   }
 
