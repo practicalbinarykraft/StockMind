@@ -19,7 +19,8 @@ export type GenerationStatus = "pending" | "processing" | "ready" | "failed";
 export interface TextToImageRequest {
   prompt: string;
   model: KieModel;
-  aspectRatio?: "16:9" | "9:16" | "1:1";
+  aspectRatio?: "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "3:2" | "2:3";
+  resolution?: "1K" | "2K";
   numImages?: number;
 }
 

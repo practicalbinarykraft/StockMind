@@ -96,10 +96,9 @@ export const kieAiService = {
     const apiModel = resolveModel(request.model);
     const input: Record<string, unknown> = {
       prompt: request.prompt,
+      aspect_ratio: request.aspectRatio ?? "1:1",
+      resolution: request.resolution ?? "1K",
     };
-    if (request.aspectRatio) {
-      input.aspect_ratio = request.aspectRatio;
-    }
 
     const result = await kieRequest<{ taskId: string }>(
       apiKey,

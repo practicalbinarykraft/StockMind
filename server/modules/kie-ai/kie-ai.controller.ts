@@ -8,7 +8,8 @@ import { z } from "zod";
 const TextToImageBodyDto = z.object({
   prompt: z.string().min(1),
   model: z.enum(["flux-pro", "nano-banana-pro", "recraft-v3", "flux-schnell"]),
-  aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
+  aspectRatio: z.enum(["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"]).optional(),
+  resolution: z.enum(["1K", "2K"]).optional(),
   numImages: z.number().int().min(1).max(4).optional(),
 });
 
@@ -40,6 +41,7 @@ export const kieAiController = {
         prompt: body.prompt,
         model: body.model,
         aspectRatio: body.aspectRatio,
+        resolution: body.resolution,
         numImages: body.numImages,
       });
       return apiResponse.created(res, job);
