@@ -130,8 +130,7 @@ export async function testApiKeyByProvider(
       }
       
       case 'kieai': {
-        // Test Kie.ai API - check quota
-        const response = await fetch('https://api.kie.ai/v1/quota', {
+        const response = await fetch('https://api.kie.ai/api/v1/chat/credit', {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
           },
@@ -142,10 +141,15 @@ export async function testApiKeyByProvider(
         }
         
         const data = await response.json();
+        
+        if (data.code !== 200) {
+          throw new Error(data.msg || `Kie.ai API error code: ${data.code}`);
+        }
+        
         return {
           success: true,
-          message: data.remaining !== undefined 
-            ? `Kie.ai API key is valid. Remaining credits: ${data.remaining}` 
+          message: data.data !== undefined 
+            ? `Kie.ai API key is valid. Remaining credits: ${data.data}` 
             : 'Kie.ai API key is valid',
           provider
         };

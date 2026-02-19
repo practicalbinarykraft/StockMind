@@ -6,14 +6,25 @@ import type {
   ImageToVideoRequest,
   GenerationJob,
   GenerationStatus,
+  KieModel,
 } from "./kie-ai.types";
 
 const storageRepo = new StorageRepo();
 
-/**
- * Kie.ai API base URL (from docs)
- */
 const KIE_AI_BASE = process.env.KIE_AI_API_URL ?? "https://api.kie.ai";
+
+/**
+ * Mapping from internal model names to Kie.ai API model identifiers.
+ * Docs: https://docs.kie.ai/market/quickstart
+ */
+const MODEL_MAP: Record<KieModel, string> = {
+  "flux-pro": "flux-2/pro-text-to-image",
+  "nano-banana-pro": "google/nano-banana",
+  "recraft-v3": "qwen/text-to-image",
+  "flux-schnell": "flux-2/flex-text-to-image",
+  "kling-ai-video": "kling-2.6/text-to-video",
+  "kling-ai-i2v": "kling-2.6/image-to-video",
+};
 
 function getApiKey(): string {
   const key = process.env.KIE_AI_API_KEY;
@@ -23,10 +34,16 @@ function getApiKey(): string {
   return key;
 }
 
+interface KieApiResponse<T = unknown> {
+  code: number;
+  msg: string;
+  data: T;
+}
+
 async function kieRequest<T>(
   path: string,
-  options: { method: string; body?: object }
-): Promise<T> {
+  options: { method: string; body?: object },
+): Promise<KieApiResponse<T>> {
   const apiKey = getApiKey();
   const url = `${KIE_AI_BASE}${path}`;
   const res = await fetch(url, {
@@ -41,17 +58,28 @@ async function kieRequest<T>(
     const text = await res.text();
     throw new Error(`Kie.ai API error ${res.status}: ${text}`);
   }
-  return res.json() as Promise<T>;
+  const json = (await res.json()) as KieApiResponse<T>;
+  if (json.code !== 200) {
+    throw new Error(`Kie.ai API error code ${json.code}: ${json.msg}`);
+  }
+  return json;
+}
+
+function resolveModel(model: KieModel): string {
+  const mapped = MODEL_MAP[model];
+  if (!mapped) {
+    throw new Error(`Unknown Kie.ai model: ${model}`);
+  }
+  return mapped;
 }
 
 /**
  * Save buffer to R2 with a custom path.
- * Path format: users/{userId}/projects/{projectId}/scenes/{sceneId}/{layerType}/{timestamp}-{uuid}.ext
  */
 export async function saveToR2(
   buffer: Buffer,
   path: string,
-  contentType: string
+  contentType: string,
 ): Promise<string> {
   return storageRepo.uploadWithPath(buffer, path, contentType);
 }
@@ -62,20 +90,24 @@ export const kieAiService = {
       throw new Error("KIE_AI_API_KEY is not configured. Cannot generate images.");
     }
 
-    const body: Record<string, unknown> = {
+    const apiModel = resolveModel(request.model);
+    const input: Record<string, unknown> = {
       prompt: request.prompt,
-      model: request.model,
-      num_images: request.numImages ?? 1,
     };
     if (request.aspectRatio) {
-      body.aspect_ratio = request.aspectRatio;
+      input.aspect_ratio = request.aspectRatio;
     }
-    const result = await kieRequest<{ task_id: string }>("/v1/generate/image", {
-      method: "POST",
-      body: body as object,
-    });
+
+    const result = await kieRequest<{ taskId: string }>(
+      "/api/v1/jobs/createTask",
+      {
+        method: "POST",
+        body: { model: apiModel, input },
+      },
+    );
+
     return {
-      id: result.task_id,
+      id: result.data.taskId,
       type: "image",
       status: "pending",
       createdAt: new Date(),
@@ -87,18 +119,26 @@ export const kieAiService = {
       throw new Error("KIE_AI_API_KEY is not configured. Cannot generate videos.");
     }
 
-    const body: Record<string, unknown> = {
+    const apiModel = resolveModel(request.model as KieModel);
+    const input: Record<string, unknown> = {
       prompt: request.prompt,
-      model: request.model,
-      duration: request.duration ?? 5,
+      duration: String(request.duration ?? 5),
+      sound: false,
     };
-    if (request.aspectRatio) body.aspect_ratio = request.aspectRatio;
-    const result = await kieRequest<{ task_id: string }>("/v1/generate/video", {
-      method: "POST",
-      body: body as object,
-    });
+    if (request.aspectRatio) {
+      input.aspect_ratio = request.aspectRatio;
+    }
+
+    const result = await kieRequest<{ taskId: string }>(
+      "/api/v1/jobs/createTask",
+      {
+        method: "POST",
+        body: { model: apiModel, input },
+      },
+    );
+
     return {
-      id: result.task_id,
+      id: result.data.taskId,
       type: "video",
       status: "pending",
       createdAt: new Date(),
@@ -110,17 +150,25 @@ export const kieAiService = {
       throw new Error("KIE_AI_API_KEY is not configured. Cannot convert image to video.");
     }
 
-    const result = await kieRequest<{ task_id: string }>("/v1/generate/image-to-video", {
-      method: "POST",
-      body: {
-        image_url: request.imageUrl,
-        prompt: request.prompt,
-        model: request.model,
-        duration: request.duration ?? 5,
+    const apiModel = resolveModel(request.model as KieModel);
+    const input: Record<string, unknown> = {
+      image_url: request.imageUrl,
+      duration: String(request.duration ?? 5),
+    };
+    if (request.prompt) {
+      input.prompt = request.prompt;
+    }
+
+    const result = await kieRequest<{ taskId: string }>(
+      "/api/v1/jobs/createTask",
+      {
+        method: "POST",
+        body: { model: apiModel, input },
       },
-    });
+    );
+
     return {
-      id: result.task_id,
+      id: result.data.taskId,
       type: "video",
       status: "pending",
       createdAt: new Date(),
@@ -141,19 +189,38 @@ export const kieAiService = {
 
     try {
       const result = await kieRequest<{
-        task_id: string;
-        status: string;
-        result?: { url?: string; urls?: string[] };
-        error_message?: string;
-      }>(`/v1/tasks/${jobId}`, { method: "GET" });
-      const status = mapKieStatus(result.status);
-      const resultUrl = result.result?.url ?? result.result?.urls?.[0];
+        taskId: string;
+        state: string;
+        model?: string;
+        resultJson?: string;
+        failCode?: string;
+        failMsg?: string;
+      }>(`/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(jobId)}`, {
+        method: "GET",
+      });
+
+      const taskData = result.data;
+      const status = mapKieStatus(taskData.state);
+
+      let resultUrl: string | undefined;
+      if (taskData.resultJson) {
+        try {
+          const parsed = JSON.parse(taskData.resultJson);
+          resultUrl = parsed.resultUrls?.[0];
+        } catch {
+          logger.warn("Failed to parse resultJson", { taskId: jobId, resultJson: taskData.resultJson });
+        }
+      }
+
+      const isVideo = taskData.model?.includes("video") ||
+        (resultUrl?.match(/\.(mp4|webm)$/i) != null);
+
       return {
-        id: result.task_id,
-        type: resultUrl?.match(/\.(mp4|webm)$/i) ? "video" : "image",
+        id: taskData.taskId,
+        type: isVideo ? "video" : "image",
         status,
         resultUrl,
-        errorMessage: result.error_message,
+        errorMessage: taskData.failMsg || undefined,
         createdAt: new Date(),
         completedAt: status === "ready" || status === "failed" ? new Date() : undefined,
       };
@@ -171,8 +238,18 @@ export const kieAiService = {
   },
 };
 
-function mapKieStatus(s: string): GenerationStatus {
-  if (s === "completed") return "ready";
-  if (s === "pending" || s === "processing" || s === "failed") return s as GenerationStatus;
-  return "pending";
+function mapKieStatus(state: string): GenerationStatus {
+  switch (state) {
+    case "success":
+      return "ready";
+    case "fail":
+      return "failed";
+    case "generating":
+      return "processing";
+    case "waiting":
+    case "queuing":
+      return "pending";
+    default:
+      return "pending";
+  }
 }

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { logger } from '../lib/logger'
 
 const KIE_API_BASE = 'https://api.kie.ai'
 
@@ -22,40 +23,51 @@ export async function generateKieVideo(
   apiKey: string,
   request: KieVideoRequest
 ): Promise<string> {
-  try {
-    console.log('🎬 Generating B-Roll with Kie.ai...')
-    console.log('   Prompt:', request.prompt)
-    console.log('   Model:', request.model || 'veo3_fast')
+  const model = request.model || 'veo3_fast'
 
-    const payload = {
-      prompt: request.prompt,
-      model: request.model || 'veo3_fast',
-      aspectRatio: request.aspectRatio || '9:16',
-      ...(request.requestId && { requestId: request.requestId })
-    }
+  logger.info('[Kie.ai] Generating B-Roll video', { model, prompt: request.prompt.slice(0, 80) })
 
-    const response = await axios.post(
-      `${KIE_API_BASE}/v1/video/generate`,
-      payload,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        }
-      }
-    )
+  const payload: Record<string, unknown> = {
+    prompt: request.prompt,
+    model,
+    aspect_ratio: request.aspectRatio || '9:16',
+  }
 
-    const taskId = response.data?.data?.taskId || response.data?.taskId
-    if (!taskId) {
-      throw new Error('No taskId returned from Kie.ai')
-    }
+  const response = await axios.post(
+    `${KIE_API_BASE}/api/v1/veo/generate`,
+    payload,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    },
+  )
 
-    console.log(`✅ B-Roll generation started: ${taskId}`)
-    return taskId
-  } catch (error: any) {
-    console.error('Kie.ai video generation error:', error.response?.data || error.message)
-    throw new Error(error.response?.data?.message || 'Failed to generate video with Kie.ai')
+  const result = response.data
+  if (result.code !== 200) {
+    throw new Error(result.msg || `Kie.ai API error code ${result.code}`)
+  }
+
+  const taskId = result.data?.taskId
+  if (!taskId) {
+    throw new Error('No taskId returned from Kie.ai')
+  }
+
+  logger.info(`[Kie.ai] B-Roll generation started: ${taskId}`)
+  return taskId
+}
+
+/**
+ * Maps Veo3 successFlag to our internal status.
+ * 0 = generating, 1 = success, 2 = failed, 3 = generation failed
+ */
+function mapVeoStatus(successFlag: number): KieVideoStatus['status'] {
+  switch (successFlag) {
+    case 1: return 'completed'
+    case 2:
+    case 3: return 'failed'
+    default: return 'processing'
   }
 }
 
@@ -63,29 +75,28 @@ export async function getKieVideoStatus(
   apiKey: string,
   taskId: string
 ): Promise<KieVideoStatus> {
-  try {
-    const response = await axios.get(
-      `${KIE_API_BASE}/v1/video/status/${taskId}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        }
-      }
-    )
+  const response = await axios.get(
+    `${KIE_API_BASE}/api/v1/veo/record-info`,
+    {
+      params: { taskId },
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    },
+  )
 
-    const data = response.data?.data || response.data
-    
-    return {
-      status: data?.status || 'pending',
-      videoUrl: data?.videoUrl || data?.video_url,
-      thumbnailUrl: data?.thumbnailUrl || data?.thumbnail_url,
-      duration: data?.duration,
-      progress: data?.progress,
-      error: data?.error || data?.error_message
-    }
-  } catch (error: any) {
-    console.error('Kie.ai status check error:', error.response?.data || error.message)
-    throw new Error(error.response?.data?.message || 'Failed to check video status')
+  const result = response.data
+  if (result.code !== 200) {
+    throw new Error(result.msg || `Kie.ai API error code ${result.code}`)
+  }
+
+  const data = result.data
+  const status = mapVeoStatus(data.successFlag ?? 0)
+  const videoUrl = data.response?.resultUrls?.[0]
+
+  return {
+    status,
+    videoUrl,
+    error: data.errorMessage || undefined,
   }
 }

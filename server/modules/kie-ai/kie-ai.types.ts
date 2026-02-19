@@ -1,6 +1,9 @@
 /**
  * Kie.ai module types for image/video generation.
  * API: https://docs.kie.ai/
+ *
+ * Internal model names are mapped to Kie.ai API model identifiers
+ * in kie-ai.service.ts (MODEL_MAP).
  */
 
 export type KieModel =
@@ -23,7 +26,7 @@ export interface TextToImageRequest {
 export interface TextToVideoRequest {
   prompt: string;
   model: "kling-ai-video";
-  duration?: number; // seconds
+  duration?: number;
   aspectRatio?: "16:9" | "9:16";
 }
 
@@ -42,18 +45,4 @@ export interface GenerationJob {
   errorMessage?: string;
   createdAt: Date;
   completedAt?: Date;
-}
-
-export interface KieAiTaskResponse {
-  task_id: string;
-  status?: string;
-  [key: string]: unknown;
-}
-
-export interface KieAiJobStatusResponse {
-  task_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  result?: { url?: string; urls?: string[] };
-  error_message?: string;
-  [key: string]: unknown;
 }
