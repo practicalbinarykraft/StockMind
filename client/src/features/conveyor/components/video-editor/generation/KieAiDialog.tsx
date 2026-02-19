@@ -3,7 +3,7 @@
  * Поддерживает генерацию изображений, видео и image-to-video
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,67 +11,98 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/shared/ui/dialog'
-import { Button } from '@/shared/ui/button'
-import { Label } from '@/shared/ui/label'
-import { Textarea } from '@/shared/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
-import { Loader2, Sparkles } from 'lucide-react'
-import { useCompositionStore, selectProjectAspectRatio } from '../../../stores/composition'
-import type { KieModel } from '../../../types/layers'
+} from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { Label } from "@/shared/ui/label";
+import { Textarea } from "@/shared/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
+import { Loader2, Sparkles } from "lucide-react";
+import {
+  useCompositionStore,
+  selectProjectAspectRatio,
+} from "../../../stores/composition";
+import type { KieModel } from "../../../types/layers";
 
 interface KieAiDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  layerType: 'background' | 'overlay'
-  sceneId: string
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  layerType: "background" | "overlay";
+  sceneId: string;
 }
 
-export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDialogProps) {
-  const generateContent = useCompositionStore((state) => state.generateContent)
-  const projectAspectRatio = useCompositionStore(selectProjectAspectRatio)
-  
-  const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState<KieModel>('flux-pro')
-  const [generationType, setGenerationType] = useState<'image' | 'video'>('image')
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '2:3' | '3:4' | '4:5' | '3:2' | '4:3' | '5:4'>(projectAspectRatio)
-  const [resolution, setResolution] = useState<'1K' | '2K' | '4K'>('2K')
-  const [isGenerating, setIsGenerating] = useState(false)
+export function KieAiDialog({
+  open,
+  onOpenChange,
+  layerType,
+  sceneId,
+}: KieAiDialogProps) {
+  const generateContent = useCompositionStore((state) => state.generateContent);
+  const projectAspectRatio = useCompositionStore(selectProjectAspectRatio);
+
+  const [prompt, setPrompt] = useState("");
+  const [model, setModel] = useState<KieModel>("flux-pro");
+  const [generationType, setGenerationType] = useState<"image" | "video">(
+    "image",
+  );
+  const [aspectRatio, setAspectRatio] = useState<
+    "16:9" | "9:16" | "1:1" | "2:3" | "3:4" | "4:5" | "3:2" | "4:3" | "5:4"
+  >(projectAspectRatio);
+  const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("2K");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setAspectRatio(projectAspectRatio)
+      setAspectRatio(projectAspectRatio);
     }
-  }, [open, projectAspectRatio])
+  }, [open, projectAspectRatio]);
 
-  const imageModels: KieModel[] = ['flux-pro', 'nano-banana-pro', 'recraft-v3', 'flux-schnell']
-  const videoModels: KieModel[] = ['kling-ai-video']
+  const imageModels: KieModel[] = [
+    "flux-pro",
+    "nano-banana-pro",
+    "recraft-v3",
+    "flux-schnell",
+  ];
+  const videoModels: KieModel[] = ["kling-ai-video"];
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return
+    if (!prompt.trim()) return;
 
-    setIsGenerating(true)
+    setIsGenerating(true);
     try {
-      await generateContent(sceneId, layerType, prompt, model, generationType, aspectRatio, resolution)
-      onOpenChange(false)
-      setPrompt('')
+      await generateContent(
+        sceneId,
+        layerType,
+        prompt,
+        model,
+        generationType,
+        aspectRatio,
+        resolution,
+      );
+      onOpenChange(false);
+      setPrompt("");
     } catch (error) {
-      console.error('Generation error:', error)
+      console.error("Generation error:", error);
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
 
-  const handleGenerationTypeChange = (type: 'image' | 'video') => {
-    setGenerationType(type)
+  const handleGenerationTypeChange = (type: "image" | "video") => {
+    setGenerationType(type);
     // Переключаем на соответствующую модель
-    if (type === 'video') {
-      setModel('kling-ai-video')
+    if (type === "video") {
+      setModel("kling-ai-video");
     } else {
-      setModel('flux-pro')
+      setModel("flux-pro");
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,7 +121,10 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
           {/* Тип генерации */}
           <div className="space-y-3">
             <Label>Тип контента</Label>
-            <RadioGroup value={generationType} onValueChange={handleGenerationTypeChange}>
+            <RadioGroup
+              value={generationType}
+              onValueChange={handleGenerationTypeChange}
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="image" id="type-image" />
                 <Label htmlFor="type-image" className="cursor-pointer">
@@ -124,21 +158,28 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
           {/* Модель */}
           <div className="space-y-3">
             <Label htmlFor="model">Модель</Label>
-            <Select value={model} onValueChange={(value) => setModel(value as KieModel)}>
+            <Select
+              value={model}
+              onValueChange={(value) => setModel(value as KieModel)}
+            >
               <SelectTrigger id="model">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {generationType === 'image' ? (
+                {generationType === "image" ? (
                   <>
-                    <SelectItem value="flux-pro">Flux Pro (Высокое качество)</SelectItem>
-                    <SelectItem value="nano-banana-pro">Nano Banana Pro (Быстро)</SelectItem>
-                    <SelectItem value="recraft-v3">Recraft V3 (Стильно)</SelectItem>
-                    <SelectItem value="flux-schnell">Flux Schnell (Очень быстро)</SelectItem>
+                    <SelectItem value="nano-banana-pro">
+                      Nano Banana Pro (Быстро)
+                    </SelectItem>
+                    <SelectItem value="recraft-v3">
+                      Recraft V3 (Стильно)
+                    </SelectItem>
                   </>
                 ) : (
                   <>
-                    <SelectItem value="kling-ai-video">Kling AI Video</SelectItem>
+                    <SelectItem value="kling-ai-video">
+                      Kling AI Video
+                    </SelectItem>
                   </>
                 )}
               </SelectContent>
@@ -146,20 +187,29 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
           </div>
 
           {/* Aspect Ratio (только для изображений) */}
-          {generationType === 'image' && (
+          {generationType === "image" && (
             <div className="space-y-3">
               <Label htmlFor="aspect-ratio">Соотношение сторон</Label>
-              <Select value={aspectRatio} onValueChange={(value) => setAspectRatio(value as any)}>
+              <Select
+                value={aspectRatio}
+                onValueChange={(value) => setAspectRatio(value as any)}
+              >
                 <SelectTrigger id="aspect-ratio">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="9:16">9:16 (Вертикально — Reels/Shorts)</SelectItem>
+                  <SelectItem value="9:16">
+                    9:16 (Вертикально — Reels/Shorts)
+                  </SelectItem>
                   <SelectItem value="3:4">3:4 (Вертикально)</SelectItem>
                   <SelectItem value="2:3">2:3 (Вертикально)</SelectItem>
-                  <SelectItem value="4:5">4:5 (Вертикально — Instagram)</SelectItem>
+                  <SelectItem value="4:5">
+                    4:5 (Вертикально — Instagram)
+                  </SelectItem>
                   <SelectItem value="1:1">1:1 (Квадрат)</SelectItem>
-                  <SelectItem value="16:9">16:9 (Горизонтально — YouTube)</SelectItem>
+                  <SelectItem value="16:9">
+                    16:9 (Горизонтально — YouTube)
+                  </SelectItem>
                   <SelectItem value="4:3">4:3 (Горизонтально)</SelectItem>
                   <SelectItem value="3:2">3:2 (Горизонтально)</SelectItem>
                   <SelectItem value="5:4">5:4 (Горизонтально)</SelectItem>
@@ -172,10 +222,15 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
           )}
 
           {/* Разрешение (только для изображений) */}
-          {generationType === 'image' && (
+          {generationType === "image" && (
             <div className="space-y-3">
               <Label htmlFor="resolution">Разрешение</Label>
-              <Select value={resolution} onValueChange={(value) => setResolution(value as '1K' | '2K' | '4K')}>
+              <Select
+                value={resolution}
+                onValueChange={(value) =>
+                  setResolution(value as "1K" | "2K" | "4K")
+                }
+              >
                 <SelectTrigger id="resolution">
                   <SelectValue />
                 </SelectTrigger>
@@ -190,10 +245,17 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isGenerating}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isGenerating}
+          >
             Отмена
           </Button>
-          <Button onClick={handleGenerate} disabled={!prompt.trim() || isGenerating}>
+          <Button
+            onClick={handleGenerate}
+            disabled={!prompt.trim() || isGenerating}
+          >
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -209,5 +271,5 @@ export function KieAiDialog({ open, onOpenChange, layerType, sceneId }: KieAiDia
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
