@@ -472,31 +472,95 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 text-xs"
-                onClick={() => {
-                  updateOverlayLayer(currentScene.id, {
-                    position: { x: 0, y: 0, width: 100, height: 100 },
-                  })
-                }}
-              >
-                На весь экран
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 text-xs"
-                onClick={() => {
-                  updateOverlayLayer(currentScene.id, {
-                    position: { x: 25, y: 25, width: 50, height: 50 },
-                  })
-                }}
-              >
-                По центру
-              </Button>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Пресеты</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    updateOverlayLayer(currentScene.id, {
+                      position: { x: 0, y: 0, width: 100, height: 100 },
+                    })
+                  }}
+                >
+                  Весь экран
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    updateOverlayLayer(currentScene.id, {
+                      position: { x: 25, y: 25, width: 50, height: 50 },
+                    })
+                  }}
+                >
+                  По центру
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    updateOverlayLayer(currentScene.id, {
+                      position: { x: 0, y: 0, width: 100, height: 50 },
+                    })
+                  }}
+                >
+                  Верх 50%
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    updateOverlayLayer(currentScene.id, {
+                      position: { x: 0, y: 50, width: 100, height: 50 },
+                    })
+                  }}
+                >
+                  Низ 50%
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    updateOverlayLayer(currentScene.id, {
+                      position: { x: 0, y: 0, width: 100, height: 33 },
+                    })
+                  }}
+                >
+                  Верх 33%
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    updateOverlayLayer(currentScene.id, {
+                      position: { x: 0, y: 67, width: 100, height: 33 },
+                    })
+                  }}
+                >
+                  Низ 33%
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="col-span-2 text-xs h-7"
+                  onClick={() => {
+                    const pos = overlayLayer.position ?? { x: 25, y: 25, width: 50, height: 50 }
+                    updateOverlayLayer(currentScene.id, {
+                      position: { ...pos, x: 0, width: 100 },
+                    })
+                  }}
+                >
+                  На всю ширину
+                </Button>
+              </div>
             </div>
           </div>
         )}
