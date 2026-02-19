@@ -90,21 +90,26 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
   const { scene, sceneStartFrame } = currentSceneData;
   const sceneFrame = frame - sceneStartFrame;
 
-  const showGlobalAvatarBg = globalAvatarBg && scene.layers.background?.contentType === 'avatar';
-  const showGlobalAvatarOverlay = globalAvatarOverlay && scene.layers.overlay?.contentType === 'avatar';
+  const sceneUsesAvatarBg = scene.layers.background?.contentType === 'avatar';
+  const sceneUsesAvatarOverlay = scene.layers.overlay?.contentType === 'avatar';
 
   return (
     <AbsoluteFill style={{ backgroundColor }}>
-      {/* Единый непрерывный видео-аватар (background) — НЕ пересоздаётся при смене сцен.
-          Скрываем через display:none если текущая сцена не использует avatar,
-          чтобы Video-элемент оставался смонтированным. */}
+      {/* Единый непрерывный видео-аватар (background) — всегда смонтирован,
+          чтобы видео не пересоздавалось при смене сцен.
+          Для не-аватарных сцен перекрываем непрозрачным фоном сверху. */}
       {globalAvatarBg && (
-        <AbsoluteFill style={showGlobalAvatarBg ? undefined : { display: 'none' }}>
+        <AbsoluteFill>
           <Video
             src={globalAvatarBg}
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </AbsoluteFill>
+      )}
+
+      {/* Перекрытие: скрывает глобальный аватар для сцен с другим contentType */}
+      {globalAvatarBg && !sceneUsesAvatarBg && (
+        <AbsoluteFill style={{ backgroundColor }} />
       )}
 
       {/* Контент текущей сцены (слои, кроме вынесенного аватара) */}
@@ -114,11 +119,11 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         width={width}
         height={height}
         videoStartFrame={sceneStartFrame}
-        skipAvatarBg={!!showGlobalAvatarBg}
-        skipAvatarOverlay={!!showGlobalAvatarOverlay}
+        skipAvatarBg={!!(globalAvatarBg && sceneUsesAvatarBg)}
+        skipAvatarOverlay={!!(globalAvatarOverlay && sceneUsesAvatarOverlay)}
       />
 
-      {/* Единый непрерывный видео-аватар (overlay) — НЕ пересоздаётся при смене сцен */}
+      {/* Единый непрерывный видео-аватар (overlay) — всегда смонтирован */}
       {globalAvatarOverlay && (
         <div
           style={{
@@ -128,7 +133,7 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
             width: (globalAvatarOverlay.position.width / 100) * width,
             height: (globalAvatarOverlay.position.height / 100) * height,
             zIndex: 1,
-            display: showGlobalAvatarOverlay ? undefined : 'none',
+            visibility: sceneUsesAvatarOverlay ? 'visible' : 'hidden',
           }}
         >
           <Video
