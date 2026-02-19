@@ -16,6 +16,7 @@ import { Slider } from '@/shared/ui/slider'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
+import { getProxiedVideoUrl } from '../../../utils/media-proxy'
 import type { ContentType } from '../../../types/layers'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 
@@ -278,15 +279,25 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
         )}
 
         {/* Превью background */}
-        {backgroundLayer?.sourceUrl && !backgroundLayer.generationStatus && (
-          <div className="aspect-video rounded-md overflow-hidden border">
-            {backgroundLayer.contentType === 'video' || backgroundLayer.contentType === 'avatar' ? (
-              <video src={backgroundLayer.sourceUrl} className="w-full h-full object-cover" controls />
-            ) : (
-              <img src={backgroundLayer.sourceUrl} alt="Background" className="w-full h-full object-cover" />
-            )}
-          </div>
-        )}
+        {(() => {
+          const avatarUrl = bgContentType === 'avatar' ? getProxiedVideoUrl(media?.videoUrl) : undefined
+          const previewUrl = backgroundLayer?.sourceUrl || avatarUrl
+          if (!previewUrl || backgroundLayer?.generationStatus) return null
+          return (
+            <div className="aspect-video rounded-md overflow-hidden border">
+              {bgContentType === 'video' || bgContentType === 'avatar' ? (
+                <video
+                  src={previewUrl}
+                  className={`w-full h-full ${bgContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
+                  controls
+                  muted
+                />
+              ) : (
+                <img src={previewUrl} alt="Background" className="w-full h-full object-cover" />
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       <div className="relative py-1">
@@ -388,15 +399,25 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
         )}
 
         {/* Превью overlay */}
-        {overlayLayer?.sourceUrl && !overlayLayer.generationStatus && (
-          <div className="aspect-video rounded-md overflow-hidden border">
-            {overlayLayer.contentType === 'video' || overlayLayer.contentType === 'avatar' ? (
-              <video src={overlayLayer.sourceUrl} className="w-full h-full object-cover" controls />
-            ) : (
-              <img src={overlayLayer.sourceUrl} alt="Overlay" className="w-full h-full object-cover" />
-            )}
-          </div>
-        )}
+        {(() => {
+          const avatarUrl = olContentType === 'avatar' ? getProxiedVideoUrl(media?.videoUrl) : undefined
+          const previewUrl = overlayLayer?.sourceUrl || avatarUrl
+          if (!previewUrl || overlayLayer?.generationStatus) return null
+          return (
+            <div className="aspect-video rounded-md overflow-hidden border">
+              {olContentType === 'video' || olContentType === 'avatar' ? (
+                <video
+                  src={previewUrl}
+                  className={`w-full h-full ${olContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
+                  controls
+                  muted
+                />
+              ) : (
+                <img src={previewUrl} alt="Overlay" className="w-full h-full object-cover" />
+              )}
+            </div>
+          )
+        })()}
 
         {/* Позиция и размер overlay */}
         {overlayLayer && (
