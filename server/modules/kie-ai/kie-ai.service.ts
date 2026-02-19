@@ -1,5 +1,7 @@
 import { logger } from "../../lib/logger";
 import { StorageRepo } from "../storage/storage.repo";
+import { apiKeysService } from "../api-keys/api-keys.service";
+import { ApiKeyNotFoundError } from "../api-keys/api-keys.errors";
 import type {
   TextToImageRequest,
   TextToVideoRequest,
@@ -26,12 +28,16 @@ const MODEL_MAP: Record<KieModel, string> = {
   "kling-ai-i2v": "kling-2.6/image-to-video",
 };
 
-function getApiKey(): string {
-  const key = process.env.KIE_AI_API_KEY;
-  if (!key) {
-    throw new Error("KIE_AI_API_KEY is not set");
+async function resolveApiKey(userId: string): Promise<string> {
+  try {
+    const keyRecord = await apiKeysService.getUserApiKey(userId, "kieai");
+    return keyRecord.decryptedKey;
+  } catch (e) {
+    if (e instanceof ApiKeyNotFoundError) {
+      throw new Error("Kie.ai API key not found. Please add your key in Settings → API Keys.");
+    }
+    throw e;
   }
-  return key;
 }
 
 interface KieApiResponse<T = unknown> {
@@ -41,10 +47,10 @@ interface KieApiResponse<T = unknown> {
 }
 
 async function kieRequest<T>(
+  apiKey: string,
   path: string,
   options: { method: string; body?: object },
 ): Promise<KieApiResponse<T>> {
-  const apiKey = getApiKey();
   const url = `${KIE_AI_BASE}${path}`;
   const res = await fetch(url, {
     method: options.method,
@@ -85,11 +91,8 @@ export async function saveToR2(
 }
 
 export const kieAiService = {
-  async generateImage(request: TextToImageRequest): Promise<GenerationJob> {
-    if (!process.env.KIE_AI_API_KEY) {
-      throw new Error("KIE_AI_API_KEY is not configured. Cannot generate images.");
-    }
-
+  async generateImage(userId: string, request: TextToImageRequest): Promise<GenerationJob> {
+    const apiKey = await resolveApiKey(userId);
     const apiModel = resolveModel(request.model);
     const input: Record<string, unknown> = {
       prompt: request.prompt,
@@ -99,6 +102,7 @@ export const kieAiService = {
     }
 
     const result = await kieRequest<{ taskId: string }>(
+      apiKey,
       "/api/v1/jobs/createTask",
       {
         method: "POST",
@@ -114,11 +118,8 @@ export const kieAiService = {
     };
   },
 
-  async generateVideo(request: TextToVideoRequest): Promise<GenerationJob> {
-    if (!process.env.KIE_AI_API_KEY) {
-      throw new Error("KIE_AI_API_KEY is not configured. Cannot generate videos.");
-    }
-
+  async generateVideo(userId: string, request: TextToVideoRequest): Promise<GenerationJob> {
+    const apiKey = await resolveApiKey(userId);
     const apiModel = resolveModel(request.model as KieModel);
     const input: Record<string, unknown> = {
       prompt: request.prompt,
@@ -130,6 +131,7 @@ export const kieAiService = {
     }
 
     const result = await kieRequest<{ taskId: string }>(
+      apiKey,
       "/api/v1/jobs/createTask",
       {
         method: "POST",
@@ -145,11 +147,8 @@ export const kieAiService = {
     };
   },
 
-  async imageToVideo(request: ImageToVideoRequest): Promise<GenerationJob> {
-    if (!process.env.KIE_AI_API_KEY) {
-      throw new Error("KIE_AI_API_KEY is not configured. Cannot convert image to video.");
-    }
-
+  async imageToVideo(userId: string, request: ImageToVideoRequest): Promise<GenerationJob> {
+    const apiKey = await resolveApiKey(userId);
     const apiModel = resolveModel(request.model as KieModel);
     const input: Record<string, unknown> = {
       image_url: request.imageUrl,
@@ -160,6 +159,7 @@ export const kieAiService = {
     }
 
     const result = await kieRequest<{ taskId: string }>(
+      apiKey,
       "/api/v1/jobs/createTask",
       {
         method: "POST",
@@ -175,17 +175,8 @@ export const kieAiService = {
     };
   },
 
-  async checkJobStatus(jobId: string): Promise<GenerationJob> {
-    if (!process.env.KIE_AI_API_KEY) {
-      return {
-        id: jobId,
-        type: "image",
-        status: "failed",
-        errorMessage: "KIE_AI_API_KEY is not configured",
-        createdAt: new Date(),
-        completedAt: new Date(),
-      };
-    }
+  async checkJobStatus(userId: string, jobId: string): Promise<GenerationJob> {
+    const apiKey = await resolveApiKey(userId);
 
     try {
       const result = await kieRequest<{
@@ -195,7 +186,7 @@ export const kieAiService = {
         resultJson?: string;
         failCode?: string;
         failMsg?: string;
-      }>(`/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(jobId)}`, {
+      }>(apiKey, `/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(jobId)}`, {
         method: "GET",
       });
 

@@ -36,7 +36,7 @@ export const kieAiController = {
       if (!userId) return apiResponse.unauthorized(res);
 
       const body = TextToImageBodyDto.parse(req.body);
-      const job = await kieAiService.generateImage({
+      const job = await kieAiService.generateImage(userId, {
         prompt: body.prompt,
         model: body.model,
         aspectRatio: body.aspectRatio,
@@ -56,7 +56,7 @@ export const kieAiController = {
       if (!userId) return apiResponse.unauthorized(res);
 
       const body = TextToVideoBodyDto.parse(req.body);
-      const job = await kieAiService.generateVideo({
+      const job = await kieAiService.generateVideo(userId, {
         prompt: body.prompt,
         model: body.model,
         duration: body.duration,
@@ -76,7 +76,7 @@ export const kieAiController = {
       if (!userId) return apiResponse.unauthorized(res);
 
       const body = ImageToVideoBodyDto.parse(req.body);
-      const job = await kieAiService.imageToVideo({
+      const job = await kieAiService.imageToVideo(userId, {
         imageUrl: body.imageUrl,
         prompt: body.prompt,
         model: body.model,
@@ -96,7 +96,7 @@ export const kieAiController = {
       if (!userId) return apiResponse.unauthorized(res);
 
       const { jobId } = JobIdParamDto.parse(req.params);
-      const job = await kieAiService.checkJobStatus(jobId);
+      const job = await kieAiService.checkJobStatus(userId, jobId);
       return apiResponse.ok(res, job);
     } catch (e: any) {
       logger.error("kie-ai getJobStatus", { error: e.message });
