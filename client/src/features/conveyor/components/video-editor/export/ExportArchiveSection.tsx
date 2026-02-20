@@ -25,48 +25,22 @@ export function ExportArchiveSection({
 
   const hasAudio = !!media?.audioUrl;
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     setIsDownloading(true);
-    try {
-      const response = await fetch(`/api/scripts/${scriptId}/export/archive`, {
-        credentials: "include",
-      });
 
-      if (!response.ok) {
-        throw new Error(`Ошибка сервера: ${response.status}`);
-      }
+    const link = document.createElement("a");
+    link.href = `/api/scripts/${scriptId}/export/archive`;
+    link.download = `script-${scriptId}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
+    toast({
+      title: "Скачивание начато",
+      description: "ZIP-архив формируется и скачивается. Это может занять некоторое время.",
+    });
 
-      const disposition = response.headers.get("Content-Disposition");
-      const filenameMatch = disposition?.match(/filename="?(.+?)"?$/);
-      link.download = filenameMatch?.[1] || `script-${scriptId}.zip`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Архив скачан",
-        description: "ZIP-архив с контентом сцен сохранён.",
-      });
-    } catch (error) {
-      console.error("Error downloading archive:", error);
-      toast({
-        title: "Ошибка скачивания",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Не удалось скачать архив.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDownloading(false);
-    }
+    setTimeout(() => setIsDownloading(false), 5000);
   };
 
   return (
