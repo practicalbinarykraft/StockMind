@@ -1,5 +1,6 @@
 import archiver from "archiver";
 import type { Writable } from "stream";
+import axios from "axios";
 import { logger } from "../../lib/logger";
 import { sceneLayersService } from "../scene-layers/scene-layers.service";
 import { scriptsMediaService } from "../scripts-media/scripts-media.service";
@@ -27,20 +28,59 @@ function getExtensionFromUrl(url: string): string {
   return "bin";
 }
 
-async function fetchBufferFromUrl(url: string, context?: string): Promise<Buffer | null> {
+function isR2Url(url: string): boolean {
+  try {
+    const endpoint = process.env.R2_ENDPOINT;
+    if (!endpoint) return false;
+    const r2Host = new URL(endpoint).hostname;
+    const urlHost = new URL(url).hostname;
+    return urlHost === r2Host;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchBufferFromR2(url: string, context?: string): Promise<Buffer | null> {
   const key = storageService.extractKeyFromUrl(url);
   if (!key) {
-    logger.warn("[ContentExport] Cannot extract key from URL, skipping", { url, context });
+    logger.warn("[ContentExport] Cannot extract R2 key from URL, skipping", { url, context });
     return null;
   }
   try {
     const buf = await storageService.getFileBuffer(key);
-    logger.info("[ContentExport] Fetched file", { key, size: buf.length, context });
+    logger.info("[ContentExport] Fetched file from R2", { key, size: buf.length, context });
     return buf;
   } catch (error) {
-    logger.warn("[ContentExport] Failed to fetch file from storage, skipping", { key, error, context });
+    logger.warn("[ContentExport] Failed to fetch file from R2, skipping", { key, error, context });
     return null;
   }
+}
+
+async function fetchBufferFromHttp(url: string, context?: string): Promise<Buffer | null> {
+  try {
+    const response = await axios.get(url, {
+      responseType: "arraybuffer",
+      timeout: 60_000,
+      maxContentLength: 500 * 1024 * 1024,
+    });
+    const buf = Buffer.from(response.data);
+    logger.info("[ContentExport] Fetched file via HTTP", { url: url.slice(0, 120), size: buf.length, context });
+    return buf;
+  } catch (error: any) {
+    logger.warn("[ContentExport] Failed to fetch file via HTTP, skipping", {
+      url: url.slice(0, 120),
+      error: error.message,
+      context,
+    });
+    return null;
+  }
+}
+
+async function fetchBufferFromUrl(url: string, context?: string): Promise<Buffer | null> {
+  if (isR2Url(url)) {
+    return fetchBufferFromR2(url, context);
+  }
+  return fetchBufferFromHttp(url, context);
 }
 
 export const contentExportService = {
