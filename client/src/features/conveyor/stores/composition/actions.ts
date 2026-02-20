@@ -303,6 +303,7 @@ export const createLayerActions: StateCreator<
         })
       } else {
         const existing = scene.layers.overlay || createDefaultOverlayLayer(sceneId, scriptId)
+        const srcOverlay = sourceScene.layers.overlay
         newScenes.set(sceneId, {
           ...scene,
           layers: {
@@ -314,6 +315,9 @@ export const createLayerActions: StateCreator<
               generationStatus: undefined,
               generationJobId: undefined,
               generationPrompt: sourceLayer.generationPrompt,
+              position: srcOverlay?.position ?? existing.position,
+              objectFit: srcOverlay?.objectFit ?? existing.objectFit,
+              aspectLock: srcOverlay?.aspectLock ?? existing.aspectLock,
               metadata: { ...(existing.metadata || {}), ...videoMeta },
             },
           },
