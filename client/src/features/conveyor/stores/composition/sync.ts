@@ -3,7 +3,7 @@
  */
 
 import type { StateCreator } from 'zustand'
-import type { LayerType } from '../../types/layers'
+import type { LayerType, ContentType, BackgroundLayer, OverlayLayer } from '../../types/layers'
 import type { CompositionStore } from './types'
 import { layersService } from '../../services/layers'
 
@@ -101,11 +101,27 @@ function calculateDuration(text: string): number {
   return Math.ceil(sec * FPS)
 }
 
+function getVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src)
+      resolve(video.duration)
+    }
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src)
+      reject(new Error('Failed to load video metadata'))
+    }
+    video.src = URL.createObjectURL(file)
+  })
+}
+
 export const createSyncActions: StateCreator<
   CompositionStore,
   [],
   [],
-  Pick<CompositionStore, 'loadScript' | 'generateContent' | 'uploadFile'>
+  Pick<CompositionStore, 'loadScript' | 'generateContent' | 'uploadFile' | 'uploadFileToAllScenes'>
 > = (set, get) => ({
   loadScript: async (scriptId: string) => {
     set({ isLoading: true, error: null, scriptId })
@@ -309,5 +325,115 @@ export const createSyncActions: StateCreator<
       console.error('Upload failed:', error)
       throw error
     }
+  },
+
+  uploadFileToAllScenes: async (layerType: 'background' | 'overlay', file: File) => {
+    const { scriptId, currentSceneId } = get()
+    if (!scriptId || !currentSceneId) throw new Error('Script ID or Scene ID not set')
+
+    const currentScene = get().scenes.get(currentSceneId)
+    if (!currentScene) throw new Error('Current scene not found')
+
+    const layer = layerType === 'background'
+      ? currentScene.layers.background
+      : currentScene.layers.overlay
+    if (!layer) throw new Error('Layer not found')
+
+    const { sourceUrl } = await layersService.uploadLayerFile(scriptId, layer.id, file, layerType)
+
+    const isVideo = file.type.startsWith('video/')
+    const contentType: ContentType = isVideo ? 'video' : 'image'
+
+    let videoDuration: number | undefined
+    if (isVideo) {
+      try {
+        videoDuration = await getVideoDuration(file)
+      } catch {
+        // Продолжаем без метаданных тайминга
+      }
+    }
+
+    const sortedScenes = Array.from(get().scenes.values()).sort((a, b) => a.order - b.order)
+    const totalScenesDuration = sortedScenes.reduce((sum, s) => sum + s.durationInFrames / FPS, 0)
+    const effectiveVideoDuration = videoDuration
+      ? Math.min(videoDuration, totalScenesDuration)
+      : undefined
+
+    const newScenes = new Map(get().scenes)
+    let currentOffset = 0
+
+    for (const scene of sortedScenes) {
+      const sceneDurationSec = scene.durationInFrames / FPS
+      const existingScene = newScenes.get(scene.id)!
+
+      const timingMeta: Record<string, any> = {}
+      if (isVideo && effectiveVideoDuration !== undefined) {
+        const endTime = Math.min(currentOffset + sceneDurationSec, effectiveVideoDuration)
+        timingMeta.videoStartTime = currentOffset
+        timingMeta.videoEndTime = endTime
+        currentOffset = endTime
+      }
+
+      if (layerType === 'background') {
+        const existing = existingScene.layers.background
+        const base: BackgroundLayer = existing || {
+          id: `bg-${scene.id}`,
+          sceneId: scene.id,
+          scriptId,
+          layerType: 'background',
+          order: 0,
+          isVisible: true,
+          contentType,
+        }
+        newScenes.set(scene.id, {
+          ...existingScene,
+          layers: {
+            ...existingScene.layers,
+            background: {
+              ...base,
+              contentType,
+              sourceUrl,
+              generationStatus: undefined,
+              generationJobId: undefined,
+              metadata: { ...(existing?.metadata || {}), ...timingMeta },
+            },
+          },
+        })
+      } else {
+        const existing = existingScene.layers.overlay
+        const base: OverlayLayer = existing || {
+          id: `ol-${scene.id}`,
+          sceneId: scene.id,
+          scriptId,
+          layerType: 'overlay',
+          order: 1,
+          isVisible: true,
+          contentType,
+          position: { x: 25, y: 25, width: 50, height: 50 },
+          objectFit: 'contain',
+          aspectLock: true,
+        }
+        newScenes.set(scene.id, {
+          ...existingScene,
+          layers: {
+            ...existingScene.layers,
+            overlay: {
+              ...base,
+              contentType,
+              sourceUrl,
+              generationStatus: undefined,
+              generationJobId: undefined,
+              metadata: { ...(existing?.metadata || {}), ...timingMeta },
+            },
+          },
+        })
+      }
+    }
+
+    set({
+      scenes: newScenes,
+      past: [...get().past, Array.from(get().scenes.values())],
+      future: [],
+    })
   },
 })

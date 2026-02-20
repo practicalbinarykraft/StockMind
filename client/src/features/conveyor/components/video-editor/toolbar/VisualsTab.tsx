@@ -5,13 +5,13 @@
 
 import { useState } from 'react'
 import { useLocation } from 'wouter'
-import { useCompositionStore, selectCurrentScene } from '../../../stores/composition'
+import { useCompositionStore, selectCurrentScene, selectScenesCount } from '../../../stores/composition'
 import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize } from 'lucide-react'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize, Copy } from 'lucide-react'
 import { Slider } from '@/shared/ui/slider'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
@@ -32,6 +32,9 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
   const updateBackgroundLayer = useCompositionStore((state) => state.updateBackgroundLayer)
   const updateOverlayLayer = useCompositionStore((state) => state.updateOverlayLayer)
   const uploadFile = useCompositionStore((state) => state.uploadFile)
+  const applyLayerToAllScenes = useCompositionStore((state) => state.applyLayerToAllScenes)
+  const uploadFileToAllScenes = useCompositionStore((state) => state.uploadFileToAllScenes)
+  const scenesCount = useCompositionStore(selectScenesCount)
   const { toast } = useToast()
 
   const [showGenerationDialog, setShowGenerationDialog] = useState(false)
@@ -157,6 +160,46 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
       title: 'Слои переключены',
       description: 'Контент фонового и overlay слоёв поменялся местами',
     })
+  }
+
+  const handleApplyToAllScenes = (layerType: 'background' | 'overlay') => {
+    applyLayerToAllScenes(currentScene.id, layerType)
+    const layer = layerType === 'background' ? backgroundLayer : overlayLayer
+    const count = scenesCount - 1
+    toast({
+      title: 'Применено ко всем сценам',
+      description: `${layer?.contentType === 'video' ? 'Видео' : 'Изображение'} скопировано на ${count} ${count === 1 ? 'сцену' : count < 5 ? 'сцены' : 'сцен'}`,
+    })
+  }
+
+  const handleUploadToAllScenes = async (layerType: 'background' | 'overlay') => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,video/*'
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      try {
+        await uploadFileToAllScenes(layerType, file)
+        toast({
+          title: 'Файл загружен на все сцены',
+          description: file.type.startsWith('video/')
+            ? 'Видео распределено по сценам с учётом их длительности'
+            : 'Изображение применено ко всем сценам',
+        })
+      } catch (error) {
+        console.error('Upload to all scenes failed:', error)
+        toast({
+          title: 'Ошибка загрузки',
+          description: error instanceof Error ? error.message : 'Не удалось загрузить файл на все сцены',
+          variant: 'destructive',
+        })
+      }
+    }
+
+    input.click()
   }
 
   const bgContentType = backgroundLayer?.contentType || 'image'
@@ -299,6 +342,32 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             </div>
           )
         })()}
+
+        {/* Кнопки для всех сцен — background */}
+        {bgContentType !== 'avatar' && scenesCount > 1 && (
+          <div className="space-y-2">
+            {backgroundLayer?.sourceUrl && !backgroundLayer?.generationStatus && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => handleApplyToAllScenes('background')}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Применить ко всем сценам
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => handleUploadToAllScenes('background')}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Загрузить на все сцены
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="relative py-1">
@@ -420,6 +489,32 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             </div>
           )
         })()}
+
+        {/* Кнопки для всех сцен — overlay */}
+        {olContentType !== 'avatar' && scenesCount > 1 && (
+          <div className="space-y-2">
+            {overlayLayer?.sourceUrl && !overlayLayer?.generationStatus && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => handleApplyToAllScenes('overlay')}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Применить ко всем сценам
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => handleUploadToAllScenes('overlay')}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Загрузить на все сцены
+            </Button>
+          </div>
+        )}
 
         {/* Позиция и размер overlay */}
         {overlayLayer && (

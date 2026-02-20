@@ -194,6 +194,7 @@ export const createLayerActions: StateCreator<
     | 'setCompositionMode'
     | 'updateSplitSettings'
     | 'updateOverlayPosition'
+    | 'applyLayerToAllScenes'
   >
 > = (set, get) => ({
   updateBackgroundLayer: (sceneId: string, updates: Partial<BackgroundLayer>) => {
@@ -260,5 +261,70 @@ export const createLayerActions: StateCreator<
           : undefined,
       },
     }))
+  },
+
+  applyLayerToAllScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => {
+    const { scenes, past, scriptId } = get()
+    const sourceScene = scenes.get(sourceSceneId)
+    if (!sourceScene || !scriptId) return
+
+    const sourceLayer = layerType === 'background'
+      ? sourceScene.layers.background
+      : sourceScene.layers.overlay
+    if (!sourceLayer?.sourceUrl) return
+
+    const FPS = 30
+    const newScenes = new Map(scenes)
+
+    Array.from(newScenes.entries()).forEach(([sceneId, scene]) => {
+      if (sceneId === sourceSceneId) return
+
+      const sceneDurationSec = scene.durationInFrames / FPS
+      const videoMeta = sourceLayer.contentType === 'video'
+        ? { videoStartTime: 0, videoEndTime: sceneDurationSec }
+        : {}
+
+      if (layerType === 'background') {
+        const existing = scene.layers.background || createDefaultBackgroundLayer(sceneId, scriptId)
+        newScenes.set(sceneId, {
+          ...scene,
+          layers: {
+            ...scene.layers,
+            background: {
+              ...existing,
+              contentType: sourceLayer.contentType,
+              sourceUrl: sourceLayer.sourceUrl,
+              generationStatus: undefined,
+              generationJobId: undefined,
+              generationPrompt: sourceLayer.generationPrompt,
+              metadata: { ...(existing.metadata || {}), ...videoMeta },
+            },
+          },
+        })
+      } else {
+        const existing = scene.layers.overlay || createDefaultOverlayLayer(sceneId, scriptId)
+        newScenes.set(sceneId, {
+          ...scene,
+          layers: {
+            ...scene.layers,
+            overlay: {
+              ...existing,
+              contentType: sourceLayer.contentType,
+              sourceUrl: sourceLayer.sourceUrl,
+              generationStatus: undefined,
+              generationJobId: undefined,
+              generationPrompt: sourceLayer.generationPrompt,
+              metadata: { ...(existing.metadata || {}), ...videoMeta },
+            },
+          },
+        })
+      }
+    })
+
+    set({
+      scenes: newScenes,
+      past: [...past, Array.from(scenes.values())],
+      future: [],
+    })
   },
 })

@@ -67,6 +67,10 @@ export interface CompositionActions {
   // Загрузка файлов
   uploadFile: (sceneId: string, layerType: LayerType, file: File) => Promise<void>
   
+  // Массовые операции со сценами
+  applyLayerToAllScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => void
+  uploadFileToAllScenes: (layerType: 'background' | 'overlay', file: File) => Promise<void>
+  
   // История
   undo: () => void
   redo: () => void
