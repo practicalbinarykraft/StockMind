@@ -11,7 +11,7 @@ import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize, Copy } from 'lucide-react'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize, Copy, Trash2, Plus, X } from 'lucide-react'
 import { Slider } from '@/shared/ui/slider'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
@@ -33,7 +33,10 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
   const updateOverlayLayer = useCompositionStore((state) => state.updateOverlayLayer)
   const uploadFile = useCompositionStore((state) => state.uploadFile)
   const applyLayerToAllScenes = useCompositionStore((state) => state.applyLayerToAllScenes)
+  const removeLayerFromOtherScenes = useCompositionStore((state) => state.removeLayerFromOtherScenes)
   const uploadFileToAllScenes = useCompositionStore((state) => state.uploadFileToAllScenes)
+  const removeLayer = useCompositionStore((state) => state.removeLayer)
+  const addLayer = useCompositionStore((state) => state.addLayer)
   const scenesCount = useCompositionStore(selectScenesCount)
   const { toast } = useToast()
 
@@ -172,6 +175,31 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
     })
   }
 
+  const handleRemoveFromOtherScenes = (layerType: 'background' | 'overlay') => {
+    removeLayerFromOtherScenes(currentScene.id, layerType)
+    const count = scenesCount - 1
+    toast({
+      title: 'Удалено с других сцен',
+      description: `Слой удалён с ${count} ${count === 1 ? 'сцены' : count < 5 ? 'сцен' : 'сцен'}`,
+    })
+  }
+
+  const handleRemoveLayer = (layerType: 'background' | 'overlay') => {
+    removeLayer(currentScene.id, layerType)
+    toast({
+      title: 'Слой удалён',
+      description: `${layerType === 'background' ? 'Фоновый' : 'Overlay'} слой удалён с текущей сцены`,
+    })
+  }
+
+  const handleAddLayer = (layerType: 'background' | 'overlay') => {
+    addLayer(currentScene.id, layerType)
+    toast({
+      title: 'Слой добавлен',
+      description: `${layerType === 'background' ? 'Фоновый' : 'Overlay'} слой добавлен на текущую сцену`,
+    })
+  }
+
   const handleUploadToAllScenes = async (layerType: 'background' | 'overlay') => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -240,285 +268,348 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
 
       {/* Background Layer */}
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Фоновый слой</h3>
-          <p className="text-sm text-muted-foreground">
-            Основной визуальный контент сцены
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Фоновый слой</h3>
+            <p className="text-sm text-muted-foreground">
+              Основной визуальный контент сцены
+            </p>
+          </div>
+          {backgroundLayer ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => handleRemoveLayer('background')}
+              title="Удалить слой"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
 
-        <div className="space-y-3">
-          <Label>Тип контента</Label>
-          <RadioGroup
-            value={bgContentType}
-            onValueChange={(value) => handleContentTypeChange('background', value as ContentType)}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="avatar" id="bg-avatar" />
-              <Label htmlFor="bg-avatar" className="flex items-center gap-2 cursor-pointer">
-                <User className="h-4 w-4" />
-                Аватар
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="image" id="bg-image" />
-              <Label htmlFor="bg-image" className="flex items-center gap-2 cursor-pointer">
-                <ImageIcon className="h-4 w-4" />
-                Изображение
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="video" id="bg-video" />
-              <Label htmlFor="bg-video" className="flex items-center gap-2 cursor-pointer">
-                <VideoIcon className="h-4 w-4" />
-                Видео
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {/* Кнопки действий — переключаются в зависимости от типа контента */}
-        {bgContentType === 'avatar' ? (
+        {!backgroundLayer ? (
           <Button
-            variant="default"
+            variant="outline"
             className="w-full"
-            onClick={handleNavigateToAvatar}
+            onClick={() => handleAddLayer('background')}
           >
-            <User className="h-4 w-4 mr-2" />
-            Выбрать аватар (HeyGen)
-            <ExternalLink className="h-3 w-3 ml-2" />
+            <Plus className="h-4 w-4 mr-2" />
+            Добавить фоновый слой
           </Button>
         ) : (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => handleGenerateClick('background')}
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Генерировать
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => handleUploadClick('background')}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Загрузить
-            </Button>
-          </div>
-        )}
-
-        {/* Статус генерации для background */}
-        {backgroundLayer?.generationStatus && (
-          <GenerationStatusCard
-            status={backgroundLayer.generationStatus}
-            jobId={backgroundLayer.generationJobId}
-            resultUrl={backgroundLayer.sourceUrl}
-            contentType={backgroundLayer.contentType}
-            layerType="background"
-            sceneId={currentScene.id}
-          />
-        )}
-
-        {/* Превью background */}
-        {(() => {
-          const avatarUrl = bgContentType === 'avatar' ? getProxiedVideoUrl(media?.videoUrl) : undefined
-          const previewUrl = backgroundLayer?.sourceUrl || avatarUrl
-          if (!previewUrl || backgroundLayer?.generationStatus) return null
-          return (
-            <div className="aspect-video rounded-md overflow-hidden border">
-              {bgContentType === 'video' || bgContentType === 'avatar' ? (
-                <video
-                  src={previewUrl}
-                  className={`w-full h-full ${bgContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
-                  controls
-                  muted
-                  preload="none"
-                />
-              ) : (
-                <img src={previewUrl} alt="Background" className="w-full h-full object-cover" />
-              )}
-            </div>
-          )
-        })()}
-
-        {/* Кнопки для всех сцен — background */}
-        {bgContentType !== 'avatar' && scenesCount > 1 && (
-          <div className="space-y-2">
-            {backgroundLayer?.sourceUrl && !backgroundLayer?.generationStatus && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => handleApplyToAllScenes('background')}
+          <>
+            <div className="space-y-3">
+              <Label>Тип контента</Label>
+              <RadioGroup
+                value={bgContentType}
+                onValueChange={(value) => handleContentTypeChange('background', value as ContentType)}
               >
-                <Copy className="h-4 w-4 mr-2" />
-                Применить ко всем сценам
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="avatar" id="bg-avatar" />
+                  <Label htmlFor="bg-avatar" className="flex items-center gap-2 cursor-pointer">
+                    <User className="h-4 w-4" />
+                    Аватар
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="image" id="bg-image" />
+                  <Label htmlFor="bg-image" className="flex items-center gap-2 cursor-pointer">
+                    <ImageIcon className="h-4 w-4" />
+                    Изображение
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="video" id="bg-video" />
+                  <Label htmlFor="bg-video" className="flex items-center gap-2 cursor-pointer">
+                    <VideoIcon className="h-4 w-4" />
+                    Видео
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {bgContentType === 'avatar' ? (
+              <Button
+                variant="default"
+                className="w-full"
+                onClick={handleNavigateToAvatar}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Выбрать аватар (HeyGen)
+                <ExternalLink className="h-3 w-3 ml-2" />
               </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleGenerateClick('background')}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Генерировать
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleUploadClick('background')}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Загрузить
+                </Button>
+              </div>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => handleUploadToAllScenes('background')}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Загрузить на все сцены
-            </Button>
-          </div>
+
+            {backgroundLayer?.generationStatus && (
+              <GenerationStatusCard
+                status={backgroundLayer.generationStatus}
+                jobId={backgroundLayer.generationJobId}
+                resultUrl={backgroundLayer.sourceUrl}
+                contentType={backgroundLayer.contentType}
+                layerType="background"
+                sceneId={currentScene.id}
+              />
+            )}
+
+            {(() => {
+              const avatarUrl = bgContentType === 'avatar' ? getProxiedVideoUrl(media?.videoUrl) : undefined
+              const previewUrl = backgroundLayer?.sourceUrl || avatarUrl
+              if (!previewUrl || backgroundLayer?.generationStatus) return null
+              return (
+                <div className="aspect-video rounded-md overflow-hidden border">
+                  {bgContentType === 'video' || bgContentType === 'avatar' ? (
+                    <video
+                      src={previewUrl}
+                      className={`w-full h-full ${bgContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
+                      controls
+                      muted
+                      preload="none"
+                    />
+                  ) : (
+                    <img src={previewUrl} alt="Background" className="w-full h-full object-cover" />
+                  )}
+                </div>
+              )
+            })()}
+
+            {bgContentType !== 'avatar' && scenesCount > 1 && (
+              <div className="space-y-2">
+                {backgroundLayer?.sourceUrl && !backgroundLayer?.generationStatus && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleApplyToAllScenes('background')}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Применить ко всем сценам
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveFromOtherScenes('background')}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Удалить со всех кроме текущей
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleUploadToAllScenes('background')}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Загрузить на все сцены
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       <div className="relative py-1">
         <Separator />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1.5 bg-background text-xs"
-            onClick={handleSwapLayers}
-          >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-            Поменять местами
-          </Button>
-        </div>
+        {backgroundLayer && overlayLayer && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 bg-background text-xs"
+              onClick={handleSwapLayers}
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              Поменять местами
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Overlay Layer */}
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Overlay слой</h3>
-          <p className="text-sm text-muted-foreground">
-            Дополнительный контент поверх фона
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Overlay слой</h3>
+            <p className="text-sm text-muted-foreground">
+              Дополнительный контент поверх фона
+            </p>
+          </div>
+          {overlayLayer ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => handleRemoveLayer('overlay')}
+              title="Удалить слой"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
 
-        <div className="space-y-3">
-          <Label>Тип контента</Label>
-          <RadioGroup
-            value={olContentType}
-            onValueChange={(value) => handleContentTypeChange('overlay', value as ContentType)}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="avatar" id="ol-avatar" />
-              <Label htmlFor="ol-avatar" className="flex items-center gap-2 cursor-pointer">
-                <User className="h-4 w-4" />
-                Аватар
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="image" id="ol-image" />
-              <Label htmlFor="ol-image" className="flex items-center gap-2 cursor-pointer">
-                <ImageIcon className="h-4 w-4" />
-                Изображение
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="video" id="ol-video" />
-              <Label htmlFor="ol-video" className="flex items-center gap-2 cursor-pointer">
-                <VideoIcon className="h-4 w-4" />
-                Видео
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {/* Кнопки действий — переключаются в зависимости от типа контента */}
-        {olContentType === 'avatar' ? (
+        {!overlayLayer ? (
           <Button
-            variant="default"
+            variant="outline"
             className="w-full"
-            onClick={handleNavigateToAvatar}
+            onClick={() => handleAddLayer('overlay')}
           >
-            <User className="h-4 w-4 mr-2" />
-            Выбрать аватар (HeyGen)
-            <ExternalLink className="h-3 w-3 ml-2" />
+            <Plus className="h-4 w-4 mr-2" />
+            Добавить overlay слой
           </Button>
         ) : (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => handleGenerateClick('overlay')}
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Генерировать
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => handleUploadClick('overlay')}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Загрузить
-            </Button>
-          </div>
-        )}
-
-        {/* Статус генерации для overlay */}
-        {overlayLayer?.generationStatus && (
-          <GenerationStatusCard
-            status={overlayLayer.generationStatus}
-            jobId={overlayLayer.generationJobId}
-            resultUrl={overlayLayer.sourceUrl}
-            contentType={overlayLayer.contentType}
-            layerType="overlay"
-            sceneId={currentScene.id}
-          />
-        )}
-
-        {/* Превью overlay */}
-        {(() => {
-          const avatarUrl = olContentType === 'avatar' ? getProxiedVideoUrl(media?.videoUrl) : undefined
-          const previewUrl = overlayLayer?.sourceUrl || avatarUrl
-          if (!previewUrl || overlayLayer?.generationStatus) return null
-          return (
-            <div className="aspect-video rounded-md overflow-hidden border">
-              {olContentType === 'video' || olContentType === 'avatar' ? (
-                <video
-                  src={previewUrl}
-                  className={`w-full h-full ${olContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
-                  controls
-                  muted
-                  preload="none"
-                />
-              ) : (
-                <img src={previewUrl} alt="Overlay" className="w-full h-full object-cover" />
-              )}
-            </div>
-          )
-        })()}
-
-        {/* Кнопки для всех сцен — overlay */}
-        {olContentType !== 'avatar' && scenesCount > 1 && (
-          <div className="space-y-2">
-            {overlayLayer?.sourceUrl && !overlayLayer?.generationStatus && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => handleApplyToAllScenes('overlay')}
+          <>
+            <div className="space-y-3">
+              <Label>Тип контента</Label>
+              <RadioGroup
+                value={olContentType}
+                onValueChange={(value) => handleContentTypeChange('overlay', value as ContentType)}
               >
-                <Copy className="h-4 w-4 mr-2" />
-                Применить ко всем сценам
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => handleUploadToAllScenes('overlay')}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Загрузить на все сцены
-            </Button>
-          </div>
-        )}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="avatar" id="ol-avatar" />
+                  <Label htmlFor="ol-avatar" className="flex items-center gap-2 cursor-pointer">
+                    <User className="h-4 w-4" />
+                    Аватар
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="image" id="ol-image" />
+                  <Label htmlFor="ol-image" className="flex items-center gap-2 cursor-pointer">
+                    <ImageIcon className="h-4 w-4" />
+                    Изображение
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="video" id="ol-video" />
+                  <Label htmlFor="ol-video" className="flex items-center gap-2 cursor-pointer">
+                    <VideoIcon className="h-4 w-4" />
+                    Видео
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
 
-        {/* Позиция и размер overlay */}
-        {overlayLayer && (
-          <div className="space-y-3 pt-2">
+            {olContentType === 'avatar' ? (
+              <Button
+                variant="default"
+                className="w-full"
+                onClick={handleNavigateToAvatar}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Выбрать аватар (HeyGen)
+                <ExternalLink className="h-3 w-3 ml-2" />
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleGenerateClick('overlay')}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Генерировать
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleUploadClick('overlay')}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Загрузить
+                </Button>
+              </div>
+            )}
+
+            {overlayLayer?.generationStatus && (
+              <GenerationStatusCard
+                status={overlayLayer.generationStatus}
+                jobId={overlayLayer.generationJobId}
+                resultUrl={overlayLayer.sourceUrl}
+                contentType={overlayLayer.contentType}
+                layerType="overlay"
+                sceneId={currentScene.id}
+              />
+            )}
+
+            {(() => {
+              const avatarUrl = olContentType === 'avatar' ? getProxiedVideoUrl(media?.videoUrl) : undefined
+              const previewUrl = overlayLayer?.sourceUrl || avatarUrl
+              if (!previewUrl || overlayLayer?.generationStatus) return null
+              return (
+                <div className="aspect-video rounded-md overflow-hidden border">
+                  {olContentType === 'video' || olContentType === 'avatar' ? (
+                    <video
+                      src={previewUrl}
+                      className={`w-full h-full ${olContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
+                      controls
+                      muted
+                      preload="none"
+                    />
+                  ) : (
+                    <img src={previewUrl} alt="Overlay" className="w-full h-full object-cover" />
+                  )}
+                </div>
+              )
+            })()}
+
+            {olContentType !== 'avatar' && scenesCount > 1 && (
+              <div className="space-y-2">
+                {overlayLayer?.sourceUrl && !overlayLayer?.generationStatus && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleApplyToAllScenes('overlay')}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Применить ко всем сценам
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveFromOtherScenes('overlay')}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Удалить со всех кроме текущей
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleUploadToAllScenes('overlay')}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Загрузить на все сцены
+                </Button>
+              </div>
+            )}
+            <div className="space-y-3 pt-2">
             <div className="flex items-center gap-2">
               <Move className="h-4 w-4 text-muted-foreground" />
               <Label className="text-sm font-medium">Позиция и размер</Label>
@@ -712,6 +803,7 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
 

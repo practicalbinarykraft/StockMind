@@ -195,6 +195,9 @@ export const createLayerActions: StateCreator<
     | 'updateSplitSettings'
     | 'updateOverlayPosition'
     | 'applyLayerToAllScenes'
+    | 'removeLayerFromOtherScenes'
+    | 'removeLayer'
+    | 'addLayer'
   >
 > = (set, get) => ({
   updateBackgroundLayer: (sceneId: string, updates: Partial<BackgroundLayer>) => {
@@ -329,6 +332,55 @@ export const createLayerActions: StateCreator<
       scenes: newScenes,
       past: [...past, Array.from(scenes.values())],
       future: [],
+    })
+  },
+
+  removeLayerFromOtherScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => {
+    const { scenes, past } = get()
+    const newScenes = new Map(scenes)
+
+    Array.from(newScenes.entries()).forEach(([sceneId, scene]) => {
+      if (sceneId === sourceSceneId) return
+
+      const updatedLayers = { ...scene.layers }
+      if (layerType === 'background') {
+        updatedLayers.background = undefined
+      } else {
+        updatedLayers.overlay = undefined
+      }
+
+      newScenes.set(sceneId, { ...scene, layers: updatedLayers })
+    })
+
+    set({
+      scenes: newScenes,
+      past: [...past, Array.from(scenes.values())],
+      future: [],
+    })
+  },
+
+  removeLayer: (sceneId: string, layerType: 'background' | 'overlay') => {
+    updateSceneHelper(get, set, sceneId, (scene) => {
+      const updatedLayers = { ...scene.layers }
+      if (layerType === 'background') {
+        updatedLayers.background = undefined
+      } else {
+        updatedLayers.overlay = undefined
+      }
+      return { ...scene, layers: updatedLayers }
+    })
+  },
+
+  addLayer: (sceneId: string, layerType: 'background' | 'overlay') => {
+    const { scriptId } = get()
+    updateSceneHelper(get, set, sceneId, (scene) => {
+      const updatedLayers = { ...scene.layers }
+      if (layerType === 'background') {
+        updatedLayers.background = createDefaultBackgroundLayer(sceneId, scriptId || '')
+      } else {
+        updatedLayers.overlay = createDefaultOverlayLayer(sceneId, scriptId || '')
+      }
+      return { ...scene, layers: updatedLayers }
     })
   },
 })
