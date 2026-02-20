@@ -435,7 +435,7 @@ export const createSyncActions: StateCreator<
     const scene = scenes.get(sceneId)
     if (!scene) return
 
-    const created = await layersService.createLayer(scriptId, sceneId, {
+    const response = await layersService.createLayer(scriptId, sceneId, {
       sceneId,
       scriptId,
       layerType,
@@ -443,33 +443,24 @@ export const createSyncActions: StateCreator<
       isVisible: true,
     })
 
+    // Backend возвращает { layers: [{ base, background?, overlay?, text? }, ...] }
+    // Находим созданный слой по layerType и приводим к плоскому формату
+    const allLayers = (response as any).layers || []
+    const createdRaw = allLayers.find((l: any) => l.base?.layerType === layerType)
+    const created = createdRaw ? flattenLayer(createdRaw) : response
+
     const newScenes = new Map(scenes)
     const updatedLayers = { ...scene.layers }
 
     if (layerType === 'background') {
       updatedLayers.background = {
-        id: created.id,
-        sceneId,
-        scriptId,
-        layerType: 'background',
-        order: 0,
-        isVisible: true,
-        contentType: 'image',
-        ...(created as any),
+        ...createDefaultBackgroundLayer(sceneId, scriptId),
+        ...created,
       } as BackgroundLayer
     } else {
       updatedLayers.overlay = {
-        id: created.id,
-        sceneId,
-        scriptId,
-        layerType: 'overlay',
-        order: 1,
-        isVisible: true,
-        contentType: 'image',
-        position: { x: 25, y: 25, width: 50, height: 50 },
-        objectFit: 'contain',
-        aspectLock: true,
-        ...(created as any),
+        ...createDefaultOverlayLayer(sceneId, scriptId),
+        ...created,
       } as OverlayLayer
     }
     newScenes.set(sceneId, { ...scene, layers: updatedLayers })
@@ -552,7 +543,11 @@ export const createSyncActions: StateCreator<
     const createdLayers = new Map<string, any>()
     for (const { sceneId, promise } of layerCreations) {
       try {
-        createdLayers.set(sceneId, await promise)
+        const response = await promise
+        // Backend возвращает { layers: [{ base, background?, overlay?, text? }, ...] }
+        const allLayers = response.layers || []
+        const raw = allLayers.find((l: any) => l.base?.layerType === layerType)
+        createdLayers.set(sceneId, raw ? flattenLayer(raw) : response)
       } catch (err) {
         console.error(`Failed to create layer for scene ${sceneId}:`, err)
       }
@@ -570,9 +565,9 @@ export const createSyncActions: StateCreator<
       if (!existing && createdLayers.has(sceneId)) {
         const created = createdLayers.get(sceneId)
         if (layerType === 'background') {
-          existing = { ...createDefaultBackgroundLayer(sceneId, scriptId), id: created.id }
+          existing = { ...createDefaultBackgroundLayer(sceneId, scriptId), ...created }
         } else {
-          existing = { ...createDefaultOverlayLayer(sceneId, scriptId), id: created.id }
+          existing = { ...createDefaultOverlayLayer(sceneId, scriptId), ...created }
         }
       }
 
