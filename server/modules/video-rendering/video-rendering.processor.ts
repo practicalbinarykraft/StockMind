@@ -31,6 +31,7 @@ export const renderProcessor = {
     if (!job) return;
 
     let tempOutputPath: string | null = null;
+    let tempPropsPath: string | null = null;
 
     try {
       // Обновляем статус на processing
@@ -57,6 +58,10 @@ export const renderProcessor = {
       const timestamp = Date.now();
       tempOutputPath = path.join(tempDir, `video-${request.scriptId}-${timestamp}.mp4`);
 
+      // Сохраняем props в файл, чтобы избежать проблем с shell-экранированием
+      tempPropsPath = path.join(tempDir, `props-${request.scriptId}-${timestamp}.json`);
+      await fs.writeFile(tempPropsPath, JSON.stringify(inputProps), 'utf-8');
+
       job.progress = 10;
       renderJobsStorage.setJob(jobId, job);
 
@@ -71,7 +76,7 @@ export const renderProcessor = {
         remotionEntry,
         'VideoEditor',
         `"${tempOutputPath}"`,
-        `--props='${JSON.stringify(inputProps)}'`,
+        `--props="${tempPropsPath}"`,
         `--width=${request.width ?? 1920}`,
         `--height=${request.height ?? 1080}`,
         `--fps=${request.fps ?? 30}`,
@@ -146,17 +151,20 @@ export const renderProcessor = {
       job.progress = 95;
       renderJobsStorage.setJob(jobId, job);
 
-      // Очистка временного файла
-      try {
-        await fs.unlink(tempOutputPath);
-        logger.info("Temporary file cleaned up", { jobId, path: tempOutputPath });
-      } catch (cleanupError: any) {
-        logger.warn("Failed to cleanup temporary file", { 
-          jobId, 
-          path: tempOutputPath,
-          error: cleanupError.message 
-        });
+      // Очистка временных файлов
+      for (const tmpFile of [tempOutputPath, tempPropsPath]) {
+        if (!tmpFile) continue;
+        try {
+          await fs.unlink(tmpFile);
+        } catch (cleanupError: any) {
+          logger.warn("Failed to cleanup temporary file", { 
+            jobId, 
+            path: tmpFile,
+            error: cleanupError.message 
+          });
+        }
       }
+      logger.info("Temporary files cleaned up", { jobId });
 
       // Обновляем задачу
       job.status = 'completed';
@@ -179,11 +187,10 @@ export const renderProcessor = {
         stack: error.stack,
       });
 
-      // Очистка временного файла при ошибке
-      if (tempOutputPath) {
-        try {
-          await fs.unlink(tempOutputPath);
-        } catch {}
+      // Очистка временных файлов при ошибке
+      for (const tmpFile of [tempOutputPath, tempPropsPath]) {
+        if (!tmpFile) continue;
+        try { await fs.unlink(tmpFile); } catch {}
       }
 
       job.status = 'failed';
