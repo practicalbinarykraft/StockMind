@@ -89,7 +89,8 @@ export function ExportVideoSection({
           `/api/scripts/${scriptId}/render/${renderJob.jobId}/status`,
         );
 
-        const data = await response.json();
+        const json = await response.json();
+        const data = json.data ?? json;
         setRenderJob(data);
 
         if (data.status === "completed" || data.status === "failed") {
@@ -131,7 +132,8 @@ export function ExportVideoSection({
         quality: selectedQuality,
       });
 
-      const data = await response.json();
+      const json = await response.json();
+      const data = json.data ?? json;
       setRenderJob(data);
       setIsPolling(true);
       setRenderedVideoUrl(null);
@@ -182,9 +184,9 @@ export function ExportVideoSection({
         `/api/scripts/${scriptId}/render/${renderJob.jobId}/download`,
       );
 
-      const data = await response.json();
+      const json = await response.json();
+      const data = json.data ?? json;
 
-      // Открываем ссылку для скачивания
       const link = document.createElement("a");
       link.href = data.downloadUrl;
       link.download = `video-${scriptId}.mp4`;

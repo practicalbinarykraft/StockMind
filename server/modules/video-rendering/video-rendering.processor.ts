@@ -14,11 +14,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const execPromise = promisify(exec);
 const storageRepo = new StorageRepo();
@@ -65,8 +60,8 @@ export const renderProcessor = {
       job.progress = 10;
       renderJobsStorage.setJob(jobId, job);
 
-      // Путь к Remotion Root
-      const remotionRoot = path.resolve(__dirname, '../../../client/src/features/conveyor/remotion');
+      const projectRoot = process.cwd();
+      const remotionRoot = path.resolve(projectRoot, 'client/src/features/conveyor/remotion');
       
       // Формируем команду Remotion CLI
       const crfValue = request.quality === 'high' ? 18 : request.quality === 'medium' ? 23 : 28;
@@ -100,7 +95,7 @@ export const renderProcessor = {
         const { stdout, stderr } = await execPromise(remotionCommand, {
           maxBuffer: 10 * 1024 * 1024, // 10MB buffer
           timeout,
-          cwd: path.resolve(__dirname, '../../..'),
+          cwd: projectRoot,
         });
 
         logger.info("Remotion render output", { jobId, stdout: stdout.substring(0, 500) });
