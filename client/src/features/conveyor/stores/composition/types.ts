@@ -68,13 +68,13 @@ export interface CompositionActions {
   uploadFile: (sceneId: string, layerType: LayerType, file: File) => Promise<void>
   
   // Массовые операции со сценами
-  applyLayerToAllScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => void
-  removeLayerFromOtherScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => void
+  applyLayerToAllScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => Promise<void>
+  removeLayerFromOtherScenes: (sourceSceneId: string, layerType: 'background' | 'overlay') => Promise<void>
   uploadFileToAllScenes: (layerType: 'background' | 'overlay', file: File) => Promise<void>
   
   // Управление наличием слоёв на сцене
-  removeLayer: (sceneId: string, layerType: 'background' | 'overlay') => void
-  addLayer: (sceneId: string, layerType: 'background' | 'overlay') => void
+  removeLayer: (sceneId: string, layerType: 'background' | 'overlay') => Promise<void>
+  addLayer: (sceneId: string, layerType: 'background' | 'overlay') => Promise<void>
   
   // История
   undo: () => void

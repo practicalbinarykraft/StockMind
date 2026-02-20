@@ -6,6 +6,7 @@ import type { StateCreator } from 'zustand'
 import type { LayerType, ContentType, BackgroundLayer, OverlayLayer } from '../../types/layers'
 import type { CompositionStore } from './types'
 import { layersService } from '../../services/layers'
+import { createDefaultBackgroundLayer, createDefaultOverlayLayer } from './actions'
 
 const FPS = 30
 const WORDS_PER_SECOND = 2.2
@@ -37,38 +38,14 @@ function flattenLayer(rawLayer: any): any {
 }
 
 /**
- * Генерирует дефолтные слои для сцены, если backend не вернул их
+ * Гарантирует наличие textLayer (он всегда должен быть на сцене).
+ * background и overlay могут отсутствовать — это значит, что пользователь их удалил.
  */
-function ensureDefaultLayers(
+function ensureTextLayer(
   layers: { background?: any; overlay?: any; textLayer?: any },
   sceneId: string,
   scriptId: string,
 ) {
-  if (!layers.background) {
-    layers.background = {
-      id: `default-bg-${sceneId}`,
-      sceneId,
-      scriptId,
-      layerType: 'background',
-      order: 0,
-      isVisible: true,
-      contentType: 'avatar',
-    }
-  }
-  if (!layers.overlay) {
-    layers.overlay = {
-      id: `default-ol-${sceneId}`,
-      sceneId,
-      scriptId,
-      layerType: 'overlay',
-      order: 1,
-      isVisible: true,
-      contentType: 'image',
-      position: { x: 25, y: 25, width: 50, height: 50 },
-      objectFit: 'contain',
-      aspectLock: true,
-    }
-  }
   if (!layers.textLayer) {
     layers.textLayer = {
       id: `default-text-${sceneId}`,
@@ -121,7 +98,7 @@ export const createSyncActions: StateCreator<
   CompositionStore,
   [],
   [],
-  Pick<CompositionStore, 'loadScript' | 'generateContent' | 'uploadFile' | 'uploadFileToAllScenes'>
+  Pick<CompositionStore, 'loadScript' | 'generateContent' | 'uploadFile' | 'uploadFileToAllScenes' | 'removeLayer' | 'addLayer' | 'removeLayerFromOtherScenes' | 'applyLayerToAllScenes'>
 > = (set, get) => ({
   loadScript: async (scriptId: string) => {
     set({ isLoading: true, error: null, scriptId })
@@ -165,12 +142,16 @@ export const createSyncActions: StateCreator<
 
           // Background без sourceUrl и с contentType 'image' — старый дефолт,
           // заменяем на 'avatar' чтобы видео аватара подтягивалось автоматически
-          if (layers.background && !layers.background.sourceUrl && layers.background.contentType === 'image') {
+          if (
+            layers.background &&
+            !layers.background.sourceUrl &&
+            layers.background.contentType === 'image'
+          ) {
             layers.background = { ...layers.background, contentType: 'avatar' }
           }
 
-          // Если слои отсутствуют — создаём дефолтные in-memory
-          ensureDefaultLayers(layers, sceneData.sceneId, scriptId)
+          // textLayer всегда должен быть; background и overlay могут отсутствовать
+          ensureTextLayer(layers, sceneData.sceneId, scriptId)
 
           // Backend возвращает текст/порядок во вложенном .scene
           const sceneInfo = sceneData.scene || {}
@@ -376,15 +357,7 @@ export const createSyncActions: StateCreator<
 
       if (layerType === 'background') {
         const existing = existingScene.layers.background
-        const base: BackgroundLayer = existing || {
-          id: `bg-${scene.id}`,
-          sceneId: scene.id,
-          scriptId,
-          layerType: 'background',
-          order: 0,
-          isVisible: true,
-          contentType,
-        }
+        const base: BackgroundLayer = existing || createDefaultBackgroundLayer(scene.id, scriptId)
         newScenes.set(scene.id, {
           ...existingScene,
           layers: {
@@ -401,18 +374,7 @@ export const createSyncActions: StateCreator<
         })
       } else {
         const existing = existingScene.layers.overlay
-        const base: OverlayLayer = existing || {
-          id: `ol-${scene.id}`,
-          sceneId: scene.id,
-          scriptId,
-          layerType: 'overlay',
-          order: 1,
-          isVisible: true,
-          contentType,
-          position: { x: 25, y: 25, width: 50, height: 50 },
-          objectFit: 'contain',
-          aspectLock: true,
-        }
+        const base: OverlayLayer = existing || createDefaultOverlayLayer(scene.id, scriptId)
         newScenes.set(scene.id, {
           ...existingScene,
           layers: {
@@ -433,6 +395,236 @@ export const createSyncActions: StateCreator<
     set({
       scenes: newScenes,
       past: [...get().past, Array.from(get().scenes.values())],
+      future: [],
+    })
+  },
+
+  removeLayer: async (sceneId: string, layerType: 'background' | 'overlay') => {
+    const { scenes, scriptId, past } = get()
+    const scene = scenes.get(sceneId)
+    if (!scene || !scriptId) return
+
+    const layer = layerType === 'background' ? scene.layers.background : scene.layers.overlay
+    if (!layer) return
+
+    try {
+      await layersService.deleteLayer(scriptId, layer.id)
+    } catch (err) {
+      console.error('Failed to delete layer from DB:', err)
+    }
+
+    const newScenes = new Map(scenes)
+    const updatedLayers = { ...scene.layers }
+    if (layerType === 'background') {
+      updatedLayers.background = undefined
+    } else {
+      updatedLayers.overlay = undefined
+    }
+    newScenes.set(sceneId, { ...scene, layers: updatedLayers })
+
+    set({
+      scenes: newScenes,
+      past: [...past, Array.from(scenes.values())],
+      future: [],
+    })
+  },
+
+  addLayer: async (sceneId: string, layerType: 'background' | 'overlay') => {
+    const { scriptId, scenes, past } = get()
+    if (!scriptId) return
+    const scene = scenes.get(sceneId)
+    if (!scene) return
+
+    const created = await layersService.createLayer(scriptId, sceneId, {
+      sceneId,
+      scriptId,
+      layerType,
+      order: layerType === 'background' ? 0 : 1,
+      isVisible: true,
+    })
+
+    const newScenes = new Map(scenes)
+    const updatedLayers = { ...scene.layers }
+
+    if (layerType === 'background') {
+      updatedLayers.background = {
+        id: created.id,
+        sceneId,
+        scriptId,
+        layerType: 'background',
+        order: 0,
+        isVisible: true,
+        contentType: 'image',
+        ...(created as any),
+      } as BackgroundLayer
+    } else {
+      updatedLayers.overlay = {
+        id: created.id,
+        sceneId,
+        scriptId,
+        layerType: 'overlay',
+        order: 1,
+        isVisible: true,
+        contentType: 'image',
+        position: { x: 25, y: 25, width: 50, height: 50 },
+        objectFit: 'contain',
+        aspectLock: true,
+        ...(created as any),
+      } as OverlayLayer
+    }
+    newScenes.set(sceneId, { ...scene, layers: updatedLayers })
+
+    set({
+      scenes: newScenes,
+      past: [...past, Array.from(scenes.values())],
+      future: [],
+    })
+  },
+
+  removeLayerFromOtherScenes: async (sourceSceneId: string, layerType: 'background' | 'overlay') => {
+    const { scenes, past, scriptId } = get()
+    if (!scriptId) return
+
+    const deletePromises: Promise<any>[] = []
+    const newScenes = new Map(scenes)
+
+    Array.from(newScenes.entries()).forEach(([sceneId, scene]) => {
+      if (sceneId === sourceSceneId) return
+
+      const layer = layerType === 'background' ? scene.layers.background : scene.layers.overlay
+      if (!layer) return
+
+      deletePromises.push(
+        layersService.deleteLayer(scriptId, layer.id).catch((err) =>
+          console.error(`Failed to delete layer ${layer.id}:`, err)
+        )
+      )
+
+      const updatedLayers = { ...scene.layers }
+      if (layerType === 'background') {
+        updatedLayers.background = undefined
+      } else {
+        updatedLayers.overlay = undefined
+      }
+      newScenes.set(sceneId, { ...scene, layers: updatedLayers })
+    })
+
+    await Promise.all(deletePromises)
+
+    set({
+      scenes: newScenes,
+      past: [...past, Array.from(scenes.values())],
+      future: [],
+    })
+  },
+
+  applyLayerToAllScenes: async (sourceSceneId: string, layerType: 'background' | 'overlay') => {
+    const { scenes, past, scriptId } = get()
+    const sourceScene = scenes.get(sourceSceneId)
+    if (!sourceScene || !scriptId) return
+
+    const sourceLayer = layerType === 'background'
+      ? sourceScene.layers.background
+      : sourceScene.layers.overlay
+    if (!sourceLayer?.sourceUrl) return
+
+    const FPS = 30
+
+    // Создаём слои в БД для сцен, где они отсутствуют
+    const layerCreations: Array<{ sceneId: string; promise: Promise<any> }> = []
+    Array.from(scenes.entries()).forEach(([sceneId, scene]) => {
+      if (sceneId === sourceSceneId) return
+      const existing = layerType === 'background' ? scene.layers.background : scene.layers.overlay
+      if (!existing) {
+        layerCreations.push({
+          sceneId,
+          promise: layersService.createLayer(scriptId, sceneId, {
+            sceneId,
+            scriptId,
+            layerType,
+            order: layerType === 'background' ? 0 : 1,
+            isVisible: true,
+          }),
+        })
+      }
+    })
+
+    const createdLayers = new Map<string, any>()
+    for (const { sceneId, promise } of layerCreations) {
+      try {
+        createdLayers.set(sceneId, await promise)
+      } catch (err) {
+        console.error(`Failed to create layer for scene ${sceneId}:`, err)
+      }
+    }
+
+    // Обновляем store — re-get на случай изменений во время await
+    const currentScenes = get().scenes
+    const newScenes = new Map(currentScenes)
+
+    Array.from(newScenes.entries()).forEach(([sceneId, scene]) => {
+      if (sceneId === sourceSceneId) return
+
+      let existing = layerType === 'background' ? scene.layers.background : scene.layers.overlay
+
+      if (!existing && createdLayers.has(sceneId)) {
+        const created = createdLayers.get(sceneId)
+        if (layerType === 'background') {
+          existing = { ...createDefaultBackgroundLayer(sceneId, scriptId), id: created.id }
+        } else {
+          existing = { ...createDefaultOverlayLayer(sceneId, scriptId), id: created.id }
+        }
+      }
+
+      if (!existing) return
+
+      const sceneDurationSec = scene.durationInFrames / FPS
+      const videoMeta = sourceLayer.contentType === 'video'
+        ? { videoStartTime: 0, videoEndTime: sceneDurationSec }
+        : {}
+
+      if (layerType === 'background') {
+        newScenes.set(sceneId, {
+          ...scene,
+          layers: {
+            ...scene.layers,
+            background: {
+              ...(existing as BackgroundLayer),
+              contentType: sourceLayer.contentType,
+              sourceUrl: sourceLayer.sourceUrl,
+              generationStatus: undefined,
+              generationJobId: undefined,
+              generationPrompt: sourceLayer.generationPrompt,
+              metadata: { ...videoMeta },
+            },
+          },
+        })
+      } else {
+        const srcOverlay = sourceScene.layers.overlay
+        newScenes.set(sceneId, {
+          ...scene,
+          layers: {
+            ...scene.layers,
+            overlay: {
+              ...(existing as OverlayLayer),
+              contentType: sourceLayer.contentType,
+              sourceUrl: sourceLayer.sourceUrl,
+              generationStatus: undefined,
+              generationJobId: undefined,
+              generationPrompt: sourceLayer.generationPrompt,
+              position: srcOverlay?.position ?? (existing as OverlayLayer).position,
+              objectFit: srcOverlay?.objectFit ?? (existing as OverlayLayer).objectFit,
+              aspectLock: srcOverlay?.aspectLock ?? (existing as OverlayLayer).aspectLock,
+              metadata: { ...videoMeta },
+            },
+          },
+        })
+      }
+    })
+
+    set({
+      scenes: newScenes,
+      past: [...past, Array.from(scenes.values())],
       future: [],
     })
   },

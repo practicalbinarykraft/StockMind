@@ -165,39 +165,55 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
     })
   }
 
-  const handleApplyToAllScenes = (layerType: 'background' | 'overlay') => {
-    applyLayerToAllScenes(currentScene.id, layerType)
-    const layer = layerType === 'background' ? backgroundLayer : overlayLayer
-    const count = scenesCount - 1
-    toast({
-      title: 'Применено ко всем сценам',
-      description: `${layer?.contentType === 'video' ? 'Видео' : 'Изображение'} скопировано на ${count} ${count === 1 ? 'сцену' : count < 5 ? 'сцены' : 'сцен'}`,
-    })
+  const handleApplyToAllScenes = async (layerType: 'background' | 'overlay') => {
+    try {
+      const layer = layerType === 'background' ? backgroundLayer : overlayLayer
+      await applyLayerToAllScenes(currentScene.id, layerType)
+      const count = scenesCount - 1
+      toast({
+        title: 'Применено ко всем сценам',
+        description: `${layer?.contentType === 'video' ? 'Видео' : 'Изображение'} скопировано на ${count} ${count === 1 ? 'сцену' : count < 5 ? 'сцены' : 'сцен'}`,
+      })
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось применить ко всем сценам', variant: 'destructive' })
+    }
   }
 
-  const handleRemoveFromOtherScenes = (layerType: 'background' | 'overlay') => {
-    removeLayerFromOtherScenes(currentScene.id, layerType)
-    const count = scenesCount - 1
-    toast({
-      title: 'Удалено с других сцен',
-      description: `Слой удалён с ${count} ${count === 1 ? 'сцены' : count < 5 ? 'сцен' : 'сцен'}`,
-    })
+  const handleRemoveFromOtherScenes = async (layerType: 'background' | 'overlay') => {
+    try {
+      await removeLayerFromOtherScenes(currentScene.id, layerType)
+      const count = scenesCount - 1
+      toast({
+        title: 'Удалено с других сцен',
+        description: `Слой удалён с ${count} ${count === 1 ? 'сцены' : count < 5 ? 'сцен' : 'сцен'}`,
+      })
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось удалить слои', variant: 'destructive' })
+    }
   }
 
-  const handleRemoveLayer = (layerType: 'background' | 'overlay') => {
-    removeLayer(currentScene.id, layerType)
-    toast({
-      title: 'Слой удалён',
-      description: `${layerType === 'background' ? 'Фоновый' : 'Overlay'} слой удалён с текущей сцены`,
-    })
+  const handleRemoveLayer = async (layerType: 'background' | 'overlay') => {
+    try {
+      await removeLayer(currentScene.id, layerType)
+      toast({
+        title: 'Слой удалён',
+        description: `${layerType === 'background' ? 'Фоновый' : 'Overlay'} слой удалён с текущей сцены`,
+      })
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось удалить слой', variant: 'destructive' })
+    }
   }
 
-  const handleAddLayer = (layerType: 'background' | 'overlay') => {
-    addLayer(currentScene.id, layerType)
-    toast({
-      title: 'Слой добавлен',
-      description: `${layerType === 'background' ? 'Фоновый' : 'Overlay'} слой добавлен на текущую сцену`,
-    })
+  const handleAddLayer = async (layerType: 'background' | 'overlay') => {
+    try {
+      await addLayer(currentScene.id, layerType)
+      toast({
+        title: 'Слой добавлен',
+        description: `${layerType === 'background' ? 'Фоновый' : 'Overlay'} слой добавлен на текущую сцену`,
+      })
+    } catch (error) {
+      toast({ title: 'Ошибка', description: 'Не удалось добавить слой', variant: 'destructive' })
+    }
   }
 
   const handleUploadToAllScenes = async (layerType: 'background' | 'overlay') => {

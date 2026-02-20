@@ -66,6 +66,7 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
                 generationPrompt: scene.layers.background.generationPrompt,
                 generationModel: scene.layers.background.generationModel,
                 dimensions: scene.layers.background.dimensions,
+                metadata: scene.layers.background.metadata,
               }),
             })
           )
@@ -84,6 +85,7 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
                 aspectLock: scene.layers.overlay.aspectLock,
                 minSize: scene.layers.overlay.minSize,
                 maxSize: scene.layers.overlay.maxSize,
+                metadata: scene.layers.overlay.metadata,
               }),
             })
           )
