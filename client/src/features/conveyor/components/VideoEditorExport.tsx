@@ -24,11 +24,11 @@ export function VideoEditorExport() {
   const { media, isLoading: isMediaLoading, error, hasAudio, hasVideo } = useMediaExport(scriptId)
   const { isDownloading, downloadError, downloadFile } = useMediaDownload()
 
-  // Обработчик скачивания аудио
+  // Обработчик скачивания аудио — через серверный прокси для обхода CORS
   const handleDownloadAudio = async () => {
     if (!media?.audioUrl) return
     const filename = media.audioFilename || `audio_${scriptId}.mp3`
-    await downloadFile(media.audioUrl, filename)
+    await downloadFile(`/api/scripts/${scriptId}/media/audio/download`, filename)
   }
 
   // Обработчик скачивания видео
