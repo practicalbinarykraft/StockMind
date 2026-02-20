@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { ExportPageHeader } from './video-editor/export/ExportPageHeader'
 import { ExportAudioSection } from './video-editor/export/ExportAudioSection'
 import { ExportVideoSection } from './video-editor/export/ExportVideoSection'
+import { ExportArchiveSection } from './video-editor/export/ExportArchiveSection'
 import { ExportPageFooter } from './video-editor/export/ExportPageFooter'
 import { useVideoEditorData } from '@/features/conveyor/hooks/use-video-editor-data'
 import { useMediaExport } from '@/features/conveyor/hooks/use-media-export'
@@ -96,6 +97,13 @@ export function VideoEditorExport() {
         media={media}
         isDownloading={isDownloading}
         onDownload={handleDownloadVideo}
+      />
+
+      {/* Секция архива */}
+      <ExportArchiveSection
+        scriptId={scriptId}
+        media={media}
+        scenesCount={Array.isArray((script as any)?.scenes) ? (script as any).scenes.length : 0}
       />
 
       {/* Футер */}

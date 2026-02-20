@@ -1,28 +1,27 @@
 /**
  * Секция экспорта видео
- * Поддерживает как HeyGen видео, так и рендеринг через Remotion
+ * Поддерживает HeyGen видео
+ * (Remotion-рендеринг временно отключён)
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { Button } from "@/shared/ui/button";
-import { AlertCircle, Video, Loader2, Play } from "lucide-react";
+import { AlertCircle, Video, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { MediaInfoCard } from "./MediaInfoCard";
 import { DownloadButton } from "./DownloadButton";
-import { RenderProgressCard } from "./RenderProgressCard";
-import { VideoPreviewPlayer } from "./VideoPreviewPlayer";
-import {
-  RenderQualitySelector,
-  type RenderQuality,
-} from "./RenderQualitySelector";
+// import { RenderProgressCard } from "./RenderProgressCard";
+// import { VideoPreviewPlayer } from "./VideoPreviewPlayer";
+// import {
+//   RenderQualitySelector,
+//   type RenderQuality,
+// } from "./RenderQualitySelector";
 import type { ScriptMedia } from "@/features/conveyor/services/scriptMediaService";
 import {
   getProxiedImageUrl,
   getProxiedVideoUrl,
 } from "@/features/conveyor/utils/media-proxy";
-import { apiRequest } from "@/shared/api/http";
-import { useToast } from "@/shared/hooks";
+// import { apiRequest } from "@/shared/api/http";
+// import { useToast } from "@/shared/hooks";
 
 interface ExportVideoSectionProps {
   scriptId: string;
@@ -47,24 +46,26 @@ export function ExportVideoSection({
   isDownloading,
   onDownload,
 }: ExportVideoSectionProps) {
-  const { toast } = useToast();
-  const [renderJob, setRenderJob] = useState<RenderJob | null>(null);
-  const [isPolling, setIsPolling] = useState(false);
-  const [queuePosition, setQueuePosition] = useState<number | undefined>();
-  const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
-  const [selectedQuality, setSelectedQuality] =
-    useState<RenderQuality>("medium");
+  // --- Remotion-рендеринг временно отключён ---
+  // const { toast } = useToast();
+  // const [renderJob, setRenderJob] = useState<RenderJob | null>(null);
+  // const [isPolling, setIsPolling] = useState(false);
+  // const [queuePosition, setQueuePosition] = useState<number | undefined>();
+  // const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
+  // const [selectedQuality, setSelectedQuality] =
+  //   useState<RenderQuality>("medium");
 
   const hasVideo = !!media?.videoUrl && media.videoStatus === "completed";
   const isGenerating = media?.videoStatus === "generating";
   const hasFailed = media?.videoStatus === "failed";
-  const pollAttemptsRef = useRef(0);
-  const MAX_POLL_ATTEMPTS = 600; // 30 минут (600 * 3с)
+  // const pollAttemptsRef = useRef(0);
+  // const MAX_POLL_ATTEMPTS = 600;
 
   const proxiedVideoUrl = getProxiedVideoUrl(media?.videoUrl);
   const proxiedThumbnailUrl = getProxiedImageUrl(media?.videoThumbnailUrl);
 
-  // Polling статуса рендеринга
+  // --- Remotion polling, handlers — временно отключены ---
+  /*
   useEffect(() => {
     if (!renderJob || !isPolling) return;
 
@@ -207,6 +208,7 @@ export function ExportVideoSection({
       });
     }
   };
+  */
 
   // Видео генерируется через HeyGen
   if (isGenerating) {
@@ -305,10 +307,10 @@ export function ExportVideoSection({
           </div>
         )}
 
-        {/* Разделитель */}
+        {/* --- Remotion рендеринг — временно отключён --- */}
+        {/*
         {hasVideo && <div className="border-t" />}
 
-        {/* Remotion рендеринг */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium">Remotion Рендеринг</h4>
@@ -320,7 +322,6 @@ export function ExportVideoSection({
             )}
           </div>
 
-          {/* Селектор качества */}
           {!renderJob && (
             <RenderQualitySelector
               selectedQuality={selectedQuality}
@@ -328,7 +329,6 @@ export function ExportVideoSection({
             />
           )}
 
-          {/* Прогресс рендеринга */}
           {renderJob && renderJob.status !== "completed" && (
             <RenderProgressCard
               job={renderJob}
@@ -337,7 +337,6 @@ export function ExportVideoSection({
             />
           )}
 
-          {/* Готовое видео */}
           {renderJob &&
             renderJob.status === "completed" &&
             renderedVideoUrl && (
@@ -348,7 +347,6 @@ export function ExportVideoSection({
               />
             )}
 
-          {/* Информация о рендеринге */}
           {!renderJob && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
@@ -360,6 +358,7 @@ export function ExportVideoSection({
             </Alert>
           )}
         </div>
+        */}
       </CardContent>
     </Card>
   );
