@@ -24,6 +24,10 @@ export const contentExportController = {
 
       logger.info("Starting archive export", { scriptId, userId });
 
+      // Disable timeouts — archive generation downloads external files and can take minutes
+      req.setTimeout(0);
+      res.setTimeout(0);
+
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="script-${scriptId}.zip"`);
 
@@ -31,7 +35,7 @@ export const contentExportController = {
 
       logger.info("Archive export completed", { scriptId, userId });
     } catch (e: any) {
-      logger.error("content-export downloadArchive", { error: e.message });
+      logger.error("content-export downloadArchive", { error: e.message, stack: e.stack });
 
       if (!res.headersSent) {
         return res.status(500).json({ success: false, error: e.message });
