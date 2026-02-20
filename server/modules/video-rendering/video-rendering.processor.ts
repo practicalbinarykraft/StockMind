@@ -61,14 +61,14 @@ export const renderProcessor = {
       renderJobsStorage.setJob(jobId, job);
 
       const projectRoot = process.cwd();
-      const remotionRoot = path.resolve(projectRoot, 'client/src/features/conveyor/remotion');
+      const remotionEntry = path.resolve(projectRoot, 'client/src/features/conveyor/remotion/entry.ts');
       
       // Формируем команду Remotion CLI
       const crfValue = request.quality === 'high' ? 18 : request.quality === 'medium' ? 23 : 28;
       
       const remotionCommand = [
         'npx remotion render',
-        remotionRoot,
+        remotionEntry,
         'VideoEditor',
         `"${tempOutputPath}"`,
         `--props='${JSON.stringify(inputProps)}'`,
