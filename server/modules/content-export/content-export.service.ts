@@ -12,11 +12,13 @@ interface SceneFromScript {
   [key: string]: unknown;
 }
 
+const KNOWN_EXTENSIONS = ["mp3", "wav", "ogg", "mp4", "webm", "mov", "jpg", "jpeg", "png", "gif", "webp"];
+
 function getExtensionFromUrl(url: string): string {
   try {
     const pathname = new URL(url).pathname;
     const ext = pathname.split(".").pop()?.toLowerCase();
-    if (ext && ["mp3", "wav", "ogg", "mp4", "webm", "jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+    if (ext && KNOWN_EXTENSIONS.includes(ext)) {
       return ext;
     }
   } catch {
@@ -25,16 +27,18 @@ function getExtensionFromUrl(url: string): string {
   return "bin";
 }
 
-async function fetchBufferFromUrl(url: string): Promise<Buffer | null> {
+async function fetchBufferFromUrl(url: string, context?: string): Promise<Buffer | null> {
   const key = storageService.extractKeyFromUrl(url);
   if (!key) {
-    logger.warn("Cannot extract key from URL, skipping", { url });
+    logger.warn("[ContentExport] Cannot extract key from URL, skipping", { url, context });
     return null;
   }
   try {
-    return await storageService.getFileBuffer(key);
+    const buf = await storageService.getFileBuffer(key);
+    logger.info("[ContentExport] Fetched file", { key, size: buf.length, context });
+    return buf;
   } catch (error) {
-    logger.warn("Failed to fetch file from storage, skipping", { key, error });
+    logger.warn("[ContentExport] Failed to fetch file from storage, skipping", { key, error, context });
     return null;
   }
 }
@@ -66,10 +70,20 @@ export const contentExportService = {
 
     // Full audio (from scriptsMedia)
     if (media?.audioUrl) {
-      const buf = await fetchBufferFromUrl(media.audioUrl);
+      const buf = await fetchBufferFromUrl(media.audioUrl, "audio-full");
       if (buf) {
         const ext = getExtensionFromUrl(media.audioUrl);
         archive.append(buf, { name: `${rootDir}/audio-full.${ext}` });
+      }
+    }
+
+    // Full avatar video (from scriptsMedia) — spans the entire scenario duration
+    if (media?.videoUrl && media.videoStatus === "completed") {
+      const buf = await fetchBufferFromUrl(media.videoUrl, "video-avatar");
+      if (buf) {
+        const ext = getExtensionFromUrl(media.videoUrl);
+        archive.append(buf, { name: `${rootDir}/video-avatar.${ext}` });
+        logger.info("[ContentExport] Added avatar video to archive root", { scriptId, size: buf.length });
       }
     }
 
@@ -78,13 +92,14 @@ export const contentExportService = {
       const sceneWithLayers = scenes[i];
       const sceneData = sceneWithLayers.scene as SceneFromScript;
       const sceneDir = `${rootDir}/scene-${String(i + 1).padStart(2, "0")}`;
+      const sceneNum = i + 1;
 
       // text.txt
       archive.append(sceneData.text || "(пусто)", { name: `${sceneDir}/text.txt` });
 
       // scene audio
       if (sceneData.audioUrl) {
-        const buf = await fetchBufferFromUrl(sceneData.audioUrl);
+        const buf = await fetchBufferFromUrl(sceneData.audioUrl, `scene-${sceneNum}/audio`);
         if (buf) {
           const ext = getExtensionFromUrl(sceneData.audioUrl);
           archive.append(buf, { name: `${sceneDir}/audio.${ext}` });
@@ -92,20 +107,56 @@ export const contentExportService = {
       }
 
       // layers media
+      let bgIndex = 0;
+      let ovIndex = 0;
       for (const layer of sceneWithLayers.layers) {
-        if (layer.background?.sourceUrl) {
-          const buf = await fetchBufferFromUrl(layer.background.sourceUrl);
-          if (buf) {
-            const ext = getExtensionFromUrl(layer.background.sourceUrl);
-            archive.append(buf, { name: `${sceneDir}/background.${ext}` });
+        const layerType = layer.base.layerType;
+        const isVisible = layer.base.isVisible;
+
+        if (layer.background) {
+          const bg = layer.background;
+          const contentType = (bg as any).contentType as string | undefined;
+          logger.info("[ContentExport] Scene layer", {
+            sceneNum,
+            layerType,
+            contentType,
+            hasSourceUrl: !!bg.sourceUrl,
+            isVisible,
+          });
+
+          // Skip avatar-type backgrounds — the full avatar video is already at the root level
+          if (contentType === "avatar") continue;
+
+          if (bg.sourceUrl) {
+            const buf = await fetchBufferFromUrl(bg.sourceUrl, `scene-${sceneNum}/background`);
+            if (buf) {
+              const ext = getExtensionFromUrl(bg.sourceUrl);
+              const suffix = bgIndex > 0 ? `-${bgIndex + 1}` : "";
+              archive.append(buf, { name: `${sceneDir}/background${suffix}.${ext}` });
+              bgIndex++;
+            }
           }
         }
 
-        if (layer.overlay?.sourceUrl) {
-          const buf = await fetchBufferFromUrl(layer.overlay.sourceUrl);
-          if (buf) {
-            const ext = getExtensionFromUrl(layer.overlay.sourceUrl);
-            archive.append(buf, { name: `${sceneDir}/overlay.${ext}` });
+        if (layer.overlay) {
+          const ov = layer.overlay;
+          const contentType = (ov as any).contentType as string | undefined;
+          logger.info("[ContentExport] Scene layer", {
+            sceneNum,
+            layerType,
+            contentType,
+            hasSourceUrl: !!ov.sourceUrl,
+            isVisible,
+          });
+
+          if (ov.sourceUrl) {
+            const buf = await fetchBufferFromUrl(ov.sourceUrl, `scene-${sceneNum}/overlay`);
+            if (buf) {
+              const ext = getExtensionFromUrl(ov.sourceUrl);
+              const suffix = ovIndex > 0 ? `-${ovIndex + 1}` : "";
+              archive.append(buf, { name: `${sceneDir}/overlay${suffix}.${ext}` });
+              ovIndex++;
+            }
           }
         }
       }
