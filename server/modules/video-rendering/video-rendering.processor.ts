@@ -71,6 +71,8 @@ export const renderProcessor = {
       // Формируем команду Remotion CLI
       const crfValue = request.quality === 'high' ? 18 : request.quality === 'medium' ? 23 : 28;
       
+      const isLinux = process.platform === 'linux';
+      
       const remotionCommand = [
         'npx remotion render',
         remotionEntry,
@@ -83,6 +85,7 @@ export const renderProcessor = {
         '--codec=h264',
         `--crf=${crfValue}`,
         '--overwrite',
+        ...(isLinux ? ['--gl=angle', '--enable-multiprocess-on-linux'] : []),
       ].join(' ');
 
       logger.info("Executing Remotion CLI", { 
