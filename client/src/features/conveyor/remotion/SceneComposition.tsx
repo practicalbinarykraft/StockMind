@@ -5,8 +5,8 @@
 // Видео-аватар вынесен на уровень композиции как единый <Video> элемент,
 // чтобы он НЕ пересоздавался при смене сцен (seekTo вместо re-mount).
 
-import React, { useMemo } from 'react';
-import { AbsoluteFill, Audio, Video, useCurrentFrame, useVideoConfig } from 'remotion';
+import React, { useEffect, useMemo } from 'react';
+import { AbsoluteFill, Audio, Video, prefetch, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { EnhancedScene } from '../types/layers';
 import { getCurrentScene } from './Root';
 import {
@@ -66,6 +66,26 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
 
   const globalAvatarBg = allOverlayMode ? avatarBgUrl : null;
   const globalAvatarOverlay = allOverlayMode ? avatarOverlayConfig : null;
+
+  const videoUrls = useMemo(() => {
+    const urls = new Set<string>();
+    for (const scene of scenes) {
+      const bg = scene.layers.background;
+      const ol = scene.layers.overlay;
+      if (bg?.sourceUrl && (bg.contentType === 'video' || bg.contentType === 'avatar')) {
+        urls.add(bg.sourceUrl);
+      }
+      if (ol?.sourceUrl && (ol.contentType === 'video' || ol.contentType === 'avatar')) {
+        urls.add(ol.sourceUrl);
+      }
+    }
+    return Array.from(urls);
+  }, [scenes]);
+
+  useEffect(() => {
+    const handles = videoUrls.map((url) => prefetch(url));
+    return () => handles.forEach((h) => h.free());
+  }, [videoUrls]);
 
   const currentSceneData = getCurrentScene(scenes, frame);
 

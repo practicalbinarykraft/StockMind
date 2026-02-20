@@ -4,7 +4,7 @@
 // Компонент для рендеринга split режима (разделение canvas)
 
 import React from "react";
-import { Img, OffthreadVideo } from "remotion";
+import { Img, Video } from "remotion";
 import type {
   EnhancedScene,
   BackgroundLayer,
@@ -55,7 +55,7 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
       )}
 
       {layer.contentType === "video" && (
-        <OffthreadVideo
+        <Video
           src={layer.sourceUrl}
           style={{
             width: "100%",
@@ -66,7 +66,7 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
       )}
 
       {layer.contentType === "avatar" && (
-        <OffthreadVideo
+        <Video
           src={layer.sourceUrl}
           startFrom={videoStartFrame}
           style={{

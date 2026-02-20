@@ -4,7 +4,7 @@
 // Компонент для рендеринга overlay слоя с позиционированием
 
 import React from "react";
-import { Img, OffthreadVideo, Sequence, useVideoConfig } from "remotion";
+import { Img, Video, Sequence, useVideoConfig } from "remotion";
 import type { OverlayLayer } from "../../types/layers";
 
 export interface OverlayLayerRendererProps {
@@ -29,7 +29,6 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
   const fit = layer.objectFit || "contain";
   const videoContentOffset = Math.round((layer.metadata?.videoStartTime || 0) * fps);
 
-  // Конвертируем процентные позиции в пиксели
   const pixelPosition = {
     x: (layer.position.x / 100) * width,
     y: (layer.position.y / 100) * height,
@@ -62,7 +61,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
 
       {layer.contentType === "video" && (
         <Sequence from={videoStartFrame} layout="none">
-          <OffthreadVideo
+          <Video
             src={layer.sourceUrl}
             startFrom={videoContentOffset}
             style={{
@@ -75,7 +74,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
       )}
 
       {layer.contentType === "avatar" && (
-        <OffthreadVideo
+        <Video
           src={layer.sourceUrl}
           startFrom={videoStartFrame}
           style={{

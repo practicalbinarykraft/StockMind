@@ -4,7 +4,7 @@
 // Компонент для рендеринга фонового слоя (image/video/avatar)
 
 import React from "react";
-import { AbsoluteFill, Img, OffthreadVideo, Sequence, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, Video, Sequence, useVideoConfig } from "remotion";
 import type { BackgroundLayer } from "../../types/layers";
 
 export interface BackgroundLayerRendererProps {
@@ -39,7 +39,7 @@ export const BackgroundLayerRenderer: React.FC<
 
       {layer.contentType === "video" && (
         <Sequence from={videoStartFrame} layout="none">
-          <OffthreadVideo
+          <Video
             src={layer.sourceUrl}
             startFrom={videoContentOffset}
             style={{
@@ -52,7 +52,7 @@ export const BackgroundLayerRenderer: React.FC<
       )}
 
       {layer.contentType === "avatar" && (
-        <OffthreadVideo
+        <Video
           src={layer.sourceUrl}
           startFrom={videoStartFrame}
           style={{
