@@ -4,6 +4,7 @@
  */
 
 import axios from "axios";
+import type { Readable } from "stream";
 import { logger } from "../../lib/logger";
 import { storageService } from "../storage/storage.service";
 
@@ -103,4 +104,72 @@ export async function fetchBuffer(url: string, context?: string): Promise<Buffer
     return fetchBufferFromR2(url, context);
   }
   return fetchBufferFromHttp(url, context);
+}
+
+export interface StreamResult {
+  stream: Readable;
+  contentLength?: number;
+  contentType?: string;
+}
+
+/**
+ * Получить presigned download URL для R2-файла.
+ * Возвращает null если URL не из R2 или ключ не удалось извлечь.
+ */
+export async function getR2DownloadUrl(
+  url: string,
+  filename: string,
+): Promise<string | null> {
+  if (!isR2Url(url)) return null;
+
+  const key = storageService.extractKeyFromUrl(url);
+  if (!key) return null;
+
+  try {
+    return await storageService.getDownloadUrl(key, filename);
+  } catch (error: any) {
+    logger.warn("[MediaFetcher] Failed to generate R2 download URL", {
+      key,
+      error: error.message,
+    });
+    return null;
+  }
+}
+
+/**
+ * Стримит файл из HTTP-источника (для не-R2 файлов).
+ */
+export async function streamFromHttp(
+  url: string,
+  context?: string,
+): Promise<StreamResult | null> {
+  try {
+    const host = new URL(url).hostname;
+    logger.info("[MediaFetcher] Streaming via HTTP", { host, context });
+
+    const response = await axios.get(url, {
+      responseType: "stream",
+      timeout: 300_000,
+      maxContentLength: 500 * 1024 * 1024,
+    });
+
+    return {
+      stream: response.data as Readable,
+      contentLength: response.headers["content-length"]
+        ? parseInt(response.headers["content-length"], 10)
+        : undefined,
+      contentType: response.headers["content-type"] || undefined,
+    };
+  } catch (error: any) {
+    const host = (() => {
+      try { return new URL(url).hostname; } catch { return "?"; }
+    })();
+    logger.warn("[MediaFetcher] HTTP stream failed", {
+      host,
+      status: error.response?.status,
+      error: error.message,
+      context,
+    });
+    return null;
+  }
 }

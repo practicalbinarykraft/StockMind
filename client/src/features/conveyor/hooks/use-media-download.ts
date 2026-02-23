@@ -1,6 +1,5 @@
 /**
  * Хук для скачивания медиа-файлов
- * ≤100 строк
  */
 
 import { useState } from 'react'
@@ -9,6 +8,10 @@ interface UseMediaDownloadReturn {
   isDownloading: boolean
   downloadError: string | null
   downloadFile: (url: string, filename: string) => Promise<void>
+}
+
+function isSameOrigin(url: string): boolean {
+  return url.startsWith('/') || url.startsWith(window.location.origin)
 }
 
 export function useMediaDownload(): UseMediaDownloadReturn {
@@ -25,34 +28,50 @@ export function useMediaDownload(): UseMediaDownloadReturn {
       setIsDownloading(true)
       setDownloadError(null)
 
-      // Скачиваем файл через fetch для обхода CORS
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      if (isSameOrigin(url)) {
+        // Same-origin: use <a> link click (reliable, handles redirects natively)
+        const check = await fetch(url, {
+          method: 'HEAD',
+          credentials: 'include',
+        }).catch(() => null)
+
+        if (check && !check.ok) {
+          throw new Error(
+            check.status === 401
+              ? 'Необходима авторизация'
+              : `Ошибка сервера (${check.status})`,
+          )
+        }
+
+        const link = document.createElement('a')
+        link.href = url
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        // Cross-origin: fetch blob (needed for CORS bypass via server proxy)
+        const response = await fetch(url, { credentials: 'include' })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const blob = await response.blob()
+        const blobUrl = window.URL.createObjectURL(blob)
+
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        window.URL.revokeObjectURL(blobUrl)
       }
-
-      // Получаем blob
-      const blob = await response.blob()
-
-      // Создаем URL для blob
-      const blobUrl = window.URL.createObjectURL(blob)
-
-      // Создаем временную ссылку для скачивания
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = filename
-      
-      // Добавляем в DOM, кликаем и удаляем
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // Освобождаем blob URL
-      window.URL.revokeObjectURL(blobUrl)
     } catch (err) {
       console.error('Download failed:', err)
-      setDownloadError(err instanceof Error ? err.message : 'Download failed')
+      setDownloadError(err instanceof Error ? err.message : 'Ошибка скачивания')
     } finally {
       setIsDownloading(false)
     }

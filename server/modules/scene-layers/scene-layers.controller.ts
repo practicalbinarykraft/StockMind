@@ -15,6 +15,9 @@ import {
   fetchBuffer,
   getExtensionFromUrl,
   getContentTypeFromExtension,
+  isR2Url,
+  getR2DownloadUrl,
+  streamFromHttp,
 } from "../content-export/media-fetcher";
 import { StorageRepo } from "../storage/storage.repo";
 
@@ -154,6 +157,12 @@ export const sceneLayersController = {
       req.setTimeout(0);
       res.setTimeout(0);
 
+      let ext = getExtensionFromUrl(sourceUrl);
+      if (ext === "bin") {
+        ext = contentType === "video" ? "mp4" : "jpg";
+      }
+      const filename = `${layerType}-${layerId}.${ext}`;
+
       logger.info("downloadLayerMedia starting", {
         layerId,
         layerType,
@@ -161,16 +170,35 @@ export const sceneLayersController = {
         sourceUrlHost: (() => { try { return new URL(sourceUrl).hostname; } catch { return "?"; } })(),
       });
 
+      // R2 files: redirect to presigned download URL (no server memory usage)
+      if (isR2Url(sourceUrl)) {
+        const downloadUrl = await getR2DownloadUrl(sourceUrl, filename);
+        if (downloadUrl) {
+          logger.info("downloadLayerMedia redirecting to R2 presigned URL", { layerId });
+          return res.redirect(downloadUrl);
+        }
+        logger.warn("downloadLayerMedia R2 presigned URL failed, falling back to buffer", { layerId });
+      }
+
+      // Non-R2 files: stream directly to response (no full buffering)
+      const streamResult = await streamFromHttp(sourceUrl, `download-layer-${layerId}`);
+      if (streamResult) {
+        res.set({
+          "Content-Type": getContentTypeFromExtension(ext),
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        });
+        if (streamResult.contentLength) {
+          res.set("Content-Length", String(streamResult.contentLength));
+        }
+        streamResult.stream.pipe(res);
+        return;
+      }
+
+      // Final fallback: buffer the entire file
       const buf = await fetchBuffer(sourceUrl, `download-layer-${layerId}`);
       if (!buf) {
         return apiResponse.serverError(res, "Failed to fetch media file");
       }
-
-      let ext = getExtensionFromUrl(sourceUrl);
-      if (ext === "bin") {
-        ext = contentType === "video" ? "mp4" : "jpg";
-      }
-      const filename = `${layerType}-${layerId}.${ext}`;
 
       res.set({
         "Content-Type": getContentTypeFromExtension(ext),

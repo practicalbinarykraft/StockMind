@@ -88,29 +88,35 @@ export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
     try {
       setDownloadingId(item.id);
       const proxyUrl = `/api/scripts/${scriptId}/layers/${item.id}/download`;
-      const response = await fetch(proxyUrl, { credentials: "include" });
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(errorText || `HTTP ${response.status}`);
+      // Preflight HEAD check to verify the endpoint is reachable
+      const check = await fetch(proxyUrl, {
+        method: "HEAD",
+        credentials: "include",
+      }).catch(() => null);
+
+      if (check && !check.ok) {
+        const status = check.status;
+        throw new Error(
+          status === 401
+            ? "Необходима авторизация"
+            : status === 404
+              ? "Файл не найден"
+              : `Ошибка сервера (${status})`,
+        );
       }
 
-      const blob = await response.blob();
-      if (blob.size === 0) {
-        throw new Error("Получен пустой файл");
-      }
-
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Use <a> link click — the server responds with redirect to presigned URL
+      // or streams the file; the browser handles download natively
       const link = document.createElement("a");
-      link.href = blobUrl;
+      link.href = proxyUrl;
       link.download = buildFilename(item);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
 
       toast({
-        title: "Скачивание завершено",
+        title: "Скачивание начато",
         description: buildFilename(item),
       });
     } catch (err) {
@@ -121,7 +127,7 @@ export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
         variant: "destructive",
       });
     } finally {
-      setDownloadingId(null);
+      setTimeout(() => setDownloadingId(null), 2000);
     }
   };
 

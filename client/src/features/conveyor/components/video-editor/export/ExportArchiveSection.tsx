@@ -25,22 +25,50 @@ export function ExportArchiveSection({
 
   const hasAudio = !!media?.audioUrl;
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setIsDownloading(true);
 
-    const link = document.createElement("a");
-    link.href = `/api/scripts/${scriptId}/export/archive`;
-    link.download = `script-${scriptId}.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const archiveUrl = `/api/scripts/${scriptId}/export/archive`;
 
-    toast({
-      title: "Скачивание начато",
-      description: "ZIP-архив формируется и скачивается. Это может занять некоторое время.",
-    });
+      // Preflight check — verify auth and that the endpoint responds
+      const check = await fetch(archiveUrl, {
+        method: "HEAD",
+        credentials: "include",
+      }).catch(() => null);
 
-    setTimeout(() => setIsDownloading(false), 5000);
+      if (check && !check.ok) {
+        const status = check.status;
+        throw new Error(
+          status === 401
+            ? "Необходима авторизация"
+            : status === 404
+              ? "Скрипт не найден"
+              : `Ошибка сервера (${status})`,
+        );
+      }
+
+      const link = document.createElement("a");
+      link.href = archiveUrl;
+      link.download = `script-${scriptId}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Скачивание начато",
+        description: "ZIP-архив формируется и скачивается. Это может занять некоторое время.",
+      });
+    } catch (err) {
+      console.error("Archive download failed:", err);
+      toast({
+        title: "Ошибка скачивания",
+        description: err instanceof Error ? err.message : "Не удалось скачать архив",
+        variant: "destructive",
+      });
+    } finally {
+      setTimeout(() => setIsDownloading(false), 5000);
+    }
   };
 
   return (
