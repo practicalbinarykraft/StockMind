@@ -6,6 +6,7 @@
 import { Button } from '@/shared/ui/button'
 import { Check } from 'lucide-react'
 import { useLocation } from 'wouter'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface AudioPageFooterProps {
   scriptId: string
@@ -14,8 +15,11 @@ interface AudioPageFooterProps {
 
 export function AudioPageFooter({ scriptId, hasAudio }: AudioPageFooterProps) {
   const [, navigate] = useLocation()
+  const queryClient = useQueryClient()
 
   const handleDone = () => {
+    queryClient.invalidateQueries({ queryKey: ['script-media-status', scriptId] })
+    queryClient.invalidateQueries({ queryKey: ['script-media', scriptId] })
     navigate(`/conveyor/video-editor/${scriptId}`)
   }
 
