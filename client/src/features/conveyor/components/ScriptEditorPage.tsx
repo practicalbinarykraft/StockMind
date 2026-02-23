@@ -411,8 +411,9 @@ export function ScriptEditorPage() {
     }
   };
 
-  const handleEditorChange = useCallback((dirty: boolean) => {
+  const handleEditorChange = useCallback((dirty: boolean, currentText: string) => {
     setHasUnsavedChanges(dirty);
+    setEditingText(currentText);
   }, []);
 
   const handleSelectAlternative = async (index: number) => {
