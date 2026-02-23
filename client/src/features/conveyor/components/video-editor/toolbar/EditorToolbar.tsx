@@ -20,8 +20,8 @@ interface EditorToolbarProps {
 
 export function EditorToolbar({ className, scriptId, media }: EditorToolbarProps) {
   return (
-    <Card className={className}>
-      <Tabs defaultValue="visuals" className="w-full">
+    <Card className={`${className ?? ''} min-w-0`}>
+      <Tabs defaultValue="visuals" className="w-full min-w-0">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="visuals" className="flex items-center gap-2">
             <Image className="h-4 w-4" />

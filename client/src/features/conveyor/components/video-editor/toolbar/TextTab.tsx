@@ -3,134 +3,171 @@
  * Поддерживает загрузку текста сценария, стилизацию и эффекты
  */
 
-import { useCompositionStore, selectCurrentScene } from '../../../stores/composition'
-import { Label } from '@/shared/ui/label'
-import { Input } from '@/shared/ui/input'
-import { Textarea } from '@/shared/ui/textarea'
-import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
-import { Slider } from '@/shared/ui/slider'
-import { Switch } from '@/shared/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { Separator } from '@/shared/ui/separator'
-import { Button } from '@/shared/ui/button'
-import { Badge } from '@/shared/ui/badge'
-import { FileText, Wand2 } from 'lucide-react'
-import type { TextPosition, TextAnimation } from '../../../types/layers'
+import {
+  useCompositionStore,
+  selectCurrentScene,
+} from "../../../stores/composition";
+import { Label } from "@/shared/ui/label";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
+import { Slider } from "@/shared/ui/slider";
+import { Switch } from "@/shared/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import { Separator } from "@/shared/ui/separator";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { FileText, Wand2 } from "lucide-react";
+import type { TextPosition, TextAnimation } from "../../../types/layers";
 
-const ANIMATION_OPTIONS: { value: TextAnimation; label: string; description: string }[] = [
-  { value: 'none', label: 'Без анимации', description: 'Текст появляется сразу' },
-  { value: 'fadeIn', label: 'Плавное появление', description: 'Постепенное проявление' },
-  { value: 'typewriter', label: 'Печатная машинка', description: 'Посимвольный набор' },
-  { value: 'slideUp', label: 'Выезд снизу', description: 'Текст поднимается снизу' },
-  { value: 'slideDown', label: 'Выезд сверху', description: 'Текст опускается сверху' },
-  { value: 'scaleIn', label: 'Масштабирование', description: 'Увеличение из центра' },
-]
+const ANIMATION_OPTIONS: {
+  value: TextAnimation;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "none",
+    label: "Без анимации",
+    description: "Текст появляется сразу",
+  },
+  {
+    value: "fadeIn",
+    label: "Плавное появление",
+    description: "Постепенное проявление",
+  },
+  {
+    value: "typewriter",
+    label: "Печатная машинка",
+    description: "Посимвольный набор",
+  },
+  {
+    value: "slideUp",
+    label: "Выезд снизу",
+    description: "Текст поднимается снизу",
+  },
+  {
+    value: "slideDown",
+    label: "Выезд сверху",
+    description: "Текст опускается сверху",
+  },
+  {
+    value: "scaleIn",
+    label: "Масштабирование",
+    description: "Увеличение из центра",
+  },
+];
 
 const TEXT_SHADOW_PRESETS = [
-  { value: '', label: 'Без тени' },
-  { value: '2px 2px 4px rgba(0,0,0,0.5)', label: 'Лёгкая тень' },
-  { value: '3px 3px 6px rgba(0,0,0,0.8)', label: 'Средняя тень' },
-  { value: '0px 0px 10px rgba(0,0,0,0.9)', label: 'Свечение (тёмное)' },
-  { value: '0px 0px 10px rgba(255,255,255,0.9)', label: 'Свечение (светлое)' },
-  { value: '4px 4px 0px rgba(0,0,0,1)', label: 'Жёсткая тень' },
-]
+  { value: "", label: "Без тени" },
+  { value: "2px 2px 4px rgba(0,0,0,0.5)", label: "Лёгкая тень" },
+  { value: "3px 3px 6px rgba(0,0,0,0.8)", label: "Средняя тень" },
+  { value: "0px 0px 10px rgba(0,0,0,0.9)", label: "Свечение (тёмное)" },
+  { value: "0px 0px 10px rgba(255,255,255,0.9)", label: "Свечение (светлое)" },
+  { value: "4px 4px 0px rgba(0,0,0,1)", label: "Жёсткая тень" },
+];
 
 export function TextTab() {
-  const currentScene = useCompositionStore(selectCurrentScene)
-  const updateTextLayer = useCompositionStore((state) => state.updateTextLayer)
+  const currentScene = useCompositionStore(selectCurrentScene);
+  const updateTextLayer = useCompositionStore((state) => state.updateTextLayer);
 
   if (!currentScene) {
     return (
       <div className="text-center text-muted-foreground py-8">
         Выберите сцену для настройки текста
       </div>
-    )
+    );
   }
 
-  const textLayer = currentScene.layers?.textLayer
-  const sceneText = currentScene.text
+  const textLayer = currentScene.layers?.textLayer;
+  const sceneText = currentScene.text;
 
   if (!textLayer) {
     return (
       <div className="text-center text-muted-foreground py-8">
         Текстовый слой не инициализирован для этой сцены
       </div>
-    )
+    );
   }
 
   const handleToggleVisible = (checked: boolean) => {
-    updateTextLayer(currentScene.id, { isVisible: checked })
-  }
+    updateTextLayer(currentScene.id, { isVisible: checked });
+  };
 
   const handleTextChange = (text: string) => {
-    updateTextLayer(currentScene.id, { text })
-  }
+    updateTextLayer(currentScene.id, { text });
+  };
 
   const handleLoadScriptText = () => {
     if (sceneText) {
-      updateTextLayer(currentScene.id, { text: sceneText, isVisible: true })
+      updateTextLayer(currentScene.id, { text: sceneText, isVisible: true });
     }
-  }
+  };
 
-  const handleModeChange = (mode: 'static' | 'marquee') => {
-    updateTextLayer(currentScene.id, { mode })
-  }
+  const handleModeChange = (mode: "static" | "marquee") => {
+    updateTextLayer(currentScene.id, { mode });
+  };
 
-  const handlePositionTypeChange = (type: TextPosition['type']) => {
-    updateTextLayer(currentScene.id, { position: { type } })
-  }
+  const handlePositionTypeChange = (type: TextPosition["type"]) => {
+    updateTextLayer(currentScene.id, { position: { type } });
+  };
 
   const handleFontSizeChange = (value: number[]) => {
-    updateTextLayer(currentScene.id, { fontSize: value[0] })
-  }
+    updateTextLayer(currentScene.id, { fontSize: value[0] });
+  };
 
   const handleFontFamilyChange = (fontFamily: string) => {
-    updateTextLayer(currentScene.id, { fontFamily })
-  }
+    updateTextLayer(currentScene.id, { fontFamily });
+  };
 
   const handleTextColorChange = (textColor: string) => {
-    updateTextLayer(currentScene.id, { textColor })
-  }
+    updateTextLayer(currentScene.id, { textColor });
+  };
 
-  const handleTextAlignChange = (textAlign: 'left' | 'center' | 'right') => {
-    updateTextLayer(currentScene.id, { textAlign })
-  }
+  const handleTextAlignChange = (textAlign: "left" | "center" | "right") => {
+    updateTextLayer(currentScene.id, { textAlign });
+  };
 
   const handleBackgroundColorChange = (backgroundColor: string) => {
-    updateTextLayer(currentScene.id, { backgroundColor })
-  }
+    updateTextLayer(currentScene.id, { backgroundColor });
+  };
 
   const handleBackgroundOpacityChange = (value: number[]) => {
-    updateTextLayer(currentScene.id, { backgroundOpacity: value[0] / 100 })
-  }
+    updateTextLayer(currentScene.id, { backgroundOpacity: value[0] / 100 });
+  };
 
   const handleMarqueeSpeedChange = (value: number[]) => {
-    updateTextLayer(currentScene.id, { marqueeSpeed: value[0] })
-  }
+    updateTextLayer(currentScene.id, { marqueeSpeed: value[0] });
+  };
 
   const handleAnimationChange = (animation: TextAnimation) => {
-    updateTextLayer(currentScene.id, { animation })
-  }
+    updateTextLayer(currentScene.id, { animation });
+  };
 
   const handleTextShadowChange = (textShadow: string) => {
-    updateTextLayer(currentScene.id, { textShadow })
-  }
+    updateTextLayer(currentScene.id, { textShadow });
+  };
 
   const handleTextStrokeChange = (textStroke: string) => {
-    updateTextLayer(currentScene.id, { textStroke })
-  }
+    updateTextLayer(currentScene.id, { textStroke });
+  };
 
   const handleTextStrokeColorChange = (textStrokeColor: string) => {
-    updateTextLayer(currentScene.id, { textStrokeColor })
-  }
+    updateTextLayer(currentScene.id, { textStrokeColor });
+  };
 
   const handleLetterSpacingChange = (value: number[]) => {
-    updateTextLayer(currentScene.id, { letterSpacing: value[0] })
-  }
+    updateTextLayer(currentScene.id, { letterSpacing: value[0] });
+  };
 
   const handleLineHeightChange = (value: number[]) => {
-    updateTextLayer(currentScene.id, { lineHeight: value[0] / 10 })
-  }
+    updateTextLayer(currentScene.id, { lineHeight: value[0] / 10 });
+  };
 
   return (
     <div className="space-y-6">
@@ -143,11 +180,13 @@ export function TextTab() {
               <h3 className="text-sm font-semibold">Текст сценария</h3>
             </div>
             <Badge variant="secondary" className="text-xs">
-              Сцена {currentScene.order + 1}
+              Сцена {currentScene.order}
             </Badge>
           </div>
           <div className="rounded-md border bg-muted/50 p-3">
-            <p className="text-sm text-foreground leading-relaxed">{sceneText}</p>
+            <p className="text-sm text-foreground leading-relaxed">
+              {sceneText}
+            </p>
           </div>
           <Button
             variant="outline"
@@ -186,7 +225,7 @@ export function TextTab() {
             <Textarea
               id="text-content"
               placeholder="Введите текст..."
-              value={textLayer.text || ''}
+              value={textLayer.text || ""}
               onChange={(e) => handleTextChange(e.target.value)}
               rows={3}
             />
@@ -220,15 +259,21 @@ export function TextTab() {
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="top" id="pos-top" />
-                <Label htmlFor="pos-top" className="cursor-pointer">Сверху</Label>
+                <Label htmlFor="pos-top" className="cursor-pointer">
+                  Сверху
+                </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="center" id="pos-center" />
-                <Label htmlFor="pos-center" className="cursor-pointer">По центру</Label>
+                <Label htmlFor="pos-center" className="cursor-pointer">
+                  По центру
+                </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="bottom" id="pos-bottom" />
-                <Label htmlFor="pos-bottom" className="cursor-pointer">Снизу</Label>
+                <Label htmlFor="pos-bottom" className="cursor-pointer">
+                  Снизу
+                </Label>
               </div>
             </RadioGroup>
           </div>
@@ -239,7 +284,7 @@ export function TextTab() {
           <div className="space-y-3">
             <h4 className="font-semibold">Анимация</h4>
             <Select
-              value={textLayer.animation || 'none'}
+              value={textLayer.animation || "none"}
               onValueChange={(v) => handleAnimationChange(v as TextAnimation)}
             >
               <SelectTrigger>
@@ -250,7 +295,9 @@ export function TextTab() {
                   <SelectItem key={opt.value} value={opt.value}>
                     <div className="flex flex-col">
                       <span>{opt.label}</span>
-                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {opt.description}
+                      </span>
                     </div>
                   </SelectItem>
                 ))}
@@ -268,7 +315,9 @@ export function TextTab() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label>Размер шрифта</Label>
-                <span className="text-sm text-muted-foreground">{textLayer.fontSize}px</span>
+                <span className="text-sm text-muted-foreground">
+                  {textLayer.fontSize}px
+                </span>
               </div>
               <Slider
                 value={[textLayer.fontSize]}
@@ -282,14 +331,19 @@ export function TextTab() {
             {/* Семейство шрифта */}
             <div className="space-y-3">
               <Label htmlFor="font-family">Шрифт</Label>
-              <Select value={textLayer.fontFamily} onValueChange={handleFontFamilyChange}>
+              <Select
+                value={textLayer.fontFamily}
+                onValueChange={handleFontFamilyChange}
+              >
                 <SelectTrigger id="font-family">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Arial">Arial</SelectItem>
                   <SelectItem value="Helvetica">Helvetica</SelectItem>
-                  <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                  <SelectItem value="Times New Roman">
+                    Times New Roman
+                  </SelectItem>
                   <SelectItem value="Georgia">Georgia</SelectItem>
                   <SelectItem value="Verdana">Verdana</SelectItem>
                   <SelectItem value="Courier New">Courier New</SelectItem>
@@ -305,7 +359,9 @@ export function TextTab() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label>Межбуквенный интервал</Label>
-                <span className="text-sm text-muted-foreground">{textLayer.letterSpacing ?? 0}px</span>
+                <span className="text-sm text-muted-foreground">
+                  {textLayer.letterSpacing ?? 0}px
+                </span>
               </div>
               <Slider
                 value={[textLayer.letterSpacing ?? 0]}
@@ -320,7 +376,9 @@ export function TextTab() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label>Межстрочный интервал</Label>
-                <span className="text-sm text-muted-foreground">{(textLayer.lineHeight ?? 1.4).toFixed(1)}</span>
+                <span className="text-sm text-muted-foreground">
+                  {(textLayer.lineHeight ?? 1.4).toFixed(1)}
+                </span>
               </div>
               <Slider
                 value={[Math.round((textLayer.lineHeight ?? 1.4) * 10)]}
@@ -355,18 +413,27 @@ export function TextTab() {
             {/* Выравнивание */}
             <div className="space-y-3">
               <Label>Выравнивание</Label>
-              <RadioGroup value={textLayer.textAlign} onValueChange={handleTextAlignChange}>
+              <RadioGroup
+                value={textLayer.textAlign}
+                onValueChange={handleTextAlignChange}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="left" id="align-left" />
-                  <Label htmlFor="align-left" className="cursor-pointer">По левому краю</Label>
+                  <Label htmlFor="align-left" className="cursor-pointer">
+                    По левому краю
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="center" id="align-center" />
-                  <Label htmlFor="align-center" className="cursor-pointer">По центру</Label>
+                  <Label htmlFor="align-center" className="cursor-pointer">
+                    По центру
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="right" id="align-right" />
-                  <Label htmlFor="align-right" className="cursor-pointer">По правому краю</Label>
+                  <Label htmlFor="align-right" className="cursor-pointer">
+                    По правому краю
+                  </Label>
                 </div>
               </RadioGroup>
             </div>
@@ -382,7 +449,7 @@ export function TextTab() {
             <div className="space-y-3">
               <Label>Тень текста</Label>
               <Select
-                value={textLayer.textShadow || ''}
+                value={textLayer.textShadow || ""}
                 onValueChange={handleTextShadowChange}
               >
                 <SelectTrigger>
@@ -390,7 +457,10 @@ export function TextTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {TEXT_SHADOW_PRESETS.map((preset) => (
-                    <SelectItem key={preset.value || 'none'} value={preset.value || 'none'}>
+                    <SelectItem
+                      key={preset.value || "none"}
+                      value={preset.value || "none"}
+                    >
                       {preset.label}
                     </SelectItem>
                   ))}
@@ -402,7 +472,7 @@ export function TextTab() {
             <div className="space-y-3">
               <Label>Обводка текста</Label>
               <Select
-                value={textLayer.textStroke || ''}
+                value={textLayer.textStroke || ""}
                 onValueChange={handleTextStrokeChange}
               >
                 <SelectTrigger>
@@ -416,19 +486,23 @@ export function TextTab() {
                 </SelectContent>
               </Select>
 
-              {textLayer.textStroke && textLayer.textStroke !== 'none' && (
+              {textLayer.textStroke && textLayer.textStroke !== "none" && (
                 <div className="flex gap-2">
                   <Label className="flex-shrink-0 self-center">Цвет</Label>
                   <Input
                     type="color"
-                    value={textLayer.textStrokeColor || '#000000'}
-                    onChange={(e) => handleTextStrokeColorChange(e.target.value)}
+                    value={textLayer.textStrokeColor || "#000000"}
+                    onChange={(e) =>
+                      handleTextStrokeColorChange(e.target.value)
+                    }
                     className="w-20 h-10 cursor-pointer"
                   />
                   <Input
                     type="text"
-                    value={textLayer.textStrokeColor || '#000000'}
-                    onChange={(e) => handleTextStrokeColorChange(e.target.value)}
+                    value={textLayer.textStrokeColor || "#000000"}
+                    onChange={(e) =>
+                      handleTextStrokeColorChange(e.target.value)
+                    }
                     placeholder="#000000"
                     className="flex-1"
                   />
@@ -449,13 +523,13 @@ export function TextTab() {
                 <Input
                   id="bg-color"
                   type="color"
-                  value={textLayer.backgroundColor || '#000000'}
+                  value={textLayer.backgroundColor || "#000000"}
                   onChange={(e) => handleBackgroundColorChange(e.target.value)}
                   className="w-20 h-10 cursor-pointer"
                 />
                 <Input
                   type="text"
-                  value={textLayer.backgroundColor || ''}
+                  value={textLayer.backgroundColor || ""}
                   onChange={(e) => handleBackgroundColorChange(e.target.value)}
                   placeholder="Не задан"
                   className="flex-1"
@@ -483,7 +557,7 @@ export function TextTab() {
           </div>
 
           {/* Скорость бегущей строки */}
-          {textLayer.mode === 'marquee' && (
+          {textLayer.mode === "marquee" && (
             <>
               <Separator />
               <div className="space-y-3">
@@ -506,5 +580,5 @@ export function TextTab() {
         </>
       )}
     </div>
-  )
+  );
 }

@@ -82,7 +82,7 @@ export function VideoEditorMain() {
         </div>
         
         {/* Правая панель: Toolbar с вкладками */}
-        <div className="overflow-auto">
+        <div className="overflow-y-auto overflow-x-hidden">
           <EditorToolbar scriptId={scriptId} media={media} />
         </div>
       </div>
