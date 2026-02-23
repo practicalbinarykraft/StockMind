@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { CheckCircle2, XCircle, Loader2, Download, X } from 'lucide-react'
 import { useCompositionStore } from '../../../stores/composition'
 import { useGenerationStatus } from '../../../services/layers/generation'
+import { apiRequest } from '@/shared/api/http'
 import type { GenerationStatus, ContentType } from '../../../types/layers'
 
 interface GenerationStatusCardProps {
@@ -32,12 +33,27 @@ export function GenerationStatusCard({
 }: GenerationStatusCardProps) {
   const updateBackgroundLayer = useCompositionStore((state) => state.updateBackgroundLayer)
   const updateOverlayLayer = useCompositionStore((state) => state.updateOverlayLayer)
+  const scriptId = useCompositionStore((state) => state.scriptId)
 
   const isPollingActive = status === 'processing' || status === 'pending'
   const { data: statusData, isError: isQueryError } = useGenerationStatus(jobId, isPollingActive)
 
   const prevStatusRef = useRef<string | undefined>(undefined)
   const prevResultUrlRef = useRef<string | undefined>(undefined)
+
+  /**
+   * Сохраняет sourceUrl и contentType в БД через PATCH API,
+   * чтобы данные были доступны на странице экспорта.
+   */
+  const persistLayerToBackend = (layerId: string, sourceUrl: string, ct: string) => {
+    if (!scriptId) return
+    apiRequest('PATCH', `/api/scripts/${scriptId}/layers/${layerId}`, {
+      contentType: ct,
+      sourceUrl,
+    }).catch((err) => {
+      console.error('Failed to persist layer sourceUrl to backend:', err)
+    })
+  }
 
   useEffect(() => {
     if (!jobId) return
@@ -73,7 +89,17 @@ export function GenerationStatusCard({
     }
 
     updateLayer(sceneId, updates)
-  }, [statusData, isQueryError, jobId, isPollingActive, layerType, sceneId, updateBackgroundLayer, updateOverlayLayer])
+
+    // Получаем layerId из стора для сохранения в БД
+    if (statusData.resultUrl) {
+      const scenes = useCompositionStore.getState().scenes
+      const scene = scenes.get(sceneId)
+      const layer = layerType === 'background' ? scene?.layers.background : scene?.layers.overlay
+      if (layer?.id) {
+        persistLayerToBackend(layer.id, statusData.resultUrl, statusData.type || (layerType === 'background' ? 'image' : 'image'))
+      }
+    }
+  }, [statusData, isQueryError, jobId, isPollingActive, layerType, sceneId, scriptId, updateBackgroundLayer, updateOverlayLayer])
 
   const isVideo = contentType === 'video' || (resultUrl?.match(/\.(mp4|webm|mov)(\?|$)/i) != null)
 

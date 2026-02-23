@@ -1,9 +1,15 @@
 import { requireAuth } from "../../middleware/jwt-auth";
 import { Router } from "express";
+import multer from "multer";
 import { sceneLayersController } from "./scene-layers.controller";
 import type { Express } from "express";
 
 const router = Router({ mergeParams: true });
+
+const layerUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
 
 // Слои сцены: GET /api/scripts/:scriptId/scenes/:sceneId/layers
 router.get(
@@ -31,6 +37,14 @@ router.patch(
   "/scripts/:scriptId/layers/:layerId",
   requireAuth,
   sceneLayersController.updateLayer
+);
+
+// Загрузить файл для слоя: POST /api/scripts/:scriptId/layers/:layerId/upload
+router.post(
+  "/scripts/:scriptId/layers/:layerId/upload",
+  requireAuth,
+  layerUpload.single("file"),
+  sceneLayersController.uploadLayerFile
 );
 
 // Скачать медиа слоя: GET /api/scripts/:scriptId/layers/:layerId/download

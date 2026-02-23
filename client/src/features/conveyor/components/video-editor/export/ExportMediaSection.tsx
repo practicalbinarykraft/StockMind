@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
+import { useToast } from "@/shared/hooks";
 import {
   useScriptWithLayers,
   flattenLayer,
@@ -54,6 +55,7 @@ function buildFilename(item: MediaItem): string {
 export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
   const { data, isLoading } = useScriptWithLayers(scriptId);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const mediaItems: MediaItem[] = [];
 
@@ -87,9 +89,17 @@ export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
       setDownloadingId(item.id);
       const proxyUrl = `/api/scripts/${scriptId}/layers/${item.id}/download`;
       const response = await fetch(proxyUrl, { credentials: "include" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
 
       const blob = await response.blob();
+      if (blob.size === 0) {
+        throw new Error("Получен пустой файл");
+      }
+
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = blobUrl;
@@ -98,8 +108,18 @@ export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
+
+      toast({
+        title: "Скачивание завершено",
+        description: buildFilename(item),
+      });
     } catch (err) {
       console.error("Download failed:", err);
+      toast({
+        title: "Ошибка скачивания",
+        description: err instanceof Error ? err.message : "Не удалось скачать файл",
+        variant: "destructive",
+      });
     } finally {
       setDownloadingId(null);
     }

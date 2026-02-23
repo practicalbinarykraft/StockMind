@@ -16,6 +16,7 @@ import {
   getExtensionFromUrl,
   getContentTypeFromExtension,
 } from "../content-export/media-fetcher";
+import { StorageRepo } from "../storage/storage.repo";
 
 export const sceneLayersController = {
   /** GET /api/scripts/:scriptId/scenes/:sceneId/layers */
@@ -150,12 +151,25 @@ export const sceneLayersController = {
         userId,
       );
 
+      req.setTimeout(0);
+      res.setTimeout(0);
+
+      logger.info("downloadLayerMedia starting", {
+        layerId,
+        layerType,
+        contentType,
+        sourceUrlHost: (() => { try { return new URL(sourceUrl).hostname; } catch { return "?"; } })(),
+      });
+
       const buf = await fetchBuffer(sourceUrl, `download-layer-${layerId}`);
       if (!buf) {
         return apiResponse.serverError(res, "Failed to fetch media file");
       }
 
-      const ext = getExtensionFromUrl(sourceUrl);
+      let ext = getExtensionFromUrl(sourceUrl);
+      if (ext === "bin") {
+        ext = contentType === "video" ? "mp4" : "jpg";
+      }
       const filename = `${layerType}-${layerId}.${ext}`;
 
       res.set({
@@ -167,6 +181,56 @@ export const sceneLayersController = {
       return res.send(buf);
     } catch (e: any) {
       logger.error("scene-layers downloadLayerMedia", { error: e.message });
+      if (e.message === "Layer has no media") {
+        return apiResponse.badRequest(res, e.message);
+      }
+      return apiResponse.serverError(res, e.message);
+    }
+  },
+
+  /** POST /api/scripts/:scriptId/layers/:layerId/upload */
+  async uploadLayerFile(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { scriptId, layerId } = ScriptIdLayerIdParamsDto.parse(req.params);
+      await scriptsLibraryService.getScriptById(scriptId, userId);
+
+      const file = (req as any).file as Express.Multer.File | undefined;
+      if (!file) {
+        return apiResponse.badRequest(res, "No file uploaded");
+      }
+
+      const layerType = req.body.layerType as string;
+      if (!layerType || !["background", "overlay"].includes(layerType)) {
+        return apiResponse.badRequest(res, "Invalid layerType");
+      }
+
+      const ext = file.originalname.split(".").pop()?.toLowerCase() || "bin";
+      const isVideo = file.mimetype.startsWith("video/");
+      const contentType = isVideo ? "video" : "image";
+      const r2Key = `layers/${scriptId}/${layerId}/${Date.now()}.${ext}`;
+
+      const storageRepo = new StorageRepo();
+      const sourceUrl = await storageRepo.uploadFile(file.buffer, r2Key, file.mimetype);
+
+      await sceneLayersService.updateLayer(layerId, scriptId, userId, {
+        contentType,
+        sourceUrl,
+      });
+
+      logger.info("Layer file uploaded", {
+        layerId,
+        layerType,
+        contentType,
+        size: file.size,
+        r2Key,
+      });
+
+      return apiResponse.ok(res, { sourceUrl });
+    } catch (e: any) {
+      logger.error("scene-layers uploadLayerFile", { error: e.message });
       return apiResponse.serverError(res, e.message);
     }
   },
