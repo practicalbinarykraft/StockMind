@@ -55,6 +55,7 @@ export const createSceneActions: StateCreator<
     | 'redo'
     | 'canUndo'
     | 'canRedo'
+    | 'markSaved'
     | 'getCurrentScene'
     | 'reset'
   >
@@ -149,6 +150,10 @@ export const createSceneActions: StateCreator<
   canUndo: () => get().past.length > 0,
 
   canRedo: () => get().future.length > 0,
+
+  markSaved: () => {
+    set({ savedPastLength: get().past.length })
+  },
 
   getCurrentScene: () => {
     const { currentSceneId, scenes } = get()

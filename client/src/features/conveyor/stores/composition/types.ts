@@ -25,6 +25,7 @@ export interface CompositionState {
   error: string | null
   past: EnhancedScene[][]
   future: EnhancedScene[][]
+  savedPastLength: number
 }
 
 // Actions store
@@ -81,6 +82,7 @@ export interface CompositionActions {
   redo: () => void
   canUndo: () => boolean
   canRedo: () => boolean
+  markSaved: () => void
   
   // Утилиты
   reset: () => void
@@ -100,4 +102,5 @@ export const initialState: CompositionState = {
   error: null,
   past: [],
   future: [],
+  savedPastLength: 0,
 }

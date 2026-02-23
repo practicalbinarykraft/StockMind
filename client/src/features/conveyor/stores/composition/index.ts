@@ -35,7 +35,7 @@ export const selectCurrentScene = (state: CompositionStore) =>
 
 export const selectScenesCount = (state: CompositionStore) => state.scenes.size
 
-export const selectHasChanges = (state: CompositionStore) => state.past.length > 0
+export const selectHasChanges = (state: CompositionStore) => state.past.length !== state.savedPastLength
 
 export const selectCanUndo = (state: CompositionStore) => state.past.length > 0
 

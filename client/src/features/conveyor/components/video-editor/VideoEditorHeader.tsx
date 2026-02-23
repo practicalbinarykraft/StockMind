@@ -41,6 +41,7 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
   const hasChanges = useCompositionStore(selectHasChanges)
   const undo = useCompositionStore((state) => state.undo)
   const redo = useCompositionStore((state) => state.redo)
+  const markSaved = useCompositionStore((state) => state.markSaved)
   const projectAspectRatio = useCompositionStore(selectProjectAspectRatio)
   const setProjectAspectRatio = useCompositionStore((state) => state.setProjectAspectRatio)
 
@@ -142,6 +143,7 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
       }
 
       await Promise.all(savePromises)
+      markSaved()
       
       toast({
         title: 'Изменения сохранены',
