@@ -33,6 +33,13 @@ router.patch(
   sceneLayersController.updateLayer
 );
 
+// Скачать медиа слоя: GET /api/scripts/:scriptId/layers/:layerId/download
+router.get(
+  "/scripts/:scriptId/layers/:layerId/download",
+  requireAuth,
+  sceneLayersController.downloadLayerMedia
+);
+
 // Удалить слой: DELETE /api/scripts/:scriptId/layers/:layerId
 router.delete(
   "/scripts/:scriptId/layers/:layerId",

@@ -85,7 +85,8 @@ export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
   const handleDownload = async (item: MediaItem) => {
     try {
       setDownloadingId(item.id);
-      const response = await fetch(item.sourceUrl);
+      const proxyUrl = `/api/scripts/${scriptId}/layers/${item.id}/download`;
+      const response = await fetch(proxyUrl, { credentials: "include" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const blob = await response.blob();

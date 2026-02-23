@@ -11,6 +11,11 @@ import {
   UpdateCompositionBodyDto,
 } from "./scene-layers.dto";
 import { logger } from "../../lib/logger";
+import {
+  fetchBuffer,
+  getExtensionFromUrl,
+  getContentTypeFromExtension,
+} from "../content-export/media-fetcher";
 
 export const sceneLayersController = {
   /** GET /api/scripts/:scriptId/scenes/:sceneId/layers */
@@ -128,6 +133,40 @@ export const sceneLayersController = {
       return apiResponse.ok(res, result);
     } catch (e: any) {
       logger.error("scene-layers getScriptWithLayers", { error: e.message });
+      return apiResponse.serverError(res, e.message);
+    }
+  },
+
+  /** GET /api/scripts/:scriptId/layers/:layerId/download */
+  async downloadLayerMedia(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { scriptId, layerId } = ScriptIdLayerIdParamsDto.parse(req.params);
+      const { sourceUrl, contentType, layerType } = await sceneLayersService.getLayerSourceUrl(
+        layerId,
+        scriptId,
+        userId,
+      );
+
+      const buf = await fetchBuffer(sourceUrl, `download-layer-${layerId}`);
+      if (!buf) {
+        return apiResponse.serverError(res, "Failed to fetch media file");
+      }
+
+      const ext = getExtensionFromUrl(sourceUrl);
+      const filename = `${layerType}-${layerId}.${ext}`;
+
+      res.set({
+        "Content-Type": getContentTypeFromExtension(ext),
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(buf.length),
+      });
+
+      return res.send(buf);
+    } catch (e: any) {
+      logger.error("scene-layers downloadLayerMedia", { error: e.message });
       return apiResponse.serverError(res, e.message);
     }
   },

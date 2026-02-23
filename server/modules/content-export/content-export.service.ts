@@ -1,43 +1,15 @@
 import archiver from "archiver";
 import type { Writable } from "stream";
-import axios from "axios";
 import { logger } from "../../lib/logger";
 import { sceneLayersService } from "../scene-layers/scene-layers.service";
 import { scriptsMediaService } from "../scripts-media/scripts-media.service";
-import { storageService } from "../storage/storage.service";
+import { getExtensionFromUrl, fetchBuffer } from "./media-fetcher";
 
 interface SceneFromScript {
   text?: string;
   audioUrl?: string;
   order?: number;
   [key: string]: unknown;
-}
-
-const KNOWN_EXTENSIONS = ["mp3", "wav", "ogg", "mp4", "webm", "mov", "jpg", "jpeg", "png", "gif", "webp"];
-
-function getExtensionFromUrl(url: string): string {
-  try {
-    const pathname = new URL(url).pathname;
-    const ext = pathname.split(".").pop()?.toLowerCase();
-    if (ext && KNOWN_EXTENSIONS.includes(ext)) {
-      return ext;
-    }
-  } catch {
-    // ignore
-  }
-  return "bin";
-}
-
-function isR2Url(url: string): boolean {
-  try {
-    const endpoint = process.env.R2_ENDPOINT;
-    if (!endpoint) return false;
-    const r2Host = new URL(endpoint).hostname;
-    const urlHost = new URL(url).hostname;
-    return urlHost === r2Host || urlHost.endsWith(".r2.cloudflarestorage.com");
-  } catch {
-    return false;
-  }
 }
 
 function urlCacheKey(url: string): string {
@@ -49,48 +21,6 @@ function urlCacheKey(url: string): string {
   }
 }
 
-async function fetchBufferFromR2(url: string, context?: string): Promise<Buffer | null> {
-  const key = storageService.extractKeyFromUrl(url);
-  if (!key) {
-    logger.warn("[ContentExport] Cannot extract R2 key from URL, skipping", { url: url.slice(0, 120), context });
-    return null;
-  }
-  try {
-    const buf = await storageService.getFileBuffer(key);
-    logger.info("[ContentExport] Fetched file from R2", { key, size: buf.length, context });
-    return buf;
-  } catch (error) {
-    logger.warn("[ContentExport] Failed to fetch file from R2, will try HTTP fallback", { key, context });
-    return fetchBufferFromHttp(url, context);
-  }
-}
-
-async function fetchBufferFromHttp(url: string, context?: string): Promise<Buffer | null> {
-  try {
-    logger.info("[ContentExport] Downloading via HTTP", { host: new URL(url).hostname, context });
-    const response = await axios.get(url, {
-      responseType: "arraybuffer",
-      timeout: 120_000,
-      maxContentLength: 500 * 1024 * 1024,
-    });
-    const buf = Buffer.from(response.data);
-    logger.info("[ContentExport] Fetched file via HTTP", { size: buf.length, context });
-    return buf;
-  } catch (error: any) {
-    const status = error.response?.status;
-    logger.warn("[ContentExport] HTTP download failed, skipping", {
-      host: (() => { try { return new URL(url).hostname; } catch { return "?"; } })(),
-      status,
-      error: error.message,
-      context,
-    });
-    return null;
-  }
-}
-
-/**
- * Download a file from URL with in-memory cache to avoid re-downloading the same file
- */
 function createCachedFetcher() {
   const cache = new Map<string, Buffer | null>();
 
@@ -104,13 +34,7 @@ function createCachedFetcher() {
       return cached;
     }
 
-    let buf: Buffer | null;
-    if (isR2Url(url)) {
-      buf = await fetchBufferFromR2(url, context);
-    } else {
-      buf = await fetchBufferFromHttp(url, context);
-    }
-
+    const buf = await fetchBuffer(url, context);
     cache.set(ck, buf);
     return buf;
   };

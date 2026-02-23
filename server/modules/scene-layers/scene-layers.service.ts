@@ -337,4 +337,31 @@ export const sceneLayersService = {
     await scriptsLibraryService.getScriptById(scriptId, userId);
     await overlayLayersRepo.updatePosition(layerId, position);
   },
+
+  async getLayerSourceUrl(
+    layerId: string,
+    scriptId: string,
+    userId: string,
+  ): Promise<{ sourceUrl: string; contentType: ContentType; layerType: string }> {
+    await scriptsLibraryService.getScriptById(scriptId, userId);
+    const base = await sceneLayersRepo.getById(layerId);
+    if (!base) throw new Error("Layer not found");
+
+    let sourceUrl: string | undefined | null;
+    let contentType: ContentType = "image";
+
+    if (base.layerType === "background") {
+      const bg = await backgroundLayersRepo.getByLayerId(layerId);
+      sourceUrl = bg?.sourceUrl;
+      contentType = (bg?.contentType as ContentType) || "image";
+    } else if (base.layerType === "overlay") {
+      const ov = await overlayLayersRepo.getByLayerId(layerId);
+      sourceUrl = ov?.sourceUrl;
+      contentType = (ov?.contentType as ContentType) || "image";
+    }
+
+    if (!sourceUrl) throw new Error("Layer has no media");
+
+    return { sourceUrl, contentType, layerType: base.layerType };
+  },
 };
