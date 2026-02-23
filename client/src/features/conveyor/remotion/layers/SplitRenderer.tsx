@@ -50,6 +50,9 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}
@@ -61,6 +64,9 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}
@@ -73,6 +79,9 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
             width: "100%",
             height: "100%",
             objectFit: "contain",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}

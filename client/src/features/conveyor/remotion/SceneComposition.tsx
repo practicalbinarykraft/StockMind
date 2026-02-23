@@ -143,7 +143,14 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         <AbsoluteFill>
           <Video
             src={globalAvatarBg}
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'translateZ(0)',
+            }}
           />
         </AbsoluteFill>
       )}
@@ -180,7 +187,14 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         >
           <Video
             src={globalAvatarOverlay.url}
-            style={{ width: '100%', height: '100%', objectFit: globalAvatarOverlay.objectFit }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: globalAvatarOverlay.objectFit,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'translateZ(0)',
+            }}
           />
         </div>
       )}

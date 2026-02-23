@@ -33,6 +33,9 @@ export const BackgroundLayerRenderer: React.FC<
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}
@@ -46,6 +49,9 @@ export const BackgroundLayerRenderer: React.FC<
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
             }}
           />
         </Sequence>
@@ -59,6 +65,9 @@ export const BackgroundLayerRenderer: React.FC<
             width: "100%",
             height: "100%",
             objectFit: "contain",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}

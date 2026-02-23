@@ -52,12 +52,31 @@ export const RemotionComposition: React.FC<RemotionCompositionProps> = ({ scene,
         <Video
           src={resolvedUrl}
           startFrom={contentType === 'avatar' ? videoStartFrame : 0}
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            transform: 'translateZ(0)',
+          }}
         />
       )
     }
 
-    return <Img src={resolvedUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+    return (
+      <Img
+        src={resolvedUrl}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        }}
+      />
+    )
   }
 
   const getAnimationStyles = (tl: TextLayer): React.CSSProperties => {

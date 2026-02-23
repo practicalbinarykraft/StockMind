@@ -55,6 +55,9 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
             width: "100%",
             height: "100%",
             objectFit: fit,
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}
@@ -68,6 +71,9 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
               width: "100%",
               height: "100%",
               objectFit: fit,
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
             }}
           />
         </Sequence>
@@ -81,6 +87,9 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
             width: "100%",
             height: "100%",
             objectFit: fit,
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         />
       )}
