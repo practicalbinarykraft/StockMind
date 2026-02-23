@@ -5,7 +5,7 @@
 import type { StateCreator } from 'zustand'
 import type { LayerType, ContentType, BackgroundLayer, OverlayLayer } from '../../types/layers'
 import type { CompositionStore } from './types'
-import { layersService } from '../../services/layers'
+import { layersService, flattenLayer } from '../../services/layers'
 import { createDefaultBackgroundLayer, createDefaultOverlayLayer } from './actions'
 
 const FPS = 30
@@ -19,22 +19,6 @@ const DEFAULT_COMPOSITION = {
   splitOrder: 'background-first' as const,
   gridSnapping: false,
   gridSize: 10,
-}
-
-/**
- * Сливает вложенную структуру слоя { base, background?, overlay?, text? }
- * от backend в плоский объект, совместимый с фронтенд-типами.
- * Если формат уже плоский (есть layerType на верхнем уровне) — возвращает as-is.
- */
-function flattenLayer(rawLayer: any): any {
-  // Уже плоский формат
-  if (rawLayer.layerType) return rawLayer
-
-  const base = rawLayer.base
-  if (!base) return rawLayer
-
-  const ext = rawLayer.background || rawLayer.overlay || rawLayer.text || {}
-  return { ...ext, ...base }
 }
 
 /**

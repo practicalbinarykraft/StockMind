@@ -15,12 +15,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
-import { useScriptWithLayers } from "@/features/conveyor/services/layers/hooks";
-import type {
-  BackgroundLayer,
-  OverlayLayer,
-  ContentType,
-} from "@/features/conveyor/types/layers";
+import {
+  useScriptWithLayers,
+  flattenLayer,
+} from "@/features/conveyor/services/layers";
+import type { ContentType } from "@/features/conveyor/types/layers";
 
 interface MediaItem {
   id: string;
@@ -59,22 +58,22 @@ export function ExportMediaSection({ scriptId }: ExportMediaSectionProps) {
   const mediaItems: MediaItem[] = [];
 
   if (data?.scenes) {
-    data.scenes.forEach((scene, index) => {
-      for (const layer of scene.layers) {
+    data.scenes.forEach((scene: any, index: number) => {
+      const rawLayers = scene.layers || [];
+      for (const rawLayer of rawLayers) {
+        const layer = flattenLayer(rawLayer);
         if (layer.layerType === "textLayer") continue;
-
-        const mediaLayer = layer as BackgroundLayer | OverlayLayer;
-        if (!mediaLayer.sourceUrl || mediaLayer.contentType === "avatar") continue;
+        if (!layer.sourceUrl || layer.contentType === "avatar") continue;
 
         mediaItems.push({
-          id: mediaLayer.id,
+          id: layer.id,
           sceneIndex: index,
           sceneId: scene.sceneId,
-          layerType: mediaLayer.layerType as "background" | "overlay",
-          contentType: mediaLayer.contentType,
-          sourceUrl: mediaLayer.sourceUrl,
-          generationPrompt: mediaLayer.generationPrompt,
-          generationModel: mediaLayer.generationModel,
+          layerType: layer.layerType as "background" | "overlay",
+          contentType: layer.contentType as ContentType,
+          sourceUrl: layer.sourceUrl,
+          generationPrompt: layer.generationPrompt,
+          generationModel: layer.generationModel,
         });
       }
     });
