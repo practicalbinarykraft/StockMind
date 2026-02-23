@@ -14,6 +14,7 @@ interface SceneEditorProps {
   onSelectAlternative: (index: number) => void
   onOpenPrompt: () => void
   onRegenerate: () => void
+  onChange?: (hasChanges: boolean) => void
 }
 
 export function SceneEditor({
@@ -26,6 +27,7 @@ export function SceneEditor({
   onSelectAlternative,
   onOpenPrompt,
   onRegenerate,
+  onChange,
 }: SceneEditorProps) {
   const [editingText, setEditingText] = useState('')
   const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState<number | null>(null)
@@ -54,10 +56,10 @@ export function SceneEditor({
 
   const handleTextChange = (newText: string) => {
     setEditingText(newText)
-    // Проверяем, соответствует ли новый текст какой-то альтернативе
     if (scene) {
       const matchIndex = checkAlternativeMatch(newText, scene.alternatives)
       setSelectedAlternativeIndex(matchIndex)
+      onChange?.(newText !== scene.text)
     }
   }
 

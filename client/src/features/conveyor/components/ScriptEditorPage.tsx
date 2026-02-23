@@ -377,6 +377,10 @@ export function ScriptEditorPage() {
     }
   }
 
+  const handleEditorChange = useCallback((dirty: boolean) => {
+    setHasUnsavedChanges(dirty)
+  }, [])
+
   const handleSelectAlternative = async (index: number) => {
     if (!selectedScene) return
     
@@ -520,6 +524,8 @@ export function ScriptEditorPage() {
           description: 'Сценарий сохранён в черновики',
         })
       }
+
+      setHasUnsavedChanges(false)
     } catch (error) {
       console.error('Error saving to draft:', error)
       toast({
@@ -577,6 +583,8 @@ export function ScriptEditorPage() {
           description: 'Сценарий сохранён в готовые',
         })
       }
+
+      setHasUnsavedChanges(false)
     } catch (error) {
       console.error('Error saving to ready:', error)
       toast({
@@ -630,43 +638,52 @@ export function ScriptEditorPage() {
       )}
 
       {/* Header */}
-      <div className="glass rounded-xl p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(`${isReviewMode ? '/conveyor' : '/conveyor/drafts'}`)}
-            className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold gradient-text">Редактор сценария</h1>
-            <p className="text-sm text-muted-foreground">{script.title}</p>
+      <div className="glass rounded-xl p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate(`${isReviewMode ? '/conveyor' : '/conveyor/drafts'}`)}
+              className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold gradient-text">Редактор сценария</h1>
+              <p className="text-sm text-muted-foreground">{script.title}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {(isConveyorProcessing || isRegeneratingScript) && (
+              <div className="px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs text-green-400 font-medium">Система активна</span>
+              </div>
+            )}
+            <button
+              onClick={handleSaveToDraft}
+              disabled={isSaving}
+              className="px-4 py-2 border border-border/50 text-foreground rounded-lg font-medium hover:bg-accent/50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2"
+            >
+              <FileArchive className="h-4 w-4" />
+              Сохранить в черновики
+            </button>
+            <button
+              onClick={handleSaveToReady}
+              disabled={isSaving}
+              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-cyan-700 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 flex items-center gap-2 hover-lift"
+            >
+              <Save className="h-4 w-4" />
+              Сохранить в готовые
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {(isConveyorProcessing || isRegeneratingScript) && (
-            <div className="px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs text-green-400 font-medium">Система активна</span>
-            </div>
-          )}
-          <button
-            onClick={handleSaveToDraft}
-            disabled={isSaving}
-            className="px-4 py-2 border border-border/50 text-foreground rounded-lg font-medium hover:bg-accent/50 hover:border-primary/30 transition-all duration-300 flex items-center gap-2"
-          >
-            <FileArchive className="h-4 w-4" />
-            Сохранить в черновики
-          </button>
-          <button
-            onClick={handleSaveToReady}
-            disabled={isSaving}
-            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-cyan-700 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 flex items-center gap-2 hover-lift"
-          >
-            <Save className="h-4 w-4" />
-            Сохранить в готовые
-          </button>
-        </div>
+
+        {hasUnsavedChanges && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            <Save className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Есть несохранённые изменения. Сохраните сцену или нажмите одну из кнопок сохранения выше.</span>
+          </div>
+        )}
       </div>
 
       {/* Main Content - 3 Column Layout */}
@@ -690,6 +707,7 @@ export function ScriptEditorPage() {
           onSelectAlternative={handleSelectAlternative}
           onOpenPrompt={() => setIsPromptModalOpen(true)}
           onRegenerate={() => handleRegenerateAlternatives()}
+          onChange={handleEditorChange}
         />
 
         {/* Right Panel - Script Info */}
