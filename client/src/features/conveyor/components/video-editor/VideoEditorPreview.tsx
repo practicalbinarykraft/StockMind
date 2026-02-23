@@ -98,7 +98,7 @@ export function VideoEditorPreview({
             <video
               src={proxiedVideoUrl}
               controls
-              preload="none"
+              preload="metadata"
               className="absolute inset-0 w-full h-full object-contain"
               poster={proxiedThumbnailUrl}
             />

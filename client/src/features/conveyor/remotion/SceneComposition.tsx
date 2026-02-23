@@ -83,7 +83,28 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
   }, [scenes]);
 
   useEffect(() => {
-    const handles = videoUrls.map((url) => prefetch(url));
+    const handles: ReturnType<typeof prefetch>[] = [];
+    const MAX_PREFETCH_RETRIES = 3;
+
+    const prefetchWithRetry = (url: string, attempt = 1) => {
+      try {
+        const handle = prefetch(url);
+        handles.push(handle);
+        handle.waitUntilDone().catch(() => {
+          if (attempt < MAX_PREFETCH_RETRIES) {
+            const delay = 1000 * attempt;
+            console.warn(`[Prefetch] retry ${attempt}/${MAX_PREFETCH_RETRIES} for ${url.substring(0, 80)} in ${delay}ms`);
+            setTimeout(() => prefetchWithRetry(url, attempt + 1), delay);
+          }
+        });
+      } catch {
+        if (attempt < MAX_PREFETCH_RETRIES) {
+          setTimeout(() => prefetchWithRetry(url, attempt + 1), 1000 * attempt);
+        }
+      }
+    };
+
+    videoUrls.forEach((url) => prefetchWithRetry(url));
     return () => handles.forEach((h) => h.free());
   }, [videoUrls]);
 

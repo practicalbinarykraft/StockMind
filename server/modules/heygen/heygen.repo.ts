@@ -1,4 +1,6 @@
 import axios from "axios";
+import http from "http";
+import https from "https";
 import { logger } from "../../lib/logger";
 
 // Allowed domains for media proxying (security measure)
@@ -13,6 +15,13 @@ const ALLOWED_HEYGEN_DOMAINS = [
 // Simple rate limiter for image proxy
 const activeImageRequests = new Set<string>();
 const MAX_CONCURRENT_IMAGE_REQUESTS = 10;
+
+// Keep-alive agents for persistent connections to HeyGen CDN
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10, keepAliveMsecs: 30000 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, keepAliveMsecs: 30000 });
+
+const VIDEO_RETRY_COUNT = 3;
+const VIDEO_RETRY_DELAY_MS = 1000;
 
 /**
  * HeyGen Repository
@@ -60,11 +69,14 @@ export class HeygenRepo {
   async fetchImage(url: string): Promise<{ buffer: Buffer; contentType: string }> {
     const response = await axios.get(url, {
       responseType: "arraybuffer",
-      timeout: 30000, // 30 second timeout
+      timeout: 30000,
       headers: {
         Accept: "image/*",
         "User-Agent": "StockMind/1.0",
+        "Connection": "keep-alive",
       },
+      httpAgent,
+      httpsAgent,
       maxRedirects: 5,
     });
 
@@ -76,7 +88,7 @@ export class HeygenRepo {
   }
 
   /**
-   * Проксировать видео из HeyGen (stream)
+   * Проксировать видео из HeyGen (stream) с retry-логикой
    */
   async fetchVideoStream(
     url: string,
@@ -88,23 +100,49 @@ export class HeygenRepo {
   }> {
     const requestHeaders: Record<string, string> = {
       "User-Agent": "StockMind/1.0",
+      "Connection": "keep-alive",
     };
 
     if (rangeHeader) {
       requestHeaders["Range"] = rangeHeader;
     }
 
-    const response = await axios.get(url, {
-      responseType: "stream",
-      timeout: 120000, // 2 minute timeout for video
-      headers: requestHeaders,
-      validateStatus: (status) => status >= 200 && status < 300,
-    });
+    let lastError: any;
+    for (let attempt = 1; attempt <= VIDEO_RETRY_COUNT; attempt++) {
+      try {
+        const response = await axios.get(url, {
+          responseType: "stream",
+          timeout: 60000,
+          headers: requestHeaders,
+          httpAgent,
+          httpsAgent,
+          validateStatus: (status) => status >= 200 && status < 300,
+        });
 
-    return {
-      stream: response.data,
-      status: response.status,
-      headers: response.headers,
-    };
+        return {
+          stream: response.data,
+          status: response.status,
+          headers: response.headers,
+        };
+      } catch (error: any) {
+        lastError = error;
+
+        const status = error.response?.status;
+        if (status === 404 || status === 403 || status === 416) {
+          throw error;
+        }
+
+        if (attempt < VIDEO_RETRY_COUNT) {
+          const delay = VIDEO_RETRY_DELAY_MS * attempt;
+          logger.warn(`Video proxy attempt ${attempt}/${VIDEO_RETRY_COUNT} failed, retrying in ${delay}ms`, {
+            url: url.substring(0, 100),
+            error: error.code || error.message,
+          });
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+    }
+
+    throw lastError;
   }
 }

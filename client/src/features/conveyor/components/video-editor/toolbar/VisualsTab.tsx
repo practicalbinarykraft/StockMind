@@ -3,7 +3,7 @@
  * Поддерживает генерацию контента через Kie.ai, HeyGen (аватар) и загрузку файлов
  */
 
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useLocation } from 'wouter'
 import { useCompositionStore, selectCurrentScene, selectScenesCount } from '../../../stores/composition'
 import { Button } from '@/shared/ui/button'
@@ -246,6 +246,40 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
     input.click()
   }
 
+  const bgVideoRef = useRef<HTMLVideoElement>(null)
+  const olVideoRef = useRef<HTMLVideoElement>(null)
+  const bgRetryCount = useRef(0)
+  const olRetryCount = useRef(0)
+  const MAX_VIDEO_RETRIES = 3
+
+  const handleVideoError = useCallback((
+    ref: React.RefObject<HTMLVideoElement | null>,
+    retryCountRef: React.MutableRefObject<number>,
+    label: string,
+  ) => {
+    if (retryCountRef.current < MAX_VIDEO_RETRIES) {
+      retryCountRef.current++
+      const delay = 1000 * retryCountRef.current
+      console.warn(`[${label}] Video load failed, retry ${retryCountRef.current}/${MAX_VIDEO_RETRIES} in ${delay}ms`)
+      setTimeout(() => {
+        if (ref.current) {
+          ref.current.load()
+        }
+      }, delay)
+    } else {
+      console.error(`[${label}] Video failed after ${MAX_VIDEO_RETRIES} retries`)
+      toast({
+        title: 'Ошибка загрузки видео',
+        description: 'Не удалось загрузить видео. Попробуйте обновить страницу.',
+        variant: 'destructive',
+      })
+    }
+  }, [toast])
+
+  const handleVideoLoaded = useCallback((retryCountRef: React.MutableRefObject<number>) => {
+    retryCountRef.current = 0
+  }, [])
+
   const bgContentType = backgroundLayer?.contentType || 'image'
   const olContentType = overlayLayer?.contentType || 'image'
 
@@ -395,11 +429,14 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                 <div className="aspect-video rounded-md overflow-hidden border">
                   {bgContentType === 'video' || bgContentType === 'avatar' ? (
                     <video
+                      ref={bgVideoRef}
                       src={previewUrl}
                       className={`w-full h-full ${bgContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
                       controls
                       muted
-                      preload="none"
+                      preload={bgContentType === 'avatar' ? 'auto' : 'metadata'}
+                      onError={() => handleVideoError(bgVideoRef, bgRetryCount, 'BG')}
+                      onLoadedData={() => handleVideoLoaded(bgRetryCount)}
                     />
                   ) : (
                     <img src={previewUrl} alt="Background" className="w-full h-full object-cover" />
@@ -577,11 +614,14 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                 <div className="aspect-video rounded-md overflow-hidden border">
                   {olContentType === 'video' || olContentType === 'avatar' ? (
                     <video
+                      ref={olVideoRef}
                       src={previewUrl}
                       className={`w-full h-full ${olContentType === 'avatar' ? 'object-contain bg-black' : 'object-cover'}`}
                       controls
                       muted
-                      preload="none"
+                      preload={olContentType === 'avatar' ? 'auto' : 'metadata'}
+                      onError={() => handleVideoError(olVideoRef, olRetryCount, 'OL')}
+                      onLoadedData={() => handleVideoLoaded(olRetryCount)}
                     />
                   ) : (
                     <img src={previewUrl} alt="Overlay" className="w-full h-full object-cover" />

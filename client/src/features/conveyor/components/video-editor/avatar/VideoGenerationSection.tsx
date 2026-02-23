@@ -111,7 +111,7 @@ export function VideoGenerationSection({
               <video
                 src={proxiedVideoUrl}
                 controls
-                preload="none"
+                preload="metadata"
                 className="max-w-full max-h-full object-contain rounded-md"
                 style={{
                   width: 'auto',
