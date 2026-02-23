@@ -3,7 +3,7 @@
  */
 
 import { useLocation } from 'wouter'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Save, Undo, Redo, Loader2, Mic, User, Download, CheckCircle, XCircle, Monitor, Smartphone, Square } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
@@ -48,6 +48,16 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
   const updateOverlayMutation = useUpdateOverlayLayer()
   const updateTextMutation = useUpdateTextLayer()
   const updateCompositionMutation = useUpdateComposition()
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [hasChanges])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -268,24 +278,37 @@ export function VideoEditorHeader({ scriptId, status }: VideoEditorHeaderProps) 
 
           <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
 
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving}
-            className="text-xs sm:text-sm"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-                <span className="hidden sm:inline">Сохранение...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Сохранить</span>
-              </>
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={!hasChanges || isSaving}
+                className={`text-xs sm:text-sm relative ${hasChanges && !isSaving ? 'ring-2 ring-amber-500/50' : ''}`}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Сохранение...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Сохранить</span>
+                  </>
+                )}
+                {hasChanges && !isSaving && (
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {hasChanges ? 'Есть несохранённые изменения' : 'Все изменения сохранены'}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>

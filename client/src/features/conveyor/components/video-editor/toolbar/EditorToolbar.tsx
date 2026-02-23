@@ -9,7 +9,8 @@ import { VisualsTab } from './VisualsTab'
 import { TextTab } from './TextTab'
 import { AudioTab } from './AudioTab'
 import { CompositionTab } from './CompositionTab'
-import { Image, Type, Music, Layout } from 'lucide-react'
+import { Image, Type, Music, Layout, Save } from 'lucide-react'
+import { useCompositionStore, selectHasChanges } from '../../../stores/composition'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 
 interface EditorToolbarProps {
@@ -19,6 +20,8 @@ interface EditorToolbarProps {
 }
 
 export function EditorToolbar({ className, scriptId, media }: EditorToolbarProps) {
+  const hasChanges = useCompositionStore(selectHasChanges)
+
   return (
     <Card className={`${className ?? ''} min-w-0`}>
       <Tabs defaultValue="visuals" className="w-full min-w-0">
@@ -40,6 +43,13 @@ export function EditorToolbar({ className, scriptId, media }: EditorToolbarProps
             <span className="hidden sm:inline">Композиция</span>
           </TabsTrigger>
         </TabsList>
+
+        {hasChanges && (
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            <Save className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Есть несохранённые изменения. Нажмите <kbd className="mx-0.5 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-0.5 font-mono text-[10px]">Сохранить</kbd> в шапке.</span>
+          </div>
+        )}
 
         <div className="mt-4 p-4">
           <TabsContent value="visuals" className="mt-0">
