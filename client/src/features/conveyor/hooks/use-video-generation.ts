@@ -30,7 +30,7 @@ export function useVideoGeneration(
 ): UseVideoGenerationReturn {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { selectedQuality } = useVideoFormatStore()
+  const { selectedQuality, greenScreen } = useVideoFormatStore()
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [videoStatus, setVideoStatus] = useState<
@@ -181,11 +181,13 @@ export function useVideoGeneration(
 
         // Шаг 2: Запуск генерации на HeyGen
         setVideoStatus('processing')
+        
         const generateResponse = await apiRequest('POST', '/api/heygen/generate', {
           avatarId,
           script: scriptText,
           audioUrl,
           dimension,
+          greenScreen,
         })
 
         const generateData = await generateResponse.json()
@@ -230,7 +232,7 @@ export function useVideoGeneration(
         }
       }
     },
-    [scriptId, startPolling, selectedQuality, toast]
+    [scriptId, startPolling, selectedQuality, greenScreen, toast]
   )
 
   return {

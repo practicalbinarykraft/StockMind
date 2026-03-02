@@ -6,6 +6,7 @@ import { heygenService } from "./heygen.service";
 import {
   GetAvatarsQueryDto,
   GenerateVideoDto,
+  GenerateWebmVideoDto,
   VideoStatusParamsDto,
   ImageProxyQueryDto,
   VideoProxyQueryDto,
@@ -134,6 +135,53 @@ export const heygenController = {
       }
 
       res.status(500).json({ message: "Failed to generate HeyGen video" });
+    }
+  },
+
+  /**
+   * POST /api/heygen/generate-webm
+   * Сгенерировать WebM видео с прозрачным фоном
+   */
+  async generateWebmVideo(req: Request, res: Response) {
+    let userId: string | null = null;
+    try {
+      userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const validated = GenerateWebmVideoDto.parse(req.body);
+      const result = await heygenService.generateWebmVideo(userId, validated);
+
+      res.json(result);
+    } catch (error: any) {
+      logger.error("Error generating HeyGen WebM video", {
+        userId,
+        errorType: error.constructor?.name,
+        requestBody: req.body,
+      });
+
+      if (error.name === "ZodError") {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors.map((e: any) => ({
+            field: e.path.join("."),
+            message: e.message,
+          })),
+        });
+      }
+
+      if (error instanceof HeygenApiKeyNotFoundError) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      if (error instanceof HeygenGenerateVideoError) {
+        const status = error.statusCode || 500;
+        return res.status(status).json({
+          message: error.message,
+          error: error.apiMessage || error.message,
+        });
+      }
+
+      res.status(500).json({ message: "Failed to generate WebM video" });
     }
   },
 

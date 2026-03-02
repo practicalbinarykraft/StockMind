@@ -7,7 +7,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { AbsoluteFill, Audio, Video, prefetch, useCurrentFrame, useVideoConfig } from 'remotion';
-import type { EnhancedScene } from '../types/layers';
+import type { EnhancedScene, ChromaKeySettings } from '../types/layers';
 import { getCurrentScene } from './Root';
 import {
   BackgroundLayerRenderer,
@@ -15,6 +15,7 @@ import {
   TextLayerRenderer,
   SplitRenderer,
 } from './layers';
+import { ChromaKeyVideo } from './layers/ChromaKeyVideo';
 
 // ============================================================================
 // PROPS INTERFACES
@@ -37,21 +38,25 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
   const { width, height } = useVideoConfig();
 
   // Единый URL видео-аватара (background) — один и тот же для всех сцен
-  const avatarBgUrl = useMemo(() => {
+  const avatarBgConfig = useMemo(() => {
     for (const scene of scenes) {
       if (scene.layers.background?.contentType === 'avatar' && scene.layers.background.sourceUrl) {
-        return scene.layers.background.sourceUrl;
+        const chromaKey = scene.layers.background.metadata?.chromaKey as ChromaKeySettings | undefined;
+        return { url: scene.layers.background.sourceUrl, chromaKey };
       }
     }
     return null;
   }, [scenes]);
 
-  // Единый URL видео-аватара (overlay) + позиция + objectFit
+  const avatarBgUrl = avatarBgConfig?.url ?? null;
+
+  // Единый URL видео-аватара (overlay) + позиция + objectFit + chromaKey
   const avatarOverlayConfig = useMemo(() => {
     for (const scene of scenes) {
       const ol = scene.layers.overlay;
       if (ol?.contentType === 'avatar' && ol.sourceUrl) {
-        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain' };
+        const chromaKey = ol.metadata?.chromaKey as ChromaKeySettings | undefined;
+        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain', chromaKey };
       }
     }
     return null;
@@ -141,17 +146,30 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
           Для не-аватарных сцен перекрываем непрозрачным фоном сверху. */}
       {globalAvatarBg && (
         <AbsoluteFill>
-          <Video
-            src={globalAvatarBg}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              transform: 'translateZ(0)',
-            }}
-          />
+          {avatarBgConfig?.chromaKey?.enabled ? (
+            <ChromaKeyVideo
+              src={globalAvatarBg}
+              objectFit="contain"
+              chromaKey={{
+                enabled: true,
+                keyColor: avatarBgConfig.chromaKey.keyColor,
+                similarity: avatarBgConfig.chromaKey.similarity,
+                smoothness: avatarBgConfig.chromaKey.smoothness,
+              }}
+            />
+          ) : (
+            <Video
+              src={globalAvatarBg}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                transform: 'translateZ(0)',
+              }}
+            />
+          )}
         </AbsoluteFill>
       )}
 
@@ -185,17 +203,30 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
             visibility: sceneUsesAvatarOverlay ? 'visible' : 'hidden',
           }}
         >
-          <Video
-            src={globalAvatarOverlay.url}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: globalAvatarOverlay.objectFit,
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              transform: 'translateZ(0)',
-            }}
-          />
+          {globalAvatarOverlay.chromaKey?.enabled ? (
+            <ChromaKeyVideo
+              src={globalAvatarOverlay.url}
+              objectFit={globalAvatarOverlay.objectFit}
+              chromaKey={{
+                enabled: true,
+                keyColor: globalAvatarOverlay.chromaKey.keyColor,
+                similarity: globalAvatarOverlay.chromaKey.similarity,
+                smoothness: globalAvatarOverlay.chromaKey.smoothness,
+              }}
+            />
+          ) : (
+            <Video
+              src={globalAvatarOverlay.url}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: globalAvatarOverlay.objectFit,
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                transform: 'translateZ(0)',
+              }}
+            />
+          )}
         </div>
       )}
 

@@ -15,7 +15,7 @@ import {
   ProxyTimeoutError,
   ProxyNotFoundError,
 } from "./heygen.errors";
-import type { GetAvatarsQueryDto, GenerateVideoDto } from "./heygen.dto";
+import type { GetAvatarsQueryDto, GenerateVideoDto, GenerateWebmVideoDto } from "./heygen.dto";
 
 /**
  * Types and interfaces
@@ -50,6 +50,7 @@ export interface HeyGenVideoRequest {
     width: number;
     height: number;
   };
+  green_screen?: boolean;
 }
 
 export interface HeyGenVideoStatus {
@@ -320,17 +321,25 @@ export class HeygenService {
         };
       }
 
+      const videoInput: Record<string, any> = {
+        character: {
+          type: "avatar",
+          avatar_id: request.avatar_id,
+          avatar_style: "normal",
+        },
+        voice: voiceConfig,
+      };
+
+      if (request.green_screen) {
+        videoInput.background = {
+          type: "color",
+          value: "#00FF00",
+        };
+        console.log("🟢 Green screen mode enabled — background set to #00FF00");
+      }
+
       const payload = {
-        video_inputs: [
-          {
-            character: {
-              type: "avatar",
-              avatar_id: request.avatar_id,
-              avatar_style: "normal",
-            },
-            voice: voiceConfig,
-          },
-        ],
+        video_inputs: [videoInput],
         dimension: request.dimension || {
           width: 1280,
           height: 720,
@@ -575,10 +584,10 @@ export class HeygenService {
    * Сгенерировать видео с аватаром
    */
   async generateVideo(userId: string, dto: GenerateVideoDto) {
-    const { avatarId, script, audioUrl, voiceId, dimension } = dto;
+    const { avatarId, script, audioUrl, voiceId, dimension, greenScreen } = dto;
     const decryptedKey = await this.getDecryptedApiKey(userId);
 
-    logger.info("Generating HeyGen video", { userId, avatarId, mode: audioUrl ? "audio" : "text" });
+    logger.info("Generating HeyGen video", { userId, avatarId, mode: audioUrl ? "audio" : "text", greenScreen });
 
     try {
       const videoId = await this.generateHeyGenVideoFromAPI(decryptedKey, {
@@ -587,6 +596,7 @@ export class HeygenService {
         audio_url: audioUrl,
         voice_id: voiceId,
         dimension,
+        green_screen: greenScreen,
       });
 
       return { videoId };
@@ -622,6 +632,93 @@ export class HeygenService {
       const apiMessage = error.apiMessage || error.message;
 
       throw new HeygenVideoStatusError(error.message || "Failed to check video status", statusCode, apiMessage);
+    }
+  }
+
+  /**
+   * Сгенерировать WebM видео с прозрачным фоном (только студийные аватары)
+   */
+  async generateWebmVideo(userId: string, dto: GenerateWebmVideoDto) {
+    const decryptedKey = await this.getDecryptedApiKey(userId);
+
+    logger.info("Generating HeyGen WebM video (transparent bg)", {
+      userId,
+      avatarId: dto.avatarId,
+      mode: dto.audioUrl ? "audio" : "text",
+    });
+
+    try {
+      const payload: Record<string, any> = {
+        avatar_pose_id: dto.avatarId,
+        avatar_style: dto.avatarStyle || "normal",
+      };
+
+      if (dto.audioUrl) {
+        const isRemoteUrl = /^https?:\/\//i.test(dto.audioUrl);
+        let audioAssetId: string;
+
+        if (isRemoteUrl) {
+          audioAssetId = await this.uploadAudioFromUrlToHeyGen(decryptedKey, dto.audioUrl);
+        } else {
+          const audioPath = dto.audioUrl.startsWith("/")
+            ? dto.audioUrl
+            : path.join(process.cwd(), dto.audioUrl);
+          audioAssetId = await this.uploadAudioToHeyGen(decryptedKey, audioPath);
+        }
+
+        payload.input_audio = audioAssetId;
+      } else {
+        payload.input_text = dto.script;
+        payload.voice_id = dto.voiceId;
+      }
+
+      if (dto.dimension) {
+        payload.dimension = dto.dimension;
+      }
+
+      console.log("🎬 Generating WebM video with transparent background...");
+      console.log("📦 Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await axios.post(`${HEYGEN_API_BASE}/v1/video.webm`, payload, {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Api-Key": decryptedKey,
+        },
+        timeout: 30000,
+      });
+
+      const videoId = response.data?.data?.video_id;
+      if (!videoId) {
+        console.error("❌ No video_id in WebM response:", response.data);
+        throw new Error("No video_id returned from HeyGen WebM endpoint");
+      }
+
+      console.log(`✅ WebM video generation started: ${videoId}`);
+      return { videoId };
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || error.message;
+
+        console.error("❌ HeyGen WebM API error:", { status: statusCode, data: errorData });
+
+        if (statusCode === 400 && errorMessage?.includes("does not support WebM")) {
+          throw new HeygenGenerateVideoError(
+            "Этот аватар не поддерживает WebM формат. Используйте режим зелёного экрана.",
+            400,
+            errorMessage,
+          );
+        }
+
+        throw new HeygenGenerateVideoError(
+          errorMessage || "Failed to generate WebM video",
+          statusCode || 500,
+          errorMessage,
+        );
+      }
+      throw error;
     }
   }
 

@@ -17,9 +17,27 @@ export const GenerateVideoDto = z
       width: z.number(),
       height: z.number(),
     }).optional(),
+    greenScreen: z.boolean().optional(),
   })
   .refine((data) => data.audioUrl || data.voiceId, {
     message: "Either audioUrl or voiceId is required for HeyGen generation",
+  });
+
+// DTO: Generate WebM video with transparent background (POST /api/heygen/generate-webm)
+export const GenerateWebmVideoDto = z
+  .object({
+    avatarId: z.string().min(1, "Avatar ID is required"),
+    avatarStyle: z.enum(["normal", "closeUp"]).optional().default("normal"),
+    script: z.string().optional(),
+    audioUrl: z.string().optional(),
+    voiceId: z.string().optional(),
+    dimension: z.object({
+      width: z.number(),
+      height: z.number(),
+    }).optional(),
+  })
+  .refine((data) => (data.script && data.voiceId) || data.audioUrl, {
+    message: "Either (script + voiceId) or audioUrl is required",
   });
 
 // DTO: Video status params (GET /api/heygen/status/:videoId)
@@ -40,6 +58,7 @@ export const VideoProxyQueryDto = z.object({
 
 export type GetAvatarsQueryDto = z.infer<typeof GetAvatarsQueryDto>;
 export type GenerateVideoDto = z.infer<typeof GenerateVideoDto>;
+export type GenerateWebmVideoDto = z.infer<typeof GenerateWebmVideoDto>;
 export type VideoStatusParamsDto = z.infer<typeof VideoStatusParamsDto>;
 export type ImageProxyQueryDto = z.infer<typeof ImageProxyQueryDto>;
 export type VideoProxyQueryDto = z.infer<typeof VideoProxyQueryDto>;

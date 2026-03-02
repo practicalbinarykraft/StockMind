@@ -9,8 +9,10 @@ import type {
   EnhancedScene,
   BackgroundLayer,
   OverlayLayer,
+  ChromaKeySettings,
 } from "../../types/layers";
 import { TextLayerRenderer } from "./TextLayerRenderer";
+import { ChromaKeyVideo } from "./ChromaKeyVideo";
 
 export interface SplitRendererProps {
   scene: EnhancedScene;
@@ -71,20 +73,38 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
         />
       )}
 
-      {layer.contentType === "avatar" && (
-        <Video
-          src={layer.sourceUrl}
-          startFrom={videoStartFrame}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "translateZ(0)",
-          }}
-        />
-      )}
+      {layer.contentType === "avatar" && (() => {
+        const chromaKey = (layer as any).metadata?.chromaKey as ChromaKeySettings | undefined;
+        if (chromaKey?.enabled) {
+          return (
+            <ChromaKeyVideo
+              src={layer.sourceUrl!}
+              startFrom={videoStartFrame}
+              objectFit="contain"
+              chromaKey={{
+                enabled: true,
+                keyColor: chromaKey.keyColor,
+                similarity: chromaKey.similarity,
+                smoothness: chromaKey.smoothness,
+              }}
+            />
+          );
+        }
+        return (
+          <Video
+            src={layer.sourceUrl!}
+            startFrom={videoStartFrame}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
+            }}
+          />
+        );
+      })()}
     </>
   );
 };

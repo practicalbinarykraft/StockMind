@@ -2,10 +2,12 @@
 // BACKGROUND LAYER RENDERER
 // ============================================================================
 // Компонент для рендеринга фонового слоя (image/video/avatar)
+// Поддерживает ChromaKey для удаления фона у аватаров
 
 import React from "react";
 import { AbsoluteFill, Img, Video, Sequence, useVideoConfig } from "remotion";
-import type { BackgroundLayer } from "../../types/layers";
+import type { BackgroundLayer, ChromaKeySettings } from "../../types/layers";
+import { ChromaKeyVideo } from "./ChromaKeyVideo";
 
 export interface BackgroundLayerRendererProps {
   layer: BackgroundLayer;
@@ -57,20 +59,38 @@ export const BackgroundLayerRenderer: React.FC<
         </Sequence>
       )}
 
-      {layer.contentType === "avatar" && (
-        <Video
-          src={layer.sourceUrl}
-          startFrom={videoStartFrame}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "translateZ(0)",
-          }}
-        />
-      )}
+      {layer.contentType === "avatar" && (() => {
+        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
+        if (chromaKey?.enabled) {
+          return (
+            <ChromaKeyVideo
+              src={layer.sourceUrl!}
+              startFrom={videoStartFrame}
+              objectFit="contain"
+              chromaKey={{
+                enabled: true,
+                keyColor: chromaKey.keyColor,
+                similarity: chromaKey.similarity,
+                smoothness: chromaKey.smoothness,
+              }}
+            />
+          );
+        }
+        return (
+          <Video
+            src={layer.sourceUrl!}
+            startFrom={videoStartFrame}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
+            }}
+          />
+        );
+      })()}
     </AbsoluteFill>
   );
 };

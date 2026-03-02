@@ -11,13 +11,15 @@ import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
-import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize, Copy, Trash2, Plus, X } from 'lucide-react'
+import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize, Copy, Trash2, Plus, X, Eraser } from 'lucide-react'
 import { Slider } from '@/shared/ui/slider'
+import { Switch } from '@/shared/ui/switch'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
 import { getProxiedVideoUrl } from '../../../utils/media-proxy'
-import type { ContentType, OverlayObjectFit } from '../../../types/layers'
+import type { ContentType, OverlayObjectFit, ChromaKeySettings } from '../../../types/layers'
+import { DEFAULT_CHROMA_KEY_SETTINGS } from '../../../types/layers'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 
 interface VisualsTabProps {
@@ -380,15 +382,23 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             </div>
 
             {bgContentType === 'avatar' ? (
-              <Button
-                variant="default"
-                className="w-full"
-                onClick={handleNavigateToAvatar}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Выбрать аватар (HeyGen)
-                <ExternalLink className="h-3 w-3 ml-2" />
-              </Button>
+              <>
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={handleNavigateToAvatar}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Выбрать аватар (HeyGen)
+                  <ExternalLink className="h-3 w-3 ml-2" />
+                </Button>
+                <ChromaKeyControls
+                  layer={backgroundLayer}
+                  sceneId={currentScene.id}
+                  onUpdate={(updates) => updateBackgroundLayer(currentScene.id, updates)}
+                  hasGreenScreen={!!media?.compositionSettings?.greenScreen}
+                />
+              </>
             ) : (
               <div className="flex gap-2">
                 <Button
@@ -565,15 +575,23 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
             </div>
 
             {olContentType === 'avatar' ? (
-              <Button
-                variant="default"
-                className="w-full"
-                onClick={handleNavigateToAvatar}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Выбрать аватар (HeyGen)
-                <ExternalLink className="h-3 w-3 ml-2" />
-              </Button>
+              <>
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={handleNavigateToAvatar}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Выбрать аватар (HeyGen)
+                  <ExternalLink className="h-3 w-3 ml-2" />
+                </Button>
+                <ChromaKeyControls
+                  layer={overlayLayer}
+                  sceneId={currentScene.id}
+                  onUpdate={(updates) => updateOverlayLayer(currentScene.id, updates)}
+                  hasGreenScreen={!!media?.compositionSettings?.greenScreen}
+                />
+              </>
             ) : (
               <div className="flex gap-2">
                 <Button
@@ -870,6 +888,85 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
         layerType={currentLayerType}
         sceneId={currentScene.id}
       />
+    </div>
+  )
+}
+
+// ============================================================================
+// CHROMA KEY CONTROLS
+// ============================================================================
+
+interface ChromaKeyControlsProps {
+  layer: any
+  sceneId: string
+  onUpdate: (updates: any) => void
+  hasGreenScreen: boolean
+}
+
+function ChromaKeyControls({ layer, sceneId, onUpdate, hasGreenScreen }: ChromaKeyControlsProps) {
+  const chromaKey: ChromaKeySettings = layer?.metadata?.chromaKey || DEFAULT_CHROMA_KEY_SETTINGS
+  const isEnabled = !!chromaKey.enabled
+
+  const updateChromaKey = (updates: Partial<ChromaKeySettings>) => {
+    const newChromaKey = { ...chromaKey, ...updates }
+    onUpdate({
+      metadata: { ...(layer?.metadata || {}), chromaKey: newChromaKey },
+    })
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Eraser className="h-4 w-4 text-green-500" />
+          <Label className="text-sm font-medium cursor-pointer" htmlFor={`ck-${sceneId}`}>
+            Удалить фон
+          </Label>
+        </div>
+        <Switch
+          id={`ck-${sceneId}`}
+          checked={isEnabled}
+          onCheckedChange={(checked) => updateChromaKey({ enabled: checked })}
+        />
+      </div>
+
+      {!hasGreenScreen && isEnabled && (
+        <p className="text-xs text-amber-500">
+          Видео сгенерировано без зелёного экрана. Перегенерируйте с включённым зелёным экраном для лучшего результата.
+        </p>
+      )}
+
+      {isEnabled && (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <Label className="text-xs text-muted-foreground">Порог отсечения</Label>
+              <span className="text-xs text-muted-foreground">{Math.round(chromaKey.similarity * 100)}%</span>
+            </div>
+            <Slider
+              value={[chromaKey.similarity * 100]}
+              min={10}
+              max={80}
+              step={1}
+              onValueChange={([v]) => updateChromaKey({ similarity: v / 100 })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <Label className="text-xs text-muted-foreground">Мягкость краёв</Label>
+              <span className="text-xs text-muted-foreground">{Math.round(chromaKey.smoothness * 100)}%</span>
+            </div>
+            <Slider
+              value={[chromaKey.smoothness * 100]}
+              min={0}
+              max={50}
+              step={1}
+              onValueChange={([v]) => updateChromaKey({ smoothness: v / 100 })}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

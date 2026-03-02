@@ -8,6 +8,7 @@ const router = Router();
 router.get("/heygen/avatars", requireAuth, heygenController.getAvatars);
 router.post("/heygen/clear-cache", requireAuth, heygenController.clearCache);
 router.post("/heygen/generate", requireAuth, heygenController.generateVideo);
+router.post("/heygen/generate-webm", requireAuth, heygenController.generateWebmVideo);
 router.get("/heygen/status/:videoId", requireAuth, heygenController.getVideoStatus);
 router.get("/heygen/quota", requireAuth, heygenController.getQuota);
 router.get("/heygen/image-proxy", requireAuth, heygenController.proxyImage);

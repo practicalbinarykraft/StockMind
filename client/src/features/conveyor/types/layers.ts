@@ -8,6 +8,21 @@ export type ContentType = 'avatar' | 'image' | 'video';
 export type GenerationStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export type CompositionMode = 'overlay' | 'split';
 
+// Настройки Chroma Key для удаления фона у аватара
+export interface ChromaKeySettings {
+  enabled: boolean;
+  similarity: number; // 0-1, порог отсечения цвета
+  smoothness: number; // 0-1, мягкость краёв
+  keyColor: [number, number, number]; // RGB ключевого цвета
+}
+
+export const DEFAULT_CHROMA_KEY_SETTINGS: ChromaKeySettings = {
+  enabled: true,
+  similarity: 0.35,
+  smoothness: 0.12,
+  keyColor: [0, 255, 0],
+};
+
 // Позиционирование overlay (в процентах от canvas)
 export interface Position {
   x: number; // 0-100 (%)

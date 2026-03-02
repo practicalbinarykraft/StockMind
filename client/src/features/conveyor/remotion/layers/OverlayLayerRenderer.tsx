@@ -2,10 +2,12 @@
 // OVERLAY LAYER RENDERER
 // ============================================================================
 // Компонент для рендеринга overlay слоя с позиционированием
+// Поддерживает ChromaKey для удаления фона у аватаров
 
 import React from "react";
 import { Img, Video, Sequence, useVideoConfig } from "remotion";
-import type { OverlayLayer } from "../../types/layers";
+import type { OverlayLayer, ChromaKeySettings } from "../../types/layers";
+import { ChromaKeyVideo } from "./ChromaKeyVideo";
 
 export interface OverlayLayerRendererProps {
   layer: OverlayLayer;
@@ -79,20 +81,38 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
         </Sequence>
       )}
 
-      {layer.contentType === "avatar" && (
-        <Video
-          src={layer.sourceUrl}
-          startFrom={videoStartFrame}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: fit,
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "translateZ(0)",
-          }}
-        />
-      )}
+      {layer.contentType === "avatar" && (() => {
+        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
+        if (chromaKey?.enabled) {
+          return (
+            <ChromaKeyVideo
+              src={layer.sourceUrl!}
+              startFrom={videoStartFrame}
+              objectFit={fit}
+              chromaKey={{
+                enabled: true,
+                keyColor: chromaKey.keyColor,
+                similarity: chromaKey.similarity,
+                smoothness: chromaKey.smoothness,
+              }}
+            />
+          );
+        }
+        return (
+          <Video
+            src={layer.sourceUrl!}
+            startFrom={videoStartFrame}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: fit,
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

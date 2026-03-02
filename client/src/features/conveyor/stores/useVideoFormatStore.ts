@@ -12,6 +12,7 @@ interface VideoFormatState {
   selectedFormat: '16:9' | '9:16' | '1:1'
   selectedQuality: VideoQuality
   videoDimension: { width: number; height: number }
+  greenScreen: boolean
   isLoading: boolean
   isInitialized: boolean
   currentScriptId: string | null
@@ -20,6 +21,7 @@ interface VideoFormatState {
   initialize: (scriptId: string) => Promise<void>
   setFormat: (format: '16:9' | '9:16' | '1:1') => Promise<void>
   setQuality: (quality: VideoQuality) => Promise<void>
+  setGreenScreen: (enabled: boolean) => Promise<void>
   reset: () => void
 }
 
@@ -52,6 +54,7 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
   selectedFormat: '9:16',
   selectedQuality: '720p',
   videoDimension: { width: 720, height: 1280 },
+  greenScreen: false,
   isLoading: false,
   isInitialized: false,
   currentScriptId: null,
@@ -88,23 +91,25 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
         detectedFormat = detectFormatFromDimension(width, height)
       }
 
+      const savedGreenScreen = !!media?.compositionSettings?.greenScreen
+
       // Устанавливаем формат
       if (media?.videoAspectRatio && media?.videoDimension) {
-        // Есть сохранённый формат - используем его
         set({
           selectedFormat: media.videoAspectRatio,
           selectedQuality: quality,
           videoDimension: media.videoDimension,
+          greenScreen: savedGreenScreen,
           isLoading: false,
           isInitialized: true,
         })
-        console.log('✅ Загружен сохранённый формат:', media.videoAspectRatio, media.videoDimension, quality)
+        console.log('✅ Загружен сохранённый формат:', media.videoAspectRatio, media.videoDimension, quality, 'greenScreen:', savedGreenScreen)
       } else if (media?.videoUrl && media?.videoDimension && !media?.videoAspectRatio) {
-        // Старое видео без сохранённого формата - определяем формат по размерам
         set({
           selectedFormat: detectedFormat,
           selectedQuality: quality,
           videoDimension: media.videoDimension,
+          greenScreen: savedGreenScreen,
           isLoading: false,
           isInitialized: true,
         })
@@ -208,12 +213,33 @@ export const useVideoFormatStore = create<VideoFormatState>((set, get) => ({
     }
   },
 
+  // Изменение режима зелёного экрана
+  setGreenScreen: async (enabled: boolean) => {
+    const { currentScriptId } = get()
+
+    set({ greenScreen: enabled })
+
+    if (!currentScriptId) return
+
+    try {
+      const media = await scriptMediaService.getMedia(currentScriptId)
+      const currentSettings = media?.compositionSettings || {}
+      await scriptMediaService.upsertMedia(currentScriptId, {
+        compositionSettings: { ...currentSettings, greenScreen: enabled },
+      } as any)
+      console.log(`✅ Green screen: ${enabled ? 'ON' : 'OFF'}`)
+    } catch (err) {
+      console.error('Failed to save green screen setting:', err)
+    }
+  },
+
   // Сброс состояния
   reset: () => {
     set({
       selectedFormat: '9:16',
       selectedQuality: '720p',
       videoDimension: { width: 720, height: 1280 },
+      greenScreen: false,
       isLoading: false,
       isInitialized: false,
       currentScriptId: null,
