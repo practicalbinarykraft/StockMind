@@ -158,6 +158,8 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   }, [isRendering, hasMaskCache]);
 
   // ── Наложение готовой маски из кэша (≈1мс) ─────────────────────────────
+  // Использует globalCompositeOperation вместо getImageData, чтобы
+  // работать с tainted canvas (внешние URL без CORS).
   const applyMaskFromCache = useCallback(
     (frameIdx: number) => {
       const video = videoRef.current;
@@ -184,21 +186,30 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
         offscreen.height = h;
       }
 
-      const offCtx = offscreen.getContext("2d", { willReadFrequently: true });
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!offCtx || !ctx) return false;
+      const offCtx = offscreen.getContext("2d")!;
+      const ctx = canvas.getContext("2d")!;
 
-      offCtx.drawImage(video, 0, 0, w, h);
-      const imageData = offCtx.getImageData(0, 0, w, h);
-      const data = imageData.data;
+      // Рисуем маску (белый + альфа) на offscreen canvas
+      const maskImageData = new ImageData(w, h);
+      const md = maskImageData.data;
       const alpha = entry.alpha;
-
       for (let i = 0; i < alpha.length; i++) {
-        data[i * 4 + 3] = alpha[i];
+        const off = i * 4;
+        md[off] = 255;
+        md[off + 1] = 255;
+        md[off + 2] = 255;
+        md[off + 3] = alpha[i];
       }
+      offCtx.putImageData(maskImageData, 0, 0);
 
+      // Рисуем видеокадр → маскируем через destination-in
       ctx.clearRect(0, 0, w, h);
-      ctx.putImageData(imageData, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(video, 0, 0, w, h);
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(offscreen, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+
       return true;
     },
     [maskCache],
@@ -430,6 +441,10 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   }, [src]);
 
   const isSameOrigin = src.startsWith("/");
+  // С кэшем масок не нужен CORS — используем composition mode (destination-in),
+  // который не требует чтения пикселей (canvas может быть tainted).
+  // Без кэша (SSR) — нужен CORS для getImageData в realtime-сегментации.
+  const needsCrossOrigin = !hasMaskCache && !isSameOrigin;
 
   const canvasStyle: React.CSSProperties = {
     width: "100%",
@@ -460,7 +475,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       <video
         ref={videoRef}
         src={src}
-        crossOrigin={isSameOrigin ? undefined : "anonymous"}
+        crossOrigin={needsCrossOrigin ? "anonymous" : undefined}
         preload="auto"
         muted
         playsInline

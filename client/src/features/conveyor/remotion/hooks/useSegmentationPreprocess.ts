@@ -27,6 +27,8 @@ export interface SegmentationPreprocessResult {
 
 interface PreprocessConfig {
   src: string | null;
+  /** URL для реальной загрузки видео (прокси). Если не указан — используется src. */
+  loadSrc?: string | null;
   fps: number;
   threshold: number;
   edgeBlur: number;
@@ -88,7 +90,8 @@ function buildAlphaMask(
 export function useSegmentationPreprocess(
   config: PreprocessConfig,
 ): SegmentationPreprocessResult {
-  const { src, fps, threshold, edgeBlur, enabled } = config;
+  const { src, loadSrc, fps, threshold, edgeBlur, enabled } = config;
+  const effectiveSrc = loadSrc || src;
 
   const [status, setStatus] = useState<SegmentationPreprocessResult["status"]>("idle");
   const [progress, setProgress] = useState(0);
@@ -106,7 +109,7 @@ export function useSegmentationPreprocess(
   }, []);
 
   useEffect(() => {
-    if (!enabled || !src) {
+    if (!enabled || !effectiveSrc) {
       setStatus("idle");
       setProgress(0);
       setProcessedFrames(0);
@@ -131,12 +134,19 @@ export function useSegmentationPreprocess(
 
         setStatus("processing");
 
+        const videoUrl = effectiveSrc;
+        const isSameOrigin = videoUrl.startsWith("/");
+
         const video = document.createElement("video");
-        video.crossOrigin = "anonymous";
+        if (isSameOrigin) {
+          // Same-origin прокси — crossOrigin не нужен, canvas не будет tainted
+        } else {
+          video.crossOrigin = "anonymous";
+        }
         video.preload = "auto";
         video.muted = true;
         video.playsInline = true;
-        video.src = src;
+        video.src = videoUrl;
 
         await new Promise<void>((resolve, reject) => {
           video.onloadedmetadata = () => resolve();
@@ -227,7 +237,7 @@ export function useSegmentationPreprocess(
     return () => {
       cancelledRef.current = true;
     };
-  }, [src, fps, threshold, edgeBlur, enabled, retryCounter]);
+  }, [effectiveSrc, fps, threshold, edgeBlur, enabled, retryCounter]);
 
   return {
     status,

@@ -22,6 +22,7 @@ import { Slider } from '@/shared/ui/slider'
 import { getProxiedVideoUrl } from '../../../utils/media-proxy'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 import type { EnhancedScene, BackgroundRemovalSettings } from '../../../types/layers'
+import { getLayerStreamUrl } from '../../../types/layers'
 import { useSegmentationPreprocess } from '../../../remotion/hooks/useSegmentationPreprocess'
 import { SegmentationCacheProvider, type SegmentationCacheMap } from '../../../remotion/hooks/SegmentationCacheContext'
 
@@ -127,7 +128,15 @@ export function RemotionPreview({
         if (!layer?.sourceUrl) continue
         const bgr = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined
         if (bgr?.enabled && (layer.contentType === 'avatar' || layer.contentType === 'video')) {
-          return { src: layer.sourceUrl, threshold: bgr.threshold, edgeBlur: bgr.edgeBlur }
+          const src = layer.sourceUrl
+          // Для MediaPipe нужен доступ к пикселям canvas → нужен CORS.
+          // Внешние URL (CloudFront/R2) не отдают CORS-заголовки,
+          // поэтому загружаем через серверный прокси (same-origin).
+          const isExternal = !src.startsWith('/')
+          const proxySrc = isExternal
+            ? getLayerStreamUrl((layer as any).scriptId, layer.id)
+            : src
+          return { src, loadSrc: proxySrc, threshold: bgr.threshold, edgeBlur: bgr.edgeBlur }
         }
       }
     }
@@ -136,6 +145,7 @@ export function RemotionPreview({
 
   const segPreprocess = useSegmentationPreprocess({
     src: segmentationTarget?.src ?? null,
+    loadSrc: segmentationTarget?.loadSrc,
     fps,
     threshold: segmentationTarget?.threshold ?? 0.5,
     edgeBlur: segmentationTarget?.edgeBlur ?? 0.15,
