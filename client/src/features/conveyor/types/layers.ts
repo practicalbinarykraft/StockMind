@@ -8,7 +8,7 @@ export type ContentType = 'avatar' | 'image' | 'video';
 export type GenerationStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export type CompositionMode = 'overlay' | 'split';
 
-// Настройки Chroma Key для удаления фона у аватара
+// Настройки Chroma Key для удаления фона у видео и аватаров
 export interface ChromaKeySettings {
   enabled: boolean;
   similarity: number; // 0-1, порог отсечения цвета

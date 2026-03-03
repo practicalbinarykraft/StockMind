@@ -59,19 +59,37 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
         />
       )}
 
-      {layer.contentType === "video" && (
-        <Video
-          src={layer.sourceUrl}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "translateZ(0)",
-          }}
-        />
-      )}
+      {layer.contentType === "video" && (() => {
+        const chromaKey = (layer as any).metadata?.chromaKey as ChromaKeySettings | undefined;
+        if (chromaKey?.enabled) {
+          return (
+            <ChromaKeyVideo
+              src={layer.sourceUrl!}
+              startFrom={videoStartFrame}
+              objectFit="cover"
+              chromaKey={{
+                enabled: true,
+                keyColor: chromaKey.keyColor,
+                similarity: chromaKey.similarity,
+                smoothness: chromaKey.smoothness,
+              }}
+            />
+          );
+        }
+        return (
+          <Video
+            src={layer.sourceUrl}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
+            }}
+          />
+        );
+      })()}
 
       {layer.contentType === "avatar" && (() => {
         const chromaKey = (layer as any).metadata?.chromaKey as ChromaKeySettings | undefined;

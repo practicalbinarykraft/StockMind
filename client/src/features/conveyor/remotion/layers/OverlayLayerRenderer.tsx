@@ -2,7 +2,7 @@
 // OVERLAY LAYER RENDERER
 // ============================================================================
 // Компонент для рендеринга overlay слоя с позиционированием
-// Поддерживает ChromaKey для удаления фона у аватаров
+// Поддерживает ChromaKey для удаления фона у видео и аватаров
 
 import React from "react";
 import { Img, Video, Sequence, useVideoConfig } from "remotion";
@@ -64,22 +64,42 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
         />
       )}
 
-      {layer.contentType === "video" && (
-        <Sequence from={videoStartFrame} layout="none">
-          <Video
-            src={layer.sourceUrl}
-            startFrom={videoContentOffset}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: fit,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transform: "translateZ(0)",
-            }}
-          />
-        </Sequence>
-      )}
+      {layer.contentType === "video" && (() => {
+        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
+        if (chromaKey?.enabled) {
+          return (
+            <Sequence from={videoStartFrame} layout="none">
+              <ChromaKeyVideo
+                src={layer.sourceUrl!}
+                startFrom={videoContentOffset}
+                objectFit={fit}
+                chromaKey={{
+                  enabled: true,
+                  keyColor: chromaKey.keyColor,
+                  similarity: chromaKey.similarity,
+                  smoothness: chromaKey.smoothness,
+                }}
+              />
+            </Sequence>
+          );
+        }
+        return (
+          <Sequence from={videoStartFrame} layout="none">
+            <Video
+              src={layer.sourceUrl}
+              startFrom={videoContentOffset}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: fit,
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                transform: "translateZ(0)",
+              }}
+            />
+          </Sequence>
+        );
+      })()}
 
       {layer.contentType === "avatar" && (() => {
         const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;

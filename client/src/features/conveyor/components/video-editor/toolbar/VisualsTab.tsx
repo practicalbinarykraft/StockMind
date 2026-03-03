@@ -400,24 +400,34 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                 />
               </>
             ) : (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => handleGenerateClick('background')}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Генерировать
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => handleUploadClick('background')}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Загрузить
-                </Button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleGenerateClick('background')}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Генерировать
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleUploadClick('background')}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
+                </div>
+                {bgContentType === 'video' && backgroundLayer?.sourceUrl && !backgroundLayer?.generationStatus && (
+                  <ChromaKeyControls
+                    layer={backgroundLayer}
+                    sceneId={currentScene.id}
+                    onUpdate={(updates) => updateBackgroundLayer(currentScene.id, updates)}
+                    hasGreenScreen={true}
+                  />
+                )}
+              </>
             )}
 
             {backgroundLayer?.generationStatus && (
@@ -593,24 +603,34 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                 />
               </>
             ) : (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => handleGenerateClick('overlay')}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Генерировать
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => handleUploadClick('overlay')}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Загрузить
-                </Button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleGenerateClick('overlay')}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Генерировать
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleUploadClick('overlay')}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Загрузить
+                  </Button>
+                </div>
+                {olContentType === 'video' && overlayLayer?.sourceUrl && !overlayLayer?.generationStatus && (
+                  <ChromaKeyControls
+                    layer={overlayLayer}
+                    sceneId={currentScene.id}
+                    onUpdate={(updates) => updateOverlayLayer(currentScene.id, updates)}
+                    hasGreenScreen={true}
+                  />
+                )}
+              </>
             )}
 
             {overlayLayer?.generationStatus && (
