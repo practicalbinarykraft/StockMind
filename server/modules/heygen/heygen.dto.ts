@@ -17,7 +17,6 @@ export const GenerateVideoDto = z
       width: z.number(),
       height: z.number(),
     }).optional(),
-    greenScreen: z.boolean().optional(),
   })
   .refine((data) => data.audioUrl || data.voiceId, {
     message: "Either audioUrl or voiceId is required for HeyGen generation",

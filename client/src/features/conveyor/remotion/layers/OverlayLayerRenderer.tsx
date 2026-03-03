@@ -2,13 +2,13 @@
 // OVERLAY LAYER RENDERER
 // ============================================================================
 // Компонент для рендеринга overlay слоя с позиционированием
-// Поддерживает ChromaKey для удаления фона у видео и аватаров
+// Поддерживает AI-сегментацию для удаления фона у видео и аватаров
 
 import React from "react";
 import { Img, Video, Sequence, useVideoConfig } from "remotion";
-import type { OverlayLayer, ChromaKeySettings } from "../../types/layers";
+import type { OverlayLayer, BackgroundRemovalSettings } from "../../types/layers";
 import { getLayerStreamUrl } from "../../types/layers";
-import { ChromaKeyVideo } from "./ChromaKeyVideo";
+import { SegmentedVideo } from "./SegmentedVideo";
 
 export interface OverlayLayerRendererProps {
   layer: OverlayLayer;
@@ -39,6 +39,8 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
     height: (layer.position.height / 100) * height,
   };
 
+  const bgRemoval = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+
   return (
     <div
       style={{
@@ -66,20 +68,18 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
       )}
 
       {layer.contentType === "video" && (() => {
-        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
-        if (chromaKey?.enabled) {
+        if (bgRemoval?.enabled) {
           const streamSrc = getLayerStreamUrl(layer.scriptId, layer.id);
           return (
             <Sequence from={videoStartFrame} layout="none">
-              <ChromaKeyVideo
+              <SegmentedVideo
                 src={streamSrc}
                 startFrom={videoContentOffset}
                 objectFit={fit}
-                chromaKey={{
+                segmentation={{
                   enabled: true,
-                  keyColor: chromaKey.keyColor,
-                  similarity: chromaKey.similarity,
-                  smoothness: chromaKey.smoothness,
+                  threshold: bgRemoval.threshold,
+                  edgeBlur: bgRemoval.edgeBlur,
                 }}
               />
             </Sequence>
@@ -104,18 +104,16 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
       })()}
 
       {layer.contentType === "avatar" && (() => {
-        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
-        if (chromaKey?.enabled) {
+        if (bgRemoval?.enabled) {
           return (
-            <ChromaKeyVideo
+            <SegmentedVideo
               src={layer.sourceUrl!}
               startFrom={videoStartFrame}
               objectFit={fit}
-              chromaKey={{
+              segmentation={{
                 enabled: true,
-                keyColor: chromaKey.keyColor,
-                similarity: chromaKey.similarity,
-                smoothness: chromaKey.smoothness,
+                threshold: bgRemoval.threshold,
+                edgeBlur: bgRemoval.edgeBlur,
               }}
             />
           );

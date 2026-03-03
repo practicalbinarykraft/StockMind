@@ -32,9 +32,7 @@ export interface ScriptMedia {
   }
   videoAspectRatio?: '16:9' | '9:16' | '1:1'
   
-  // Настройки фона аватара
   compositionSettings?: {
-    greenScreen?: boolean
     webmTransparent?: boolean
     [key: string]: any
   }

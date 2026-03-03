@@ -30,7 +30,7 @@ export function useVideoGeneration(
 ): UseVideoGenerationReturn {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { selectedQuality, greenScreen } = useVideoFormatStore()
+  const { selectedQuality } = useVideoFormatStore()
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [videoStatus, setVideoStatus] = useState<
@@ -187,7 +187,6 @@ export function useVideoGeneration(
           script: scriptText,
           audioUrl,
           dimension,
-          greenScreen,
         })
 
         const generateData = await generateResponse.json()
@@ -232,7 +231,7 @@ export function useVideoGeneration(
         }
       }
     },
-    [scriptId, startPolling, selectedQuality, greenScreen, toast]
+    [scriptId, startPolling, selectedQuality, toast]
   )
 
   return {

@@ -7,7 +7,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { AbsoluteFill, Audio, Video, prefetch, useCurrentFrame, useVideoConfig } from 'remotion';
-import type { EnhancedScene, ChromaKeySettings } from '../types/layers';
+import type { EnhancedScene, BackgroundRemovalSettings } from '../types/layers';
 import { getCurrentScene } from './Root';
 import {
   BackgroundLayerRenderer,
@@ -15,7 +15,7 @@ import {
   TextLayerRenderer,
   SplitRenderer,
 } from './layers';
-import { ChromaKeyVideo } from './layers/ChromaKeyVideo';
+import { SegmentedVideo } from './layers/SegmentedVideo';
 
 // ============================================================================
 // PROPS INTERFACES
@@ -37,13 +37,12 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
 
-  // Единый URL видео-аватара (background) — один и тот же для всех сцен
   const avatarBgConfig = useMemo(() => {
     for (const scene of scenes) {
       const bg = scene.layers.background;
       if (bg?.contentType === 'avatar' && bg.sourceUrl) {
-        const chromaKey = bg.metadata?.chromaKey as ChromaKeySettings | undefined;
-        return { url: bg.sourceUrl, chromaKey };
+        const bgRemoval = bg.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+        return { url: bg.sourceUrl, bgRemoval };
       }
     }
     return null;
@@ -51,20 +50,17 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
 
   const avatarBgUrl = avatarBgConfig?.url ?? null;
 
-  // Единый URL видео-аватара (overlay) + позиция + objectFit + chromaKey
   const avatarOverlayConfig = useMemo(() => {
     for (const scene of scenes) {
       const ol = scene.layers.overlay;
       if (ol?.contentType === 'avatar' && ol.sourceUrl) {
-        const chromaKey = ol.metadata?.chromaKey as ChromaKeySettings | undefined;
-        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain', chromaKey };
+        const bgRemoval = ol.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain', bgRemoval };
       }
     }
     return null;
   }, [scenes]);
 
-  // Аватар можно вынести на уровень композиции только если все сцены в overlay-режиме
-  // (в split-режиме аватар обрезается до своей половины — нельзя рендерить full-screen)
   const allOverlayMode = useMemo(
     () => scenes.length > 0 && scenes.every(s => s.composition.mode === 'overlay'),
     [scenes],
@@ -142,20 +138,16 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor }}>
-      {/* Единый непрерывный видео-аватар (background) — всегда смонтирован,
-          чтобы видео не пересоздавалось при смене сцен.
-          Для не-аватарных сцен перекрываем непрозрачным фоном сверху. */}
       {globalAvatarBg && (
         <AbsoluteFill>
-          {avatarBgConfig?.chromaKey?.enabled ? (
-            <ChromaKeyVideo
+          {avatarBgConfig?.bgRemoval?.enabled ? (
+            <SegmentedVideo
               src={globalAvatarBg}
               objectFit="contain"
-              chromaKey={{
+              segmentation={{
                 enabled: true,
-                keyColor: avatarBgConfig.chromaKey.keyColor,
-                similarity: avatarBgConfig.chromaKey.similarity,
-                smoothness: avatarBgConfig.chromaKey.smoothness,
+                threshold: avatarBgConfig.bgRemoval.threshold,
+                edgeBlur: avatarBgConfig.bgRemoval.edgeBlur,
               }}
             />
           ) : (
@@ -174,12 +166,10 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         </AbsoluteFill>
       )}
 
-      {/* Перекрытие: скрывает глобальный аватар для сцен с другим contentType */}
       {globalAvatarBg && !sceneUsesAvatarBg && (
         <AbsoluteFill style={{ backgroundColor }} />
       )}
 
-      {/* Контент текущей сцены (слои, кроме вынесенного аватара) */}
       <SceneRenderer
         scene={scene}
         sceneFrame={sceneFrame}
@@ -190,7 +180,6 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
         skipAvatarOverlay={!!(globalAvatarOverlay && sceneUsesAvatarOverlay)}
       />
 
-      {/* Единый непрерывный видео-аватар (overlay) — всегда смонтирован */}
       {globalAvatarOverlay && (
         <div
           style={{
@@ -204,15 +193,14 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
             visibility: sceneUsesAvatarOverlay ? 'visible' : 'hidden',
           }}
         >
-          {globalAvatarOverlay.chromaKey?.enabled ? (
-            <ChromaKeyVideo
+          {globalAvatarOverlay.bgRemoval?.enabled ? (
+            <SegmentedVideo
               src={globalAvatarOverlay.url}
               objectFit={globalAvatarOverlay.objectFit}
-              chromaKey={{
+              segmentation={{
                 enabled: true,
-                keyColor: globalAvatarOverlay.chromaKey.keyColor,
-                similarity: globalAvatarOverlay.chromaKey.similarity,
-                smoothness: globalAvatarOverlay.chromaKey.smoothness,
+                threshold: globalAvatarOverlay.bgRemoval.threshold,
+                edgeBlur: globalAvatarOverlay.bgRemoval.edgeBlur,
               }}
             />
           ) : (
@@ -305,7 +293,6 @@ const SceneRenderer: React.FC<SceneRendererProps> = ({
     );
   }
 
-  // Split режим — аватар рендерится per-scene (обрезан до split-области)
   if (composition.mode === 'split') {
     return (
       <SplitRenderer

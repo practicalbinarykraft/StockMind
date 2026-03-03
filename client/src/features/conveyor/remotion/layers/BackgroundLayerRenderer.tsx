@@ -2,13 +2,13 @@
 // BACKGROUND LAYER RENDERER
 // ============================================================================
 // Компонент для рендеринга фонового слоя (image/video/avatar)
-// Поддерживает ChromaKey для удаления фона у видео и аватаров
+// Поддерживает AI-сегментацию для удаления фона у видео и аватаров
 
 import React from "react";
 import { AbsoluteFill, Img, Video, Sequence, useVideoConfig } from "remotion";
-import type { BackgroundLayer, ChromaKeySettings } from "../../types/layers";
+import type { BackgroundLayer, BackgroundRemovalSettings } from "../../types/layers";
 import { getLayerStreamUrl } from "../../types/layers";
-import { ChromaKeyVideo } from "./ChromaKeyVideo";
+import { SegmentedVideo } from "./SegmentedVideo";
 
 export interface BackgroundLayerRendererProps {
   layer: BackgroundLayer;
@@ -26,6 +26,7 @@ export const BackgroundLayerRenderer: React.FC<
   if (!layer.sourceUrl) return null;
 
   const videoContentOffset = Math.round((layer.metadata?.videoStartTime || 0) * fps);
+  const bgRemoval = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
 
   return (
     <AbsoluteFill>
@@ -44,20 +45,18 @@ export const BackgroundLayerRenderer: React.FC<
       )}
 
       {layer.contentType === "video" && (() => {
-        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
-        if (chromaKey?.enabled) {
+        if (bgRemoval?.enabled) {
           const streamSrc = getLayerStreamUrl(layer.scriptId, layer.id);
           return (
             <Sequence from={videoStartFrame} layout="none">
-              <ChromaKeyVideo
+              <SegmentedVideo
                 src={streamSrc}
                 startFrom={videoContentOffset}
                 objectFit="cover"
-                chromaKey={{
+                segmentation={{
                   enabled: true,
-                  keyColor: chromaKey.keyColor,
-                  similarity: chromaKey.similarity,
-                  smoothness: chromaKey.smoothness,
+                  threshold: bgRemoval.threshold,
+                  edgeBlur: bgRemoval.edgeBlur,
                 }}
               />
             </Sequence>
@@ -82,18 +81,16 @@ export const BackgroundLayerRenderer: React.FC<
       })()}
 
       {layer.contentType === "avatar" && (() => {
-        const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
-        if (chromaKey?.enabled) {
+        if (bgRemoval?.enabled) {
           return (
-            <ChromaKeyVideo
+            <SegmentedVideo
               src={layer.sourceUrl!}
               startFrom={videoStartFrame}
               objectFit="contain"
-              chromaKey={{
+              segmentation={{
                 enabled: true,
-                keyColor: chromaKey.keyColor,
-                similarity: chromaKey.similarity,
-                smoothness: chromaKey.smoothness,
+                threshold: bgRemoval.threshold,
+                edgeBlur: bgRemoval.edgeBlur,
               }}
             />
           );

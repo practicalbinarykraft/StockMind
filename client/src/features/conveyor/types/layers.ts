@@ -8,24 +8,22 @@ export type ContentType = 'avatar' | 'image' | 'video';
 export type GenerationStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export type CompositionMode = 'overlay' | 'split';
 
-// Настройки Chroma Key для удаления фона у видео и аватаров
-export interface ChromaKeySettings {
+// Настройки удаления фона (AI-сегментация через MediaPipe)
+export interface BackgroundRemovalSettings {
   enabled: boolean;
-  similarity: number; // 0-1, порог отсечения цвета
-  smoothness: number; // 0-1, мягкость краёв
-  keyColor: [number, number, number]; // RGB ключевого цвета
+  threshold: number; // 0-1, порог уверенности сегментации
+  edgeBlur: number; // 0-1, мягкость краёв маски
 }
 
-export const DEFAULT_CHROMA_KEY_SETTINGS: ChromaKeySettings = {
+export const DEFAULT_BG_REMOVAL_SETTINGS: BackgroundRemovalSettings = {
   enabled: true,
-  similarity: 0.35,
-  smoothness: 0.12,
-  keyColor: [0, 255, 0],
+  threshold: 0.5,
+  edgeBlur: 0.15,
 };
 
 /**
  * Возвращает URL для стриминга медиа слоя через сервер (решает CORS для canvas).
- * Используется при chromaKey, где нужен доступ к пикселям видео.
+ * Используется при удалении фона, где нужен доступ к пикселям видео.
  */
 export function getLayerStreamUrl(scriptId: string, layerId: string): string {
   return `/api/scripts/${scriptId}/layers/${layerId}/stream`;

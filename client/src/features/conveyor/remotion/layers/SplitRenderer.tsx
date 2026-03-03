@@ -9,11 +9,11 @@ import type {
   EnhancedScene,
   BackgroundLayer,
   OverlayLayer,
-  ChromaKeySettings,
+  BackgroundRemovalSettings,
 } from "../../types/layers";
 import { getLayerStreamUrl } from "../../types/layers";
 import { TextLayerRenderer } from "./TextLayerRenderer";
-import { ChromaKeyVideo } from "./ChromaKeyVideo";
+import { SegmentedVideo } from "./SegmentedVideo";
 
 export interface SplitRendererProps {
   scene: EnhancedScene;
@@ -44,6 +44,8 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
 }) => {
   if (!layer.sourceUrl) return null;
 
+  const bgRemoval = (layer as any).metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+
   return (
     <>
       {layer.contentType === "image" && (
@@ -61,19 +63,17 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
       )}
 
       {layer.contentType === "video" && (() => {
-        const chromaKey = (layer as any).metadata?.chromaKey as ChromaKeySettings | undefined;
-        if (chromaKey?.enabled) {
+        if (bgRemoval?.enabled) {
           const streamSrc = getLayerStreamUrl((layer as any).scriptId, layer.id);
           return (
-            <ChromaKeyVideo
+            <SegmentedVideo
               src={streamSrc}
               startFrom={videoStartFrame}
               objectFit="cover"
-              chromaKey={{
+              segmentation={{
                 enabled: true,
-                keyColor: chromaKey.keyColor,
-                similarity: chromaKey.similarity,
-                smoothness: chromaKey.smoothness,
+                threshold: bgRemoval.threshold,
+                edgeBlur: bgRemoval.edgeBlur,
               }}
             />
           );
@@ -94,18 +94,16 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
       })()}
 
       {layer.contentType === "avatar" && (() => {
-        const chromaKey = (layer as any).metadata?.chromaKey as ChromaKeySettings | undefined;
-        if (chromaKey?.enabled) {
+        if (bgRemoval?.enabled) {
           return (
-            <ChromaKeyVideo
+            <SegmentedVideo
               src={layer.sourceUrl!}
               startFrom={videoStartFrame}
               objectFit="contain"
-              chromaKey={{
+              segmentation={{
                 enabled: true,
-                keyColor: chromaKey.keyColor,
-                similarity: chromaKey.similarity,
-                smoothness: chromaKey.smoothness,
+                threshold: bgRemoval.threshold,
+                edgeBlur: bgRemoval.edgeBlur,
               }}
             />
           );
@@ -143,14 +141,12 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
   const { composition, layers } = scene;
   const { splitRatio, splitDirection, splitOrder } = composition;
 
-  // Вычисляем размеры для каждой части
   const isHorizontal = splitDirection === "horizontal";
   const firstSize = isHorizontal ? width * splitRatio : height * splitRatio;
   const secondSize = isHorizontal
     ? width * (1 - splitRatio)
     : height * (1 - splitRatio);
 
-  // Определяем какой слой идет первым
   const firstLayer =
     splitOrder === "background-first" ? layers.background : layers.overlay;
   const secondLayer =
@@ -158,7 +154,6 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
 
   return (
     <>
-      {/* Первая часть split */}
       {firstLayer && firstLayer.isVisible && (
         <div
           style={{
@@ -179,7 +174,6 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
         </div>
       )}
 
-      {/* Вторая часть split */}
       {secondLayer && secondLayer.isVisible && (
         <div
           style={{
@@ -200,7 +194,6 @@ export const SplitRenderer: React.FC<SplitRendererProps> = ({
         </div>
       )}
 
-      {/* Text слой поверх всего (z-index: 2) */}
       {layers.textLayer && layers.textLayer.isVisible && (
         <TextLayerRenderer
           layer={layers.textLayer}

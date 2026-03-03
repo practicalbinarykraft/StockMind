@@ -50,7 +50,6 @@ export interface HeyGenVideoRequest {
     width: number;
     height: number;
   };
-  green_screen?: boolean;
 }
 
 export interface HeyGenVideoStatus {
@@ -330,14 +329,6 @@ export class HeygenService {
         voice: voiceConfig,
       };
 
-      if (request.green_screen) {
-        videoInput.background = {
-          type: "color",
-          value: "#00FF00",
-        };
-        console.log("🟢 Green screen mode enabled — background set to #00FF00");
-      }
-
       const payload = {
         video_inputs: [videoInput],
         dimension: request.dimension || {
@@ -584,10 +575,10 @@ export class HeygenService {
    * Сгенерировать видео с аватаром
    */
   async generateVideo(userId: string, dto: GenerateVideoDto) {
-    const { avatarId, script, audioUrl, voiceId, dimension, greenScreen } = dto;
+    const { avatarId, script, audioUrl, voiceId, dimension } = dto;
     const decryptedKey = await this.getDecryptedApiKey(userId);
 
-    logger.info("Generating HeyGen video", { userId, avatarId, mode: audioUrl ? "audio" : "text", greenScreen });
+    logger.info("Generating HeyGen video", { userId, avatarId, mode: audioUrl ? "audio" : "text" });
 
     try {
       const videoId = await this.generateHeyGenVideoFromAPI(decryptedKey, {
@@ -596,7 +587,6 @@ export class HeygenService {
         audio_url: audioUrl,
         voice_id: voiceId,
         dimension,
-        green_screen: greenScreen,
       });
 
       return { videoId };

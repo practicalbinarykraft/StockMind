@@ -44,8 +44,7 @@ export function VideoEditorAvatar() {
     generate,
   } = useVideoGeneration(scriptId)
 
-  // Используем Zustand store для формата видео
-  const { selectedFormat, videoDimension, selectedQuality, greenScreen, initialize, setFormat, setQuality, setGreenScreen } = useVideoFormatStore()
+  const { selectedFormat, videoDimension, selectedQuality, initialize, setFormat, setQuality } = useVideoFormatStore()
 
   const [hasAudio, setHasAudio] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -103,11 +102,6 @@ export function VideoEditorAvatar() {
     await setQuality(quality)
   }
 
-  // Обработчик изменения зелёного экрана
-  const handleGreenScreenChange = async (enabled: boolean) => {
-    await setGreenScreen(enabled)
-  }
-
   // Обработчик генерации
   const handleGenerate = async () => {
     if (!selectedAvatarId || !audioUrl) return
@@ -155,10 +149,8 @@ export function VideoEditorAvatar() {
       <VideoFormatSelector
         selectedFormat={selectedFormat}
         selectedQuality={selectedQuality}
-        greenScreen={greenScreen}
         onFormatChange={handleFormatChange}
         onQualityChange={handleQualityChange}
-        onGreenScreenChange={handleGreenScreenChange}
         disabled={isGenerating}
       />
 

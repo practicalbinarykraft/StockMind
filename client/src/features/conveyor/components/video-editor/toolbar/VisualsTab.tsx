@@ -17,8 +17,8 @@ import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
 import { getProxiedVideoUrl } from '../../../utils/media-proxy'
-import type { ContentType, OverlayObjectFit, ChromaKeySettings } from '../../../types/layers'
-import { DEFAULT_CHROMA_KEY_SETTINGS } from '../../../types/layers'
+import type { ContentType, OverlayObjectFit, BackgroundRemovalSettings } from '../../../types/layers'
+import { DEFAULT_BG_REMOVAL_SETTINGS } from '../../../types/layers'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 
 interface VisualsTabProps {
@@ -391,11 +391,10 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   Выбрать аватар (HeyGen)
                   <ExternalLink className="h-3 w-3 ml-2" />
                 </Button>
-                <ChromaKeyControls
+                <BgRemovalControls
                   layer={backgroundLayer}
                   sceneId={currentScene.id}
                   onUpdate={(updates) => updateBackgroundLayer(currentScene.id, updates)}
-                  hasGreenScreen={!!media?.compositionSettings?.greenScreen}
                 />
               </>
             ) : (
@@ -419,11 +418,10 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   </Button>
                 </div>
                 {bgContentType === 'video' && backgroundLayer?.sourceUrl && !backgroundLayer?.generationStatus && (
-                  <ChromaKeyControls
+                  <BgRemovalControls
                     layer={backgroundLayer}
                     sceneId={currentScene.id}
                     onUpdate={(updates) => updateBackgroundLayer(currentScene.id, updates)}
-                    hasGreenScreen={true}
                   />
                 )}
               </>
@@ -594,11 +592,10 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   Выбрать аватар (HeyGen)
                   <ExternalLink className="h-3 w-3 ml-2" />
                 </Button>
-                <ChromaKeyControls
+                <BgRemovalControls
                   layer={overlayLayer}
                   sceneId={currentScene.id}
                   onUpdate={(updates) => updateOverlayLayer(currentScene.id, updates)}
-                  hasGreenScreen={!!media?.compositionSettings?.greenScreen}
                 />
               </>
             ) : (
@@ -622,11 +619,10 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
                   </Button>
                 </div>
                 {olContentType === 'video' && overlayLayer?.sourceUrl && !overlayLayer?.generationStatus && (
-                  <ChromaKeyControls
+                  <BgRemovalControls
                     layer={overlayLayer}
                     sceneId={currentScene.id}
                     onUpdate={(updates) => updateOverlayLayer(currentScene.id, updates)}
-                    hasGreenScreen={true}
                   />
                 )}
               </>
@@ -912,24 +908,23 @@ export function VisualsTab({ scriptId, media }: VisualsTabProps) {
 }
 
 // ============================================================================
-// CHROMA KEY CONTROLS
+// BACKGROUND REMOVAL CONTROLS (AI Segmentation)
 // ============================================================================
 
-interface ChromaKeyControlsProps {
+interface BgRemovalControlsProps {
   layer: any
   sceneId: string
   onUpdate: (updates: any) => void
-  hasGreenScreen: boolean
 }
 
-function ChromaKeyControls({ layer, sceneId, onUpdate, hasGreenScreen }: ChromaKeyControlsProps) {
-  const chromaKey: ChromaKeySettings = layer?.metadata?.chromaKey || DEFAULT_CHROMA_KEY_SETTINGS
-  const isEnabled = !!chromaKey.enabled
+function BgRemovalControls({ layer, sceneId, onUpdate }: BgRemovalControlsProps) {
+  const bgRemoval: BackgroundRemovalSettings = layer?.metadata?.bgRemoval || DEFAULT_BG_REMOVAL_SETTINGS
+  const isEnabled = !!bgRemoval.enabled
 
-  const updateChromaKey = (updates: Partial<ChromaKeySettings>) => {
-    const newChromaKey = { ...chromaKey, ...updates }
+  const updateBgRemoval = (updates: Partial<BackgroundRemovalSettings>) => {
+    const newSettings = { ...bgRemoval, ...updates }
     onUpdate({
-      metadata: { ...(layer?.metadata || {}), chromaKey: newChromaKey },
+      metadata: { ...(layer?.metadata || {}), bgRemoval: newSettings },
     })
   }
 
@@ -940,60 +935,54 @@ function ChromaKeyControls({ layer, sceneId, onUpdate, hasGreenScreen }: ChromaK
           variant="outline"
           size="sm"
           className="w-full gap-2"
-          onClick={() => updateChromaKey({ enabled: true })}
+          onClick={() => updateBgRemoval({ ...DEFAULT_BG_REMOVAL_SETTINGS, enabled: true })}
         >
-          <Eraser className="h-4 w-4 text-green-500" />
+          <Eraser className="h-4 w-4 text-blue-500" />
           Удалить фон
         </Button>
       ) : (
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Eraser className="h-4 w-4 text-green-500" />
+              <Eraser className="h-4 w-4 text-blue-500" />
               <span className="text-sm font-medium">Фон удалён</span>
             </div>
             <Button
               variant="ghost"
               size="sm"
               className="h-7 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => updateChromaKey({ enabled: false })}
+              onClick={() => updateBgRemoval({ enabled: false })}
             >
               Вернуть фон
             </Button>
           </div>
 
-          {!hasGreenScreen && (
-            <p className="text-xs text-amber-500">
-              Видео сгенерировано без зелёного экрана. Перегенерируйте с включённым зелёным экраном для лучшего результата.
-            </p>
-          )}
-
           <div className="space-y-3">
             <div className="space-y-1">
               <div className="flex justify-between">
                 <Label className="text-xs text-muted-foreground">Порог отсечения</Label>
-                <span className="text-xs text-muted-foreground">{Math.round(chromaKey.similarity * 100)}%</span>
+                <span className="text-xs text-muted-foreground">{Math.round(bgRemoval.threshold * 100)}%</span>
               </div>
               <Slider
-                value={[chromaKey.similarity * 100]}
+                value={[bgRemoval.threshold * 100]}
                 min={10}
-                max={80}
+                max={90}
                 step={1}
-                onValueChange={([v]) => updateChromaKey({ similarity: v / 100 })}
+                onValueChange={([v]) => updateBgRemoval({ threshold: v / 100 })}
               />
             </div>
 
             <div className="space-y-1">
               <div className="flex justify-between">
                 <Label className="text-xs text-muted-foreground">Мягкость краёв</Label>
-                <span className="text-xs text-muted-foreground">{Math.round(chromaKey.smoothness * 100)}%</span>
+                <span className="text-xs text-muted-foreground">{Math.round(bgRemoval.edgeBlur * 100)}%</span>
               </div>
               <Slider
-                value={[chromaKey.smoothness * 100]}
+                value={[bgRemoval.edgeBlur * 100]}
                 min={0}
                 max={50}
                 step={1}
-                onValueChange={([v]) => updateChromaKey({ smoothness: v / 100 })}
+                onValueChange={([v]) => updateBgRemoval({ edgeBlur: v / 100 })}
               />
             </div>
           </div>
