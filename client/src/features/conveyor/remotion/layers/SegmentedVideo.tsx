@@ -4,6 +4,7 @@
 // Удаляет фон из видео с помощью MediaPipe Selfie Segmenter.
 // Работает покадрово через Canvas 2D.
 // Совместим с Remotion (preview + SSR rendering в headless Chrome).
+// Аудио воспроизводится отдельно через Remotion <Audio />.
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import {
@@ -11,6 +12,8 @@ import {
   useVideoConfig,
   continueRender,
   delayRender,
+  Audio,
+  Video,
 } from "remotion";
 
 export interface SegmentationConfig {
@@ -31,6 +34,7 @@ export interface SegmentedVideoProps {
   startFrom?: number;
   style?: React.CSSProperties;
   objectFit?: "contain" | "cover" | "fill";
+  volume?: number;
 }
 
 // Глобальный singleton — один сегментатор на приложение
@@ -77,6 +81,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   startFrom = 0,
   style,
   objectFit = "contain",
+  volume = 1,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -99,6 +104,9 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   edgeBlurRef.current = config.edgeBlur;
 
   useEffect(() => {
+    const handle = delayRender("Loading segmentation model", {
+      timeoutInMilliseconds: 30000,
+    });
     let cancelled = false;
     getSegmenter()
       .then((s) => {
@@ -107,15 +115,16 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
           setModelReady(true);
           console.log("[SegmentedVideo] Segmenter ready");
         }
+        continueRender(handle);
       })
       .catch((err) => {
         console.error("[SegmentedVideo] Failed to load segmenter:", err);
         if (!cancelled) {
           setHasError(true);
-          // Сбрасываем промис, чтобы можно было повторить загрузку
           segmenterPromise = null;
           loadAttempted = false;
         }
+        continueRender(handle);
       });
     return () => {
       cancelled = true;
@@ -218,17 +227,29 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
 
     if (lastProcessedFrame.current === currentFrame) return;
 
-    const handle = delayRender(`SegmentedVideo frame ${currentFrame}`);
+    const handle = delayRender(`SegmentedVideo frame ${currentFrame}`, {
+      timeoutInMilliseconds: 8000,
+    });
     renderHandle.current = handle;
 
-    const doProcess = () => {
-      lastProcessedFrame.current = currentFrame;
-      processFrame();
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
       if (renderHandle.current === handle) {
         continueRender(handle);
         renderHandle.current = null;
       }
     };
+
+    const doProcess = () => {
+      clearTimeout(seekTimer);
+      lastProcessedFrame.current = currentFrame;
+      processFrame();
+      settle();
+    };
+
+    let seekTimer: ReturnType<typeof setTimeout> | undefined;
 
     if (
       Math.abs(video.currentTime - targetTime) < 0.01 &&
@@ -236,16 +257,23 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     ) {
       doProcess();
     } else {
+      seekTimer = setTimeout(() => {
+        video.removeEventListener("seeked", doProcess);
+        if (video.readyState >= 2) {
+          lastProcessedFrame.current = currentFrame;
+          processFrame();
+        }
+        settle();
+      }, 3000);
+
       video.addEventListener("seeked", doProcess, { once: true });
       video.currentTime = targetTime;
     }
 
     return () => {
+      clearTimeout(seekTimer);
       video.removeEventListener("seeked", doProcess);
-      if (renderHandle.current !== null) {
-        continueRender(renderHandle.current);
-        renderHandle.current = null;
-      }
+      settle();
     };
   }, [frame, fps, startFrom, processFrame, hasError, modelReady]);
 
@@ -286,10 +314,10 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
 
   if (hasError) {
     return (
-      <video
+      <Video
         src={src}
-        muted
-        playsInline
+        startFrom={startFrom}
+        volume={volume}
         style={{
           width: "100%",
           height: "100%",
@@ -302,6 +330,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
 
   return (
     <>
+      <Audio src={src} startFrom={startFrom} volume={volume} />
       <video
         ref={videoRef}
         src={src}
