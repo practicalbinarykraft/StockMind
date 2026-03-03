@@ -3,8 +3,10 @@
 // ============================================================================
 // Удаляет фон из видео с помощью MediaPipe Selfie Segmenter.
 // Работает покадрово через Canvas 2D.
-// Совместим с Remotion (preview + SSR rendering в headless Chrome).
-// Аудио воспроизводится отдельно через Remotion <Audio />.
+//
+// Preview (Player):  асинхронная обработка без delayRender — плеер не зависает.
+// Rendering (SSR):   delayRender на каждый кадр — гарантированная покадровая точность.
+// Аудио:             воспроизводится через Remotion <Audio />.
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import {
@@ -14,6 +16,7 @@ import {
   delayRender,
   Audio,
   Video,
+  getRemotionEnvironment,
 } from "remotion";
 
 export interface SegmentationConfig {
@@ -85,6 +88,8 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const isRendering = getRemotionEnvironment().isRendering;
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -103,10 +108,18 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   thresholdRef.current = config.threshold;
   edgeBlurRef.current = config.edgeBlur;
 
+  // Ref для текущего целевого кадра (для асинхронной обработки в превью)
+  const targetRef = useRef({ frame: frame + startFrom, time: (frame + startFrom) / fps });
+  targetRef.current = { frame: frame + startFrom, time: (frame + startFrom) / fps };
+
+  // ── Загрузка модели ──────────────────────────────────────────────────────
   useEffect(() => {
-    const handle = delayRender("Loading segmentation model", {
-      timeoutInMilliseconds: 30000,
-    });
+    let handle: number | null = null;
+    if (isRendering) {
+      handle = delayRender("Loading segmentation model", {
+        timeoutInMilliseconds: 30000,
+      });
+    }
     let cancelled = false;
     getSegmenter()
       .then((s) => {
@@ -115,7 +128,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
           setModelReady(true);
           console.log("[SegmentedVideo] Segmenter ready");
         }
-        continueRender(handle);
+        if (handle !== null) continueRender(handle);
       })
       .catch((err) => {
         console.error("[SegmentedVideo] Failed to load segmenter:", err);
@@ -124,13 +137,15 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
           segmenterPromise = null;
           loadAttempted = false;
         }
-        continueRender(handle);
+        if (handle !== null) continueRender(handle);
       });
     return () => {
       cancelled = true;
+      if (handle !== null) continueRender(handle);
     };
-  }, []);
+  }, [isRendering]);
 
+  // ── Обработка одного кадра ────────────────────────────────────────────────
   const processFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -162,7 +177,6 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     try {
       offCtx.drawImage(video, 0, 0, w, h);
 
-      // Синхронный вызов — результат возвращается сразу
       const result = segmenter.segment(offscreen);
 
       if (!result || !result.confidenceMasks || result.confidenceMasks.length === 0) {
@@ -197,7 +211,6 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       ctx.clearRect(0, 0, w, h);
       ctx.putImageData(imageData, 0, 0);
 
-      // Закрываем ресурсы MediaPipe (маски)
       result.close?.();
 
       return true;
@@ -217,13 +230,14 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     }
   }, [src]);
 
-  // Основной эффект: seek + process каждого кадра Remotion
+  // ── RENDERING MODE: покадровая обработка с delayRender ────────────────────
   useEffect(() => {
+    if (!isRendering) return;
     const video = videoRef.current;
     if (!video || hasError || !modelReady) return;
 
-    const targetTime = (frame + startFrom) / fps;
     const currentFrame = frame + startFrom;
+    const targetTime = currentFrame / fps;
 
     if (lastProcessedFrame.current === currentFrame) return;
 
@@ -275,9 +289,55 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       video.removeEventListener("seeked", doProcess);
       settle();
     };
-  }, [frame, fps, startFrom, processFrame, hasError, modelReady]);
+  }, [frame, fps, startFrom, processFrame, hasError, modelReady, isRendering]);
 
-  // Первичная обработка при загрузке видео
+  // ── PREVIEW MODE: постоянный seeked-обработчик ────────────────────────────
+  // Слушатель живёт независимо от смены кадров — обрабатывает результат seek
+  useEffect(() => {
+    if (isRendering || hasError || !modelReady) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onSeeked = () => {
+      const { frame: tgtFrame } = targetRef.current;
+      if (lastProcessedFrame.current !== tgtFrame && video.readyState >= 2) {
+        lastProcessedFrame.current = tgtFrame;
+        processFrame();
+      }
+      // Если за время обработки целевой кадр изменился — seek к новой позиции
+      const latest = targetRef.current;
+      if (latest.frame !== tgtFrame && Math.abs(video.currentTime - latest.time) >= 0.01) {
+        video.currentTime = latest.time;
+      }
+    };
+
+    video.addEventListener("seeked", onSeeked);
+    return () => video.removeEventListener("seeked", onSeeked);
+  }, [isRendering, hasError, modelReady, processFrame, fps]);
+
+  // ── PREVIEW MODE: синхронизация позиции видео с Remotion-кадром ───────────
+  useEffect(() => {
+    if (isRendering || hasError || !modelReady) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const currentFrame = frame + startFrom;
+    const targetTime = currentFrame / fps;
+
+    if (lastProcessedFrame.current === currentFrame) return;
+
+    if (
+      Math.abs(video.currentTime - targetTime) < 0.01 &&
+      video.readyState >= 2
+    ) {
+      lastProcessedFrame.current = currentFrame;
+      processFrame();
+    } else if (video.readyState >= 2) {
+      video.currentTime = targetTime;
+    }
+  }, [frame, startFrom, fps, isRendering, hasError, modelReady, processFrame]);
+
+  // ── Первичная обработка при загрузке видео ────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || hasError || !modelReady) return;
@@ -297,7 +357,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     };
   }, [src, processFrame, hasError, modelReady]);
 
-  // Сброс при смене src
+  // ── Сброс при смене src ───────────────────────────────────────────────────
   useEffect(() => {
     setHasError(false);
     lastProcessedFrame.current = -1;
