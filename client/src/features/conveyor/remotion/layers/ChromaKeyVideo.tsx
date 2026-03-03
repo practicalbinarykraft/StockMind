@@ -173,6 +173,10 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
     lastProcessedFrame.current = -1;
   }, [src]);
 
+  // Same-origin URLs (/api/...) don't need crossOrigin — browser sends cookies
+  // and canvas stays readable. Cross-origin URLs need "anonymous" for CORS.
+  const isSameOrigin = src.startsWith("/");
+
   const canvasStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
@@ -201,7 +205,7 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
       <video
         ref={videoRef}
         src={src}
-        crossOrigin="anonymous"
+        crossOrigin={isSameOrigin ? undefined : "anonymous"}
         preload="auto"
         muted
         playsInline

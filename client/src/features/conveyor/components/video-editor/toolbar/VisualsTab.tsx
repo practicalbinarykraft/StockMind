@@ -13,7 +13,6 @@ import { Separator } from '@/shared/ui/separator'
 import { Badge } from '@/shared/ui/badge'
 import { Upload, Sparkles, Image as ImageIcon, Video as VideoIcon, User, ExternalLink, CheckCircle, Move, ArrowUpDown, Maximize, Copy, Trash2, Plus, X, Eraser } from 'lucide-react'
 import { Slider } from '@/shared/ui/slider'
-import { Switch } from '@/shared/ui/switch'
 import { KieAiDialog } from '../generation/KieAiDialog'
 import { GenerationStatusCard } from '../generation/GenerationStatusCard'
 import { useToast } from '@/shared/hooks/use-toast'
@@ -936,56 +935,69 @@ function ChromaKeyControls({ layer, sceneId, onUpdate, hasGreenScreen }: ChromaK
 
   return (
     <div className="space-y-3 rounded-lg border p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {!isEnabled ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full gap-2"
+          onClick={() => updateChromaKey({ enabled: true })}
+        >
           <Eraser className="h-4 w-4 text-green-500" />
-          <Label className="text-sm font-medium cursor-pointer" htmlFor={`ck-${sceneId}`}>
-            Удалить фон
-          </Label>
-        </div>
-        <Switch
-          id={`ck-${sceneId}`}
-          checked={isEnabled}
-          onCheckedChange={(checked) => updateChromaKey({ enabled: checked })}
-        />
-      </div>
-
-      {!hasGreenScreen && isEnabled && (
-        <p className="text-xs text-amber-500">
-          Видео сгенерировано без зелёного экрана. Перегенерируйте с включённым зелёным экраном для лучшего результата.
-        </p>
-      )}
-
-      {isEnabled && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <Label className="text-xs text-muted-foreground">Порог отсечения</Label>
-              <span className="text-xs text-muted-foreground">{Math.round(chromaKey.similarity * 100)}%</span>
+          Удалить фон
+        </Button>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eraser className="h-4 w-4 text-green-500" />
+              <span className="text-sm font-medium">Фон удалён</span>
             </div>
-            <Slider
-              value={[chromaKey.similarity * 100]}
-              min={10}
-              max={80}
-              step={1}
-              onValueChange={([v]) => updateChromaKey({ similarity: v / 100 })}
-            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => updateChromaKey({ enabled: false })}
+            >
+              Вернуть фон
+            </Button>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <Label className="text-xs text-muted-foreground">Мягкость краёв</Label>
-              <span className="text-xs text-muted-foreground">{Math.round(chromaKey.smoothness * 100)}%</span>
+          {!hasGreenScreen && (
+            <p className="text-xs text-amber-500">
+              Видео сгенерировано без зелёного экрана. Перегенерируйте с включённым зелёным экраном для лучшего результата.
+            </p>
+          )}
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <Label className="text-xs text-muted-foreground">Порог отсечения</Label>
+                <span className="text-xs text-muted-foreground">{Math.round(chromaKey.similarity * 100)}%</span>
+              </div>
+              <Slider
+                value={[chromaKey.similarity * 100]}
+                min={10}
+                max={80}
+                step={1}
+                onValueChange={([v]) => updateChromaKey({ similarity: v / 100 })}
+              />
             </div>
-            <Slider
-              value={[chromaKey.smoothness * 100]}
-              min={0}
-              max={50}
-              step={1}
-              onValueChange={([v]) => updateChromaKey({ smoothness: v / 100 })}
-            />
+
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <Label className="text-xs text-muted-foreground">Мягкость краёв</Label>
+                <span className="text-xs text-muted-foreground">{Math.round(chromaKey.smoothness * 100)}%</span>
+              </div>
+              <Slider
+                value={[chromaKey.smoothness * 100]}
+                min={0}
+                max={50}
+                step={1}
+                onValueChange={([v]) => updateChromaKey({ smoothness: v / 100 })}
+              />
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
