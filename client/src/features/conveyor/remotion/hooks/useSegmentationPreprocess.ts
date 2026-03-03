@@ -1,11 +1,18 @@
 // ============================================================================
 // SEGMENTATION PREPROCESS HOOK
 // ============================================================================
-// Предобработка видео: прогоняет все кадры через MediaPipe до воспроизведения,
-// сохраняет маски (Uint8Array alpha) в Map. При воспроизведении SegmentedVideo
-// просто накладывает готовую маску (~1мс вместо 50-200мс realtime-инференса).
+// Предобработка видео: прогоняет кадры через MediaPipe до воспроизведения,
+// сохраняет маски (Uint8Array alpha) в Map.
+//
+// Оптимизации:
+//   - SKIP: обрабатывает каждый N-й кадр (маска меняется плавно)
+//   - HALF_RES: сегментация на 50% разрешении (маска — мягкий градиент)
+//   Итого: ~20x меньше памяти, ~10x быстрее обработка.
 
 import { useState, useEffect, useRef, useCallback } from "react";
+
+const FRAME_SKIP = 5;
+const RESOLUTION_SCALE = 0.5;
 
 export interface MaskCacheEntry {
   width: number;
@@ -13,11 +20,16 @@ export interface MaskCacheEntry {
   alpha: Uint8Array;
 }
 
-export type MaskCache = Map<number, MaskCacheEntry>;
+export interface MaskCacheMeta {
+  cache: Map<number, MaskCacheEntry>;
+  frameSkip: number;
+}
+
+export type MaskCache = MaskCacheMeta;
 
 export interface SegmentationPreprocessResult {
   status: "idle" | "loading-model" | "processing" | "ready" | "error";
-  progress: number; // 0..1
+  progress: number;
   processedFrames: number;
   totalFrames: number;
   maskCache: MaskCache;
@@ -27,7 +39,6 @@ export interface SegmentationPreprocessResult {
 
 interface PreprocessConfig {
   src: string | null;
-  /** URL для реальной загрузки видео (прокси). Если не указан — используется src. */
   loadSrc?: string | null;
   fps: number;
   threshold: number;
@@ -87,6 +98,8 @@ function buildAlphaMask(
   return alpha;
 }
 
+const EMPTY_CACHE: MaskCache = { cache: new Map(), frameSkip: FRAME_SKIP };
+
 export function useSegmentationPreprocess(
   config: PreprocessConfig,
 ): SegmentationPreprocessResult {
@@ -100,11 +113,11 @@ export function useSegmentationPreprocess(
   const [error, setError] = useState<string | null>(null);
   const [retryCounter, setRetryCounter] = useState(0);
 
-  const maskCacheRef = useRef<MaskCache>(new Map());
+  const maskCacheRef = useRef<MaskCache>(EMPTY_CACHE);
   const cancelledRef = useRef(false);
 
   const retry = useCallback(() => {
-    maskCacheRef.current = new Map();
+    maskCacheRef.current = { cache: new Map(), frameSkip: FRAME_SKIP };
     setRetryCounter((c) => c + 1);
   }, []);
 
@@ -115,12 +128,12 @@ export function useSegmentationPreprocess(
       setProcessedFrames(0);
       setTotalFrames(0);
       setError(null);
-      maskCacheRef.current = new Map();
+      maskCacheRef.current = { cache: new Map(), frameSkip: FRAME_SKIP };
       return;
     }
 
     cancelledRef.current = false;
-    maskCacheRef.current = new Map();
+    maskCacheRef.current = { cache: new Map(), frameSkip: FRAME_SKIP };
 
     const run = async () => {
       try {
@@ -138,9 +151,7 @@ export function useSegmentationPreprocess(
         const isSameOrigin = videoUrl.startsWith("/");
 
         const video = document.createElement("video");
-        if (isSameOrigin) {
-          // Same-origin прокси — crossOrigin не нужен, canvas не будет tainted
-        } else {
+        if (!isSameOrigin) {
           video.crossOrigin = "anonymous";
         }
         video.preload = "auto";
@@ -157,17 +168,20 @@ export function useSegmentationPreprocess(
         if (cancelledRef.current) return;
 
         const duration = video.duration;
-        const numFrames = Math.ceil(duration * fps);
-        setTotalFrames(numFrames);
+        const totalVideoFrames = Math.ceil(duration * fps);
+        const framesToProcess = Math.ceil(totalVideoFrames / FRAME_SKIP);
+        setTotalFrames(framesToProcess);
+
+        const segW = Math.round(video.videoWidth * RESOLUTION_SCALE);
+        const segH = Math.round(video.videoHeight * RESOLUTION_SCALE);
 
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = segW;
+        canvas.height = segH;
         const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
 
-        const seekToFrame = (frameIdx: number): Promise<void> =>
+        const seekToTime = (time: number): Promise<void> =>
           new Promise((resolve, reject) => {
-            const time = frameIdx / fps;
             if (Math.abs(video.currentTime - time) < 0.001 && video.readyState >= 2) {
               resolve();
               return;
@@ -180,38 +194,39 @@ export function useSegmentationPreprocess(
             const timer = setTimeout(() => {
               video.removeEventListener("seeked", onSeeked);
               if (video.readyState >= 2) resolve();
-              else reject(new Error(`Seek timeout frame ${frameIdx}`));
+              else reject(new Error(`Seek timeout at ${time.toFixed(2)}s`));
             }, 5000);
             video.addEventListener("seeked", onSeeked);
             video.currentTime = time;
           });
 
-        for (let i = 0; i < numFrames; i++) {
+        let processed = 0;
+        for (let frameIdx = 0; frameIdx < totalVideoFrames; frameIdx += FRAME_SKIP) {
           if (cancelledRef.current) return;
 
-          await seekToFrame(i);
+          const time = frameIdx / fps;
+          await seekToTime(time);
           if (cancelledRef.current) return;
 
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, segW, segH);
           const result = segmenter.segment(canvas);
 
           if (result?.confidenceMasks?.length > 0) {
             const maskData = result.confidenceMasks[0].getAsFloat32Array();
             const alpha = buildAlphaMask(maskData, threshold, edgeBlur);
-            maskCacheRef.current.set(i, {
-              width: canvas.width,
-              height: canvas.height,
+            maskCacheRef.current.cache.set(frameIdx, {
+              width: segW,
+              height: segH,
               alpha,
             });
             result.close?.();
           }
 
-          const done = i + 1;
-          setProcessedFrames(done);
-          setProgress(done / numFrames);
+          processed++;
+          setProcessedFrames(processed);
+          setProgress(processed / framesToProcess);
 
-          // Даём UI обновиться — без этого браузер может "зависнуть" на длинных видео
-          if (done % 5 === 0) {
+          if (processed % 3 === 0) {
             await new Promise((r) => setTimeout(r, 0));
           }
         }

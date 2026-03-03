@@ -154,7 +154,7 @@ export function RemotionPreview({
 
   const segmentationCacheMap = useMemo<SegmentationCacheMap>(() => {
     const map: SegmentationCacheMap = new Map()
-    if (segmentationTarget?.src && segPreprocess.maskCache.size > 0) {
+    if (segmentationTarget?.src && segPreprocess.maskCache.cache.size > 0) {
       map.set(segmentationTarget.src, segPreprocess.maskCache)
     }
     return map

@@ -21,7 +21,7 @@ import {
   Video,
   getRemotionEnvironment,
 } from "remotion";
-import type { MaskCache } from "../hooks/useSegmentationPreprocess";
+import type { MaskCache, MaskCacheEntry } from "../hooks/useSegmentationPreprocess";
 import { useSegmentationCacheFor } from "../hooks/SegmentationCacheContext";
 
 export interface SegmentationConfig {
@@ -105,7 +105,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   const [modelReady, setModelReady] = useState(false);
   const segmenterRef = useRef<any>(null);
 
-  const hasMaskCache = !!(maskCache && maskCache.size > 0);
+  const hasMaskCache = !!(maskCache && maskCache.cache.size > 0);
 
   const config: SegmentationConfig = {
     ...DEFAULT_SEGMENTATION,
@@ -157,26 +157,40 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     };
   }, [isRendering, hasMaskCache]);
 
-  // ── Наложение готовой маски из кэша (≈1мс) ─────────────────────────────
-  // Использует globalCompositeOperation вместо getImageData, чтобы
-  // работать с tainted canvas (внешние URL без CORS).
+  // ── Наложение готовой маски из кэша (≈2-3мс) ────────────────────────────
+  // 1. Находим ближайший обработанный кадр (skip factor)
+  // 2. Рисуем маску на offscreen в её нативном разрешении (half-res)
+  // 3. drawImage масштабирует маску до полного разрешения видео
+  // 4. destination-in вырезает фон — без getImageData (CORS-safe)
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const applyMaskFromCache = useCallback(
     (frameIdx: number) => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       if (!video || !canvas || !maskCache || video.readyState < 2) return false;
 
-      const entry = maskCache.get(frameIdx);
+      const skip = maskCache.frameSkip;
+      const nearestKey = Math.round(frameIdx / skip) * skip;
+      let entry: MaskCacheEntry | undefined = maskCache.cache.get(nearestKey);
+      if (!entry) {
+        const below = Math.floor(frameIdx / skip) * skip;
+        const above = Math.ceil(frameIdx / skip) * skip;
+        entry = maskCache.cache.get(below) || maskCache.cache.get(above);
+      }
       if (!entry) return false;
 
       const w = video.videoWidth;
       const h = video.videoHeight;
+      const mw = entry.width;
+      const mh = entry.height;
 
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
       }
 
+      // Offscreen для масштабирования маски до полного разрешения
       if (!offscreenCanvasRef.current) {
         offscreenCanvasRef.current = document.createElement("canvas");
       }
@@ -186,11 +200,22 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
         offscreen.height = h;
       }
 
+      // Маленький canvas для записи маски в нативном (half) разрешении
+      if (!maskCanvasRef.current) {
+        maskCanvasRef.current = document.createElement("canvas");
+      }
+      const maskCanvas = maskCanvasRef.current;
+      if (maskCanvas.width !== mw || maskCanvas.height !== mh) {
+        maskCanvas.width = mw;
+        maskCanvas.height = mh;
+      }
+
+      const maskCtx = maskCanvas.getContext("2d")!;
       const offCtx = offscreen.getContext("2d")!;
       const ctx = canvas.getContext("2d")!;
 
-      // Рисуем маску (белый + альфа) на offscreen canvas
-      const maskImageData = new ImageData(w, h);
+      // Записываем маску (белый + альфа) в half-res canvas
+      const maskImageData = new ImageData(mw, mh);
       const md = maskImageData.data;
       const alpha = entry.alpha;
       for (let i = 0; i < alpha.length; i++) {
@@ -200,7 +225,11 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
         md[off + 2] = 255;
         md[off + 3] = alpha[i];
       }
-      offCtx.putImageData(maskImageData, 0, 0);
+      maskCtx.putImageData(maskImageData, 0, 0);
+
+      // Масштабируем маску до полного разрешения (билинейная интерполяция)
+      offCtx.clearRect(0, 0, w, h);
+      offCtx.drawImage(maskCanvas, 0, 0, w, h);
 
       // Рисуем видеокадр → маскируем через destination-in
       ctx.clearRect(0, 0, w, h);
