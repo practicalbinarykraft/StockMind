@@ -15,8 +15,8 @@ import {
 
 export interface SegmentationConfig {
   enabled: boolean;
-  threshold: number; // 0-1, минимальная уверенность для "человек"
-  edgeBlur: number; // 0-1, размытие краёв маски
+  threshold: number;
+  edgeBlur: number;
 }
 
 export const DEFAULT_SEGMENTATION: SegmentationConfig = {
@@ -33,47 +33,41 @@ export interface SegmentedVideoProps {
   objectFit?: "contain" | "cover" | "fill";
 }
 
-type SegmenterType = {
-  segment: (
-    image: HTMLCanvasElement | HTMLVideoElement,
-    callback: (result: {
-      confidenceMasks?: Array<{ getAsFloat32Array: () => Float32Array; width: number; height: number }>;
-      categoryMask?: { getAsUint8Array: () => Uint8Array; width: number; height: number };
-    }) => void
-  ) => void;
-  setOptions: (options: { runningMode: string }) => Promise<void>;
-};
+// Глобальный singleton — один сегментатор на приложение
+let segmenterPromise: Promise<any> | null = null;
+let segmenterInstance: any = null;
+let loadAttempted = false;
 
-// Глобальный singleton для сегментатора (один на всё приложение)
-let segmenterPromise: Promise<SegmenterType> | null = null;
-let segmenterInstance: SegmenterType | null = null;
-
-async function getSegmenter(): Promise<SegmenterType> {
+async function getSegmenter(): Promise<any> {
   if (segmenterInstance) return segmenterInstance;
   if (segmenterPromise) return segmenterPromise;
+
+  loadAttempted = true;
 
   segmenterPromise = (async () => {
     const { ImageSegmenter, FilesetResolver } = await import(
       "@mediapipe/tasks-vision"
     );
 
-    const vision = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-    );
+    const wasmPath =
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm";
+    const modelPath =
+      "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite";
+
+    console.log("[SegmentedVideo] Loading MediaPipe WASM from:", wasmPath);
+
+    const vision = await FilesetResolver.forVisionTasks(wasmPath);
 
     const segmenter = await ImageSegmenter.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
-        delegate: "GPU",
-      },
+      baseOptions: { modelAssetPath: modelPath, delegate: "CPU" },
       runningMode: "IMAGE",
       outputCategoryMask: false,
       outputConfidenceMasks: true,
     });
+    console.log("[SegmentedVideo] Model loaded (CPU)");
 
-    segmenterInstance = segmenter as unknown as SegmenterType;
-    return segmenterInstance;
+    segmenterInstance = segmenter;
+    return segmenter;
   })();
 
   return segmenterPromise;
@@ -95,12 +89,16 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   const renderHandle = useRef<number | null>(null);
   const [hasError, setHasError] = useState(false);
   const [modelReady, setModelReady] = useState(false);
-  const segmenterRef = useRef<SegmenterType | null>(null);
+  const segmenterRef = useRef<any>(null);
 
   const config: SegmentationConfig = {
     ...DEFAULT_SEGMENTATION,
     ...segmentation,
   };
+  const thresholdRef = useRef(config.threshold);
+  const edgeBlurRef = useRef(config.edgeBlur);
+  thresholdRef.current = config.threshold;
+  edgeBlurRef.current = config.edgeBlur;
 
   useEffect(() => {
     let cancelled = false;
@@ -109,11 +107,17 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
         if (!cancelled) {
           segmenterRef.current = s;
           setModelReady(true);
+          console.log("[SegmentedVideo] Segmenter ready");
         }
       })
       .catch((err) => {
         console.error("[SegmentedVideo] Failed to load segmenter:", err);
-        if (!cancelled) setHasError(true);
+        if (!cancelled) {
+          setHasError(true);
+          // Сбрасываем промис, чтобы можно было повторить загрузку
+          segmenterPromise = null;
+          loadAttempted = false;
+        }
       });
     return () => {
       cancelled = true;
@@ -124,10 +128,11 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const segmenter = segmenterRef.current;
-    if (!video || !canvas || !segmenter || video.readyState < 2) return;
+    if (!video || !canvas || !segmenter || video.readyState < 2) return false;
 
     const w = video.videoWidth;
     const h = video.videoHeight;
+    if (w === 0 || h === 0) return false;
 
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
@@ -145,50 +150,56 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
 
     const offCtx = offscreen.getContext("2d", { willReadFrequently: true });
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!offCtx || !ctx) return;
+    if (!offCtx || !ctx) return false;
 
     try {
       offCtx.drawImage(video, 0, 0, w, h);
 
-      segmenter.segment(offscreen, (result) => {
-        if (!result.confidenceMasks || result.confidenceMasks.length === 0) {
-          ctx.drawImage(offscreen, 0, 0);
-          return;
+      // Синхронный вызов — результат возвращается сразу
+      const result = segmenter.segment(offscreen);
+
+      if (!result || !result.confidenceMasks || result.confidenceMasks.length === 0) {
+        console.warn("[SegmentedVideo] No confidence masks returned");
+        ctx.drawImage(offscreen, 0, 0);
+        return true;
+      }
+
+      const mask = result.confidenceMasks[0];
+      const maskData = mask.getAsFloat32Array();
+      const imageData = offCtx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+
+      const threshold = thresholdRef.current;
+      const edgeBlur = edgeBlurRef.current;
+      const blurRange = edgeBlur * 0.5;
+
+      for (let i = 0; i < maskData.length; i++) {
+        const confidence = maskData[i];
+        let alpha: number;
+        if (confidence >= threshold + blurRange) {
+          alpha = 255;
+        } else if (confidence <= threshold - blurRange) {
+          alpha = 0;
+        } else {
+          const t = (confidence - (threshold - blurRange)) / (blurRange * 2);
+          alpha = Math.round(t * 255);
         }
+        data[i * 4 + 3] = alpha;
+      }
 
-        const mask = result.confidenceMasks[0];
-        const maskData = mask.getAsFloat32Array();
-        const imageData = offCtx.getImageData(0, 0, w, h);
-        const data = imageData.data;
+      ctx.clearRect(0, 0, w, h);
+      ctx.putImageData(imageData, 0, 0);
 
-        const threshold = config.threshold;
-        const edgeBlur = config.edgeBlur;
-        const blurRange = edgeBlur * 0.5;
+      // Закрываем ресурсы MediaPipe (маски)
+      result.close?.();
 
-        for (let i = 0; i < maskData.length; i++) {
-          const confidence = maskData[i];
-
-          let alpha: number;
-          if (confidence >= threshold + blurRange) {
-            alpha = 255;
-          } else if (confidence <= threshold - blurRange) {
-            alpha = 0;
-          } else {
-            const t = (confidence - (threshold - blurRange)) / (blurRange * 2);
-            alpha = Math.round(t * 255);
-          }
-
-          data[i * 4 + 3] = alpha;
-        }
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.putImageData(imageData, 0, 0);
-      });
+      return true;
     } catch (err) {
-      console.error("[SegmentedVideo] Processing failed:", err);
+      console.error("[SegmentedVideo] Frame processing error:", err);
       setHasError(true);
+      return false;
     }
-  }, [config.threshold, config.edgeBlur]);
+  }, []);
 
   const handleVideoError = useCallback(() => {
     console.error("[SegmentedVideo] Video failed to load:", src);
@@ -199,6 +210,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     }
   }, [src]);
 
+  // Основной эффект: seek + process каждого кадра Remotion
   useEffect(() => {
     const video = videoRef.current;
     if (!video || hasError || !modelReady) return;
@@ -211,7 +223,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     const handle = delayRender(`SegmentedVideo frame ${currentFrame}`);
     renderHandle.current = handle;
 
-    const onSeeked = () => {
+    const doProcess = () => {
       lastProcessedFrame.current = currentFrame;
       processFrame();
       if (renderHandle.current === handle) {
@@ -224,17 +236,14 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       Math.abs(video.currentTime - targetTime) < 0.01 &&
       video.readyState >= 2
     ) {
-      lastProcessedFrame.current = currentFrame;
-      processFrame();
-      continueRender(handle);
-      renderHandle.current = null;
+      doProcess();
     } else {
-      video.addEventListener("seeked", onSeeked, { once: true });
+      video.addEventListener("seeked", doProcess, { once: true });
       video.currentTime = targetTime;
     }
 
     return () => {
-      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("seeked", doProcess);
       if (renderHandle.current !== null) {
         continueRender(renderHandle.current);
         renderHandle.current = null;
@@ -242,6 +251,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     };
   }, [frame, fps, startFrom, processFrame, hasError, modelReady]);
 
+  // Первичная обработка при загрузке видео
   useEffect(() => {
     const video = videoRef.current;
     if (!video || hasError || !modelReady) return;
@@ -261,6 +271,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     };
   }, [src, processFrame, hasError, modelReady]);
 
+  // Сброс при смене src
   useEffect(() => {
     setHasError(false);
     lastProcessedFrame.current = -1;
