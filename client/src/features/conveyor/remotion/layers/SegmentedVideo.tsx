@@ -49,10 +49,8 @@ async function getSegmenter(): Promise<any> {
       "@mediapipe/tasks-vision"
     );
 
-    const wasmPath =
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm";
-    const modelPath =
-      "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite";
+    const wasmPath = "/mediapipe";
+    const modelPath = "/mediapipe/selfie_segmenter.tflite";
 
     console.log("[SegmentedVideo] Loading MediaPipe WASM from:", wasmPath);
 

@@ -22,7 +22,9 @@
     "test:integration": "cross-env NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js __tests__/integration",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
-    "test:scoring-weights": "tsx scripts/test-scoring-weights.ts"
+    "test:scoring-weights": "tsx scripts/test-scoring-weights.ts",
+    "setup:mediapipe": "node scripts/setup-mediapipe.mjs",
+    "postinstall": "node scripts/setup-mediapipe.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
