@@ -11,6 +11,7 @@ import type {
   OverlayLayer,
   ChromaKeySettings,
 } from "../../types/layers";
+import { getLayerStreamUrl } from "../../types/layers";
 import { TextLayerRenderer } from "./TextLayerRenderer";
 import { ChromaKeyVideo } from "./ChromaKeyVideo";
 
@@ -62,9 +63,10 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
       {layer.contentType === "video" && (() => {
         const chromaKey = (layer as any).metadata?.chromaKey as ChromaKeySettings | undefined;
         if (chromaKey?.enabled) {
+          const streamSrc = getLayerStreamUrl((layer as any).scriptId, layer.id);
           return (
             <ChromaKeyVideo
-              src={layer.sourceUrl!}
+              src={streamSrc}
               startFrom={videoStartFrame}
               objectFit="cover"
               chromaKey={{

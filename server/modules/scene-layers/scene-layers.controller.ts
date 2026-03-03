@@ -216,6 +216,76 @@ export const sceneLayersController = {
     }
   },
 
+  /** GET /api/scripts/:scriptId/layers/:layerId/stream — stream media through server with CORS */
+  async streamLayerMedia(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return apiResponse.unauthorized(res);
+
+      const { scriptId, layerId } = ScriptIdLayerIdParamsDto.parse(req.params);
+      const { sourceUrl, contentType } = await sceneLayersService.getLayerSourceUrl(
+        layerId,
+        scriptId,
+        userId,
+      );
+
+      req.setTimeout(0);
+      res.setTimeout(0);
+
+      const rangeHeader = req.headers.range;
+      let ext = getExtensionFromUrl(sourceUrl);
+      if (ext === "bin") {
+        ext = contentType === "video" ? "mp4" : "jpg";
+      }
+      const mimeType = getContentTypeFromExtension(ext);
+
+      const corsHeaders: Record<string, string> = {
+        "Access-Control-Allow-Origin": req.headers.origin || "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+        "Cache-Control": "public, max-age=86400",
+      };
+
+      const { default: axios } = await import("axios");
+      const requestHeaders: Record<string, string> = {
+        "User-Agent": "StockMind/1.0",
+      };
+      if (rangeHeader) {
+        requestHeaders["Range"] = rangeHeader;
+      }
+
+      const response = await axios.get(sourceUrl, {
+        responseType: "stream",
+        timeout: 120_000,
+        headers: requestHeaders,
+        validateStatus: (status) => status >= 200 && status < 300,
+      });
+
+      const responseHeaders: Record<string, string> = {
+        ...corsHeaders,
+        "Content-Type": response.headers["content-type"] || mimeType,
+        "Accept-Ranges": response.headers["accept-ranges"] || "bytes",
+      };
+
+      if (response.headers["content-length"]) {
+        responseHeaders["Content-Length"] = response.headers["content-length"];
+      }
+      if (response.headers["content-range"]) {
+        responseHeaders["Content-Range"] = response.headers["content-range"];
+      }
+
+      res.set(responseHeaders);
+      res.status(response.status);
+      response.data.pipe(res);
+    } catch (e: any) {
+      logger.error("scene-layers streamLayerMedia", { error: e.message });
+      if (e.message === "Layer has no media") {
+        return apiResponse.badRequest(res, e.message);
+      }
+      res.status(500).json({ message: "Failed to stream media" });
+    }
+  },
+
   /** POST /api/scripts/:scriptId/layers/:layerId/upload */
   async uploadLayerFile(req: Request, res: Response) {
     try {

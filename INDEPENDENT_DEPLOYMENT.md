@@ -207,8 +207,8 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # File upload limit
-    client_max_body_size 50M;
+    # File upload limit (must match multer limit in scene-layers.routes.ts)
+    client_max_body_size 100M;
 }
 ```
 

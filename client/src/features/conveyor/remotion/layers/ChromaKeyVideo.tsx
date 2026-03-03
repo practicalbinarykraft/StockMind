@@ -5,13 +5,12 @@
 // Использует Canvas 2D API для попиксельной обработки каждого кадра.
 // Совместим с Remotion (preview + SSR rendering в headless Chrome).
 
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import {
   useCurrentFrame,
   useVideoConfig,
   continueRender,
   delayRender,
-  Sequence,
 } from "remotion";
 
 export interface ChromaKeyConfig {
@@ -49,6 +48,7 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastProcessedFrame = useRef<number>(-1);
   const renderHandle = useRef<number | null>(null);
+  const [hasError, setHasError] = useState(false);
 
   const config: ChromaKeyConfig = {
     ...DEFAULT_CHROMA_KEY,
@@ -68,36 +68,49 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
       canvas.height = video.videoHeight;
     }
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    try {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+      const [keyR, keyG, keyB] = config.keyColor;
+      const maxDist = Math.sqrt(255 * 255 * 3);
+      const simThreshold = config.similarity * maxDist;
+      const smoothRange = config.smoothness * maxDist;
 
-    const [keyR, keyG, keyB] = config.keyColor;
-    const maxDist = Math.sqrt(255 * 255 * 3);
-    const simThreshold = config.similarity * maxDist;
-    const smoothRange = config.smoothness * maxDist;
+      for (let i = 0; i < data.length; i += 4) {
+        const dr = data[i] - keyR;
+        const dg = data[i + 1] - keyG;
+        const db = data[i + 2] - keyB;
+        const dist = Math.sqrt(dr * dr + dg * dg + db * db);
 
-    for (let i = 0; i < data.length; i += 4) {
-      const dr = data[i] - keyR;
-      const dg = data[i + 1] - keyG;
-      const db = data[i + 2] - keyB;
-      const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-
-      if (dist < simThreshold) {
-        data[i + 3] = 0;
-      } else if (dist < simThreshold + smoothRange) {
-        const alpha = (dist - simThreshold) / smoothRange;
-        data[i + 3] = Math.round(alpha * 255);
+        if (dist < simThreshold) {
+          data[i + 3] = 0;
+        } else if (dist < simThreshold + smoothRange) {
+          const alpha = (dist - simThreshold) / smoothRange;
+          data[i + 3] = Math.round(alpha * 255);
+        }
       }
-    }
 
-    ctx.putImageData(imageData, 0, 0);
+      ctx.putImageData(imageData, 0, 0);
+    } catch (err) {
+      console.error("[ChromaKeyVideo] Canvas processing failed (possibly CORS):", err);
+      setHasError(true);
+    }
   }, [config.keyColor, config.similarity, config.smoothness]);
+
+  const handleVideoError = useCallback(() => {
+    console.error("[ChromaKeyVideo] Video failed to load:", src);
+    setHasError(true);
+    if (renderHandle.current !== null) {
+      continueRender(renderHandle.current);
+      renderHandle.current = null;
+    }
+  }, [src]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || hasError) return;
 
     const targetTime = (frame + startFrom) / fps;
     const currentFrame = frame + startFrom;
@@ -110,8 +123,10 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
     const onSeeked = () => {
       lastProcessedFrame.current = currentFrame;
       processFrame();
-      continueRender(handle);
-      renderHandle.current = null;
+      if (renderHandle.current === handle) {
+        continueRender(handle);
+        renderHandle.current = null;
+      }
     };
 
     if (Math.abs(video.currentTime - targetTime) < 0.01 && video.readyState >= 2) {
@@ -131,11 +146,11 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
         renderHandle.current = null;
       }
     };
-  }, [frame, fps, startFrom, processFrame]);
+  }, [frame, fps, startFrom, processFrame, hasError]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || hasError) return;
 
     const onLoaded = () => {
       processFrame();
@@ -150,7 +165,13 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
     return () => {
       video.removeEventListener("loadeddata", onLoaded);
     };
-  }, [src, processFrame]);
+  }, [src, processFrame, hasError]);
+
+  // Reset error state when src changes
+  useEffect(() => {
+    setHasError(false);
+    lastProcessedFrame.current = -1;
+  }, [src]);
 
   const canvasStyle: React.CSSProperties = {
     width: "100%",
@@ -158,6 +179,22 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
     objectFit,
     ...style,
   };
+
+  if (hasError) {
+    return (
+      <video
+        src={src}
+        muted
+        playsInline
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit,
+          ...style,
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -168,6 +205,7 @@ export const ChromaKeyVideo: React.FC<ChromaKeyVideoProps> = ({
         preload="auto"
         muted
         playsInline
+        onError={handleVideoError}
         style={{
           position: "absolute",
           width: 0,

@@ -7,6 +7,7 @@
 import React from "react";
 import { Img, Video, Sequence, useVideoConfig } from "remotion";
 import type { OverlayLayer, ChromaKeySettings } from "../../types/layers";
+import { getLayerStreamUrl } from "../../types/layers";
 import { ChromaKeyVideo } from "./ChromaKeyVideo";
 
 export interface OverlayLayerRendererProps {
@@ -67,10 +68,11 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
       {layer.contentType === "video" && (() => {
         const chromaKey = layer.metadata?.chromaKey as ChromaKeySettings | undefined;
         if (chromaKey?.enabled) {
+          const streamSrc = getLayerStreamUrl(layer.scriptId, layer.id);
           return (
             <Sequence from={videoStartFrame} layout="none">
               <ChromaKeyVideo
-                src={layer.sourceUrl!}
+                src={streamSrc}
                 startFrom={videoContentOffset}
                 objectFit={fit}
                 chromaKey={{

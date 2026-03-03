@@ -23,6 +23,14 @@ export const DEFAULT_CHROMA_KEY_SETTINGS: ChromaKeySettings = {
   keyColor: [0, 255, 0],
 };
 
+/**
+ * Возвращает URL для стриминга медиа слоя через сервер (решает CORS для canvas).
+ * Используется при chromaKey, где нужен доступ к пикселям видео.
+ */
+export function getLayerStreamUrl(scriptId: string, layerId: string): string {
+  return `/api/scripts/${scriptId}/layers/${layerId}/stream`;
+}
+
 // Позиционирование overlay (в процентах от canvas)
 export interface Position {
   x: number; // 0-100 (%)

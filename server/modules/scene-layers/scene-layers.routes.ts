@@ -47,6 +47,13 @@ router.post(
   sceneLayersController.uploadLayerFile
 );
 
+// Стримить медиа слоя через сервер (с CORS для canvas): GET /api/scripts/:scriptId/layers/:layerId/stream
+router.get(
+  "/scripts/:scriptId/layers/:layerId/stream",
+  requireAuth,
+  sceneLayersController.streamLayerMedia
+);
+
 // Скачать медиа слоя: GET /api/scripts/:scriptId/layers/:layerId/download
 router.get(
   "/scripts/:scriptId/layers/:layerId/download",

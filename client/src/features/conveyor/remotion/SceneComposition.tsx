@@ -40,9 +40,10 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
   // Единый URL видео-аватара (background) — один и тот же для всех сцен
   const avatarBgConfig = useMemo(() => {
     for (const scene of scenes) {
-      if (scene.layers.background?.contentType === 'avatar' && scene.layers.background.sourceUrl) {
-        const chromaKey = scene.layers.background.metadata?.chromaKey as ChromaKeySettings | undefined;
-        return { url: scene.layers.background.sourceUrl, chromaKey };
+      const bg = scene.layers.background;
+      if (bg?.contentType === 'avatar' && bg.sourceUrl) {
+        const chromaKey = bg.metadata?.chromaKey as ChromaKeySettings | undefined;
+        return { url: bg.sourceUrl, chromaKey };
       }
     }
     return null;
