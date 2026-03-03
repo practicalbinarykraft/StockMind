@@ -15,13 +15,15 @@ import { useCompositionStore, selectSortedScenes } from '../../../stores/composi
 import { SceneComposition } from '../../../remotion/SceneComposition'
 import { getCurrentScene } from '../../../remotion/Root'
 import { Button } from '@/shared/ui/button'
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Loader2, AlertTriangle, RotateCcw } from 'lucide-react'
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Card } from '@/shared/ui/card'
 import { Slider } from '@/shared/ui/slider'
 import { getProxiedVideoUrl } from '../../../utils/media-proxy'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
-import type { EnhancedScene } from '../../../types/layers'
+import type { EnhancedScene, BackgroundRemovalSettings } from '../../../types/layers'
+import { useSegmentationPreprocess } from '../../../remotion/hooks/useSegmentationPreprocess'
+import { SegmentationCacheProvider, type SegmentationCacheMap } from '../../../remotion/hooks/SegmentationCacheContext'
 
 interface RemotionPreviewProps {
   aspectRatio?: '16:9' | '9:16' | '1:1'
@@ -115,6 +117,44 @@ export function RemotionPreview({
 
   // Держим ref в актуальном состоянии для event-handler'ов
   adjustedScenesRef.current = adjustedScenes
+
+  // ── Предобработка сегментации ─────────────────────────────────────────────
+  // Находим первый avatar/video с включённым bgRemoval — это будет
+  // предобработан до воспроизведения (маски для мгновенного наложения).
+  const segmentationTarget = useMemo(() => {
+    for (const scene of adjustedScenes) {
+      for (const layer of [scene.layers.background, scene.layers.overlay]) {
+        if (!layer?.sourceUrl) continue
+        const bgr = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined
+        if (bgr?.enabled && (layer.contentType === 'avatar' || layer.contentType === 'video')) {
+          return { src: layer.sourceUrl, threshold: bgr.threshold, edgeBlur: bgr.edgeBlur }
+        }
+      }
+    }
+    return null
+  }, [adjustedScenes])
+
+  const segPreprocess = useSegmentationPreprocess({
+    src: segmentationTarget?.src ?? null,
+    fps,
+    threshold: segmentationTarget?.threshold ?? 0.5,
+    edgeBlur: segmentationTarget?.edgeBlur ?? 0.15,
+    enabled: !!segmentationTarget,
+  })
+
+  const segmentationCacheMap = useMemo<SegmentationCacheMap>(() => {
+    const map: SegmentationCacheMap = new Map()
+    if (segmentationTarget?.src && segPreprocess.maskCache.size > 0) {
+      map.set(segmentationTarget.src, segPreprocess.maskCache)
+    }
+    return map
+  }, [segmentationTarget?.src, segPreprocess.maskCache, segPreprocess.status])
+
+  const isSegmentationPending =
+    !!segmentationTarget &&
+    segPreprocess.status !== 'ready' &&
+    segPreprocess.status !== 'error' &&
+    segPreprocess.status !== 'idle'
 
   const totalDurationInFrames = useMemo(
     () => Math.max(adjustedScenes.reduce((sum, s) => sum + s.durationInFrames, 0), 1),
@@ -292,23 +332,70 @@ export function RemotionPreview({
 
   return (
     <div className={`flex flex-col gap-2 min-h-0 ${className}`}>
-      <Card className="overflow-hidden shrink min-h-0 flex items-center justify-center bg-black">
-        <Player
-          ref={playerRef}
-          component={SceneComposition as React.ComponentType<any>}
-          inputProps={inputProps}
-          durationInFrames={totalDurationInFrames}
-          compositionWidth={dimensions.width}
-          compositionHeight={dimensions.height}
-          fps={fps}
-          style={{
-            maxWidth: '100%',
-            maxHeight: '50vh',
-            aspectRatio: aspectRatio.replace(':', '/'),
-          }}
-          controls={false}
-          loop
-        />
+      <Card className="overflow-hidden shrink min-h-0 flex items-center justify-center bg-black relative">
+        <SegmentationCacheProvider value={segmentationCacheMap}>
+          <Player
+            ref={playerRef}
+            component={SceneComposition as React.ComponentType<any>}
+            inputProps={inputProps}
+            durationInFrames={totalDurationInFrames}
+            compositionWidth={dimensions.width}
+            compositionHeight={dimensions.height}
+            fps={fps}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '50vh',
+              aspectRatio: aspectRatio.replace(':', '/'),
+            }}
+            controls={false}
+            loop
+          />
+        </SegmentationCacheProvider>
+
+        {isSegmentationPending && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-center space-y-1.5">
+              <p className="text-sm font-medium text-white">
+                {segPreprocess.status === 'loading-model'
+                  ? 'Загрузка модели сегментации...'
+                  : `Обработка кадров: ${segPreprocess.processedFrames} из ${segPreprocess.totalFrames}`}
+              </p>
+              {segPreprocess.status === 'processing' && (
+                <div className="w-48 mx-auto">
+                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${Math.round(segPreprocess.progress * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-white/60 mt-1">
+                    {Math.round(segPreprocess.progress * 100)}%
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {segPreprocess.status === 'error' && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10 gap-3">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <div className="text-center space-y-2">
+              <p className="text-sm font-medium text-white">Ошибка сегментации</p>
+              <p className="text-xs text-white/60 max-w-[200px]">{segPreprocess.error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={segPreprocess.retry}
+                className="gap-1.5"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Повторить
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="p-3 space-y-2 shrink-0">

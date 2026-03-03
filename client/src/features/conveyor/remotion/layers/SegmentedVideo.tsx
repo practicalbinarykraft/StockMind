@@ -2,11 +2,14 @@
 // SEGMENTED VIDEO (AI Background Removal)
 // ============================================================================
 // Удаляет фон из видео с помощью MediaPipe Selfie Segmenter.
-// Работает покадрово через Canvas 2D.
 //
-// Preview (Player):  асинхронная обработка без delayRender — плеер не зависает.
-// Rendering (SSR):   delayRender на каждый кадр — гарантированная покадровая точность.
-// Аудио:             воспроизводится через Remotion <Audio />.
+// Два режима работы:
+//   1. Предрассчитанный кэш масок (Preview) — маски уже готовы,
+//      наложение занимает ~1мс. Нейросеть не вызывается.
+//   2. Realtime-сегментация (SSR Rendering) — покадровый инференс
+//      с delayRender для точного рендера.
+//
+// Аудио: воспроизводится через Remotion <Audio />.
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import {
@@ -18,6 +21,8 @@ import {
   Video,
   getRemotionEnvironment,
 } from "remotion";
+import type { MaskCache } from "../hooks/useSegmentationPreprocess";
+import { useSegmentationCacheFor } from "../hooks/SegmentationCacheContext";
 
 export interface SegmentationConfig {
   enabled: boolean;
@@ -40,7 +45,7 @@ export interface SegmentedVideoProps {
   volume?: number;
 }
 
-// Глобальный singleton — один сегментатор на приложение
+// Глобальный singleton — один сегментатор на приложение (только для SSR)
 let segmenterPromise: Promise<any> | null = null;
 let segmenterInstance: any = null;
 let loadAttempted = false;
@@ -86,6 +91,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   objectFit = "contain",
   volume = 1,
 }) => {
+  const maskCache = useSegmentationCacheFor(src);
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const isRendering = getRemotionEnvironment().isRendering;
@@ -99,6 +105,8 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   const [modelReady, setModelReady] = useState(false);
   const segmenterRef = useRef<any>(null);
 
+  const hasMaskCache = !!(maskCache && maskCache.size > 0);
+
   const config: SegmentationConfig = {
     ...DEFAULT_SEGMENTATION,
     ...segmentation,
@@ -108,12 +116,16 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   thresholdRef.current = config.threshold;
   edgeBlurRef.current = config.edgeBlur;
 
-  // Ref для текущего целевого кадра (для асинхронной обработки в превью)
   const targetRef = useRef({ frame: frame + startFrom, time: (frame + startFrom) / fps });
   targetRef.current = { frame: frame + startFrom, time: (frame + startFrom) / fps };
 
-  // ── Загрузка модели ──────────────────────────────────────────────────────
+  // ── Загрузка модели (только для SSR, т.к. в preview используем кэш) ─────
   useEffect(() => {
+    if (hasMaskCache) {
+      setModelReady(true);
+      return;
+    }
+
     let handle: number | null = null;
     if (isRendering) {
       handle = delayRender("Loading segmentation model", {
@@ -143,10 +155,57 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       cancelled = true;
       if (handle !== null) continueRender(handle);
     };
-  }, [isRendering]);
+  }, [isRendering, hasMaskCache]);
 
-  // ── Обработка одного кадра ────────────────────────────────────────────────
-  const processFrame = useCallback(() => {
+  // ── Наложение готовой маски из кэша (≈1мс) ─────────────────────────────
+  const applyMaskFromCache = useCallback(
+    (frameIdx: number) => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || !maskCache || video.readyState < 2) return false;
+
+      const entry = maskCache.get(frameIdx);
+      if (!entry) return false;
+
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+
+      if (!offscreenCanvasRef.current) {
+        offscreenCanvasRef.current = document.createElement("canvas");
+      }
+      const offscreen = offscreenCanvasRef.current;
+      if (offscreen.width !== w || offscreen.height !== h) {
+        offscreen.width = w;
+        offscreen.height = h;
+      }
+
+      const offCtx = offscreen.getContext("2d", { willReadFrequently: true });
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!offCtx || !ctx) return false;
+
+      offCtx.drawImage(video, 0, 0, w, h);
+      const imageData = offCtx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      const alpha = entry.alpha;
+
+      for (let i = 0; i < alpha.length; i++) {
+        data[i * 4 + 3] = alpha[i];
+      }
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.putImageData(imageData, 0, 0);
+      return true;
+    },
+    [maskCache],
+  );
+
+  // ── Realtime-обработка (только SSR, без кэша) ──────────────────────────
+  const processFrameRealtime = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const segmenter = segmenterRef.current;
@@ -221,6 +280,14 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     }
   }, []);
 
+  const processFrame = useCallback(
+    (frameIdx: number) => {
+      if (hasMaskCache) return applyMaskFromCache(frameIdx);
+      return processFrameRealtime();
+    },
+    [hasMaskCache, applyMaskFromCache, processFrameRealtime],
+  );
+
   const handleVideoError = useCallback(() => {
     console.error("[SegmentedVideo] Video failed to load:", src);
     setHasError(true);
@@ -259,7 +326,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     const doProcess = () => {
       clearTimeout(seekTimer);
       lastProcessedFrame.current = currentFrame;
-      processFrame();
+      processFrame(currentFrame);
       settle();
     };
 
@@ -275,7 +342,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
         video.removeEventListener("seeked", doProcess);
         if (video.readyState >= 2) {
           lastProcessedFrame.current = currentFrame;
-          processFrame();
+          processFrame(currentFrame);
         }
         settle();
       }, 3000);
@@ -292,7 +359,6 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   }, [frame, fps, startFrom, processFrame, hasError, modelReady, isRendering]);
 
   // ── PREVIEW MODE: постоянный seeked-обработчик ────────────────────────────
-  // Слушатель живёт независимо от смены кадров — обрабатывает результат seek
   useEffect(() => {
     if (isRendering || hasError || !modelReady) return;
     const video = videoRef.current;
@@ -302,9 +368,8 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       const { frame: tgtFrame } = targetRef.current;
       if (lastProcessedFrame.current !== tgtFrame && video.readyState >= 2) {
         lastProcessedFrame.current = tgtFrame;
-        processFrame();
+        processFrame(tgtFrame);
       }
-      // Если за время обработки целевой кадр изменился — seek к новой позиции
       const latest = targetRef.current;
       if (latest.frame !== tgtFrame && Math.abs(video.currentTime - latest.time) >= 0.01) {
         video.currentTime = latest.time;
@@ -331,7 +396,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       video.readyState >= 2
     ) {
       lastProcessedFrame.current = currentFrame;
-      processFrame();
+      processFrame(currentFrame);
     } else if (video.readyState >= 2) {
       video.currentTime = targetTime;
     }
@@ -343,7 +408,8 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     if (!video || hasError || !modelReady) return;
 
     const onLoaded = () => {
-      processFrame();
+      const currentFrame = frame + startFrom;
+      processFrame(currentFrame);
     };
 
     if (video.readyState >= 2) {
@@ -355,7 +421,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
     return () => {
       video.removeEventListener("loadeddata", onLoaded);
     };
-  }, [src, processFrame, hasError, modelReady]);
+  }, [src, processFrame, hasError, modelReady, frame, startFrom]);
 
   // ── Сброс при смене src ───────────────────────────────────────────────────
   useEffect(() => {
