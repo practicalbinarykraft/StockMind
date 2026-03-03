@@ -274,21 +274,27 @@ export const sceneLayersService = {
     if (Object.keys(baseUpdate).some((k) => (baseUpdate as any)[k] !== undefined)) {
       await sceneLayersRepo.updateLayer(layerId, baseUpdate as Partial<SceneLayer>);
     }
-    if (base.layerType === "background" && rest.contentType !== undefined) {
-      await backgroundLayersRepo.updateByLayerId(layerId, {
-        contentType: rest.contentType as ContentType,
-        sourceUrl: rest.sourceUrl as string | undefined,
-      });
+    if (base.layerType === "background") {
+      const bgUpdate: Record<string, unknown> = {};
+      if (rest.contentType !== undefined) bgUpdate.contentType = rest.contentType;
+      if (rest.sourceUrl !== undefined) bgUpdate.sourceUrl = rest.sourceUrl;
+      if (rest.metadata !== undefined) bgUpdate.metadata = rest.metadata;
+      if (Object.keys(bgUpdate).length > 0) {
+        await backgroundLayersRepo.updateByLayerId(layerId, bgUpdate);
+      }
     }
     if (base.layerType === "overlay") {
       if (rest.position) await overlayLayersRepo.updatePosition(layerId, rest.position as any);
       const ov = await overlayLayersRepo.getByLayerId(layerId);
-      if (ov && (rest.contentType !== undefined || rest.sourceUrl !== undefined || rest.objectFit !== undefined)) {
-        await overlayLayersRepo.update(ov.id, {
-          contentType: rest.contentType as ContentType | undefined,
-          sourceUrl: rest.sourceUrl as string | undefined,
-          objectFit: rest.objectFit as string | undefined,
-        });
+      if (ov) {
+        const ovUpdate: Record<string, unknown> = {};
+        if (rest.contentType !== undefined) ovUpdate.contentType = rest.contentType;
+        if (rest.sourceUrl !== undefined) ovUpdate.sourceUrl = rest.sourceUrl;
+        if (rest.objectFit !== undefined) ovUpdate.objectFit = rest.objectFit;
+        if (rest.metadata !== undefined) ovUpdate.metadata = rest.metadata;
+        if (Object.keys(ovUpdate).length > 0) {
+          await overlayLayersRepo.update(ov.id, ovUpdate);
+        }
       }
     }
     if (base.layerType === "textLayer") {

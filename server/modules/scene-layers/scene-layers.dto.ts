@@ -58,6 +58,7 @@ export const CreateLayerBodyDto = z.object({
   backgroundColor: z.string().optional(),
   backgroundOpacity: z.number().min(0).max(1).optional(),
   marqueeSpeed: z.number().optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 export type CreateLayerBodyDto = z.infer<typeof CreateLayerBodyDto>;
 
