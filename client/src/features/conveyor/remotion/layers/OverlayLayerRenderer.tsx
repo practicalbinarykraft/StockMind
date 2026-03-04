@@ -7,8 +7,9 @@
 import React from "react";
 import { Img, Video, Sequence, useVideoConfig } from "remotion";
 import type { OverlayLayer, BackgroundRemovalSettings } from "../../types/layers";
-import { getLayerStreamUrl } from "../../types/layers";
+import { getLayerStreamUrl, getProcessedVideoUrl } from "../../types/layers";
 import { SegmentedVideo } from "./SegmentedVideo";
+import { useProcessedVideoUrl } from "../hooks/ProcessedVideoContext";
 
 export interface OverlayLayerRendererProps {
   layer: OverlayLayer;
@@ -40,6 +41,10 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
   };
 
   const bgRemoval = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+  const processedFromContext = useProcessedVideoUrl(layer.id);
+  const processedVideoKey = (layer.metadata?.bgRemoval as any)?.processedVideoKey;
+  const processedSrc = processedFromContext
+    || (processedVideoKey ? getProcessedVideoUrl(layer.scriptId, layer.id) : undefined);
 
   return (
     <div
@@ -74,6 +79,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
             <Sequence from={videoStartFrame} layout="none">
               <SegmentedVideo
                 src={streamSrc}
+                processedSrc={processedSrc}
                 startFrom={videoContentOffset}
                 objectFit={fit}
                 segmentation={{
@@ -108,6 +114,7 @@ export const OverlayLayerRenderer: React.FC<OverlayLayerRendererProps> = ({
           return (
             <SegmentedVideo
               src={layer.sourceUrl!}
+              processedSrc={processedSrc}
               startFrom={videoStartFrame}
               objectFit={fit}
               segmentation={{

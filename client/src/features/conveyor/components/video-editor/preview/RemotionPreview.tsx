@@ -22,9 +22,8 @@ import { Slider } from '@/shared/ui/slider'
 import { getProxiedVideoUrl } from '../../../utils/media-proxy'
 import type { ScriptMedia } from '../../../services/scriptMediaService'
 import type { EnhancedScene, BackgroundRemovalSettings } from '../../../types/layers'
-import { getLayerStreamUrl } from '../../../types/layers'
-import { useSegmentationPreprocess } from '../../../remotion/hooks/useSegmentationPreprocess'
-import { SegmentationCacheProvider, type SegmentationCacheMap } from '../../../remotion/hooks/SegmentationCacheContext'
+import { getProcessedVideoUrl } from '../../../types/layers'
+import { ProcessedVideoProvider, type ProcessedVideoMap } from '../../../remotion/hooks/ProcessedVideoContext'
 
 interface RemotionPreviewProps {
   aspectRatio?: '16:9' | '9:16' | '1:1'
@@ -119,52 +118,135 @@ export function RemotionPreview({
   // Держим ref в актуальном состоянии для event-handler'ов
   adjustedScenesRef.current = adjustedScenes
 
-  // ── Предобработка сегментации ─────────────────────────────────────────────
-  // Находим первый avatar/video с включённым bgRemoval — это будет
-  // предобработан до воспроизведения (маски для мгновенного наложения).
-  const segmentationTarget = useMemo(() => {
+  // ── Серверная обработка удаления фона ──────────────────────────────────────
+  // Находим слои с bgRemoval — проверяем наличие обработанного видео,
+  // при необходимости запускаем серверную обработку.
+  const bgRemovalTargets = useMemo(() => {
+    const targets: Array<{ layerId: string; scriptId: string; hasProcessed: boolean }> = []
     for (const scene of adjustedScenes) {
       for (const layer of [scene.layers.background, scene.layers.overlay]) {
         if (!layer?.sourceUrl) continue
         const bgr = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined
         if (bgr?.enabled && (layer.contentType === 'avatar' || layer.contentType === 'video')) {
-          const src = layer.sourceUrl
-          // Для MediaPipe нужен доступ к пикселям canvas → нужен CORS.
-          // Внешние URL (CloudFront/R2) не отдают CORS-заголовки,
-          // поэтому загружаем через серверный прокси (same-origin).
-          const isExternal = !src.startsWith('/')
-          const proxySrc = isExternal
-            ? getLayerStreamUrl((layer as any).scriptId, layer.id)
-            : src
-          return { src, loadSrc: proxySrc, threshold: bgr.threshold, edgeBlur: bgr.edgeBlur }
+          const hasProcessed = !!(bgr as any)?.processedVideoKey
+          targets.push({ layerId: layer.id, scriptId: layer.scriptId, hasProcessed })
         }
       }
     }
-    return null
+    return targets
   }, [adjustedScenes])
 
-  const segPreprocess = useSegmentationPreprocess({
-    src: segmentationTarget?.src ?? null,
-    loadSrc: segmentationTarget?.loadSrc,
-    fps,
-    threshold: segmentationTarget?.threshold ?? 0.5,
-    edgeBlur: segmentationTarget?.edgeBlur ?? 0.15,
-    enabled: !!segmentationTarget,
-  })
+  const [serverProcessing, setServerProcessing] = useState<{
+    status: 'idle' | 'processing' | 'encoding' | 'ready' | 'error'
+    progress: number
+    processedFrames: number
+    totalFrames: number
+    error?: string
+    layerId?: string
+  }>({ status: 'idle', progress: 0, processedFrames: 0, totalFrames: 0 })
 
-  const segmentationCacheMap = useMemo<SegmentationCacheMap>(() => {
-    const map: SegmentationCacheMap = new Map()
-    if (segmentationTarget?.src && segPreprocess.maskCache.cache.size > 0) {
-      map.set(segmentationTarget.src, segPreprocess.maskCache)
+  const [processedVideoMap, setProcessedVideoMap] = useState<ProcessedVideoMap>(new Map())
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Автозапуск серверной обработки для слоёв без готового видео
+  useEffect(() => {
+    const unprocessed = bgRemovalTargets.find(t => !t.hasProcessed)
+    if (!unprocessed) {
+      setServerProcessing(prev =>
+        prev.status === 'idle' ? prev : { status: 'idle', progress: 0, processedFrames: 0, totalFrames: 0 }
+      )
+      return
+    }
+    if (serverProcessing.status === 'processing' || serverProcessing.status === 'encoding') return
+
+    const { layerId, scriptId } = unprocessed
+
+    const startProcessing = async () => {
+      try {
+        setServerProcessing({ status: 'processing', progress: 0, processedFrames: 0, totalFrames: 0, layerId })
+
+        await fetch(`/api/scripts/${scriptId}/layers/${layerId}/remove-background`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+
+        // Поллинг статуса
+        if (pollingRef.current) clearInterval(pollingRef.current)
+        pollingRef.current = setInterval(async () => {
+          try {
+            const res = await fetch(
+              `/api/scripts/${scriptId}/layers/${layerId}/remove-background/status`,
+              { credentials: 'include' }
+            )
+            const data = await res.json()
+            const status = data.data ?? data
+
+            if (status.status === 'ready') {
+              if (pollingRef.current) clearInterval(pollingRef.current)
+              pollingRef.current = null
+
+              setProcessedVideoMap(prev => {
+                const next = new Map(prev)
+                next.set(layerId, getProcessedVideoUrl(scriptId, layerId))
+                return next
+              })
+              setServerProcessing({ status: 'ready', progress: 1, processedFrames: status.totalFrames, totalFrames: status.totalFrames })
+            } else if (status.status === 'failed') {
+              if (pollingRef.current) clearInterval(pollingRef.current)
+              pollingRef.current = null
+              setServerProcessing({
+                status: 'error',
+                progress: 0,
+                processedFrames: 0,
+                totalFrames: 0,
+                error: status.error || 'Ошибка обработки',
+                layerId,
+              })
+            } else {
+              setServerProcessing({
+                status: status.status || 'processing',
+                progress: status.progress || 0,
+                processedFrames: status.processedFrames || 0,
+                totalFrames: status.totalFrames || 0,
+                layerId,
+              })
+            }
+          } catch { /* polling error — retry on next interval */ }
+        }, 2000)
+      } catch (err) {
+        setServerProcessing({
+          status: 'error',
+          progress: 0,
+          processedFrames: 0,
+          totalFrames: 0,
+          error: err instanceof Error ? err.message : 'Ошибка запуска обработки',
+          layerId,
+        })
+      }
+    }
+
+    startProcessing()
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [bgRemovalTargets])
+
+  // Добавляем URL для слоёв с уже готовым processedVideoKey из метаданных
+  const fullProcessedMap = useMemo<ProcessedVideoMap>(() => {
+    const map = new Map(processedVideoMap)
+    for (const target of bgRemovalTargets) {
+      if (target.hasProcessed && !map.has(target.layerId)) {
+        map.set(target.layerId, getProcessedVideoUrl(target.scriptId, target.layerId))
+      }
     }
     return map
-  }, [segmentationTarget?.src, segPreprocess.maskCache, segPreprocess.status])
+  }, [bgRemovalTargets, processedVideoMap])
 
   const isSegmentationPending =
-    !!segmentationTarget &&
-    segPreprocess.status !== 'ready' &&
-    segPreprocess.status !== 'error' &&
-    segPreprocess.status !== 'idle'
+    serverProcessing.status === 'processing' || serverProcessing.status === 'encoding'
 
   const totalDurationInFrames = useMemo(
     () => Math.max(adjustedScenes.reduce((sum, s) => sum + s.durationInFrames, 0), 1),
@@ -343,7 +425,7 @@ export function RemotionPreview({
   return (
     <div className={`flex flex-col gap-2 min-h-0 ${className}`}>
       <Card className="overflow-hidden shrink min-h-0 flex items-center justify-center bg-black relative">
-        <SegmentationCacheProvider value={segmentationCacheMap}>
+        <ProcessedVideoProvider value={fullProcessedMap}>
           <Player
             ref={playerRef}
             component={SceneComposition as React.ComponentType<any>}
@@ -360,27 +442,27 @@ export function RemotionPreview({
             controls={false}
             loop
           />
-        </SegmentationCacheProvider>
+        </ProcessedVideoProvider>
 
         {isSegmentationPending && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <div className="text-center space-y-1.5">
               <p className="text-sm font-medium text-white">
-                {segPreprocess.status === 'loading-model'
-                  ? 'Загрузка модели сегментации...'
-                  : `Обработка кадров: ${segPreprocess.processedFrames} из ${segPreprocess.totalFrames}`}
+                {serverProcessing.status === 'encoding'
+                  ? 'Кодирование видео...'
+                  : `Удаление фона: ${serverProcessing.processedFrames} из ${serverProcessing.totalFrames}`}
               </p>
-              {segPreprocess.status === 'processing' && (
+              {serverProcessing.totalFrames > 0 && (
                 <div className="w-48 mx-auto">
                   <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full transition-all duration-300"
-                      style={{ width: `${Math.round(segPreprocess.progress * 100)}%` }}
+                      style={{ width: `${Math.round(serverProcessing.progress * 100)}%` }}
                     />
                   </div>
                   <p className="text-xs text-white/60 mt-1">
-                    {Math.round(segPreprocess.progress * 100)}%
+                    {Math.round(serverProcessing.progress * 100)}%
                   </p>
                 </div>
               )}
@@ -388,16 +470,18 @@ export function RemotionPreview({
           </div>
         )}
 
-        {segPreprocess.status === 'error' && (
+        {serverProcessing.status === 'error' && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10 gap-3">
             <AlertTriangle className="h-8 w-8 text-destructive" />
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium text-white">Ошибка сегментации</p>
-              <p className="text-xs text-white/60 max-w-[200px]">{segPreprocess.error}</p>
+              <p className="text-sm font-medium text-white">Ошибка удаления фона</p>
+              <p className="text-xs text-white/60 max-w-[200px]">{serverProcessing.error}</p>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={segPreprocess.retry}
+                onClick={() => {
+                  setServerProcessing({ status: 'idle', progress: 0, processedFrames: 0, totalFrames: 0 })
+                }}
                 className="gap-1.5"
               >
                 <RotateCcw className="h-3.5 w-3.5" />

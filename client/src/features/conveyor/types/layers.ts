@@ -29,6 +29,14 @@ export function getLayerStreamUrl(scriptId: string, layerId: string): string {
   return `/api/scripts/${scriptId}/layers/${layerId}/stream`;
 }
 
+/**
+ * URL для стриминга видео с удалённым фоном (серверная обработка).
+ * Возвращает WebM VP9 alpha — прозрачное видео без фона.
+ */
+export function getProcessedVideoUrl(scriptId: string, layerId: string): string {
+  return `/api/scripts/${scriptId}/layers/${layerId}/processed-video`;
+}
+
 // Позиционирование overlay (в процентах от canvas)
 export interface Position {
   x: number; // 0-100 (%)

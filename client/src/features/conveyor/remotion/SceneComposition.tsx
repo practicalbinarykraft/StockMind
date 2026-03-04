@@ -8,6 +8,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { AbsoluteFill, Audio, Video, prefetch, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { EnhancedScene, BackgroundRemovalSettings } from '../types/layers';
+import { getProcessedVideoUrl } from '../types/layers';
 import { getCurrentScene } from './Root';
 import {
   BackgroundLayerRenderer,
@@ -16,6 +17,7 @@ import {
   SplitRenderer,
 } from './layers';
 import { SegmentedVideo } from './layers/SegmentedVideo';
+import { useProcessedVideoUrl } from './hooks/ProcessedVideoContext';
 
 // ============================================================================
 // PROPS INTERFACES
@@ -42,7 +44,7 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
       const bg = scene.layers.background;
       if (bg?.contentType === 'avatar' && bg.sourceUrl) {
         const bgRemoval = bg.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
-        return { url: bg.sourceUrl, bgRemoval };
+        return { url: bg.sourceUrl, bgRemoval, layerId: bg.id, scriptId: bg.scriptId };
       }
     }
     return null;
@@ -55,7 +57,7 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
       const ol = scene.layers.overlay;
       if (ol?.contentType === 'avatar' && ol.sourceUrl) {
         const bgRemoval = ol.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
-        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain', bgRemoval };
+        return { url: ol.sourceUrl, position: ol.position, objectFit: ol.objectFit || 'contain', bgRemoval, layerId: ol.id, scriptId: ol.scriptId };
       }
     }
     return null;
@@ -136,6 +138,16 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
   const sceneUsesAvatarBg = scene.layers.background?.contentType === 'avatar';
   const sceneUsesAvatarOverlay = scene.layers.overlay?.contentType === 'avatar';
 
+  const bgProcessedFromCtx = useProcessedVideoUrl(avatarBgConfig?.layerId);
+  const bgProcessedKey = (avatarBgConfig?.bgRemoval as any)?.processedVideoKey;
+  const globalBgProcessedSrc = bgProcessedFromCtx
+    || (bgProcessedKey && avatarBgConfig ? getProcessedVideoUrl(avatarBgConfig.scriptId, avatarBgConfig.layerId) : undefined);
+
+  const olProcessedFromCtx = useProcessedVideoUrl(avatarOverlayConfig?.layerId);
+  const olProcessedKey = (avatarOverlayConfig?.bgRemoval as any)?.processedVideoKey;
+  const globalOlProcessedSrc = olProcessedFromCtx
+    || (olProcessedKey && avatarOverlayConfig ? getProcessedVideoUrl(avatarOverlayConfig.scriptId, avatarOverlayConfig.layerId) : undefined);
+
   return (
     <AbsoluteFill style={{ backgroundColor }}>
       {globalAvatarBg && (
@@ -143,6 +155,7 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
           {avatarBgConfig?.bgRemoval?.enabled ? (
             <SegmentedVideo
               src={globalAvatarBg}
+              processedSrc={globalBgProcessedSrc}
               objectFit="contain"
               segmentation={{
                 enabled: true,
@@ -196,6 +209,7 @@ export const SceneComposition: React.FC<SceneCompositionProps> = ({
           {globalAvatarOverlay.bgRemoval?.enabled ? (
             <SegmentedVideo
               src={globalAvatarOverlay.url}
+              processedSrc={globalOlProcessedSrc}
               objectFit={globalAvatarOverlay.objectFit}
               segmentation={{
                 enabled: true,

@@ -7,8 +7,9 @@
 import React from "react";
 import { AbsoluteFill, Img, Video, Sequence, useVideoConfig } from "remotion";
 import type { BackgroundLayer, BackgroundRemovalSettings } from "../../types/layers";
-import { getLayerStreamUrl } from "../../types/layers";
+import { getLayerStreamUrl, getProcessedVideoUrl } from "../../types/layers";
 import { SegmentedVideo } from "./SegmentedVideo";
+import { useProcessedVideoUrl } from "../hooks/ProcessedVideoContext";
 
 export interface BackgroundLayerRendererProps {
   layer: BackgroundLayer;
@@ -27,6 +28,10 @@ export const BackgroundLayerRenderer: React.FC<
 
   const videoContentOffset = Math.round((layer.metadata?.videoStartTime || 0) * fps);
   const bgRemoval = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+  const processedFromContext = useProcessedVideoUrl(layer.id);
+  const processedVideoKey = (layer.metadata?.bgRemoval as any)?.processedVideoKey;
+  const processedSrc = processedFromContext
+    || (processedVideoKey ? getProcessedVideoUrl(layer.scriptId, layer.id) : undefined);
 
   return (
     <AbsoluteFill>
@@ -51,6 +56,7 @@ export const BackgroundLayerRenderer: React.FC<
             <Sequence from={videoStartFrame} layout="none">
               <SegmentedVideo
                 src={streamSrc}
+                processedSrc={processedSrc}
                 startFrom={videoContentOffset}
                 objectFit="cover"
                 segmentation={{
@@ -85,6 +91,7 @@ export const BackgroundLayerRenderer: React.FC<
           return (
             <SegmentedVideo
               src={layer.sourceUrl!}
+              processedSrc={processedSrc}
               startFrom={videoStartFrame}
               objectFit="contain"
               segmentation={{

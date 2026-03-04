@@ -11,9 +11,10 @@ import type {
   OverlayLayer,
   BackgroundRemovalSettings,
 } from "../../types/layers";
-import { getLayerStreamUrl } from "../../types/layers";
+import { getLayerStreamUrl, getProcessedVideoUrl } from "../../types/layers";
 import { TextLayerRenderer } from "./TextLayerRenderer";
 import { SegmentedVideo } from "./SegmentedVideo";
+import { useProcessedVideoUrl } from "../hooks/ProcessedVideoContext";
 
 export interface SplitRendererProps {
   scene: EnhancedScene;
@@ -45,6 +46,10 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
   if (!layer.sourceUrl) return null;
 
   const bgRemoval = (layer as any).metadata?.bgRemoval as BackgroundRemovalSettings | undefined;
+  const processedFromContext = useProcessedVideoUrl(layer.id);
+  const processedVideoKey = ((layer as any).metadata?.bgRemoval as any)?.processedVideoKey;
+  const processedSrc = processedFromContext
+    || (processedVideoKey ? getProcessedVideoUrl((layer as any).scriptId, layer.id) : undefined);
 
   return (
     <>
@@ -68,6 +73,7 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
           return (
             <SegmentedVideo
               src={streamSrc}
+              processedSrc={processedSrc}
               startFrom={videoStartFrame}
               objectFit="cover"
               segmentation={{
@@ -98,6 +104,7 @@ const SplitPartRenderer: React.FC<SplitPartRendererProps> = ({
           return (
             <SegmentedVideo
               src={layer.sourceUrl!}
+              processedSrc={processedSrc}
               startFrom={videoStartFrame}
               objectFit="contain"
               segmentation={{

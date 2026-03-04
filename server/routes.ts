@@ -54,6 +54,7 @@ import { registerConveyorEventsRoutes } from "./modules/conveyor-events/conveyor
 import { registerConveyorProgressRoutes } from "./modules/conveyor-progress/conveyor-progress.routes";
 import { registerAiSettingsRoutes } from "./modules/ai-settings/ai-settings.routes";
 import { registerGenerationRoutes } from "./modules/generation/generation.routes";
+import { registerBackgroundRemovalRoutes } from "./modules/background-removal/background-removal.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register all route modules
@@ -94,6 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerScriptVersionsRoutes(app);
   // Scene layers, Kie.ai, Audio splitting — регистрируем до scripts, чтобы /api/scripts/:scriptId/layers и /api/scripts/:scriptId/scenes/:sceneId/* обрабатывались scene-layers
   registerSceneLayersRoutes(app);
+  registerBackgroundRemovalRoutes(app);
   registerKieAiRoutes(app);
   registerAudioSplittingRoutes(app);
   registerVideoRenderingRoutes(app);

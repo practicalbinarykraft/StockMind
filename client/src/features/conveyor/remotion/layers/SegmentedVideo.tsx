@@ -38,6 +38,7 @@ export const DEFAULT_SEGMENTATION: SegmentationConfig = {
 
 export interface SegmentedVideoProps {
   src: string;
+  processedSrc?: string;
   segmentation?: Partial<SegmentationConfig>;
   startFrom?: number;
   style?: React.CSSProperties;
@@ -85,12 +86,35 @@ async function getSegmenter(): Promise<any> {
 
 export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   src,
+  processedSrc,
   segmentation,
   startFrom = 0,
   style,
   objectFit = "contain",
   volume = 1,
 }) => {
+  // Серверный режим: обработанное видео с альфа-каналом (WebM VP9 alpha)
+  // Нейросеть не вызывается, canvas не используется — просто <Video>.
+  if (processedSrc) {
+    const videoStyle: React.CSSProperties = {
+      width: "100%",
+      height: "100%",
+      objectFit,
+      ...style,
+    };
+    return (
+      <>
+        <Audio src={src} startFrom={startFrom} volume={volume} />
+        <Video
+          src={processedSrc}
+          startFrom={startFrom}
+          volume={0}
+          style={videoStyle}
+        />
+      </>
+    );
+  }
+
   const maskCache = useSegmentationCacheFor(src);
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
