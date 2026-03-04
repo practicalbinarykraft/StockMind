@@ -226,18 +226,28 @@ export const backgroundRemovalService = {
         "@imgly/background-removal-node"
       );
 
+      let failedFrames = 0;
+
       for (let i = 0; i < frameFiles.length; i++) {
         const inputFrame = path.join(framesDir, frameFiles[i]);
         const outputFrame = path.join(processedDir, frameFiles[i]);
 
         try {
           const inputBuffer = await fs.readFile(inputFrame);
-          const resultBlob = await removeBackground(new Blob([inputBuffer]), {
-            output: { format: "image/png" },
-          });
+          const resultBlob = await removeBackground(
+            new Blob([inputBuffer], { type: "image/png" }),
+            { output: { format: "image/png" } },
+          );
           const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
           await fs.writeFile(outputFrame, resultBuffer);
+
+          if (i === 0) {
+            logger.info("BG removal: first frame processed successfully", {
+              layerId,
+            });
+          }
         } catch (frameErr) {
+          failedFrames++;
           logger.warn("BG removal: frame failed, using original", {
             layerId,
             frame: frameFiles[i],
@@ -255,6 +265,15 @@ export const backgroundRemovalService = {
         if (i % 5 === 0) {
           await new Promise((r) => setTimeout(r, 0));
         }
+      }
+
+      if (failedFrames > 0) {
+        logger.warn("BG removal: frames summary", {
+          layerId,
+          total: frameFiles.length,
+          failed: failedFrames,
+          success: frameFiles.length - failedFrames,
+        });
       }
 
       job.status = "encoding";
