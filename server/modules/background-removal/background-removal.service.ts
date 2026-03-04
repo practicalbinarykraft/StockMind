@@ -10,6 +10,10 @@ import { sceneLayersRepo } from "../scene-layers/scene-layers.repo";
 
 const storageRepo = new StorageRepo();
 
+const BG_REMOVAL_FPS = 20;
+const BG_REMOVAL_CONCURRENCY = 2;
+const BG_REMOVAL_MAX_HEIGHT = 720;
+
 export interface ProcessingJob {
   status: "pending" | "processing" | "encoding" | "ready" | "failed";
   progress: number;
@@ -43,7 +47,7 @@ function getVideoInfo(
 
       resolve({
         duration,
-        fps: Math.min(fps, 30),
+        fps: Math.min(fps, BG_REMOVAL_FPS),
         width: videoStream.width || 1920,
         height: videoStream.height || 1080,
       });
@@ -55,10 +59,14 @@ function extractFrames(
   inputPath: string,
   outputDir: string,
   fps: number,
+  maxHeight: number,
 ): Promise<void> {
+  const scaleFilter = `scale=-2:'min(${maxHeight},ih)'`;
+  const vf = `fps=${fps},${scaleFilter}`;
+
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
-      .outputOptions(["-vf", `fps=${fps}`, "-q:v", "2"])
+      .outputOptions(["-vf", vf])
       .output(path.join(outputDir, "frame-%06d.png"))
       .on("end", () => resolve())
       .on("error", (err) => reject(err))
@@ -84,6 +92,12 @@ function encodeWebmAlpha(
         "2M",
         "-auto-alt-ref",
         "0",
+        "-deadline",
+        "good",
+        "-speed",
+        "4",
+        "-row-mt",
+        "1",
         "-an",
       ])
       .output(outputPath)
@@ -209,8 +223,12 @@ export const backgroundRemovalService = {
         ...info,
       });
 
-      logger.info("BG removal: extracting frames", { layerId });
-      await extractFrames(inputPath, framesDir, info.fps);
+      logger.info("BG removal: extracting frames", {
+        layerId,
+        fps: info.fps,
+        maxHeight: BG_REMOVAL_MAX_HEIGHT,
+      });
+      await extractFrames(inputPath, framesDir, info.fps, BG_REMOVAL_MAX_HEIGHT);
 
       const frameFiles = (await fs.readdir(framesDir))
         .filter((f) => f.endsWith(".png"))
@@ -227,8 +245,9 @@ export const backgroundRemovalService = {
       );
 
       let failedFrames = 0;
+      let completedFrames = 0;
 
-      for (let i = 0; i < frameFiles.length; i++) {
+      const processFrame = async (i: number) => {
         const inputFrame = path.join(framesDir, frameFiles[i]);
         const outputFrame = path.join(processedDir, frameFiles[i]);
 
@@ -241,7 +260,7 @@ export const backgroundRemovalService = {
           const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
           await fs.writeFile(outputFrame, resultBuffer);
 
-          if (i === 0) {
+          if (completedFrames === 0) {
             logger.info("BG removal: first frame processed successfully", {
               layerId,
             });
@@ -258,13 +277,16 @@ export const backgroundRemovalService = {
         }
 
         await fs.unlink(inputFrame).catch(() => {});
+        completedFrames++;
+        job.processedFrames = completedFrames;
+        job.progress = completedFrames / frameFiles.length;
+      };
 
-        job.processedFrames = i + 1;
-        job.progress = (i + 1) / frameFiles.length;
-
-        if (i % 5 === 0) {
-          await new Promise((r) => setTimeout(r, 0));
-        }
+      for (let i = 0; i < frameFiles.length; i += BG_REMOVAL_CONCURRENCY) {
+        const batch = frameFiles
+          .slice(i, i + BG_REMOVAL_CONCURRENCY)
+          .map((_, idx) => processFrame(i + idx));
+        await Promise.all(batch);
       }
 
       if (failedFrames > 0) {
