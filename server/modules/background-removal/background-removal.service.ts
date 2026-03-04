@@ -76,6 +76,7 @@ function extractFrames(
 
 function encodeWebmAlpha(
   inputPattern: string,
+  originalVideoPath: string,
   outputPath: string,
   fps: number,
 ): Promise<void> {
@@ -83,7 +84,12 @@ function encodeWebmAlpha(
     ffmpeg()
       .input(inputPattern)
       .inputOptions(["-framerate", `${fps}`])
+      .input(originalVideoPath)
       .outputOptions([
+        "-map",
+        "0:v",
+        "-map",
+        "1:a?",
         "-c:v",
         "libvpx-vp9",
         "-pix_fmt",
@@ -98,7 +104,10 @@ function encodeWebmAlpha(
         "4",
         "-row-mt",
         "1",
-        "-an",
+        "-c:a",
+        "libopus",
+        "-b:a",
+        "128k",
       ])
       .output(outputPath)
       .on("end", () => resolve())
@@ -302,6 +311,7 @@ export const backgroundRemovalService = {
       logger.info("BG removal: encoding WebM VP9 alpha", { layerId });
       await encodeWebmAlpha(
         path.join(processedDir, "frame-%06d.png"),
+        inputPath,
         outputPath,
         info.fps,
       );

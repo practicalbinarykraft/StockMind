@@ -94,7 +94,7 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
   volume = 1,
 }) => {
   // Серверный режим: обработанное видео с альфа-каналом (WebM VP9 alpha)
-  // Нейросеть не вызывается, canvas не используется — просто <Video>.
+  // Аудио встроено в WebM — отдельный <Audio> не нужен.
   if (processedSrc) {
     const videoStyle: React.CSSProperties = {
       width: "100%",
@@ -103,15 +103,12 @@ export const SegmentedVideo: React.FC<SegmentedVideoProps> = ({
       ...style,
     };
     return (
-      <>
-        <Audio src={src} startFrom={startFrom} volume={volume} />
-        <Video
-          src={processedSrc}
-          startFrom={startFrom}
-          volume={0}
-          style={videoStyle}
-        />
-      </>
+      <Video
+        src={processedSrc}
+        startFrom={startFrom}
+        volume={volume}
+        style={videoStyle}
+      />
     );
   }
 
