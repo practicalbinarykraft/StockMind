@@ -121,15 +121,28 @@ export function RemotionPreview({
   // ── Серверная обработка удаления фона ──────────────────────────────────────
   // Находим слои с bgRemoval — проверяем наличие обработанного видео,
   // при необходимости запускаем серверную обработку.
+  const updateBackgroundLayer = useCompositionStore((state) => state.updateBackgroundLayer)
+  const updateOverlayLayer = useCompositionStore((state) => state.updateOverlayLayer)
+
   const bgRemovalTargets = useMemo(() => {
-    const targets: Array<{ layerId: string; scriptId: string; hasProcessed: boolean }> = []
+    const targets: Array<{
+      layerId: string
+      scriptId: string
+      sceneId: string
+      layerType: 'background' | 'overlay'
+      hasProcessed: boolean
+    }> = []
     for (const scene of adjustedScenes) {
-      for (const layer of [scene.layers.background, scene.layers.overlay]) {
+      const layerEntries: Array<[any, 'background' | 'overlay']> = [
+        [scene.layers.background, 'background'],
+        [scene.layers.overlay, 'overlay'],
+      ]
+      for (const [layer, layerType] of layerEntries) {
         if (!layer?.sourceUrl) continue
         const bgr = layer.metadata?.bgRemoval as BackgroundRemovalSettings | undefined
         if (bgr?.enabled && (layer.contentType === 'avatar' || layer.contentType === 'video')) {
           const hasProcessed = !!(bgr as any)?.processedVideoKey
-          targets.push({ layerId: layer.id, scriptId: layer.scriptId, hasProcessed })
+          targets.push({ layerId: layer.id, scriptId: layer.scriptId, sceneId: scene.id, layerType, hasProcessed })
         }
       }
     }
@@ -184,6 +197,23 @@ export function RemotionPreview({
             if (status.status === 'ready') {
               if (pollingRef.current) clearInterval(pollingRef.current)
               pollingRef.current = null
+
+              if (status.processedVideoKey) {
+                const target = bgRemovalTargets.find(t => t.layerId === layerId)
+                if (target) {
+                  const updater = target.layerType === 'background' ? updateBackgroundLayer : updateOverlayLayer
+                  const currentScenes = adjustedScenesRef.current
+                  const scene = currentScenes.find(s => s.id === target.sceneId)
+                  const layer = target.layerType === 'background' ? scene?.layers.background : scene?.layers.overlay
+                  const existingMeta = (layer?.metadata as Record<string, any>) || {}
+                  updater(target.sceneId, {
+                    metadata: {
+                      ...existingMeta,
+                      bgRemoval: { ...(existingMeta.bgRemoval || {}), processedVideoKey: status.processedVideoKey },
+                    },
+                  } as any)
+                }
+              }
 
               setProcessedVideoMap(prev => {
                 const next = new Map(prev)
