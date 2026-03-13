@@ -4,8 +4,9 @@ import { Button } from "@/shared/ui/button"
 import { Alert, AlertDescription } from "@/shared/ui/alert"
 import { useMutation } from "@tanstack/react-query"
 import { apiRequest, queryClient } from "@/shared/api"
-import { Download, CheckCircle2, Film, AlertCircle, Camera, Play, Pause, Loader2 } from "lucide-react"
+import { Download, CheckCircle2, Film, AlertCircle, Camera, Play, Pause, Loader2, Clapperboard } from "lucide-react"
 import { useState, useRef, useCallback } from "react"
+import { Progress } from "@/shared/ui/progress"
 import { useToast } from "@/shared/hooks/use-toast"
 import { Badge } from "@/shared/ui/badge"
 import html2canvas from "html2canvas"
@@ -23,6 +24,7 @@ export function Stage6FinalExport() {
   const { toast } = useToast()
   const [, navigate] = useLocation()
   const [isPlaying, setIsPlaying] = useState(false)
+  const [renderProgress, setRenderProgress] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const screenshotRef = useRef<HTMLDivElement>(null)
 
@@ -121,6 +123,44 @@ export function Stage6FinalExport() {
       await queryClient.refetchQueries({ queryKey: ["/api/projects", project.id] })
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] })
     }
+  })
+
+  // Render final video via Remotion
+  const renderVideoMutation = useMutation({
+    mutationFn: async () => {
+      setRenderProgress("Подготовка к сборке...")
+      const response = await apiRequest("POST", "/api/render", {
+        projectId: project.id,
+        subtitlesEnabled: true,
+      })
+      return response.json()
+    },
+    onSuccess: (data: any) => {
+      setRenderProgress(null)
+      if (data.downloadUrl) {
+        // Trigger download
+        const link = document.createElement('a')
+        link.href = data.downloadUrl
+        link.download = `reel-${project.id}.mp4`
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        toast({
+          title: "Видео собрано",
+          description: `Рилс готов (${data.durationInSeconds}s)`,
+        })
+      }
+    },
+    onError: (error: any) => {
+      setRenderProgress(null)
+      toast({
+        variant: "destructive",
+        title: "Ошибка сборки",
+        description: error.message || "Не удалось собрать видео",
+      })
+    },
   })
 
   const toggleAudioPlayback = () => {
@@ -377,6 +417,45 @@ export function Stage6FinalExport() {
                       Скачать MP4
                     </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Render Video */}
+          {(videoUrl || audioUrl) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Собрать финальное видео</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Remotion соберёт аватар, озвучку, B-roll и субтитры в готовый рилс (1080×1920).
+                  </p>
+                  {renderProgress && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {renderProgress}
+                      </div>
+                      <Progress value={undefined} className="h-2" />
+                    </div>
+                  )}
+                  <Button
+                    size="lg"
+                    className="w-full gap-2"
+                    onClick={() => renderVideoMutation.mutate()}
+                    disabled={renderVideoMutation.isPending}
+                    data-testid="button-render"
+                  >
+                    {renderVideoMutation.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Clapperboard className="h-5 w-5" />
+                    )}
+                    Собрать рилс
+                  </Button>
                 </div>
               </CardContent>
             </Card>

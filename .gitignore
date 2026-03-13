@@ -14,5 +14,8 @@ uploads/instagram-reels/*
 !uploads/audio/.gitkeep
 !uploads/instagram-reels/.gitkeep
 
+# Rendered videos
+uploads/renders/*
+
 # Archived docs and AI-generated reports
 docs-archive/
