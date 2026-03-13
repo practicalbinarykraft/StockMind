@@ -13,3 +13,6 @@ uploads/audio/*
 uploads/instagram-reels/*
 !uploads/audio/.gitkeep
 !uploads/instagram-reels/.gitkeep
+
+# Archived docs and AI-generated reports
+docs-archive/
